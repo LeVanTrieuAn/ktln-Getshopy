@@ -1,0 +1,7 @@
+# Secrets
+.env
+backend/.env
+
+# Local debug / scratch
+debug-*.log
+tmp_*_test.php

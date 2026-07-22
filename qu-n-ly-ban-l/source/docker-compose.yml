@@ -1,0 +1,58 @@
+services:
+  client:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+      - /app/node_modules
+    env_file:
+      - ./client/.env
+    command: sh -c "npm install && npm run dev"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    depends_on:
+      - server
+
+  server:
+    image: node:20-alpine
+    working_dir: /app
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server:/app
+      - ./data:/data
+      - /app/node_modules
+    environment:
+      - PORT=8080
+      - CLICKHOUSE_HOST=http://clickhouse:8123
+      - REDIS_URL=redis://redis:6379
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - clickhouse
+      - redis
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    container_name: istore_clickhouse
+    ports:
+      - "8123:8123"   # HTTP interface
+      - "9000:9000"   # Native TCP
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-init:/docker-entrypoint-initdb.d
+    environment:
+      CLICKHOUSE_DB: analytics
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+
+  redis:
+    image: redis:7-alpine
+    container_name: istore_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  clickhouse_data:
+
