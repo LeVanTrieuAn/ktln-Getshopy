@@ -66,8 +66,8 @@ export default function Home() {
             </div>
           ))
         ) : (
-          <>
-            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => navigate('/product/1')}>
+          [
+            <div key="fallback-1" style={{ position: 'relative', cursor: 'pointer' }} onClick={() => navigate('/product/1')}>
               <img src="https://images.unsplash.com/photo-1696446701796-da61225697cc?q=80&w=2000&auto=format&fit=crop" alt="Banner" style={{ width: '100%', height: 400, objectFit: 'cover' }} />
               <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)', display: 'flex', alignItems: 'center', padding: '0 64px' }}>
                 <div>
@@ -75,8 +75,8 @@ export default function Home() {
                   <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 20 }}>Titanium. So strong. So light. So Pro.</p>
                 </div>
               </div>
-            </div>
-            <div style={{ position: 'relative', cursor: 'pointer' }} onClick={() => navigate('/product/3')}>
+            </div>,
+            <div key="fallback-2" style={{ position: 'relative', cursor: 'pointer' }} onClick={() => navigate('/product/3')}>
               <img src="https://images.unsplash.com/photo-1517336714731-489689fd1ca8?q=80&w=2000&auto=format&fit=crop" alt="Banner" style={{ width: '100%', height: 400, objectFit: 'cover' }} />
               <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', background: 'linear-gradient(90deg, rgba(0,0,0,0.8) 0%, rgba(0,0,0,0) 100%)', display: 'flex', alignItems: 'center', padding: '0 64px' }}>
                 <div>
@@ -85,7 +85,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </>
+          ]
         )}
       </Carousel>
 

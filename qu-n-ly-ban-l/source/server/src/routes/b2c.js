@@ -119,7 +119,17 @@ router.get('/flash-sales', async (req, res) => {
 
     const enrichedItems = items.map(item => {
       const prod = products.find(p => p.id === item.product_id);
-      return prod ? { ...prod, id: Number(prod.id), ...item, flash_sale_id: Number(item.flash_sale_id), product_id: Number(item.product_id), id_item: Number(item.id) } : null;
+      if (!prod) return null;
+      return { 
+        ...prod, 
+        id: Number(prod.id),
+        id_item: Number(item.id),
+        flash_sale_id: Number(item.flash_sale_id), 
+        product_id: Number(item.product_id), 
+        discount_price: item.discount_price,
+        limit: item.limit,
+        sold: item.sold
+      };
     }).filter(Boolean);
 
     if (!enrichedItems.length) return res.json(null);

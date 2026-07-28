@@ -234,7 +234,7 @@ export default function ProductDetail() {
                     >
                       <span>{v.color} {v.storage ? `- ${v.storage}` : ''}</span>
                       <span style={{ fontSize: 12, fontWeight: 'normal', opacity: 0.8 }}>
-                        {v.price.toLocaleString('vi-VN')}đ
+                        {(v.price ?? product.price ?? 0).toLocaleString('vi-VN')}đ
                       </span>
                     </Button>
                   ))}
