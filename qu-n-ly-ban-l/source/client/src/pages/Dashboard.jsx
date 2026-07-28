@@ -387,7 +387,7 @@ export default function Dashboard() {
               <Table
                 size="small"
                 dataSource={branchData.slice(0, 7)}
-                rowKey="branch_id"
+                rowKey={(r) => `${r.branch_id}-${r.branch_name}`}
                 pagination={false}
                 style={{ background: 'transparent' }}
                 columns={[

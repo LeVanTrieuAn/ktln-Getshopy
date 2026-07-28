@@ -3,7 +3,7 @@ const fs = require('fs/promises');
 const path = require('path');
 
 const prisma = new PrismaClient();
-const dbPath = path.join(__dirname, '../../../data/db.json');
+const dbPath = path.join(__dirname, '../db.json');
 
 // Using the same default data in case db.json is missing
 const defaultData = require('./db_legacy_data'); // We'll extract defaultData to a separate file
@@ -88,6 +88,22 @@ async function main() {
       });
     }
     console.log(`Đã seed ${data.brands.length} brands.`);
+  }
+
+  // 4.5 Branches
+  if (data.branches) {
+    for (const branch of data.branches) {
+      await prisma.branch.upsert({
+        where: { id: branch.id },
+        update: {},
+        create: {
+          id: branch.id,
+          name: branch.name,
+          address: branch.address || null
+        }
+      });
+    }
+    console.log(`Đã seed ${data.branches.length} branches.`);
   }
 
   // 5. Products

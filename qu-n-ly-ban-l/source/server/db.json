@@ -1,0 +1,506 @@
+{
+  "users": [
+    {
+      "id": 1,
+      "full_name": "Administrator",
+      "email": "admin@gmail.com",
+      "password_hash": "$2b$10$089ukYeJUlyaI23BRcsZ.uLySQJ/MbiOiyjrh7yBHIDnJBj1WtRIm",
+      "role": "admin",
+      "status": "active"
+    }
+  ],
+  "b2c_customers": [
+    {
+      "id": 101,
+      "full_name": "Khách hàng 1",
+      "email": "khachhang@gmail.com",
+      "password_hash": "$2b$10$089ukYeJUlyaI23BRcsZ.uLySQJ/MbiOiyjrh7yBHIDnJBj1WtRIm",
+      "phone": "0901234567",
+      "address": "123 Đường B2C, TP. HCM",
+      "loyalty_points": 1500
+    },
+    {
+      "id": 1784291318526,
+      "full_name": "Test",
+      "email": "test1@gmail.com",
+      "phone": "",
+      "password_hash": "$2b$10$0doD0JAG1eGuljIwHGMMW.ps2TdAL7MUajy1AirLnTeo42JtsFrn.",
+      "loyalty_points": 0,
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=test1@gmail.com",
+      "provider": "local"
+    },
+    {
+      "id": 1784300164258,
+      "full_name": "Google User",
+      "email": "google_user_4224@example.com",
+      "phone": "",
+      "password_hash": "",
+      "loyalty_points": 0,
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=1784300164224",
+      "provider": "google"
+    },
+    {
+      "id": 1784683363732,
+      "full_name": "01 Lê Văn Triều An 11A1",
+      "email": "abc@gmail.com",
+      "phone": "",
+      "password_hash": "$2b$10$lRA2S41ZiEB/bb/DMNNMg.y0fUrPQKlrsUuIo93nyoj4LYF4glQ8O",
+      "loyalty_points": 0,
+      "avatar": "https://api.dicebear.com/7.x/avataaars/svg?seed=abc@gmail.com",
+      "provider": "local"
+    }
+  ],
+  "categories": [
+    {
+      "id": "c1",
+      "name": "Điện thoại thông minh",
+      "icon": "MobileOutlined"
+    },
+    {
+      "id": "c2",
+      "name": "Máy tính xách tay",
+      "icon": "LaptopOutlined"
+    },
+    {
+      "id": "c3",
+      "name": "Máy tính bảng",
+      "icon": "TabletOutlined"
+    },
+    {
+      "id": "c4",
+      "name": "Phụ kiện công nghệ",
+      "icon": "AudioOutlined"
+    }
+  ],
+  "brands": [
+    {
+      "id": "b1",
+      "name": "Apple"
+    },
+    {
+      "id": "b2",
+      "name": "Samsung"
+    },
+    {
+      "id": "b3",
+      "name": "Asus"
+    },
+    {
+      "id": "b4",
+      "name": "Sony"
+    },
+    {
+      "id": "b5",
+      "name": "Xiaomi"
+    },
+    {
+      "id": "BRD-1784701910653",
+      "name": "aaa"
+    },
+    {
+      "id": "BRD-1784701918141",
+      "name": "bbb"
+    }
+  ],
+  "products": [
+    {
+      "id": 1784699503426,
+      "name": "OGGG",
+      "price": 100000000,
+      "original_price": 100000000,
+      "category_id": "c4",
+      "brand_id": "b1",
+      "stock": 100,
+      "rating": 5,
+      "sold": 0,
+      "image": "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-1-639142695579301320-750x500.jpg",
+      "images": [
+        "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-2-639142695587161175-750x500.jpg",
+        "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-3-639142695595545744-750x500.jpg",
+        "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-5-639142695615419105-750x500.jpg"
+      ],
+      "description": "New product description",
+      "variants": [],
+      "branch_ids": [
+        "HN001"
+      ]
+    },
+    {
+      "id": 1,
+      "name": "iPhone 15 Pro Max 256GB",
+      "price": 34990000,
+      "original_price": 34990000,
+      "category_id": "c1",
+      "brand_id": "b1",
+      "stock": 15,
+      "rating": 4.8,
+      "sold": 1200,
+      "image": "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1605236453806-6ff36851218e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+      ],
+      "description": "Điện thoại cao cấp nhất của Apple với khung Titanium siêu nhẹ, chip A17 Pro và camera tele 5x.",
+      "variants": [
+        {
+          "id": "v1",
+          "color": "Titan Tự Nhiên",
+          "storage": "256GB",
+          "price": 34990000,
+          "stock": 5
+        },
+        {
+          "id": "v2",
+          "color": "Titan Xanh",
+          "storage": "256GB",
+          "price": 33990000,
+          "stock": 10
+        },
+        {
+          "id": "v3",
+          "color": "Titan Tự Nhiên",
+          "storage": "512GB",
+          "price": 40990000,
+          "stock": 2
+        }
+      ],
+      "branch_ids": [
+        "HN001",
+        "HCM001",
+        "BR-1784697363833"
+      ],
+      "is_banner": true
+    },
+    {
+      "id": 2,
+      "name": "iPhone 15 128GB",
+      "price": 22990000,
+      "original_price": 22990000,
+      "category_id": "c1",
+      "brand_id": "b1",
+      "stock": 32,
+      "rating": 4.5,
+      "sold": 850,
+      "image": "https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      "images": [],
+      "description": "Dynamic Island, camera 48MP và cổng USB-C.",
+      "variants": [],
+      "branch_ids": [
+        "HN001",
+        "HCM001",
+        "BR-1784697363833"
+      ]
+    },
+    {
+      "id": 3,
+      "name": "MacBook Air M3 13-inch 256GB",
+      "price": 27990000,
+      "original_price": 27990000,
+      "category_id": "c2",
+      "brand_id": "b1",
+      "stock": 10,
+      "rating": 4.9,
+      "sold": 420,
+      "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      "images": [
+        "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1514826786317-59744fe2a548?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+      ],
+      "description": "Laptop mỏng nhẹ với sức mạnh của chip M3. Hoàn hảo cho sinh viên và dân văn phòng.",
+      "variants": [
+        {
+          "id": "v4",
+          "color": "Xám Không Gian",
+          "storage": "256GB",
+          "price": 27990000,
+          "stock": 10
+        },
+        {
+          "id": "v5",
+          "color": "Xám Không Gian",
+          "storage": "512GB",
+          "price": 32990000,
+          "stock": 4
+        }
+      ],
+      "branch_ids": [
+        "HN001",
+        "HCM001",
+        "BR-1784697363833"
+      ]
+    },
+    {
+      "id": 4,
+      "name": "MacBook Pro 14-inch M3 Pro",
+      "price": 49990000,
+      "original_price": 49990000,
+      "category_id": "c2",
+      "brand_id": "b1",
+      "stock": 5,
+      "rating": 5,
+      "sold": 150,
+      "image": "https://images.unsplash.com/photo-1611186871348-b1ce696e52c9?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      "images": [],
+      "description": "Sức mạnh Pro đích thực trong màu Space Black hoàn toàn mới.",
+      "variants": [],
+      "is_banner": true,
+      "branch_ids": [
+        "HN001",
+        "HCM001",
+        "BR-1784697363833"
+      ]
+    },
+    {
+      "id": 5,
+      "name": "iPad Pro 11-inch M4",
+      "price": 28990000,
+      "original_price": 28990000,
+      "category_id": "c3",
+      "brand_id": "b1",
+      "stock": 8,
+      "rating": 4.7,
+      "sold": 310,
+      "image": "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      "images": [],
+      "description": "Mỏng không tưởng, mạnh phi thường với màn hình OLED và chip M4.",
+      "variants": [],
+      "branch_ids": [
+        "HN001",
+        "HCM001",
+        "BR-1784697363833"
+      ]
+    },
+    {
+      "id": 6,
+      "name": "AirPods Pro (2nd gen)",
+      "price": 6190000,
+      "original_price": 6190000,
+      "category_id": "c4",
+      "brand_id": "b1",
+      "stock": 50,
+      "rating": 4.8,
+      "sold": 3200,
+      "image": "https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?q=80&w=1000&auto=format&fit=crop",
+      "images": [],
+      "description": "Khử tiếng ồn chủ động tốt hơn gấp 2 lần.",
+      "variants": [],
+      "branch_ids": [
+        "HN001",
+        "HCM001",
+        "BR-1784697363833"
+      ]
+    }
+  ],
+  "reviews": [],
+  "flash_sales": [
+    {
+      "id": 1784698716065,
+      "title": "111",
+      "start_time": "2026-07-14T21:04:06.000Z",
+      "end_time": "2026-07-15T08:21:06.000Z",
+      "is_deleted": true
+    },
+    {
+      "id": 1,
+      "title": "Đón Hè Rực Rỡ - Giảm Sốc 50%",
+      "end_time": "2026-07-25T23:59:59.000Z",
+      "is_deleted": true
+    }
+  ],
+  "flash_sale_items": [
+    {
+      "flash_sale_id": 1784698716065,
+      "product_id": 1,
+      "discount_price": 15745500,
+      "limit": 100,
+      "sold": 0
+    },
+    {
+      "flash_sale_id": 1,
+      "product_id": 6,
+      "discount_price": 4990000,
+      "limit": 100,
+      "sold": 45
+    }
+  ],
+  "voucher_tiers": [
+    {
+      "id": 1,
+      "name": "Ưu đãi Thành viên mới",
+      "min_points_required": 0,
+      "min_lifetime_spend_vnd": 0,
+      "discount_amount_vnd": 50000,
+      "active": 1
+    },
+    {
+      "id": 2,
+      "name": "Voucher Khách Hạng Vàng",
+      "min_points_required": 1000,
+      "min_lifetime_spend_vnd": 20000000,
+      "discount_amount_vnd": 500000,
+      "active": 1
+    }
+  ],
+  "customer_vouchers": [],
+  "orders": [
+    {
+      "id": "ORD-1784705186576",
+      "customer": {
+        "full_name": "01 Lê Văn Triều An 11A1",
+        "phone": "11",
+        "address": "111, Nguyễn Chí Thanh",
+        "province": "HN"
+      },
+      "items": [
+        {
+          "id": 1784699503426,
+          "name": "OGGG",
+          "price": 100000000,
+          "original_price": 100000000,
+          "category_id": "c4",
+          "brand_id": "b1",
+          "stock": 100,
+          "rating": 5,
+          "sold": 0,
+          "image": "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-1-639142695579301320-750x500.jpg",
+          "images": [
+            "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-2-639142695587161175-750x500.jpg",
+            "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-3-639142695595545744-750x500.jpg",
+            "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-5-639142695615419105-750x500.jpg"
+          ],
+          "description": "New product description",
+          "variants": [],
+          "branch_ids": [
+            "HN001"
+          ],
+          "reviews": [],
+          "quantity": null,
+          "selected": true
+        }
+      ],
+      "total": 0,
+      "status": "CONFIRMED",
+      "date": "2026-07-22T07:26:26.576Z"
+    },
+    {
+      "id": "ORD-1784705594358",
+      "customer": {
+        "full_name": "01 Lê Văn Triều An 11A1",
+        "phone": "574852",
+        "address": "111, Nguyễn Chí Thanh",
+        "province": "HCM",
+        "email": "abc@gmail.com"
+      },
+      "items": [
+        {
+          "id": 1784699503426,
+          "name": "OGGG",
+          "price": 100000000,
+          "original_price": 100000000,
+          "category_id": "c4",
+          "brand_id": "b1",
+          "stock": 100,
+          "rating": 5,
+          "sold": 0,
+          "image": "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-1-639142695579301320-750x500.jpg",
+          "images": [
+            "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-2-639142695587161175-750x500.jpg",
+            "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-3-639142695595545744-750x500.jpg",
+            "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-5-639142695615419105-750x500.jpg"
+          ],
+          "description": "New product description",
+          "variants": [],
+          "branch_ids": [
+            "HN001"
+          ],
+          "reviews": [],
+          "quantity": null,
+          "selected": true
+        }
+      ],
+      "total": 20000,
+      "discount": 0,
+      "shippingFee": 20000,
+      "subTotal": 0,
+      "status": "CONFIRMED",
+      "date": "2026-07-22T07:33:14.358Z"
+    },
+    {
+      "id": "ORD-1784705986527",
+      "customer": {
+        "full_name": "01 Lê Văn Triều An 11A1",
+        "phone": "1111",
+        "address": "111, Nguyễn Chí Thanh",
+        "province": "DN",
+        "email": "abc@gmail.com"
+      },
+      "items": [
+        {
+          "id": 3,
+          "name": "MacBook Air M3 13-inch 256GB",
+          "price": 27990000,
+          "original_price": 27990000,
+          "category_id": "c2",
+          "brand_id": "b1",
+          "stock": 10,
+          "rating": 4.9,
+          "sold": 420,
+          "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+          "images": [
+            "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1514826786317-59744fe2a548?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
+          ],
+          "description": "Laptop mỏng nhẹ với sức mạnh của chip M3. Hoàn hảo cho sinh viên và dân văn phòng.",
+          "variants": [
+            {
+              "id": "v4",
+              "color": "Xám Không Gian",
+              "storage": "256GB",
+              "price": 27990000,
+              "stock": 10
+            },
+            {
+              "id": "v5",
+              "color": "Xám Không Gian",
+              "storage": "512GB",
+              "price": 32990000,
+              "stock": 4
+            }
+          ],
+          "branch_ids": [
+            "HN001",
+            "HCM001",
+            "BR-1784697363833"
+          ],
+          "reviews": [],
+          "quantity": 1,
+          "selected": true
+        }
+      ],
+      "total": 28030000,
+      "discount": 0,
+      "shippingFee": 40000,
+      "subTotal": 27990000,
+      "status": "CONFIRMED",
+      "date": "2026-07-22T07:39:46.527Z"
+    }
+  ],
+  "order_details": [],
+  "branches": [
+    {
+      "id": "HN001",
+      "name": "HN - Hoàn Kiếm",
+      "address": "Hà Nội"
+    },
+    {
+      "id": "HCM001",
+      "name": "HCM - Quận 1",
+      "address": "Hồ Chí Minh"
+    },
+    {
+      "id": "BR-1784697363833",
+      "name": "123",
+      "address": "111, Phường 2, Quận 3, Hồ Chí Minh"
+    }
+  ]
+}

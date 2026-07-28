@@ -9,7 +9,7 @@ const http = require('http');
 const WebSocket = require('ws');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { readDb, writeDb } = require('./db');
+const { prisma } = require('./db');
 
 const app = express();
 const server = http.createServer(app);
@@ -83,23 +83,21 @@ function authMiddleware(req, res, next) {
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const db = await readDb();
-    const user = db.users.find(u => u.email === email);
+    const user = await prisma.user.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Invalid credentials' });
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, role: user.role }, JWT_SECRET, { expiresIn: '1d' });
-    res.json({ token, user: { id: user.id, full_name: user.full_name, email: user.email, role: user.role } });
+    const token = jwt.sign({ id: Number(user.id), role: user.role }, JWT_SECRET, { expiresIn: '1d' });
+    res.json({ token, user: { id: Number(user.id), full_name: user.full_name, email: user.email, role: user.role } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
 app.get('/api/auth/me', authMiddleware, async (req, res) => {
-  const db = await readDb();
-  const user = db.users.find(u => u.id === req.user.id);
+  const user = await prisma.user.findUnique({ where: { id: req.user.id } });
   if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json({ id: user.id, full_name: user.full_name, email: user.email, role: user.role });
+  res.json({ id: Number(user.id), full_name: user.full_name, email: user.email, role: user.role });
 });
 
 // ─── DASHBOARD KPIs ───────────────────────────────────────────
@@ -455,8 +453,8 @@ app.get('/api/financial/vouchers', authMiddleware, async (req, res) => {
 // ─── PRODUCTS (Legacy) ────────────────────────────────────────
 app.get('/api/products', async (req, res) => {
   try {
-    const db = await readDb();
-    res.json(db.products);
+    const products = await prisma.product.findMany();
+    res.json(products.map(p => ({ ...p, id: Number(p.id) })));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -565,31 +563,32 @@ app.post('/api/admin/simulate-sale', authMiddleware, async (req, res) => {
 app.post('/api/b2c/checkout', async (req, res) => {
   try {
     const { items, customer_info, payment_method, discount, shippingFee, subTotal, total } = req.body;
-    const db = await readDb();
-
-    const orderId = 'ORD-' + Date.now();
-    const orderDate = new Date().toISOString();
-    const chDate = orderDate.replace('T', ' ').substring(0, 19);
     
-    // Create order record in db.json for B2C history
-    const order = {
-      id: orderId,
-      customer: customer_info,
-      items: items,
-      total: total || items.reduce((acc, item) => acc + (item.price * item.quantity), 0),
-      discount: discount || 0,
-      shippingFee: shippingFee || 0,
-      subTotal: subTotal || 0,
-      status: 'CONFIRMED',
-      date: orderDate
-    };
-
-    db.orders.push(order);
-    await writeDb(db);
+    const orderId = 'ORD-' + Date.now();
+    const orderDate = new Date();
+    const chDate = orderDate.toISOString().replace('T', ' ').substring(0, 19);
+    
+    // Create order record in PostgreSQL for B2C history
+    await prisma.order.create({
+      data: {
+        id: orderId,
+        customer: customer_info,
+        items: items,
+        total: total || items.reduce((acc, item) => acc + (item.price * item.quantity), 0),
+        discount: discount || 0,
+        shippingFee: shippingFee || 0,
+        subTotal: subTotal || 0,
+        status: 'CONFIRMED',
+        date: orderDate
+      }
+    });
 
     // Sync order to ClickHouse for B2B Analytics and Fulfillment
     const chValues = [];
     const chVouchers = [];
+    
+    const branchIds = [...new Set(items.flatMap(i => i.branch_ids || []))];
+    const branches = branchIds.length > 0 ? await prisma.branch.findMany({ where: { id: { in: branchIds } } }) : [];
     
     for (const item of items) {
       // Find branch_id or assign default
@@ -597,7 +596,7 @@ app.post('/api/b2c/checkout', async (req, res) => {
       let branch_name = 'Chi nhánh 1';
       if (item.branch_ids && item.branch_ids.length > 0) {
         branch_id = item.branch_ids[0];
-        const br = (db.branches || []).find(b => b.id === branch_id);
+        const br = branches.find(b => b.id === branch_id);
         if (br) branch_name = br.name;
       }
       

@@ -1,5 +1,5 @@
 const express = require('express');
-const { readDb, writeDb } = require('../db');
+const { prisma } = require('../db');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
@@ -9,25 +9,27 @@ const JWT_SECRET = process.env.JWT_SECRET || 'istore_secret';
 // Get Categories
 router.get('/categories', async (req, res) => {
   try {
-    const db = await readDb();
-    res.json(db.categories || []);
+    const categories = await prisma.category.findMany();
+    res.json(categories);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-const getActiveFlashSaleItems = (db) => {
-  const activeSale = (db.flash_sales || []).find(fs => !fs.is_deleted);
-  if (!activeSale || (activeSale.end_time && new Date(activeSale.end_time).getTime() <= Date.now())) {
-    return [];
-  }
-  return (db.flash_sale_items || []).filter(i => i.flash_sale_id === activeSale.id);
+const getActiveFlashSaleItems = async () => {
+  const activeSale = await prisma.flashSale.findFirst({
+    where: { 
+      is_deleted: false,
+      end_time: { gt: new Date() } 
+    }
+  });
+  if (!activeSale) return [];
+  return await prisma.flashSaleItem.findMany({ where: { flash_sale_id: activeSale.id } });
 };
 
 const applyFlashSaleToProduct = (product, fsItems) => {
-  const fsItem = fsItems.find(i => i.product_id === product.id);
+  const fsItem = fsItems.find(i => Number(i.product_id) === Number(product.id));
   if (fsItem) {
-    // Keep original_price as the base price, update price to discount_price
     product.original_price = product.price;
     product.price = fsItem.discount_price;
   }
@@ -37,8 +39,8 @@ const applyFlashSaleToProduct = (product, fsItems) => {
 // Get Brands
 router.get('/brands', async (req, res) => {
   try {
-    const db = await readDb();
-    res.json(db.brands || []);
+    const brands = await prisma.brand.findMany({ where: { is_deleted: false } });
+    res.json(brands);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -47,30 +49,29 @@ router.get('/brands', async (req, res) => {
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
-    const db = await readDb();
-    let products = (db.products || []).filter(p => !p.is_deleted);
     const { category_id, brand_id, search, sort, branch_id } = req.query;
+    
+    let where = { is_deleted: false };
+    if (category_id && category_id !== 'ALL') where.category_id = category_id;
+    if (brand_id && brand_id !== 'ALL') where.brand_id = brand_id;
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+    // JSON branch_ids filtering isn't perfectly supported in primitive Prisma jsonb arrays without raw query on Postgres, 
+    // but we can filter it post-query or assume a simplified approach. 
+    // To be safe, we fetch and filter post-query for branches.
 
-    if (category_id && category_id !== 'ALL') {
-      products = products.filter(p => p.category_id === category_id);
-    }
-    if (brand_id && brand_id !== 'ALL') {
-      products = products.filter(p => p.brand_id === brand_id);
-    }
-    if (search) {
-      products = products.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
-    }
+    let orderBy = { id: 'desc' };
+    if (sort === 'price_asc') orderBy = { price: 'asc' };
+    if (sort === 'price_desc') orderBy = { price: 'desc' };
+    if (sort === 'newest') orderBy = { id: 'desc' };
+
+    let products = await prisma.product.findMany({ where, orderBy });
+
     if (branch_id) {
-      products = products.filter(p => !p.branch_ids || p.branch_ids.length === 0 || p.branch_ids.includes(branch_id));
-    }
-    if (sort) {
-      if (sort === 'price_asc') products.sort((a, b) => a.price - b.price);
-      if (sort === 'price_desc') products.sort((a, b) => b.price - a.price);
-      if (sort === 'newest') products.sort((a, b) => b.id - a.id);
+      products = products.filter(p => !p.branch_ids || (Array.isArray(p.branch_ids) && p.branch_ids.length === 0) || (Array.isArray(p.branch_ids) && p.branch_ids.includes(branch_id)));
     }
     
-    const fsItems = getActiveFlashSaleItems(db);
-    products = products.map(p => applyFlashSaleToProduct(p, fsItems));
+    const fsItems = await getActiveFlashSaleItems();
+    products = products.map(p => applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems));
 
     res.json(products);
   } catch (err) {
@@ -81,16 +82,16 @@ router.get('/products', async (req, res) => {
 // Get Product Detail
 router.get('/products/:id', async (req, res) => {
   try {
-    const db = await readDb();
-    const product = (db.products || []).find(p => p.id == req.params.id && !p.is_deleted);
+    let product = await prisma.product.findFirst({ where: { id: BigInt(req.params.id), is_deleted: false } });
     if (!product) return res.status(404).json({ error: 'Product not found' });
     
     // Attach reviews
-    const reviews = (db.reviews || []).filter(r => r.product_id == product.id);
-    product.reviews = reviews;
+    const reviews = await prisma.review.findMany({ where: { product_id: BigInt(product.id) } });
+    
+    product = { ...product, id: Number(product.id), reviews: reviews.map(r => ({ ...r, product_id: Number(r.product_id) })) };
 
-    const fsItems = getActiveFlashSaleItems(db);
-    applyFlashSaleToProduct(product, fsItems);
+    const fsItems = await getActiveFlashSaleItems();
+    product = applyFlashSaleToProduct(product, fsItems);
 
     res.json(product);
   } catch (err) {
@@ -101,28 +102,29 @@ router.get('/products/:id', async (req, res) => {
 // Get Flash Sales
 router.get('/flash-sales', async (req, res) => {
   try {
-    const db = await readDb();
-    const activeSale = (db.flash_sales || []).find(fs => !fs.is_deleted);
+    const activeSale = await prisma.flashSale.findFirst({
+      where: { 
+        is_deleted: false,
+        end_time: { gt: new Date() } 
+      }
+    });
+    
     if (!activeSale) return res.json(null);
 
-    // Check if flash sale event has ended
-    if (activeSale.end_time && new Date(activeSale.end_time).getTime() <= Date.now()) {
-      return res.json(null);
-    }
-
-    const items = (db.flash_sale_items || []).filter(i => i.flash_sale_id === activeSale.id);
+    const items = await prisma.flashSaleItem.findMany({ where: { flash_sale_id: activeSale.id } });
     if (!items || items.length === 0) return res.json(null);
 
-    const products = db.products || [];
+    const productIds = items.map(i => i.product_id);
+    const products = await prisma.product.findMany({ where: { id: { in: productIds } } });
 
     const enrichedItems = items.map(item => {
       const prod = products.find(p => p.id === item.product_id);
-      return prod ? { ...prod, ...item } : null;
+      return prod ? { ...prod, id: Number(prod.id), ...item, flash_sale_id: Number(item.flash_sale_id), product_id: Number(item.product_id), id_item: Number(item.id) } : null;
     }).filter(Boolean);
 
     if (!enrichedItems.length) return res.json(null);
 
-    res.json({ ...activeSale, items: enrichedItems });
+    res.json({ ...activeSale, id: Number(activeSale.id), items: enrichedItems });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -134,10 +136,9 @@ router.get('/flash-sales', async (req, res) => {
 router.post('/cart/apply-voucher', async (req, res) => {
   try {
     const { code, cart_total } = req.body;
-    const db = await readDb();
-    const voucher = (db.vouchers || []).find(v => v.code === code.toUpperCase());
+    const voucher = await prisma.voucher.findUnique({ where: { code: code.toUpperCase() } });
     
-    if (!voucher) return res.status(404).json({ error: 'Mã giảm giá không hợp lệ' });
+    if (!voucher || voucher.is_deleted) return res.status(404).json({ error: 'Mã giảm giá không hợp lệ' });
     if (cart_total < voucher.min_order_value) {
       return res.status(400).json({ error: `Đơn hàng tối thiểu ${voucher.min_order_value.toLocaleString()}đ để áp dụng mã này` });
     }
@@ -150,7 +151,7 @@ router.post('/cart/apply-voucher', async (req, res) => {
       discount = voucher.value;
     }
 
-    res.json({ success: true, discount, voucher });
+    res.json({ success: true, discount, voucher: { ...voucher, id: Number(voucher.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -159,15 +160,25 @@ router.post('/cart/apply-voucher', async (req, res) => {
 // Get My Orders
 router.get('/orders/me', async (req, res) => {
   try {
-    // In a real app, get user from auth token. Here we just return mock orders or filter by email if provided.
     const { email } = req.query;
-    const db = await readDb();
-    let orders = db.orders || [];
+    // In JSON, customer info is stored in `customer` Json field. We'll find orders where customer->>email = email.
+    // However, Prisma currently doesn't deeply filter JSON nicely across all DBs without raw,
+    // but in Postgres we can use path-based filtering, OR we fetch and filter since number of orders is small,
+    // OR we just use Prisma's Json filtering:
+    let orders;
     if (email) {
-      orders = orders.filter(o => o.customer?.email === email);
+      orders = await prisma.order.findMany({
+        where: {
+          customer: {
+            path: ['email'],
+            equals: email
+          }
+        },
+        orderBy: { date: 'desc' }
+      });
+    } else {
+      orders = await prisma.order.findMany({ orderBy: { date: 'desc' } });
     }
-    // Sort newest first
-    orders.sort((a, b) => new Date(b.date) - new Date(a.date));
     res.json(orders);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -182,22 +193,18 @@ router.post('/products/:id/reviews', async (req, res) => {
     
     if (!rating || !comment) return res.status(400).json({ error: 'Rating and comment are required' });
 
-    const db = await readDb();
-    
-    const newReview = {
-      id: 'REV-' + Date.now(),
-      product_id: parseInt(id),
-      reviewer: reviewer || 'Khách hàng',
-      rating: parseInt(rating),
-      comment: comment,
-      date: new Date().toISOString()
-    };
+    const newReview = await prisma.review.create({
+      data: {
+        id: 'REV-' + Date.now(),
+        product_id: BigInt(id),
+        reviewer: reviewer || 'Khách hàng',
+        rating: parseInt(rating),
+        comment: comment,
+        date: new Date()
+      }
+    });
 
-    if (!db.reviews) db.reviews = [];
-    db.reviews.push(newReview);
-    
-    await writeDb(db);
-    res.json({ success: true, review: newReview });
+    res.json({ success: true, review: { ...newReview, product_id: Number(newReview.product_id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -209,32 +216,27 @@ router.post('/products/:id/reviews', async (req, res) => {
 router.post('/auth/register', async (req, res) => {
   try {
     const { full_name, email, password, phone } = req.body;
-    const db = await readDb();
     
-    if (!db.b2c_customers) db.b2c_customers = [];
-    
-    const exists = db.b2c_customers.find(u => u.email === email);
+    const exists = await prisma.b2CCustomer.findUnique({ where: { email } });
     if (exists) return res.status(400).json({ error: 'Email đã được sử dụng' });
 
     const password_hash = await bcrypt.hash(password, 10);
-    const newUser = {
-      id: Date.now(),
-      full_name,
-      email,
-      phone: phone || '',
-      password_hash,
-      loyalty_points: 0,
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + email,
-      provider: 'local'
-    };
+    const newUser = await prisma.b2CCustomer.create({
+      data: {
+        full_name,
+        email,
+        phone: phone || '',
+        password_hash,
+        loyalty_points: 0,
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + email,
+        provider: 'local'
+      }
+    });
 
-    db.b2c_customers.push(newUser);
-    await writeDb(db);
-
-    const token = jwt.sign({ id: newUser.id, role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: Number(newUser.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = newUser;
     
-    res.json({ token, user: userWithoutPass });
+    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -244,9 +246,8 @@ router.post('/auth/register', async (req, res) => {
 router.post('/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    const db = await readDb();
     
-    const user = (db.b2c_customers || []).find(u => u.email === email);
+    const user = await prisma.b2CCustomer.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Email hoặc mật khẩu không chính xác' });
     
     const provider = user.provider || 'local';
@@ -257,10 +258,10 @@ router.post('/auth/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(401).json({ error: 'Email hoặc mật khẩu không chính xác' });
 
-    const token = jwt.sign({ id: user.id, role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
     
-    res.json({ token, user: userWithoutPass });
+    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -269,39 +270,39 @@ router.post('/auth/login', async (req, res) => {
 // Social Login (Mock)
 router.post('/auth/social', async (req, res) => {
   try {
-    const { provider, email, full_name, avatar } = req.body; // provider: 'google' | 'facebook'
-    const db = await readDb();
-    if (!db.b2c_customers) db.b2c_customers = [];
-
-    let user = db.b2c_customers.find(u => u.email === email);
+    const { provider, email, full_name, avatar } = req.body;
+    
+    let user = await prisma.b2CCustomer.findUnique({ where: { email } });
 
     if (!user) {
       // Auto-register
-      user = {
-        id: Date.now(),
-        full_name,
-        email,
-        phone: '',
-        password_hash: '', // No password for social
-        loyalty_points: 0,
-        avatar: avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + email),
-        provider: provider
-      };
-      db.b2c_customers.push(user);
-      await writeDb(db);
+      user = await prisma.b2CCustomer.create({
+        data: {
+          full_name,
+          email,
+          phone: '',
+          password_hash: '', 
+          loyalty_points: 0,
+          avatar: avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + email),
+          provider: provider
+        }
+      });
     } else {
       if (user.provider !== provider) {
-         // Auto-link or reject based on business logic. Here we allow it but update provider.
-         user.provider = provider;
-         user.avatar = avatar || user.avatar;
-         await writeDb(db);
+         user = await prisma.b2CCustomer.update({
+           where: { email },
+           data: {
+             provider: provider,
+             avatar: avatar || user.avatar
+           }
+         });
       }
     }
 
-    const token = jwt.sign({ id: user.id, role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
+    const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
     
-    res.json({ token, user: userWithoutPass });
+    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
