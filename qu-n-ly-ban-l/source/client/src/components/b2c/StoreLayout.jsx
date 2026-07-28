@@ -33,7 +33,10 @@ export default function StoreLayout() {
 
   useEffect(() => {
     api.b2b.getBranches().then(data => {
-      if (data && data.length > 0) setBranches(data);
+      if (data && data.length > 0) {
+        const uniqueBranches = Array.from(new Map(data.map(item => [item.id, item])).values());
+        setBranches(uniqueBranches);
+      }
     }).catch(() => {});
   }, []);
 

@@ -255,7 +255,8 @@ export default function GeneralManagement() {
       key: 'branch_ids', 
       render: (ids) => {
         if (!ids || !ids.length) return 'Tất cả';
-        const names = ids.map(id => branches.find(b => b.id === id)?.name?.split(' - ').pop() || id);
+        const uniqueBr = Array.from(new Map(branches.map(b => [b.id, b])).values());
+        const names = ids.map(id => uniqueBr.find(b => b.id === id)?.name?.split(' - ').pop() || id);
         if (names.length <= 3) return names.join(', ');
         return (
           <Tooltip title={names.join(', ')}>
@@ -349,9 +350,9 @@ export default function GeneralManagement() {
         okText="Lưu"
         cancelText="Hủy"
         width={600}
-        destroyOnClose
+        destroyOnHidden
       >
-        {activeTab === '1' && (
+        <div style={{ display: activeTab === '1' ? 'block' : 'none' }}>
           <Form form={formBranch} layout="vertical" onFinish={handleBranchSubmit}>
             <Form.Item name="name" label="Tên chi nhánh" rules={[{ required: true }]}>
               <Input placeholder="VD: Đà Nẵng - Hải Châu" />
@@ -363,9 +364,9 @@ export default function GeneralManagement() {
               <Input placeholder="VD: 123 Đường Trần Hưng Đạo" />
             </Form.Item>
           </Form>
-        )}
+        </div>
         
-        {activeTab === '2' && (
+        <div style={{ display: activeTab === '2' ? 'block' : 'none' }}>
           <Form form={formProduct} layout="vertical" onFinish={handleProductSubmit}>
             <Form.Item name="name" label="Tên sản phẩm" rules={[{ required: true }]}>
               <Input placeholder="Nhập tên sản phẩm..." />
@@ -466,7 +467,7 @@ export default function GeneralManagement() {
                 placeholder="Chọn chi nhánh" 
                 options={[
                   { value: 'ALL', label: 'Tất cả chi nhánh', style: { fontWeight: 'bold', color: '#10b981' } }, 
-                  ...branches.map(b => ({ value: b.id, label: b.name }))
+                  ...Array.from(new Map(branches.map(b => [b.id, b])).values()).map(b => ({ value: b.id, label: b.name }))
                 ]} 
                 onChange={(vals) => {
                   if (vals && vals.includes('ALL')) {
@@ -477,9 +478,9 @@ export default function GeneralManagement() {
               />
             </Form.Item>
           </Form>
-        )}
+        </div>
         
-        {activeTab === '3' && (
+        <div style={{ display: activeTab === '3' ? 'block' : 'none' }}>
           <Form form={formFlashSale} layout="vertical" onFinish={handleFlashSaleSubmit}>
             <Form.Item name="title" label="Tên chương trình" rules={[{ required: true }]}>
               <Input placeholder="VD: Khuyến mãi cuối tuần" />
@@ -579,15 +580,15 @@ export default function GeneralManagement() {
               </Form.Item>
             </Form.Item>
           </Form>
-        )}
+        </div>
         
-        {activeTab === '4' && (
+        <div style={{ display: activeTab === '4' ? 'block' : 'none' }}>
           <Form form={formBrand} layout="vertical" onFinish={handleBrandSubmit}>
             <Form.Item name="name" label="Tên thương hiệu" rules={[{ required: true }]}>
               <Input placeholder="VD: Apple" />
             </Form.Item>
           </Form>
-        )}
+        </div>
       </Modal>
     </div>
   );

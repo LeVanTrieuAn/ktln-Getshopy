@@ -111,7 +111,8 @@ export default function Dashboard() {
   const loadMasterData = useCallback(async () => {
     try {
       const br = await api.b2b.getBranches();
-      setDropdownBranches([{ value: 'ALL', label: 'Tất cả chi nhánh' }, ...br.map(b => ({ value: b.id, label: b.name }))]);
+      const uniqueBr = Array.from(new Map(br.map(item => [item.id, item])).values());
+      setDropdownBranches([{ value: 'ALL', label: 'Tất cả chi nhánh' }, ...uniqueBr.map(b => ({ value: b.id, label: b.name }))]);
     } catch(e) {}
   }, []);
 
@@ -153,7 +154,12 @@ export default function Dashboard() {
         }
       } catch {}
     };
-    return () => ws.close();
+    ws.onerror = () => {
+      // Suppress WebSocket error warning in console
+    };
+    return () => {
+      if (ws.readyState === 1) ws.close();
+    };
   }, []);
 
   const textColor = isDark ? '#fff' : '#1a1a2e';
