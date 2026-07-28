@@ -21,8 +21,10 @@ export default function Home() {
   const [categories, setCategories] = useState([]);
   const [flashSale, setFlashSale] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [recommendations, setRecommendations] = useState([]);
+  const [loadingRecs, setLoadingRecs] = useState(false);
   const { addToCart } = useCart();
-  const { isDark, t, selectedBranch } = useApp();
+  const { isDark, t, selectedBranch, b2cUser } = useApp();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -44,6 +46,23 @@ export default function Home() {
     }
     load();
   }, [selectedBranch]);
+
+  useEffect(() => {
+    async function loadRecs() {
+      if (b2cUser && b2cUser.email) {
+        setLoadingRecs(true);
+        try {
+          const recs = await api.ai.getRecommendations(b2cUser.email);
+          setRecommendations(recs);
+        } catch (err) {
+          console.error('Failed to load recommendations', err);
+        } finally {
+          setLoadingRecs(false);
+        }
+      }
+    }
+    loadRecs();
+  }, [b2cUser]);
 
   if (loading) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>;
 
@@ -159,6 +178,62 @@ export default function Home() {
                     <div style={{ background: '#ef4444', height: '100%', width: `${(p.sold/p.limit)*100}%` }} />
                   </div>
                   <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{t('home.sold')} {p.sold}/{p.limit}</div>
+                </Card>
+              </Col>
+            ))}
+          </Row>
+        </div>
+      )}
+
+      {/* AI Recommendations */}
+      {b2cUser && recommendations.length > 0 && (
+        <div style={{ marginBottom: 48 }}>
+          <Title level={2} style={{ color: isDark ? '#fff' : '#111', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+            <span style={{ 
+              background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', 
+              WebkitBackgroundClip: 'text', 
+              WebkitTextFillColor: 'transparent',
+              fontWeight: 800
+            }}>AI Gợi ý cho bạn</span>
+            <Tag color="purple" style={{ borderRadius: 12, border: 'none', background: 'rgba(139, 92, 246, 0.1)' }}>Powered by OpenRouter</Tag>
+          </Title>
+          <Row gutter={[24, 24]}>
+            {recommendations.map(p => (
+              <Col xs={24} sm={12} md={8} lg={6} key={p.id}>
+                <Card
+                  hoverable
+                  onClick={() => navigate(`/product/${p.id}`)}
+                  style={{
+                    borderRadius: 16, background: isDark ? 'rgba(139, 92, 246, 0.05)' : '#faf5ff',
+                    border: isDark ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid #e9d5ff',
+                    overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%'
+                  }}
+                  styles={{ body: { padding: 20, flex: 1, display: 'flex', flexDirection: 'column' } }}
+                  cover={
+                    <div style={{ padding: 24, background: isDark ? 'rgba(0,0,0,0.2)' : '#fff', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+                      <img 
+                        alt={p.name} 
+                        src={p.image} 
+                        style={{ height: 200, objectFit: 'contain' }} 
+                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
+                      />
+                    </div>
+                  }
+                >
+                  <div style={{ flex: 1 }}>
+                    <Title level={4} style={{ color: isDark ? '#fff' : '#000', margin: 0, fontSize: 16, height: 44, overflow: 'hidden' }}>{p.name}</Title>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 700, color: '#8b5cf6' }}>{p.price.toLocaleString('vi-VN')} đ</div>
+                    </div>
+                    <div 
+                      onClick={(e) => { e.stopPropagation(); addToCart(p); }}
+                      style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6', cursor: 'pointer', transition: 'all 0.3s' }}
+                    >
+                      <ShoppingCartOutlined style={{ fontSize: 18 }} />
+                    </div>
+                  </div>
                 </Card>
               </Col>
             ))}

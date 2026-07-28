@@ -54,6 +54,12 @@ export const api = {
 
   simulateSale: (data) => request('/admin/simulate-sale', { method: 'POST', body: JSON.stringify(data) }),
 
+  // ─── AI APIs ─────────────────────────────────────────────────
+  ai: {
+    getRecommendations: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
+    getCampaignSuggestions: () => request('/b2b/campaign-suggestions')
+  },
+
   // ─── B2B APIs ────────────────────────────────────────────────
   b2b: {
     getReviews: () => request('/b2b/reviews'),

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, Cascader, Row, Col, InputNumber, Select, Space, Upload, message, Tabs, Popconfirm, DatePicker, Slider, Tooltip, Switch } from 'antd';
+import { Table, Button, Modal, Form, Input, Cascader, Row, Col, InputNumber, Select, Space, Upload, message, Tabs, Popconfirm, DatePicker, Slider, Tooltip, Switch, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { api } from '../services/api';
 import dayjs from 'dayjs';
@@ -59,6 +59,36 @@ export default function GeneralManagement() {
   const [formProduct] = Form.useForm();
   const [formFlashSale] = Form.useForm();
   const [formBrand] = Form.useForm();
+
+  // AI Assistant states
+  const [aiSuggestion, setAiSuggestion] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+
+  const loadAiSuggestion = async () => {
+    setLoadingAi(true);
+    try {
+      const res = await api.ai.getCampaignSuggestions();
+      setAiSuggestion(res.suggestion);
+    } catch (err) {
+      message.error(err.message || 'Không thể tải đề xuất AI. Bạn đã nhập API Key chưa?');
+    }
+    setLoadingAi(false);
+  };
+
+  const handleApplyAiSuggestion = () => {
+    formFlashSale.setFieldsValue({
+      title: aiSuggestion.title,
+      discount_percent: aiSuggestion.discount_percent,
+      product_id: aiSuggestion.product_id
+    });
+    // Find category from product
+    const prod = products.find(p => p.id === aiSuggestion.product_id);
+    if (prod && prod.category_id) {
+      formFlashSale.setFieldsValue({ category_id: prod.category_id });
+    }
+    setEditingItem(null);
+    setModalOpen(true);
+  };
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -339,7 +369,40 @@ export default function GeneralManagement() {
         { key: '1', label: 'Chi nhánh', children: <Table dataSource={branches} columns={branchColumns} rowKey="id" loading={loading} /> },
         { key: '4', label: 'Thương hiệu', children: <Table dataSource={brands} columns={brandColumns} rowKey="id" loading={loading} /> },
         { key: '2', label: 'Sản phẩm', children: <Table dataSource={products} columns={productColumns} rowKey="id" loading={loading} /> },
-        { key: '3', label: 'Mã giảm (Flash Sale)', children: <Table dataSource={flashSales} columns={flashSaleColumns} rowKey="id" loading={loading} /> },
+        { key: '3', label: 'Mã giảm (Flash Sale)', children: (
+          <div>
+            <div style={{ background: '#faf5ff', padding: 20, borderRadius: 12, marginBottom: 20, border: '1px solid #e9d5ff' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ margin: 0, color: '#6b21a8', display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, fontWeight: 700 }}>
+                  <span style={{ fontSize: 24 }}>✨</span> AI Campaign Assistant
+                </h3>
+                {!aiSuggestion && (
+                  <Button type="primary" style={{ background: '#8b5cf6', borderColor: '#8b5cf6' }} loading={loadingAi} onClick={loadAiSuggestion}>
+                    Phân tích & Đề xuất chiến dịch
+                  </Button>
+                )}
+              </div>
+              
+              {aiSuggestion && (
+                <div style={{ marginTop: 16, background: '#fff', padding: 16, borderRadius: 8, border: '1px solid #f3e8ff' }}>
+                  <div style={{ fontWeight: 700, fontSize: 16, color: '#111' }}>Chiến dịch đề xuất: {aiSuggestion.title}</div>
+                  <div style={{ margin: '8px 0', display: 'flex', gap: 12 }}>
+                    <Tag color="purple">Giảm {aiSuggestion.discount_percent}%</Tag>
+                    <Tag color="blue">Sản phẩm ID: {aiSuggestion.product_id}</Tag>
+                  </div>
+                  <div style={{ color: '#4b5563', fontSize: 14 }}><strong>Lý do:</strong> {aiSuggestion.reason}</div>
+                  <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+                    <Button type="primary" style={{ background: '#8b5cf6' }} onClick={handleApplyAiSuggestion}>
+                      Áp dụng & Tạo chiến dịch ngay
+                    </Button>
+                    <Button onClick={() => setAiSuggestion(null)}>Đề xuất khác</Button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <Table dataSource={flashSales} columns={flashSaleColumns} rowKey="id" loading={loading} />
+          </div>
+        ) },
       ]} />
 
       <Modal

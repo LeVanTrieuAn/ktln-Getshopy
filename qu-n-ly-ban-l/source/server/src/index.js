@@ -624,6 +624,35 @@ app.post('/api/b2c/checkout', async (req, res) => {
         payment_method: payment_method || 'COD',
         order_date: chDate
       });
+
+      // --- Deduct Realtime Inventory ---
+      try {
+        const product = await prisma.product.findUnique({ where: { id: BigInt(item.id) } });
+        if (product) {
+          let updatedVariants = product.variants;
+          let stockToDeduct = Number(item.quantity);
+          if (item.selectedVariant) {
+            if (Array.isArray(updatedVariants)) {
+              updatedVariants = updatedVariants.map(v => {
+                if (v.id === item.selectedVariant.id) {
+                  return { ...v, stock: Math.max(0, (v.stock || 0) - stockToDeduct) };
+                }
+                return v;
+              });
+            }
+          }
+          await prisma.product.update({
+            where: { id: BigInt(item.id) },
+            data: {
+              stock: Math.max(0, product.stock - stockToDeduct),
+              variants: updatedVariants,
+              sold: { increment: stockToDeduct }
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Failed to deduct inventory:', err);
+      }
     }
 
     if (chValues.length > 0) {
@@ -665,6 +694,13 @@ app.post('/api/b2c/checkout', async (req, res) => {
       await redis.flushAll(); // Clear analytics cache
     }
 
+    // Broadcast STOCK_UPDATE via WebSocket
+    wsClients.forEach(ws => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() }));
+      }
+    });
+
     res.json({ success: true, order_id: orderId });
   } catch (err) {
     console.error("Checkout Error:", err);
@@ -678,6 +714,10 @@ app.use('/api/b2c', b2cRouter);
 // ─── B2B ADMIN ROUTES ─────────────────────────────────────────
 const b2bRouter = require('./routes/b2b');
 app.use('/api/b2b', b2bRouter);
+
+// ─── AI ROUTES ────────────────────────────────────────────────
+const aiRouter = require('./routes/ai');
+app.use('/api', aiRouter);
 
 // ─── START ────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {

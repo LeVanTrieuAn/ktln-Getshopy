@@ -64,10 +64,17 @@ router.get('/products', async (req, res) => {
     if (sort === 'price_desc') orderBy = { price: 'desc' };
     if (sort === 'newest') orderBy = { id: 'desc' };
 
-    let products = await prisma.product.findMany({ where, orderBy });
+    let products = await prisma.product.findMany({ where, orderBy, take: 100 });
 
     if (branch_id) {
-      products = products.filter(p => !p.branch_ids || (Array.isArray(p.branch_ids) && p.branch_ids.length === 0) || (Array.isArray(p.branch_ids) && p.branch_ids.includes(branch_id)));
+      products = products.filter(p => {
+        if (!p.branch_ids) return true;
+        let arr = p.branch_ids;
+        if (typeof arr === 'string') {
+          try { arr = JSON.parse(arr); } catch(e) { arr = []; }
+        }
+        return !Array.isArray(arr) || arr.length === 0 || arr.includes(branch_id);
+      });
     }
     
     const fsItems = await getActiveFlashSaleItems();
@@ -88,7 +95,19 @@ router.get('/products/:id', async (req, res) => {
     // Attach reviews
     const reviews = await prisma.review.findMany({ where: { product_id: BigInt(product.id) } });
     
-    product = { ...product, id: Number(product.id), reviews: reviews.map(r => ({ ...r, product_id: Number(r.product_id) })) };
+    // Ensure JSON fields are parsed if they are stored as strings
+    let variants = product.variants;
+    let images = product.images;
+    if (typeof variants === 'string') try { variants = JSON.parse(variants); } catch (e) { variants = []; }
+    if (typeof images === 'string') try { images = JSON.parse(images); } catch (e) { images = []; }
+    
+    product = { 
+      ...product, 
+      id: Number(product.id),
+      variants: variants,
+      images: images,
+      reviews: reviews.map(r => ({ ...r, product_id: Number(r.product_id) })) 
+    };
 
     const fsItems = await getActiveFlashSaleItems();
     product = applyFlashSaleToProduct(product, fsItems);

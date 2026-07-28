@@ -55,6 +55,24 @@ export default function ProductDetail() {
     load();
   }, [id]);
 
+  useEffect(() => {
+    const ws = new WebSocket(import.meta.env.VITE_WS_URL || 'ws://localhost:8080');
+    ws.onmessage = async (e) => {
+      try {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'STOCK_UPDATE') {
+          // Re-fetch product data silently to get new stock
+          const data = await api.b2c.getProductDetails(id);
+          setProduct(data);
+        }
+      } catch (err) {}
+    };
+    ws.onerror = () => {};
+    return () => {
+      if (ws.readyState === 1) ws.close();
+    };
+  }, [id]);
+
   if (loading) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>;
   if (!product) return <div style={{ textAlign: 'center', marginTop: 100, color: '#fff' }}>Sản phẩm không tồn tại</div>;
 
