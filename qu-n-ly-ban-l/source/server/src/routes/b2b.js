@@ -1,5 +1,5 @@
 const express = require('express');
-const { readDb, writeDb } = require('../db');
+const { prisma } = require('../db');
 const router = express.Router();
 
 // Get all reviews
