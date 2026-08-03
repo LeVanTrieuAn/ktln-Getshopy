@@ -1,3 +1,214 @@
+
+
+---
+
+# TÀI LIỆU GỐC: 02_PRD_Va_Dac_Ta_Ung_Dung.md
+
+# TÀI LIỆU 02: PRODUCT REQUIREMENTS DOCUMENT (PRD) VÀ ĐẶC TẢ ỨNG DỤNG
+**Các Ứng Dụng Khai Thác Sức Mạnh Big Data Pipeline**
+
+Tài liệu này đặc tả các ứng dụng (Applications) được xây dựng trên nền tảng luồng dữ liệu CDC Kafka. Bằng cách tiêu thụ (consume) dữ liệu từ các Topic `erp.pm_saleorder`, `erp.pm_inputvoucher`, `erp.pm_outputvoucher`, hệ thống có thể cung cấp các phân tích kinh doanh cực kỳ mạnh mẽ.
+
+---
+
+## 1. ỨNG DỤNG 1: FINANCIAL ANALYTICS DASHBOARD (Bảng Điều Khiển Tài Chính)
+**Đối tượng sử dụng**: CEO, CFO, Store Manager.
+**Mục tiêu**: Cung cấp cái nhìn toàn cảnh về tình hình tài chính, doanh thu, dòng tiền theo thời gian thực (Độ trễ < 3 giây).
+
+### 1.1. Các Chỉ Số Cốt Lõi (Real-time KPIs)
+- **Doanh thu hôm nay (Revenue Today)**: Tổng hợp theo giờ, so sánh với ngày hôm qua.
+- **Tiền thu (Cash Collected)**: Dòng tiền thực tế đã thu vào.
+- **Biên lợi nhuận (Gross Margin)**: Tính toán chênh lệch giữa giá bán và giá vốn. Cảnh báo tự động nếu biên lợi nhuận < 8% (Margin Erosion Detector).
+- **Trạng thái Đối soát (Reconciliation Status)**: So khớp tự động giữa Đơn hàng (Sale Order) và Phiếu thu (Input Voucher). Phân loại: Khớp (Matched), Chờ thu (Pending), Lệch (Mismatch).
+
+### 1.2. Phân Quyền (RBAC)
+- **CEO / CFO**: Xem dữ liệu toàn chuỗi, xem tất cả các chi nhánh.
+- **Store Manager**: Chỉ được xem dữ liệu của chi nhánh mình quản lý.
+
+---
+
+## 2. ỨNG DỤNG 2: FRAUD DETECTION ENGINE (Hệ Thống Chống Gian Lận)
+**Đối tượng sử dụng**: Risk Management Team (Quản trị rủi ro), Quản lý khu vực.
+**Mục tiêu**: Áp dụng Stream Processing (Kafka Streams) để phát hiện hành vi bất thường ngay tại thời điểm xảy ra, thay vì đợi kiểm toán cuối tháng.
+
+### 2.1. Các Quy Tắc Cảnh Báo (Rules)
+- **Tỷ lệ hủy đơn cao (High Void Rate)**: Sử dụng Tumbling Window (ví dụ: 1 giờ). Nếu 1 nhân viên/chi nhánh có tỷ lệ hủy đơn > 15% tổng đơn → Kích hoạt Alert Cấp độ Cao (HIGH).
+- **Thanh toán tiền mặt sau giờ làm (After-hours Cash)**: Nếu đơn hàng thanh toán bằng tiền mặt được tạo ra sau 22:00 → Kích hoạt Alert Cấp độ Vừa (MEDIUM).
+- **Sai lệch giá (Price Deviation)**: Giá bán thực tế thấp hơn 10% hoặc cao hơn 5% so với giá niêm yết (Không áp dụng chương trình khuyến mãi hợp lệ).
+
+---
+
+## 3. ỨNG DỤNG 3: SUPPLY CHAIN & FULFILLMENT TRACKER
+**Đối tượng sử dụng**: Operations Team (Vận hành).
+**Mục tiêu**: Giám sát SLA giao hàng, ngăn ngừa tồn kho "ma".
+
+### 3.1. Tính Năng Giám Sát SLA (Proactive SLA Engine)
+- Tính toán thời gian từ lúc khách chốt đơn đến khi xuất kho giao hàng (`pm_outputvoucher.output_date - pm_saleorder.order_date`).
+- Nếu sắp chạm mốc cam kết SLA (ví dụ: giao trong 4 giờ) mà chưa xuất kho → Tự động gửi Alert cho kho và SMS xin lỗi khách hàng (Cơ chế Self-healing).
+
+### 3.2. Cập Nhật Tồn Kho (One Second Inventory)
+- Áp dụng nguyên lý CQRS và Optimistic Inventory Locking.
+- Khi chốt đơn, chỉ đẩy sự kiện vào Kafka. ClickHouse tính tổng `SUM(nhập) - SUM(xuất)` để ra tồn kho thực tế, không lock Database OLTP.
+
+---
+
+## 4. ỨNG DỤNG 4: AI & CUSTOMER INTELLIGENCE (Hệ Thống Trí Tuệ Khách Hàng)
+**Đối tượng sử dụng**: Marketing Team, Chăm sóc Khách hàng (CRM).
+
+### 4.1. "Customer DNA" (Vector Embedding)
+- Mỗi hành động của khách hàng (click, add to cart, buy) được mã hóa thành vector 128 chiều.
+- Lưu trong Vector Database để tìm kiếm "Lookalike Audience" (Khách hàng tương tự) bằng Cosine Similarity, phục vụ cho các chiến dịch Upsell (ví dụ: Gợi ý mua AirPods cho khách vừa mua iPhone 15).
+
+### 4.2. Giải Quyết Tranh Chấp Bằng AI (Dispute Resolution)
+- Hợp nhất lịch sử bảo hành, lịch sử mua hàng, lần mở máy đầu tiên (First Boot) thành một "Customer Golden Record".
+- Khi khách claim bảo hành, hệ thống AI tự động viết một bản tóm tắt tình trạng vòng đời của thiết bị, giúp nhân viên có cơ sở chính xác để phản hồi khách.
+
+---
+
+## 5. UI/UX & FRONTEND REQUIREMENT
+- **Framework**: React.js 19 + Ant Design 5.
+- **Biểu đồ**: Apache ECharts để vẽ biểu đồ Line Chart (Doanh thu theo giờ, cập nhật real-time không cần reload trang).
+- **Đa Ngôn Ngữ (i18n)**: Hỗ trợ tiếng Việt (VI) và tiếng Anh (EN).
+- **Giao Diện**: Hỗ trợ Light / Dark Mode chuẩn Enterprise. Layout bao gồm Sidebar chứa các tab: Dashboard, Financial, Alerts, Fulfillment. Trang Dashboard phải hiển thị được KPI Cards (Revenue, Orders, Net Cash) cùng với Ranking các chi nhánh tốt nhất.
+
+
+---
+
+# TÀI LIỆU GỐC: 03_Dac_Ta_Database_Va_API.md
+
+# TÀI LIỆU 03: ĐẶC TẢ DATABASE VÀ API (API & DATABASE SPECIFICATION)
+
+Tài liệu này cung cấp chi tiết về cấu trúc lưu trữ và các endpoint API cho ứng dụng phân tích tài chính.
+
+---
+
+## 1. CƠ SỞ DỮ LIỆU OLTP (POSTGRESQL)
+Sử dụng cho Authentication, Cấu hình và Dữ liệu Master.
+
+### 1.1. Bảng `users`
+- `id` (SERIAL PRIMARY KEY)
+- `email` (VARCHAR(255) UNIQUE NOT NULL)
+- `password_hash` (VARCHAR(255) NOT NULL)
+- `full_name` (VARCHAR(255) NOT NULL)
+- `role` (VARCHAR(50)): 'CEO', 'CFO', 'MANAGER', 'STAFF'
+- `branch_id` (VARCHAR(50)): NULL có nghĩa là áp dụng cho toàn chuỗi
+- `created_at` (TIMESTAMP)
+
+### 1.2. Bảng `branches`
+- `id` (VARCHAR(50) PRIMARY KEY): VD: 'HN001'
+- `name` (VARCHAR(255) NOT NULL)
+- `region` (VARCHAR(50) NOT NULL): 'NORTH', 'SOUTH', 'CENTRAL'
+- `address` (TEXT)
+- `is_active` (BOOLEAN DEFAULT TRUE)
+
+### 1.3. Bảng `alert_rules`
+- `id` (SERIAL PRIMARY KEY)
+- `rule_name` (VARCHAR(255) NOT NULL)
+- `condition` (JSONB NOT NULL): VD: `{"metric": "void_rate", "operator": ">", "threshold": 0.15}`
+- `severity` (VARCHAR(20)): 'LOW', 'MEDIUM', 'HIGH', 'CRITICAL'
+- `is_active` (BOOLEAN DEFAULT TRUE)
+
+---
+
+## 2. KAFKA TOPICS VÀ CDC (CHANGE DATA CAPTURE)
+
+### 2.1. Nguồn Dữ Liệu
+Các Kafka Topic chính được tạo tự động bởi Debezium (CDC) từ ERP hệ thống:
+- `erp.pm_saleorder`: Đơn hàng bán lẻ.
+- `erp.pm_inputvoucher`: Phiếu thu (tiền vào).
+- `erp.pm_outputvoucher`: Phiếu chi (tiền ra).
+
+### 2.2. Outbox Pattern
+Để giải quyết bài toán giao dịch nhiều bảng (Multi-Table Transaction) hoặc ghi đồng thời (Dual Write), hệ thống sử dụng bảng `outbox` trung gian ở PostgreSQL:
+- Bất kỳ khi nào có giao dịch quan trọng (ví dụ chốt đơn và thanh toán cùng lúc), ứng dụng ghi vào bảng `outbox` trong cùng 1 Database Transaction.
+- Debezium chỉ cần đọc từ bảng `outbox` để phát Event hoàn chỉnh, đảm bảo tính nguyên tử (Atomicity).
+
+---
+
+## 3. CƠ SỞ DỮ LIỆU OLAP (CLICKHOUSE)
+Sử dụng cho truy vấn phân tích (Analytics). Các dữ liệu được đẩy thẳng từ Kafka Consumer.
+
+### 3.1. Bảng `sale_orders` (ReplacingMergeTree)
+```sql
+CREATE TABLE sale_orders (
+  order_id       String,
+  branch_id      String,
+  branch_name    String,
+  region         String,
+  salesperson_id String,
+  total_amount   Decimal(18, 2),
+  discount       Decimal(18, 2) DEFAULT 0,
+  net_amount     Decimal(18, 2),
+  status         String,          -- 'CONFIRMED','VOIDED','PENDING'
+  payment_method String,          -- 'CASH','CARD','TRANSFER'
+  order_date     DateTime,
+  created_at     DateTime DEFAULT now(),
+  -- Kafka metadata để tracing và schema evolution
+  _kafka_offset  Int64,
+  _kafka_topic   String,
+  _cdc_op        String           -- 'c'=create, 'u'=update, 'd'=delete
+) ENGINE = ReplacingMergeTree(created_at)
+  PARTITION BY toYYYYMM(order_date)
+  ORDER BY (order_id, branch_id, order_date);
+```
+
+### 3.2. Bảng `input_vouchers` (ReplacingMergeTree)
+Chứa dữ liệu dòng tiền thu vào (Tiền mặt, thẻ, VNPay). Giống cấu trúc trên với `voucher_id`, `order_id` (Khóa ngoại logic), `amount`, `voucher_date`.
+
+### 3.3. Materialized View `reconciliation_mv` (AggregatingMergeTree)
+Tự động đối soát đơn hàng và phiếu thu tại thời điểm có dữ liệu mới.
+```sql
+CREATE MATERIALIZED VIEW reconciliation_mv
+ENGINE = AggregatingMergeTree()
+PARTITION BY toYYYYMM(order_date)
+ORDER BY (order_id, branch_id) AS
+SELECT
+  s.order_id,
+  s.branch_id,
+  s.net_amount       as sale_amount,
+  SUM(iv.amount)     as received_amount,
+  s.net_amount - SUM(iv.amount) as gap,
+  CASE
+    WHEN ABS(s.net_amount - SUM(iv.amount)) < 1000 THEN 'MATCHED'
+    WHEN SUM(iv.amount) = 0 THEN 'PENDING'
+    ELSE 'MISMATCH'
+  END as recon_status,
+  s.order_date
+FROM sale_orders s
+LEFT JOIN input_vouchers iv ON s.order_id = iv.order_id
+GROUP BY s.order_id, s.branch_id, s.net_amount, s.order_date;
+```
+
+---
+
+## 4. API SPECIFICATION (REST)
+
+### 4.1. Auth API
+- `POST /api/auth/login`: Nhận `{email, password}`, Trả về `{token, user}`.
+- `GET /api/auth/me`: Kiểm tra Authorization Token.
+
+### 4.2. Dashboard KPIs API
+- `GET /api/dashboard/kpis?branch_id=HN001&date_from=2024-03-01`
+  - Trả về: `{ revenue_today, revenue_vs_yesterday_pct, orders_today, net_cash, void_rate }`
+- `GET /api/analytics/revenue/by-hour?date=2024-03-15&branch_id=ALL`
+  - Trả về: `[{ hour: "09:00", revenue: 125000000, orders: 5 }, ...]`
+- `GET /api/analytics/revenue/by-branch`
+  - Trả về xếp hạng doanh thu giữa các chi nhánh.
+
+### 4.3. Financial & Reconciliation API
+- `GET /api/reconciliation/status?branch_id=&status=MISMATCH`
+  - Trả về các đơn hàng bị lệch tiền giữa giá trị xuất kho và giá trị thu thực tế.
+  - Phục vụ việc theo dõi Cash Float (Tiền đang luân chuyển) từ các ví điện tử.
+
+### 4.4. Alerts & Fraud Detection API
+- `GET /api/alerts/active`: Trả về danh sách cảnh báo theo thời gian thực (Triggered by Kafka Streams).
+- `PUT /api/alerts/:id/acknowledge`: Cập nhật trạng thái đã tiếp nhận cảnh báo.
+
+
+---
+
+# TÀI LIỆU GỐC: db_schema.md
+
 # Toàn bộ Schema Database — iStore Analytics
 
 Hệ thống sử dụng **2 lớp lưu trữ song song**. Cần hiểu rõ cả hai khi mock data.
