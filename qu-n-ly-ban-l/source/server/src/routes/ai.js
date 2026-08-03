@@ -19,8 +19,9 @@ async function callOpenRouter(prompt, options = {}) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      "model": process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash:free",
+      "model": process.env.OPENROUTER_MODEL || "google/gemini-2.5-flash",
       "response_format": options.response_format,
+      "max_tokens": 800,
       "messages": [
         { "role": "user", "content": prompt }
       ]
@@ -179,6 +180,59 @@ Trả về KẾT QUẢ DUY NHẤT LÀ MỘT OBJECT JSON THEO ĐỊNH DẠNG SAU,
     res.json({ success: true, suggestion });
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// 3. AI Chatbot Assistant (B2C)
+// ==========================================
+router.post('/b2c/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body;
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Build context from history
+    let chatHistory = '';
+    if (history && Array.isArray(history) && history.length > 0) {
+      chatHistory = history.map(msg => `${msg.sender === 'user' ? 'Khách' : 'AI'}: ${msg.text}`).join('\n');
+    }
+
+    const systemPrompt = `Bạn là Trợ lý ảo AI của cửa hàng điện tử Getshopy. 
+Nhiệm vụ của bạn là tư vấn khách hàng một cách thân thiện, ngắn gọn và chuyên nghiệp (Dưới 3 câu).
+Cửa hàng chủ yếu bán: Điện thoại (iPhone, Samsung), Laptop (MacBook, Asus), Tablet (iPad) và Phụ kiện (AirPods, Ốp lưng).
+Nếu khách hỏi mông lung (ví dụ: "tôi muốn mua máy tính"), hãy hỏi rõ nhu cầu (văn phòng, đồ họa hay gaming) hoặc khuyên họ xem MacBook / Asus.
+
+Quan trọng: Nếu bạn khuyên khách xem một dòng sản phẩm cụ thể, bạn CÓ THỂ đề xuất một đường link để điều hướng họ, ví dụ:
+- iPhone -> /shop?search=iphone
+- MacBook/Laptop -> /shop?search=macbook
+- Khuyến mãi / Giá rẻ -> /
+
+Lịch sử trò chuyện gần đây:
+${chatHistory}
+
+Khách: ${message}
+
+TRẢ VỀ KẾT QUẢ DƯỚI DẠNG JSON ĐÚNG ĐỊNH DẠNG SAU, KHÔNG KÈM MARKDOWN HAY VĂN BẢN KHÁC:
+{
+  "text": "Câu trả lời của bạn",
+  "link": "Đường link (hoặc null)"
+}`;
+
+    const aiResponseText = await callOpenRouter(systemPrompt, { response_format: { type: "json_object" } });
+    
+    let aiResponse = { text: "Xin lỗi, tôi đang bận chút việc, bạn thử lại sau nhé.", link: null };
+    try {
+      aiResponse = JSON.parse(aiResponseText);
+    } catch (parseErr) {
+      aiResponse.text = aiResponseText;
+    }
+
+    res.json(aiResponse);
+  } catch (err) {
+    console.error("AI Chat Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

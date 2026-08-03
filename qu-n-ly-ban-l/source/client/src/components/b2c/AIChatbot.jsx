@@ -25,36 +25,34 @@ export default function AIChatbot() {
     scrollToBottom();
   }, [messages, isTyping]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!inputValue.trim()) return;
     
     const userMsg = inputValue.trim();
-    setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
+    const newMessages = [...messages, { sender: 'user', text: userMsg }];
+    setMessages(newMessages);
     setInputValue('');
     setIsTyping(true);
 
-    // MOCK AI RESPONSE
-    setTimeout(() => {
-      let aiResponse = 'Xin lỗi, tôi chưa hiểu rõ ý bạn. Bạn có thể nói rõ hơn được không?';
-      let suggestedLink = null;
+    try {
+      const response = await fetch('http://localhost:8080/api/b2c/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMsg,
+          history: messages.slice(-5) // Gửi 5 tin nhắn gần nhất làm bối cảnh
+        })
+      });
       
-      const lowerMsg = userMsg.toLowerCase();
-      if (lowerMsg.includes('iphone') || lowerMsg.includes('apple')) {
-        aiResponse = 'Hiện tại Getshopy đang có dòng iPhone 15 Pro Max Titanium giảm giá cực sâu kèm nhiều ưu đãi. Bạn có muốn xem qua danh sách iPhone không?';
-        suggestedLink = '/shop?search=iphone';
-      } else if (lowerMsg.includes('laptop') || lowerMsg.includes('macbook')) {
-        aiResponse = 'Về mảng Laptop, MacBook Air M3 và các dòng Asus ROG đang là Best-Seller. Hãy click vào link bên dưới để xem chi tiết nhé!';
-        suggestedLink = '/shop?search=macbook';
-      } else if (lowerMsg.includes('giá rẻ') || lowerMsg.includes('khuyến mãi') || lowerMsg.includes('giảm giá')) {
-        aiResponse = 'Bạn đang tìm đồ giá hời? Mời bạn ghé ngay khu vực Flash Sale trên Trang chủ để săn deal giá sốc nhé!';
-        suggestedLink = '/';
-      } else if (lowerMsg.includes('chào') || lowerMsg.includes('hello')) {
-        aiResponse = 'Dạ vâng xin chào bạn! Chúc bạn một ngày mua sắm vui vẻ. Mình giúp gì được cho bạn ạ?';
-      }
-
-      setMessages(prev => [...prev, { sender: 'ai', text: aiResponse, link: suggestedLink }]);
+      if (!response.ok) throw new Error('API Error');
+      const data = await response.json();
+      
+      setMessages(prev => [...prev, { sender: 'ai', text: data.text, link: data.link }]);
+    } catch (error) {
+      setMessages(prev => [...prev, { sender: 'ai', text: 'Xin lỗi, hiện tại đường truyền đến Trợ lý AI đang bận. Vui lòng thử lại sau giây lát.' }]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -104,7 +102,7 @@ export default function AIChatbot() {
             background: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
             backdropFilter: 'blur(20px)'
           }}
-          styles={{ body: {} }}
+          styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' } }}
         >
           {/* Header */}
           <div style={{ 
