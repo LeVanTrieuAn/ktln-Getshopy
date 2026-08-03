@@ -18,8 +18,12 @@ import ProductDetail from './pages/b2c/ProductDetail';
 import Checkout from './pages/b2c/Checkout';
 import Account from './pages/b2c/Account';
 import Compare from './pages/b2c/Compare';
+import DataLakeDemo from './pages/DataLakeDemo';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import './App.css';
+
+const queryClient = new QueryClient();
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children }) => {
@@ -54,10 +58,11 @@ const ThemeWrapper = ({ children }) => {
 
 export default function App() {
   return (
-    <AppProvider>
-      <CartProvider>
-        <ThemeWrapper>
-          <Router>
+    <QueryClientProvider client={queryClient}>
+      <AppProvider>
+        <CartProvider>
+          <ThemeWrapper>
+            <Router>
             <Routes>
               {/* B2B Admin Routes */}
               <Route path="/admin/login" element={<Login />} />
@@ -80,6 +85,7 @@ export default function App() {
                 <Route path="compare" element={<Compare />} />
                 <Route path="checkout" element={<Checkout />} />
                 <Route path="account" element={<Account />} />
+                <Route path="data-lake" element={<DataLakeDemo />} />
               </Route>
 
               <Route path="*" element={<Navigate to="/" replace />} />
@@ -88,5 +94,6 @@ export default function App() {
         </ThemeWrapper>
       </CartProvider>
     </AppProvider>
+    </QueryClientProvider>
   );
 }

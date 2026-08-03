@@ -294,6 +294,70 @@ app.get('/api/reconciliation/status', authMiddleware, async (req, res) => {
   }
 });
 
+// ─── DATA LAKE DEMO (1M RECORDS) ──────────────────────────────
+const encodeCursor = (payload) => Buffer.from(JSON.stringify(payload)).toString('base64');
+const decodeCursor = (cursor) => {
+  try {
+    return JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
+  } catch (e) {
+    return null;
+  }
+};
+
+app.get('/api/analytics/orders', async (req, res) => {
+  try {
+    const { cursor, limit = 20 } = req.query;
+    const parsedLimit = parseInt(limit, 10);
+    const decoded = cursor ? decodeCursor(cursor) : null;
+    
+    // MOCK DATA GENERATION ON-THE-FLY FOR 1M RECORDS TEST
+    // We simulate a DB query that returns exactly limit + 1 items based on cursor
+    let startIndex = decoded && decoded.index !== undefined ? decoded.index : 0;
+    
+    // Circuit Breaker / Load Simulation (1-3s delay)
+    const delay = Math.floor(Math.random() * 500) + 100;
+    await new Promise(resolve => setTimeout(resolve, delay));
+    
+    const TOTAL_RECORDS = 1000000;
+    const rows = [];
+    
+    // Generate exactly parsedLimit + 1 items to determine hasNextPage
+    const fetchCount = Math.min(parsedLimit + 1, TOTAL_RECORDS - startIndex);
+    
+    for (let i = 0; i < fetchCount; i++) {
+      const currentIndex = startIndex + i;
+      rows.push({
+        id: `ORD-${1000000 + currentIndex}`,
+        order_date: new Date(Date.now() - currentIndex * 10000).toISOString(),
+        customer_name: `Khách hàng ${currentIndex}`,
+        total_amount: Math.floor(Math.random() * 4900000) + 100000,
+        status: currentIndex % 5 === 0 ? 'PENDING' : 'DELIVERED',
+        index: currentIndex // Used for tie-breaker in this mock
+      });
+    }
+
+    let nextCursor = null;
+    let hasNextPage = false;
+    
+    if (rows.length > parsedLimit) {
+      hasNextPage = true;
+      rows.pop(); // Remove the extra record
+      const lastRecord = rows[rows.length - 1];
+      nextCursor = encodeCursor({
+        index: lastRecord.index + 1 // Start from next item
+      });
+    }
+
+    res.json({
+      data: rows,
+      nextCursor,
+      hasNextPage
+    });
+  } catch (err) {
+    res.status(503).json({ error: 'Hệ thống dữ liệu đang quá tải, vui lòng sử dụng cache', isCircuitOpen: true });
+  }
+});
+
 // ─── ALERTS ───────────────────────────────────────────────────
 app.get('/api/alerts/active', authMiddleware, async (req, res) => {
   try {

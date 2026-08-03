@@ -40,6 +40,13 @@ export const api = {
   revenueByCategory: (params = {}) => request('/analytics/revenue/by-category?' + new URLSearchParams(params)),
   revenueTrend: (params = {}) => request('/analytics/revenue/trend?' + new URLSearchParams(params)),
 
+  analytics: {
+    getOrders: (cursor, limit = 20) => request('/analytics/orders?' + new URLSearchParams({ 
+      ...(cursor ? { cursor } : {}), 
+      limit 
+    }))
+  },
+
   financialSummary: (params = {}) => request('/financial/summary?' + new URLSearchParams(params)),
   financialVouchers: (params = {}) => request('/financial/vouchers?' + new URLSearchParams(params)),
 
