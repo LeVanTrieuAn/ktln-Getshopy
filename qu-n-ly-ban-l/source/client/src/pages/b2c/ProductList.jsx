@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Row, Col, Card, Typography, Spin, Tag, Rate, Select, Empty, InputNumber, Button, Checkbox, Slider, Radio, Divider } from 'antd';
+import { Row, Col, Card, Typography, Spin, Tag, Rate, Select, Empty, InputNumber, Button, Checkbox, Slider, Radio, Divider, Pagination } from 'antd';
 import { ShoppingCartOutlined, FilterOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -10,6 +10,8 @@ const { Title, Text } = Typography;
 
 export default function ProductList() {
   const [products, setProducts] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [categories, setCategories] = useState([]);
   const [brandList, setBrandList] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -38,19 +40,21 @@ export default function ProductList() {
       setLoading(true);
       try {
         let [prodData, catData, brandData] = await Promise.all([
-          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id),
+          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 12),
           api.b2c.getCategories(),
           api.b2c.getBrands()
         ]);
         
-        if (appliedMinPrice !== null) prodData = prodData.filter(p => p.price >= appliedMinPrice);
-        if (appliedMaxPrice !== null) prodData = prodData.filter(p => p.price <= appliedMaxPrice);
+        let allProds = prodData.data || [];
+        if (appliedMinPrice !== null) allProds = allProds.filter(p => p.price >= appliedMinPrice);
+        if (appliedMaxPrice !== null) allProds = allProds.filter(p => p.price <= appliedMaxPrice);
         if (brands.length > 0) {
-          prodData = prodData.filter(p => brands.includes(p.brand_id));
+          allProds = allProds.filter(p => brands.includes(p.brand_id));
         }
-        if (minRating > 0) prodData = prodData.filter(p => p.rating >= minRating);
+        if (minRating > 0) allProds = allProds.filter(p => p.rating >= minRating);
 
-        setProducts(prodData);
+        setProducts(allProds);
+        setTotalProducts(prodData.total || 0);
         setCategories(catData);
         setBrandList(brandData || []);
       } catch (err) {
@@ -60,7 +64,7 @@ export default function ProductList() {
       }
     }
     load();
-  }, [categoryFilter, searchQuery, sort, appliedMinPrice, appliedMaxPrice, selectedBranch]);
+  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, minRating, currentPage]);
 
   const applyPriceFilter = () => {
     setAppliedMinPrice(minPrice);
@@ -269,6 +273,18 @@ export default function ProductList() {
             </Col>
           ))}
         </Row>
+      )}
+
+      {totalProducts > 12 && (
+        <div style={{ textAlign: 'center', marginTop: 40, paddingBottom: 40 }}>
+          <Pagination 
+            current={currentPage} 
+            total={totalProducts} 
+            pageSize={12} 
+            onChange={(page) => setCurrentPage(page)}
+            showSizeChanger={false}
+          />
+        </div>
       )}
     </div>
   );

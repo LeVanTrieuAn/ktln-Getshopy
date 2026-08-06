@@ -105,8 +105,8 @@ export const api = {
     getCategories: () => request('/b2c/categories'),
     getBrands: () => request('/b2c/brands'),
     getFlashSales: () => request('/b2c/flash-sales'),
-    getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '') => 
-      request('/b2c/products?' + new URLSearchParams({ category_id, search, sort, branch_id })),
+    getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12) => 
+      request('/b2c/products?' + new URLSearchParams({ category_id, search, sort, branch_id, page, limit })),
     getProductDetails: (id) => request(`/b2c/products/${id}`),
     checkout: (data) => request('/b2c/checkout', { method: 'POST', body: JSON.stringify(data) }),
     applyVoucher: (code, cart_total) => request('/b2c/cart/apply-voucher', { method: 'POST', body: JSON.stringify({ code, cart_total }) }),

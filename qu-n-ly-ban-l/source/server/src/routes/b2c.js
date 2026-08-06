@@ -49,25 +49,26 @@ router.get('/brands', async (req, res) => {
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
-    const { category_id, brand_id, search, sort, branch_id } = req.query;
+    const { category_id, brand_id, search, sort, branch_id, page = 1, limit = 12 } = req.query;
+    const pageNumber = parseInt(page, 10) || 1;
+    const limitNumber = parseInt(limit, 10) || 12;
+    const skip = (pageNumber - 1) * limitNumber;
     
     let where = { is_deleted: false };
     if (category_id && category_id !== 'ALL') where.category_id = category_id;
     if (brand_id && brand_id !== 'ALL') where.brand_id = brand_id;
     if (search) where.name = { contains: search, mode: 'insensitive' };
-    // JSON branch_ids filtering isn't perfectly supported in primitive Prisma jsonb arrays without raw query on Postgres, 
-    // but we can filter it post-query or assume a simplified approach. 
-    // To be safe, we fetch and filter post-query for branches.
 
     let orderBy = { id: 'desc' };
     if (sort === 'price_asc') orderBy = { price: 'asc' };
     if (sort === 'price_desc') orderBy = { price: 'desc' };
     if (sort === 'newest') orderBy = { id: 'desc' };
 
-    let products = await prisma.product.findMany({ where, orderBy, take: 100 });
+    // Fetch all matching products for post-query branch filtering (since branch_ids is complex JSON)
+    let allProducts = await prisma.product.findMany({ where, orderBy });
 
     if (branch_id) {
-      products = products.filter(p => {
+      allProducts = allProducts.filter(p => {
         if (!p.branch_ids) return true;
         let arr = p.branch_ids;
         if (typeof arr === 'string') {
@@ -76,11 +77,20 @@ router.get('/products', async (req, res) => {
         return !Array.isArray(arr) || arr.length === 0 || arr.includes(branch_id);
       });
     }
+
+    const total = allProducts.length;
+    let products = allProducts.slice(skip, skip + limitNumber);
     
     const fsItems = await getActiveFlashSaleItems();
     products = products.map(p => applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems));
 
-    res.json(products);
+    res.json({
+      data: products,
+      total,
+      page: pageNumber,
+      limit: limitNumber,
+      totalPages: Math.ceil(total / limitNumber)
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

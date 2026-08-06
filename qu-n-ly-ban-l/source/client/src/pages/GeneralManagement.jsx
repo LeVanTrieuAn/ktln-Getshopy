@@ -284,9 +284,13 @@ export default function GeneralManagement() {
       dataIndex: 'branch_ids', 
       key: 'branch_ids', 
       render: (ids) => {
-        if (!ids || !ids.length) return 'Tất cả';
+        let arr = ids;
+        if (typeof arr === 'string') {
+          try { arr = JSON.parse(arr); } catch(e) { arr = []; }
+        }
+        if (!Array.isArray(arr) || !arr.length) return 'Tất cả';
         const uniqueBr = Array.from(new Map(branches.map(b => [b.id, b])).values());
-        const names = ids.map(id => uniqueBr.find(b => b.id === id)?.name?.split(' - ').pop() || id);
+        const names = arr.map(id => uniqueBr.find(b => b.id === id)?.name?.split(' - ').pop() || id);
         if (names.length <= 3) return names.join(', ');
         return (
           <Tooltip title={names.join(', ')}>

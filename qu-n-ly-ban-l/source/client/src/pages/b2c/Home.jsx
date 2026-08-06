@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Row, Col, Card, Carousel, Typography, Spin, Tag, Rate, Statistic } from 'antd';
+import { Row, Col, Card, Carousel, Typography, Spin, Tag, Rate, Statistic, Pagination } from 'antd';
 import { ShoppingCartOutlined, FireOutlined, ThunderboltOutlined, MobileOutlined, LaptopOutlined, TabletOutlined, AudioOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -18,6 +18,8 @@ const iconMap = {
 
 export default function Home() {
   const [products, setProducts] = useState([]);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [categories, setCategories] = useState([]);
   const [flashSale, setFlashSale] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,12 +32,14 @@ export default function Home() {
   useEffect(() => {
     async function load() {
       try {
+        setLoading(true);
         const [prodData, catData, flashData] = await Promise.all([
-          api.b2c.getProducts('ALL', '', 'newest', selectedBranch?.id),
+          api.b2c.getProducts('ALL', '', 'newest', selectedBranch?.id, currentPage, 12),
           api.b2c.getCategories(),
           api.b2c.getFlashSales()
         ]);
-        setProducts(prodData);
+        setProducts(prodData.data || []);
+        setTotalProducts(prodData.total || 0);
         setCategories(catData);
         setFlashSale(flashData);
       } catch (err) {
@@ -45,7 +49,7 @@ export default function Home() {
       }
     }
     load();
-  }, [selectedBranch]);
+  }, [selectedBranch, currentPage]);
 
   useEffect(() => {
     async function loadRecs() {
@@ -303,6 +307,18 @@ export default function Home() {
           </Col>
         ))}
       </Row>
+      
+      {totalProducts > 12 && (
+        <div style={{ textAlign: 'center', marginTop: 40, paddingBottom: 40 }}>
+          <Pagination 
+            current={currentPage} 
+            total={totalProducts} 
+            pageSize={12} 
+            onChange={(page) => setCurrentPage(page)}
+            showSizeChanger={false}
+          />
+        </div>
+      )}
     </div>
   );
 }
