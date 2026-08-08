@@ -4,5 +4,4 @@ source/data/redis/
 .env
 .DS_Store
 
-# AI model weights — auto-generated file (109 MB), tự động tạo lại khi server khởi động
 **/ai_model_weights.json
