@@ -35,15 +35,17 @@ export default function AIChatbot() {
     setIsTyping(true);
 
     try {
+      // Giả lập thời gian AI "suy nghĩ" để hiện hiệu ứng gõ phím chân thật (1.5s)
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
       const response = await fetch('http://localhost:8080/api/b2c/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg,
-          history: messages.slice(-5) // Gửi 5 tin nhắn gần nhất làm bối cảnh
+          history: messages.slice(-5)
         })
       });
-      
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       
@@ -169,8 +171,12 @@ export default function AIChatbot() {
             {isTyping && (
               <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 <Avatar icon={<RobotOutlined />} style={{ background: '#10b981' }} />
-                <div style={{ background: isDark ? 'rgba(255,255,255,0.1)' : '#f0f2f5', padding: '10px 16px', borderRadius: '4px 16px 16px 16px' }}>
-                  <Spin size="small" />
+                <div style={{ background: isDark ? 'rgba(255,255,255,0.1)' : '#f0f2f5', padding: '12px 16px', borderRadius: '4px 16px 16px 16px' }}>
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                 </div>
               </div>
             )}
@@ -201,6 +207,26 @@ export default function AIChatbot() {
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-10px); }
+        }
+        .typing-indicator {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 4px;
+        }
+        .typing-indicator span {
+          display: inline-block;
+          width: 6px;
+          height: 6px;
+          background-color: #10b981;
+          border-radius: 50%;
+          animation: typing 1.4s infinite ease-in-out both;
+        }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing {
+          0%, 80%, 100% { transform: scale(0); }
+          40% { transform: scale(1); }
         }
       `}</style>
     </>
