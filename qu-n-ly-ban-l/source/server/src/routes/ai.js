@@ -10,6 +10,7 @@ const {
   handleExpandedIntent, removeDiacritics,
   isPromoQuery, isDeliveryQuery, isReturnQuery, isPaymentQuery,
   isPriceComplaint, isChangeProductQuery, isTrackOrderQuery, isCancelOrderQuery,
+  isContactQuery,
 } = require('./aiHandlers');
 
 // ── DUAL-ENGINE NLP ──────────────────────────────────────────────────────────
@@ -240,8 +241,9 @@ router.post('/b2c/chat', async (req, res) => {
     // Pre-classify câu chào hỏi ngắn gọn TRƯỚC Naive Bayes để tránh mis-classify.
     // Model train trên 1M+ sample SEARCH_PRODUCT nên rất dễ "nuốt" các câu đơn giản.
     let intent, score;
-    if (GREETING_PATTERNS.some(p => p.test(message.trim()))) {
-      // ── Pre-classify: câu chào hỏi ngắn → luôn là GREETING ──
+    // Pre-classify: câu chào hỏi (có dấu lẫn không dấu) → luôn là GREETING
+    const NO_DIAC_GREETING = /^(xin chao|hello|hi|hey|alo|chao|chao ban|chao shop|shop oi|em oi|co ai khong|co ai do khong|alo shop|good morning|good evening|good night|xin chao nhe|chao nhe)[\s!.,?]*$/i;
+    if (GREETING_PATTERNS.some(p => p.test(message.trim())) || NO_DIAC_GREETING.test(removeDiacritics(message.trim()))) {
       intent = 'GREETING'; score = 1.0;
       console.log(`[VI PreClassify] Greeting pattern matched → intent=GREETING`);
     } else {
@@ -286,6 +288,7 @@ router.post('/b2c/chat', async (req, res) => {
           else if (isTrackOrderQuery(message))    { intent = 'TRACK_ORDER';      console.log('[VI SecondaryFix] → TRACK_ORDER'); }
           else if (isCancelOrderQuery(message))   { intent = 'CANCEL_ORDER';     console.log('[VI SecondaryFix] → CANCEL_ORDER'); }
           else if (isChangeProductQuery(message)) { intent = 'CHANGE_PRODUCT';   console.log('[VI SecondaryFix] → CHANGE_PRODUCT'); }
+          else if (isContactQuery(message))       { intent = 'CONTACT';          console.log('[VI SecondaryFix] → CONTACT'); }
         }
       }
     }
@@ -305,14 +308,20 @@ router.post('/b2c/chat', async (req, res) => {
 
     // ── NHÓM: HỎI KHUYẾN MÃI ──
     else if (intent === 'ASK_PROMO') {
-      const activeSales = await prisma.flashSale.findMany({
-        where: { is_deleted: false, is_active: true },
-        take: 1
-      });
-      if (activeSales.length > 0) {
-        aiResponse.text = `Dạ hiện bên em đang có chương trình **"${activeSales[0].title}"** giảm tới **${activeSales[0].discount_percent}%** luôn ạ! Anh/chị tranh thủ nhanh kẻo hết nhé. Xem ngay tại trang chủ ạ!`;
-      } else {
-        aiResponse.text = "Dạ hiện bên em chưa có Flash Sale đang chạy ạ. Nhưng anh/chị có thể để lại số điện thoại để em báo ngay khi có deal mới nhé! Hoặc ghé trang chủ xem sản phẩm đang giảm giá ạ.";
+      try {
+        const activeSales = await prisma.flashSale.findMany({
+          where: { is_deleted: false, is_active: true },
+          take: 1
+        });
+        if (activeSales.length > 0) {
+          aiResponse.text = `Dạ hiện bên em đang có chương trình **"${activeSales[0].title}"** giảm tới **${activeSales[0].discount_percent}%** luôn ạ! Anh/chị tranh thủ nhanh kẻo hết nhé. Xem ngay tại trang chủ ạ!`;
+        } else {
+          aiResponse.text = "Dạ hiện bên em chưa có Flash Sale đang chạy ạ. Nhưng anh/chị có thể theo dõi trang chủ để cập nhật deal mới nhé!";
+        }
+      } catch (_e) {
+        // flashSale table chưa có / lỗi DB → dùng static response
+        console.warn('[AI] flashSale query failed:', _e.message);
+        aiResponse.text = "Dạ bên em đang có nhiều chương trình ưu đãi hấp dẫn! Anh/chị ghé trang chủ xem chi tiết các sản phẩm đang **giảm giá** và nhận **voucher** hấp dẫn nhé ạ!";
       }
       aiResponse.link = "/";
     }
@@ -526,7 +535,90 @@ router.post('/b2c/chat', async (req, res) => {
       aiResponse.link = "/";
     }
 
-    // ── NHÓM: SO SÁNH CẤU HÌNH KỸ THUẬT ──
+    // ── NHÓM: SMALLTALK / CHIT-CHAT ──
+    else if (intent === 'SMALLTALK') {
+      const picks = [
+        "Dạ cảm ơn anh/chị đã tin tưởng Getshopy! 😊 Anh/chị cần tư vấn thêm sản phẩm gì không ạ? Em luôn sẵn sàng hỗ trợ!",
+        "Dạ em cảm ơn ạ! Anh/chị có muốn xem thêm điện thoại, laptop hay phụ kiện gì không ạ?",
+        "Dạ anh/chị cứ thoải mái quay lại hỏi thêm nhé! 😊 Getshopy luôn ở đây để hỗ trợ ạ!",
+        "Dạ cảm ơn anh/chị! Nếu cần tư vấn thêm cứ nhắn em nhé. Chúc anh/chị mua sắm vui vẻ ạ! 🌟",
+      ];
+      aiResponse.text = picks[Math.floor(Math.random() * picks.length)];
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: PHẢN HỒI TÍCH CỰC ──
+    else if (intent === 'FEEDBACK_POSITIVE') {
+      aiResponse.text = "Dạ em rất vui khi được phục vụ anh/chị! 🌟 Cảm ơn anh/chị đã tin tưởng và ủng hộ Getshopy ạ! Anh/chị có thể để lại **đánh giá 5 sao** trên Google để khích lệ team bên em nhé ạ. Hẹn gặp lại anh/chị trong lần mua sắm tiếp theo! 💛";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: SẢN PHẨM BÁN CHẠY NHẤT ──
+    else if (intent === 'ASK_BEST_SELLER') {
+      try {
+        const best = await prisma.product.findMany({
+          where: { is_deleted: false },
+          orderBy: { sold: 'desc' },
+          take: 3,
+        });
+        if (best.length > 0) {
+          const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
+          const list = best.map((p, i) => `${i+1}. **${p.name}** — ${fmt(p.price)} (⭐${p.rating || 4.5}/5)`).join('\n');
+          aiResponse.text = `Dạ đây là TOP sản phẩm **bán chạy nhất** tại Getshopy ạ:\n\n${list}\n\nAnh/chị muốn tìm hiểu thêm về sản phẩm nào không ạ?`;
+          aiResponse.link = `/product/${best[0].id}`;
+        } else {
+          aiResponse.text = "Dạ bên em đang có rất nhiều sản phẩm hot! Anh/chị ghé trang chủ để xem danh sách bán chạy nhé ạ!";
+          aiResponse.link = "/";
+        }
+      } catch (_) {
+        aiResponse.text = "Dạ bên em đang có nhiều sản phẩm hot! Anh/chị vào trang chủ để xem top bán chạy nhé ạ!";
+        aiResponse.link = "/";
+      }
+    }
+
+    // ── NHÓM: HÀNG MỚI / PRE-ORDER ──
+    else if (intent === 'ASK_NEW_ARRIVAL' || intent === 'ASK_PREORDER') {
+      aiResponse.text = "Dạ Getshopy luôn cập nhật **hàng mới nhất** ngay khi về ạ! 📦 Anh/chị có thể:\n- Theo dõi **Fanpage Getshopy** để không bỏ lỡ tin mới\n- Đăng ký **nhận thông báo qua email** trên website\n- Đặt trước (pre-order) để được giá ưu đãi trước ngày ra mắt\n\nAnh/chị đang quan tâm dòng sản phẩm nào để em tư vấn chi tiết ạ?";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: CẦN HÀNG GẤP / HỎA TỐC ──
+    else if (intent === 'URGENT_NEED') {
+      aiResponse.text = "Dạ em hiểu anh/chị cần gấp! 🚀 Getshopy hỗ trợ:\n- **Giao hỏa tốc 2-4h** nội thành TP.HCM và Hà Nội\n- **Lấy tại cửa hàng ngay** (Click & Collect) nếu anh/chị ở gần\n- **Giao tiêu chuẩn 1-2 ngày** cho các tỉnh thành khác\n\nAnh/chị cần mua sản phẩm gì? Em kiểm tra tồn kho và đặt giao ngay nhé ạ!";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: MUA SỈ / DOANH NGHIỆP ──
+    else if (intent === 'BULK_ORDER') {
+      aiResponse.text = "Dạ Getshopy có chính sách **giá sỉ đặc biệt** cho đơn hàng số lượng lớn ạ! 🏢\n- **Từ 5 sản phẩm**: giảm 3-5%\n- **Từ 10 sản phẩm**: giảm 7-10%\n- **Từ 50+ sản phẩm**: báo giá riêng theo hợp đồng\n\nAnh/chị vui lòng liên hệ **hotline 1800-xxxx** hoặc email **wholesale@getshopy.vn** để được hỗ trợ trực tiếp nhé ạ!";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: HÓA ĐƠN VAT ──
+    else if (intent === 'ASK_INVOICE') {
+      aiResponse.text = "Dạ Getshopy **xuất hóa đơn VAT (GTGT)** cho tất cả đơn hàng khi có yêu cầu ạ! 🧾\n- Cung cấp: **Tên công ty, Mã số thuế, Địa chỉ** lúc đặt hàng\n- Hóa đơn điện tử gửi qua **email** trong 24h\n- Giá hiển thị đã **bao gồm VAT 10%**\n\nAnh/chị cần hỗ trợ xuất hóa đơn cứ liên hệ **invoice@getshopy.vn** nhé ạ!";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: GÓI QUÀ / ĐÓNG GÓI ĐẶC BIỆT ──
+    else if (intent === 'ASK_GIFT_WRAP') {
+      aiResponse.text = "Dạ Getshopy có dịch vụ **gói quà miễn phí** cho mọi đơn hàng tặng quà ạ! 🎁\n- Hộp quà sang trọng + giấy gói đẹp\n- Thiệp chúc mừng cá nhân hoá (ghi nội dung theo yêu cầu)\n- Giao hàng kín đáo, đảm bảo yếu tố bất ngờ\n\nAnh/chị chọn **\"Gói quà\"** khi thanh toán hoặc nhắn em để được hỗ trợ nhé ạ!";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: TÍCH ĐIỂM / THÀNH VIÊN ──
+    else if (intent === 'ASK_LOYALTY') {
+      aiResponse.text = "Dạ Getshopy có chương trình **tích điểm thành viên** hấp dẫn ạ! 👑\n- **100.000đ** mua hàng = **1 điểm thưởng**\n- Điểm quy đổi được **voucher giảm giá, quà tặng** hấp dẫn\n- 3 hạng thành viên: **Bạc → Vàng → Kim cương** với ưu đãi riêng\n- **Quà tặng sinh nhật** đặc biệt cho thành viên\n\nAnh/chị đăng ký tài khoản để tích điểm ngay nhé ạ!";
+      aiResponse.link = "/";
+    }
+
+    // ── NHÓM: HÀNG CŨ / REFURBISHED ──
+    else if (intent === 'ASK_SECOND_HAND') {
+      aiResponse.text = "Dạ Getshopy có bán **máy refurbished (tân trang)** chất lượng cao ạ! ♻️\n- Máy đã qua **kiểm tra kỹ lưỡng** 100+ điểm\n- **Vệ sinh, thay linh kiện** mới nếu cần\n- **Bảo hành 6 tháng** như hàng mới\n- Giảm **15-25%** so với hàng mới nguyên seal\n\nAnh/chị muốn xem dòng nào? Em kiểm tra tồn kho nhé ạ!";
+      aiResponse.link = "/";
+    }
+
+
     else if (intent === 'COMPARE_SPECS') {
       // Bóc tách 2 tên sản phẩm từ câu hỏi (cách nhau bởi "và", "vs", "hay", "với")
       const splitPattern = /\s+(vs\.?|và|hay|với|hoặc)\s+/i;
@@ -736,8 +828,12 @@ router.post('/b2c/chat', async (req, res) => {
 
     res.json(aiResponse);
   } catch (err) {
-    console.error("AI Chat Error:", err);
-    res.status(500).json({ error: err.message });
+    console.error('[AI Chat Error]', err.message);
+    // Quan trọng: luôn trả về { text } để client không nhận được empty response
+    res.json({
+      text: 'Dạ em đang gặp sự cố kỹ thuật nhỏ. Anh/chị vui lòng thử lại sau ít phút nhé ạ! Hoặc liên hệ hotline **1800-xxxx** (được hỗ trợ ngay) ạ.',
+      link: null,
+    });
   }
 });
 

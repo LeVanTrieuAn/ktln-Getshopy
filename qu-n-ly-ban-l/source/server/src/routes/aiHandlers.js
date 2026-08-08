@@ -2005,7 +2005,7 @@ Object.assign(module.exports, {
  */
 function isPromoQuery(message) {
   const m = removeDiacritics(message);
-  return /khuyen mai|sale|giam gia|voucher|coupon|flash sale|deal|uu dai/i.test(m);
+  return /khuyen mai|sale|giam gia|voucher|coupon|flash sale|deal|uu dai|ma giam|freeship|ship mien phi|chiet khau|khuyen|gia tot|off|discount|offer|tich diem|doi qua/i.test(m);
 }
 
 /**
@@ -2015,7 +2015,7 @@ function isPromoQuery(message) {
  */
 function isDeliveryQuery(message) {
   const m = removeDiacritics(message);
-  return /giao hang|ship|van chuyen|phi ship|freeship|nhan hang/i.test(m);
+  return /giao hang|ship|van chuyen|phi ship|freeship|nhan hang|bao lau giao|mat may ngay|giao nhanh|giao trong ngay|giao ve tinh|phi giao|toc do giao|dong goi|nhan o dau|giao den|giao ho chi minh|giao ha noi|giao da nang|giao can tho/i.test(m);
 }
 
 /**
@@ -2025,7 +2025,7 @@ function isDeliveryQuery(message) {
  */
 function isReturnQuery(message) {
   const m = removeDiacritics(message);
-  return /doi tra|bao hanh|hoan tien|chinh sach|loi may|doi may/i.test(m);
+  return /doi tra|bao hanh|hoan tien|chinh sach|loi may|doi may|xay xuoc|bi loi|hu hong|thay the|boi thuong|hoan hang|tra hang|that vong|khong dung mo ta|loi man hinh|pin phong|may bi|kiem tra may/i.test(m);
 }
 
 /**
@@ -2035,7 +2035,7 @@ function isReturnQuery(message) {
  */
 function isPaymentQuery(message) {
   const m = removeDiacritics(message);
-  return /tra gop|thanh toan|momo|zalopay|vnpay|cod|the tin dung|chuyen khoan|lai suat/i.test(m);
+  return /tra gop|thanh toan|momo|zalopay|vnpay|cod|the tin dung|chuyen khoan|lai suat|tien mat|apple pay|google pay|crypto|vi dien tu|ngan hang|atm|chia nho|tra truoc|tra sau|bao nhieu tram|gop hang thang|0 lai|mien lai/i.test(m);
 }
 
 /**
@@ -2045,7 +2045,7 @@ function isPaymentQuery(message) {
  */
 function isPriceComplaint(message) {
   const m = removeDiacritics(message);
-  return /mac qua|dat the|cao vay|bot duoc khong|giam them|re hon|ngan sach|budget it|qua tam tai chinh|khong du tien|phai chang|gia re|re nhat|gia tot|hop ly|gia ok|affordable|cheap|gia thap|gia binh dan|tiet kiem|mua duoc|trong tam gia|gia vua|ngan sach thap|gia ca tot/i.test(m);
+  return /mac qua|dat the|cao vay|bot duoc khong|giam them|re hon|ngan sach|budget it|qua tam tai chinh|khong du tien|phai chang|gia re|re nhat|gia tot|hop ly|gia ok|affordable|cheap|gia thap|gia binh dan|tiet kiem|mua duoc|trong tam gia|gia vua|ngan sach thap|gia ca tot|3 cu|2 cu|tui tien|ngheo|tai chinh han hep|tui tien han hep|sinh vien|gia sinh vien|re ma chat|ngon bo re|gia mem|gia ok|deal ngon|giam gia|gia thap nhat/i.test(m);
 }
 
 /**
@@ -2065,7 +2065,8 @@ function isChangeProductQuery(message) {
  */
 function isTrackOrderQuery(message) {
   const m = removeDiacritics(message);
-  return /don hang dau|trang thai don|theo doi don|order dang|hang giao chua|bao gio giao/i.test(m);
+  // Mở rộng: match nhiều cách hỏi về trạng thái/vị trí đơn hàng
+  return /don hang.*o dau|o dau roi|trang thai don|theo doi don|theo doi.*hang|order.*o dau|hang.*giao chua|bao gio giao|hang toi chua|don.*dang di|don.*dang xu ly|track.*order|where.*order|kiem tra don|don hang cua toi|order cua minh|don dat.*hom|khi nao nhan|ship chua|shipper chua/i.test(m);
 }
 
 /**
@@ -2075,7 +2076,17 @@ function isTrackOrderQuery(message) {
  */
 function isCancelOrderQuery(message) {
   const m = removeDiacritics(message);
-  return /huy don|huy order|khong mua nua|cancel|bo don|xoa don/i.test(m);
+  return /huy don|huy order|khong mua nua|cancel|bo don|xoa don|dat nham|khong lay nua|muon huy|huy ngay|bo qua|thoi khong mua|khong can nua|huy truoc khi giao|huy truoc khi ship/i.test(m);
+}
+
+/**
+ * Kiểm tra xem tin nhắn có chứa câu hỏi về địa chỉ/liên hệ cửa hàng không.
+ * @param {string} message
+ * @returns {boolean}
+ */
+function isContactQuery(message) {
+  const m = removeDiacritics(message);
+  return /dia chi|cua hang|o dau|hotline|so dien thoai|lien he|email shop|gio mo cua|chi nhanh|ha noi|ho chi minh|da nang|can tho|map|ban do|nhan vien|tu van vien|nguoi that|chat truc tiep|facebook|fanpage|zalo shop/i.test(m);
 }
 
 /**
@@ -2249,6 +2260,7 @@ Object.assign(module.exports, {
   isChangeProductQuery,
   isTrackOrderQuery,
   isCancelOrderQuery,
+  isContactQuery,
   detectQueryTypes,
   handleMultiIntent,
 

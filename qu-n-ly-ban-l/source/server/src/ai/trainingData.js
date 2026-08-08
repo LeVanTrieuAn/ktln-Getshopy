@@ -487,4 +487,95 @@ module.exports = function registerAllIntents(ai) {
     'chính hãng không và bảo hành bao lâu'
   ].forEach(s => ai.addDocument(s, 'MULTI_QUESTION'));
 
+  // ════════════════════════════════════════
+  // PHẦN 3: CÁC INTENT BỔ SUNG (EXPANDED)
+  // ════════════════════════════════════════
+
+  // ── SMALLTALK EXPANDED: Thêm cảm ơn, tạm biệt đa dạng hơn
+  [
+    'oke cảm ơn', 'thank you', 'cảm ơn em', 'bái bai', 'thôi bye nhé',
+    'đã hiểu rồi', 'ok xong rồi', 'ok thôi', 'vậy thôi', 'thanks nhiều',
+    'cảm ơn nhiều lắm', 'em rất helpful', 'bạn tư vấn tốt lắm',
+    'mình nghĩ xong rồi hỏi thêm sau', 'thôi để mình suy nghĩ thêm',
+    'thanks for your help', 'appreciated', 'sẽ liên hệ lại sau',
+  ].forEach(s => ai.addDocument(s, 'SMALLTALK'));
+
+  // ── FEEDBACK_POSITIVE EXPANDED: Khen ngợi đa dạng hơn
+  [
+    'mua ủng hộ shop thêm', 'shop thật tuyệt', 'sẽ review cho mọi người biết',
+    'trải nghiệm rất tốt', 'dịch vụ chuyên nghiệp', 'mình rất hài lòng',
+    'lần sau lại mua', 'recommend cho bạn bè luôn', 'chất lượng vượt kỳ vọng',
+    'đóng gói cẩn thận', 'hàng y như hình', 'giao đúng giờ', 'nhân viên dễ thương',
+    'shop xịn lắm', 'mua lần nào cũng ổn', 'trust shop này 100%',
+  ].forEach(s => ai.addDocument(s, 'FEEDBACK_POSITIVE'));
+
+  // ── ASK_BEST_SELLER: Bán chạy, phổ biến, được đánh giá cao
+  [
+    'điện thoại bán chạy nhất', 'laptop hot nhất hiện tại', 'tai nghe bán chạy',
+    'đang hot cái gì', 'mọi người hay mua cái nào', 'sản phẩm được đánh giá cao nhất',
+    'review tốt nhất là gì', 'khách hàng ưa chuộng nhất là gì', 'top bán chạy',
+    'điện thoại phổ biến nhất', 'laptop được mua nhiều nhất', 'đồng hồ thông minh nào bán chạy',
+    'best seller shop là gì', 'sản phẩm nào nhiều người mua', 'cái gì đang trending',
+    'top 3 sản phẩm được yêu thích nhất', 'điện thoại nào bán được nhiều nhất',
+  ].forEach(s => ai.addDocument(s, 'ASK_BEST_SELLER'));
+
+  // ── ASK_NEW_ARRIVAL EXPANDED: Hàng mới về, sản phẩm mới nhất
+  [
+    'hàng mới về tuần này', 'có collection mới không', 'ra mắt bao giờ',
+    'hàng mới nhập về chưa', 'đang có model mới nào không', 'mới nhất là cái gì',
+    'release date bao giờ', 'bao giờ có iphone mới', 'samsung mới ra mắt gì',
+    'có điện thoại mới về không', 'laptop mới nhất là gì', 'model 2025 có chưa',
+  ].forEach(s => ai.addDocument(s, 'ASK_NEW_ARRIVAL'));
+
+  // ── URGENT_NEED EXPANDED: Cần gấp, giao hỏa tốc
+  [
+    'giao hỏa tốc nội thành', 'ship express được không', 'cần hàng trong ngày hôm nay',
+    'giao trong ngày được không', 'đặt sáng giao trưa được không',
+    'tôi cần mua ngay bây giờ', 'khẩn cấp', 'giao ngay lập tức', 'cần gấp lắm shop ơi',
+    'có thể giao trong vòng 1h không', 'nội thành giao được ngay không',
+    'đặt online lấy tại cửa hàng luôn được không', 'click and collect',
+  ].forEach(s => ai.addDocument(s, 'URGENT_NEED'));
+
+  // ── BULK_ORDER EXPANDED: Mua sỉ, số lượng lớn
+  [
+    'giá sỉ cho trường học', 'mua số lượng lớn chiết khấu bao nhiêu', 'đặt hàng doanh nghiệp',
+    'mua cho văn phòng cả chục cái', 'giá B2B bao nhiêu', 'có hợp đồng khung không',
+    'mua laptop cho toàn bộ nhân viên', 'order số lượng lớn', 'corporate pricing',
+    'mua cho trường học có giảm không', 'giá thầu cho tổ chức', 'đơn hàng bulk',
+  ].forEach(s => ai.addDocument(s, 'BULK_ORDER'));
+
+  // ── ASK_INVOICE EXPANDED: Hóa đơn VAT, hóa đơn điện tử
+  [
+    'cần invoice cho công ty', 'xuất vat invoice được không', 'hóa đơn tài chính cho doanh nghiệp',
+    'hóa đơn điện tử qua email được không', 'xuất hóa đơn đỏ', 'hóa đơn gtgt',
+    'thuế VAT đã bao gồm chưa', 'xuất hóa đơn cho công ty được không',
+    'cần chứng từ mua hàng', 'phiếu thu có không', 'biên lai mua hàng',
+  ].forEach(s => ai.addDocument(s, 'ASK_INVOICE'));
+
+  // ── ASK_GIFT_WRAP EXPANDED: Gói quà, đóng gói đặc biệt
+  [
+    'bao bì quà tặng có đẹp không', 'muốn mua tặng bạn gái cần gói quà',
+    'gói hộp quà có tính phí không', 'bao bì sinh nhật có không',
+    'wrap quà tặng không', 'gift wrap service', 'đóng gói đặc biệt',
+    'có thể viết thiệp riêng không', 'thiệp valentine', 'tặng quà 8/3',
+    'tặng quà ngày của cha', 'gói quà giáng sinh', 'hộp quà tết có không',
+  ].forEach(s => ai.addDocument(s, 'ASK_GIFT_WRAP'));
+
+  // ── ASK_LOYALTY EXPANDED: Điểm thưởng, thành viên VIP, tích điểm
+  [
+    'loyalty program của shop', 'thẻ thành viên có lợi gì', 'ưu đãi khách hàng thân thiết',
+    'điểm tích lũy dùng được gì', 'lên hạng vip cần bao nhiêu', 'hạng thành viên cao nhất là gì',
+    'quà tặng sinh nhật thành viên', 'cashback bao nhiêu phần trăm', 'hoàn tiền thành viên',
+    'membership fee có không', 'đăng ký free không', 'thẻ vàng điều kiện gì',
+  ].forEach(s => ai.addDocument(s, 'ASK_LOYALTY'));
+
+  // ── ASK_SECOND_HAND EXPANDED: Hàng cũ, refurbished
+  [
+    'máy refurb chất lượng không', 'hàng like new còn bao nhiêu phần trăm',
+    'máy trưng bày có giảm giá nhiều không', 'refurbished có bảo hành không',
+    'đồng hồ cũ có bán không', 'laptop cũ ngon không', 'điện thoại second hand',
+    'ipad cũ giá bao nhiêu', 'macbook air cũ loại nào ngon', 'mua máy refurb có rủi ro không',
+    'pre-owned device', 'certified pre-owned', 'ổn định như hàng mới không',
+  ].forEach(s => ai.addDocument(s, 'ASK_SECOND_HAND'));
+
 };

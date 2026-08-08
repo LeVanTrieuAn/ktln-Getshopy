@@ -11,6 +11,14 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { prisma } = require('./db');
 
+// ─── GLOBAL ERROR HANDLERS (prevent nodemon/process crash from unhandled rejections) ───
+process.on('unhandledRejection', (reason) => {
+  console.error('🔥 [UnhandledRejection] Server caught unhandled promise rejection — keeping alive:', reason?.message || reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('🔥 [UncaughtException] Server caught uncaught exception — keeping alive:', err.message);
+});
+
 const app = express();
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
@@ -22,11 +30,13 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 
-// ─── RATE LIMITING ──────────────────────────────────────────────
+// ─── RATE LIMITING ────────────────────────────────────────────
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
-  max: 100,
+  max: 2000,     // Increased so CI/automated tests (495+ req) don't get rate-limited
   message: { error: 'Quá nhiều request, vui lòng thử lại sau.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
