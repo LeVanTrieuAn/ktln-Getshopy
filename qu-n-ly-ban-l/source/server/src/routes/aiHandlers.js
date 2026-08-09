@@ -2251,6 +2251,8 @@ async function getCachedTopRated(take = 3) {
 
 // --- XUẤT THÊM HÀM VÀ HẰNG SỐ BỔ SUNG ---
 Object.assign(module.exports, {
+  conversationStore,
+  extractProductFromHistory,
   // Query helpers
   isPromoQuery,
   isDeliveryQuery,

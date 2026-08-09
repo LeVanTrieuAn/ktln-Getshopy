@@ -10,7 +10,7 @@ const {
   handleExpandedIntent, removeDiacritics,
   isPromoQuery, isDeliveryQuery, isReturnQuery, isPaymentQuery,
   isPriceComplaint, isChangeProductQuery, isTrackOrderQuery, isCancelOrderQuery,
-  isContactQuery,
+  isContactQuery, conversationStore, extractProductFromHistory,
 } = require('./aiHandlers');
 
 // ── DUAL-ENGINE NLP ──────────────────────────────────────────────────────────
@@ -19,6 +19,17 @@ const {
 // ─────────────────────────────────────────────────────────────────────────────
 const { detectLanguage, detectLanguageVerbose } = require('../ai/langDetect');
 const { predictEnglish, handleEnglishIntent }   = require('../ai/englishNLP');
+
+// ── ENSEMBLE SUPPLEMENTARY LAYER (Module mới) ────────────────────────────────
+const EnsembleClassifier   = require('../ai/EnsembleClassifier');
+const LogisticRegression   = require('../ai/LogisticRegression');
+const LinearSVM            = require('../ai/LinearSVM');
+const { getSpellCorrector } = require('../ai/SpellCorrector');
+const { getCosineSimilarity } = require('../ai/CosineSimilarity');
+const { getCollaborativeFilter } = require('../ai/CollaborativeFilter');
+const { decisionTree }     = require('../ai/DecisionTree');
+const { fsm }              = require('../ai/FSM');
+const { ner }              = require('../ai/NER');
 
 // ══════════════════════════════════════════════════════════════════════════════
 // BẢNG ÁNH XẠ TỪ KHÓA → DANH MỤC
@@ -75,12 +86,30 @@ const GREETING_PATTERNS = [
   /^(cho hỏi|hỏi thăm|xin chào nhé|chào nhé)[\s!.,?]*$/i,
 ];
 
-// Khởi tạo Model AI Nội bộ
-const aiModel = new NaiveBayes();
-const MODEL_PATH = path.join(__dirname, '../ai/ai_model_weights.json');
+// ── KHỞI TẠO CÁC MODEL AI ────────────────────────────────────────────────────
+const aiModel  = new NaiveBayes();
+const lrModel  = new LogisticRegression({ learningRate: 0.1, epochs: 80, l2Lambda: 0.001 });
+const svmModel = new LinearSVM({ learningRate: 0.01, epochs: 40, lambda: 0.001 });
+
+const MODEL_PATH   = path.join(__dirname, '../ai/ai_model_weights.json');
+const LR_MODEL_PATH  = path.join(__dirname, '../ai/lr_model_weights.json');
+const SVM_MODEL_PATH = path.join(__dirname, '../ai/svm_model_weights.json');
+
+/** Ensemble Classifier — sẽ được khởi tạo sau khi load xong cả 3 models */
+let ensembleModel = null;
+
+/** SpellCorrector singleton */
+const spellCorrector = getSpellCorrector();
+
+/** CosineSimilarity singleton — build index khi server khởi động */
+const cosineIndex = getCosineSimilarity();
+
+/** CollaborativeFilter singleton — build từ đơn hàng DB */
+const collabFilter = getCollaborativeFilter();
 
 // Hàm tải mô hình (Load model)
 async function initAI() {
+  // ── Load Naive Bayes (bắt buộc) ──────────────────────────────────
   const loaded = await aiModel.loadModel(MODEL_PATH);
   if (!loaded) {
     console.log('[AI] Không tìm thấy file Model. Tiến hành tự động Huấn luyện (Training)...');
@@ -89,7 +118,62 @@ async function initAI() {
   } else {
     console.log('[AI] Đã tải thành công Mô hình Naive Bayes từ ổ cứng.');
   }
+
+  // ── Load Logistic Regression (supplementary) ──────────────────────
+  const lrLoaded = await lrModel.loadModel(LR_MODEL_PATH);
+  if (!lrLoaded) console.warn('[AI] LR model chưa có — chạy node train.js để tạo.');
+
+  // ── Load Linear SVM (supplementary) ──────────────────────────────
+  const svmLoaded = await svmModel.loadModel(SVM_MODEL_PATH);
+  if (!svmLoaded) console.warn('[AI] SVM model chưa có — chạy node train.js để tạo.');
+
+  // ── Khởi tạo Ensemble Classifier ────────────────────────────────
+  // Tính toán trọng số động: nếu LR/SVM chưa train, dồn trọng số về NaiveBayes
+  let wNB = 0.40, wLR = 0.40, wSVM = 0.20;
+  if (!lrLoaded && !svmLoaded) {
+    wNB = 1.0; wLR = 0.0; wSVM = 0.0;
+  } else if (!lrLoaded) {
+    wNB = 0.70; wLR = 0.0; wSVM = 0.30;
+  } else if (!svmLoaded) {
+    wNB = 0.50; wLR = 0.50; wSVM = 0.0;
+  }
+
+  ensembleModel = new EnsembleClassifier(
+    { naiveBayes: aiModel, logisticReg: lrModel, linearSvm: svmModel },
+    { nb: wNB, lr: wLR, svm: wSVM, ruleBonus: 0.15 },
+    0.60  // confidence threshold
+  );
+  console.log('[AI] Ensemble Classifier khởi tạo thành công.');
+
+  // ── Build Cosine Similarity index từ Database ────────────────────
+  try {
+    const allProducts = await prisma.product.findMany({
+      where: { is_deleted: false },
+      select: { id: true, name: true, price: true },
+      orderBy: { sold: 'desc' }, // Ưu tiên build index cho sản phẩm bán chạy nhất
+      take: 2000, // Lấy tối đa 2000 sản phẩm để tránh tràn RAM (DB có >1M sản phẩm)
+    });
+    cosineIndex.buildIndex(allProducts.map(p => ({ ...p, id: Number(p.id) })));
+
+    // Mở rộng từ điển SpellCorrector với tên sản phẩm từ DB
+    spellCorrector.addProductNames(allProducts.map(p => p.name));
+  } catch (err) {
+    console.warn('[AI] Build cosine index thất bại:', err.message);
+  }
+
+  // ── Build Collaborative Filter từ đơn hàng ──────────────────────
+  try {
+    const orders = await prisma.order.findMany({
+      select: { items: true },
+      orderBy: { id: 'desc' },
+      take: 1000,  // Giảm từ 5000 xuống 1000 để tránh tràn RAM
+    });
+    collabFilter.buildFromOrders(orders);
+  } catch (err) {
+    console.warn('[AI] Build collaborative filter thất bại:', err.message);
+  }
 }
+
 // Chạy ngay khi Server khởi động — lỗi không được làm crash toàn bộ server
 initAI().catch(err => {
   console.error('[AI] ⚠️  Khởi tạo AI thất bại, server vẫn tiếp tục chạy bình thường:', err.message);
@@ -222,76 +306,156 @@ router.post('/b2c/chat', async (req, res) => {
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
+    const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
 
-    // ── BƯỚC 1: PHÁT HIỆN NGÔN NGỮ ───────────────────────────────────────────
-    const langInfo = detectLanguageVerbose(message);
+    // ── BƯỚC 0 (MỚI): KIỂM TRA FSM — Luồng đặt hàng có cấu trúc ──────────────
+    // FSM PHẢI được kiểm tra TRƯỚC tất cả — nếu session đang active,
+    // bỏ qua toàn bộ NLP pipeline và giao hết cho FSM xử lý.
+    if (fsm.isActive(sessionId)) {
+      const fsmResult = fsm.process(sessionId, message);
+      return res.json({ text: fsmResult.text, link: null, intent: 'FSM_ORDER_FLOW' });
+    }
+
+    // ── BƯỚC 0B (MỚI): KIỂM TRA DECISION TREE — Luồng tư vấn chọn máy ────────
+    // DecisionTree session cũng override pipeline thông thường.
+    if (decisionTree.hasActiveSession(sessionId)) {
+      const msgNormDT = removeDiacritics(message).toLowerCase();
+      // Khách nói "hủy/thoát/thôi" → reset Decision Tree
+      if (/huy|thoat|thoi|stop|cancel|reset/.test(msgNormDT)) {
+        decisionTree.resetSession(sessionId);
+        return res.json({ text: 'Dạ anh/chị đã thoát khỏi chế độ tư vấn. Em có thể giúp gì thêm không ạ?', link: null, intent: 'DECISION_TREE_CANCEL' });
+      }
+      const dtResult = decisionTree.step(sessionId, message);
+      // Nếu đến leaf → query DB theo filters
+      if (dtResult.isLeaf && dtResult.filters) {
+        const filters = dtResult.filters;
+        const whereClause = {
+          is_deleted: false,
+          stock: { gt: 0 },
+          ...(filters.maxPrice ? { price: { lte: filters.maxPrice } } : {}),
+          ...(filters.minPrice ? { price: { gte: filters.minPrice } } : {}),
+        };
+        if (filters.category) {
+          const cat = await prisma.category.findFirst({ where: { name: { contains: filters.category, mode: 'insensitive' } } });
+          if (cat) whereClause.category_id = cat.id;
+        }
+        const dtProducts = await prisma.product.findMany({
+          where: whereClause,
+          orderBy: [{ sold: 'desc' }],
+          take: 3,
+        });
+        if (dtProducts.length > 0) {
+          const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+          const list = dtProducts.map(p => `• **${p.name}** — ${fmt(p.price)}`).join('\n');
+          const finalText = `${dtResult.text}\n\n🛍️ **Sản phẩm phù hợp tại Getshopy:**\n${list}\n\nAnh/chị muốn xem chi tiết mẫu nào không ạ?`;
+          return res.json({ text: finalText, link: `/product/${dtProducts[0].id}`, intent: 'DECISION_TREE_LEAF' });
+        }
+      }
+      return res.json({ text: dtResult.text, link: null, intent: 'DECISION_TREE_STEP' });
+    }
+
+    // ── BƯỚC 1 (MỚI): SPELL CORRECTION — Sửa lỗi chính tả ─────────────────────
+    // Chạy trước khi detect ngôn ngữ để tránh sai ngôn ngữ do lỗi chính tả.
+    const spellResult = spellCorrector.correctSentence(message);
+    const correctedMessage = spellResult.corrected;
+    // Dùng correctedMessage cho NLP, giữ message gốc để log
+    const workingMessage = correctedMessage;
+
+    // ── BƯỚC 2 (MỚI): NER — Trích xuất thực thể trước khi phân loại ───────────
+    const nerEntities = ner.extract(workingMessage);
+
+    // ── BƯỚC 3: PHÁT HIỆN NGÔN NGỮ ──────────────────────────────────────────
+    const langInfo = detectLanguageVerbose(workingMessage);
     const lang     = langInfo.lang;   // 'vi' | 'en'
     console.log(`[LangDetect] "${message.slice(0, 40)}" → lang=${lang} | confidence=${langInfo.confidence} | vietRatio=${langInfo.vietRatio}`);
 
-    // ── BƯỚC 2A: TIẾNG ANH → ENGLISH ENGINE (`natural`) ─────────────────────
+    // ── BƯỚC 4A: TIẾNG ANH → ENGLISH ENGINE (`natural`) ─────────────────────
     if (lang === 'en') {
-      const { intent: enIntent, score: enScore } = predictEnglish(message);
+      const { intent: enIntent, score: enScore } = predictEnglish(workingMessage);
       console.log(`[EnglishNLP] Intent: ${enIntent} | Score: ${enScore.toFixed(3)}`);
 
-      const enResult = await handleEnglishIntent(enIntent, message);
+      const enResult = await handleEnglishIntent(enIntent, workingMessage);
       return res.json({ text: enResult.text, link: enResult.link, lang: 'en', intent: enIntent });
     }
 
-    // ── BƯỚC 2B: TIẾNG VIỆT → NAIVE BAYES TỰ VIẾT ─────────────────────────────
-    // Pre-classify câu chào hỏi ngắn gọn TRƯỚC Naive Bayes để tránh mis-classify.
-    // Model train trên 1M+ sample SEARCH_PRODUCT nên rất dễ "nuốt" các câu đơn giản.
+    // ── BƯỚC 4B: TIẾNG VIỆT → ENSEMBLE CLASSIFIER ────────────────────────────
     let intent, score;
-    // Pre-classify: câu chào hỏi (có dấu lẫn không dấu) → luôn là GREETING
+
+    // Pre-classify: câu chào hỏi → luôn là GREETING (tránh misclassify)
     const NO_DIAC_GREETING = /^(xin chao|hello|hi|hey|alo|chao|chao ban|chao shop|shop oi|em oi|co ai khong|co ai do khong|alo shop|good morning|good evening|good night|xin chao nhe|chao nhe)[\s!.,?]*$/i;
-    if (GREETING_PATTERNS.some(p => p.test(message.trim())) || NO_DIAC_GREETING.test(removeDiacritics(message.trim()))) {
+    if (GREETING_PATTERNS.some(p => p.test(workingMessage.trim())) || NO_DIAC_GREETING.test(removeDiacritics(workingMessage.trim()))) {
       intent = 'GREETING'; score = 1.0;
       console.log(`[VI PreClassify] Greeting pattern matched → intent=GREETING`);
-    } else {
-      ({ intent, score } = aiModel.predict(message));
-      console.log(`[VI NaiveBayes] Intent: ${intent} | Score: ${score}`);
+    }
+    // Kiểm tra trigger luồng đặt hàng → khởi động FSM
+    else if (fsm.isOrderTrigger(workingMessage)) {
+      const fsmResult = fsm.startOrder(sessionId);
+      return res.json({ text: fsmResult.text, link: null, intent: 'FSM_ORDER_START' });
+    }
+    // Kiểm tra trigger tư vấn chọn máy → khởi động Decision Tree
+    else if (/tu van chon may|tu van|giup chon may|chon may giup|nen mua may gi|mua may gi/.test(removeDiacritics(workingMessage).toLowerCase())) {
+      const dtResult = decisionTree.start(sessionId);
+      return res.json({ text: dtResult.text, link: null, intent: 'DECISION_TREE_START' });
+    }
+    // Kiểm tra hỏi sản phẩm tương tự (cosine) hoặc sản phẩm khác (follow up)
+    else if (/na na|tuong tu|giong nhu|loai nay nhung|re hon ma giong|tuong duong|san pham khac|nao khac|loai khac/.test(removeDiacritics(workingMessage).toLowerCase())) {
+      intent = 'SIMILAR_PRODUCT'; score = 0.95;
+      console.log(`[VI PreClassify] → SIMILAR_PRODUCT (cosine similarity trigger)`);
+    }
+    else {
+      // ── ENSEMBLE CLASSIFIER (NaiveBayes + LR + SVM + Rule-based) ───────────
+      if (ensembleModel && ensembleModel.isReady()) {
+        const ensembleResult = ensembleModel.predict(workingMessage);
+        intent = ensembleResult.intent;
+        score  = ensembleResult.confidence;
+        console.log(`[VI Ensemble] Intent: ${intent} | Confidence: ${score.toFixed(3)} | isFallback: ${ensembleResult.isFallback} | src: ${ensembleResult.source}`);
 
-      // ── Secondary Intent Correction ─────────────────────────────────────────
-      // Model được train trên 1M+ sample SEARCH_PRODUCT nên rất dễ misclassify
-      // các câu hỏi về giá, khuyến mãi, giao hàng... thành SEARCH_PRODUCT.
-      // Các hàm isXxxQuery() dùng rule-based regex (với removeDiacritics) để
-      // phát hiện intent thực sự và ghi đè kết quả Naive Bayes.
+        // Nếu Ensemble không tự tin → trả về UNKNOWN fallback
+        if (ensembleResult.isFallback || intent === 'UNKNOWN') {
+          return res.json({
+            text: 'Dạ em xin lỗi, em chưa hiểu rõ ý anh/chị muốn nói ạ. 🤔 Anh/chị có thể diễn đạt lại không, hoặc chọn một trong các chủ đề: **Tìm sản phẩm**, **Hỏi giá**, **Tư vấn chọn máy**, **Giao hàng**, **Bảo hành** ạ?',
+            link: null,
+            intent: 'UNKNOWN',
+          });
+        }
+      } else {
+        // Fallback: Chỉ dùng NaiveBayes nếu Ensemble chưa sẵn sàng
+        ({ intent, score } = aiModel.predict(workingMessage));
+        console.log(`[VI NaiveBayes fallback] Intent: ${intent} | Score: ${score}`);
+      }
+
+      // ── Secondary Intent Correction (giữ nguyên logic cũ) ───────────────────
       const CORRECTABLE_INTENTS = new Set([
         'SEARCH_PRODUCT', 'SEARCH_CATEGORY', 'ASK_PRICE', 'ASK_SPECS', 'ASK_ACCESSORIES',
-        // ASK_RECOMMEND cũng hay bị hiểu nhầm khi user hỏi "điện thoại oppo", "laptop dell"...
         'ASK_RECOMMEND', 'CHECK_STOCK', 'COMPARE_PRODUCT', 'ASK_REVIEW',
       ]);
       if (CORRECTABLE_INTENTS.has(intent)) {
-        const msgN = removeDiacritics(message).toLowerCase();
+        const msgN = removeDiacritics(workingMessage).toLowerCase();
 
-        // ── Phát hiện câu SO SÁNH sản phẩm ─────────────────────────────────
-        // Ưu tiên cao nhất: nếu có từ khóa so sánh → route sang COMPARE_SPECS
-        // Ví dụ: "MacBook Air vs MacBook Pro cái nào tốt hơn", "iPhone 15 hay S24"
         const isCompare = /cai nao|ngon hon|tot hon|hay hon|dang mua hon|ban hon|manh hon|nhanh hon|thoi luong pin|nen chon|nen mua cai nao|so sanh|which is better/.test(msgN)
           && /vs|va |hay | hoac |hoac la/.test(msgN);
         if (isCompare) {
           intent = 'COMPARE_SPECS';
           console.log('[VI SecondaryFix] → COMPARE_SPECS (comparison query detected)');
-        }
-        // ── Từ khóa danh mục rõ ràng trong ASK_RECOMMEND ────────────────────
-        // Ví dụ: "điện thoại oppo" bị NB classify thành ASK_RECOMMEND
-        else {
+        } else {
           const hasCategoryKW = Object.keys(CATEGORY_KEYWORD_MAP).some(kw => msgN.includes(kw));
           if (hasCategoryKW && intent === 'ASK_RECOMMEND') {
             intent = 'SEARCH_CATEGORY';
             console.log('[VI SecondaryFix] → SEARCH_CATEGORY (category KW in ASK_RECOMMEND)');
           }
-          else if (isPriceComplaint(message))     { intent = 'PRICE_COMPLAINT';  console.log('[VI SecondaryFix] → PRICE_COMPLAINT'); }
-          else if (isPromoQuery(message))         { intent = 'ASK_PROMO';        console.log('[VI SecondaryFix] → ASK_PROMO'); }
-          else if (isDeliveryQuery(message))      { intent = 'ASK_DELIVERY';     console.log('[VI SecondaryFix] → ASK_DELIVERY'); }
-          else if (isReturnQuery(message))        { intent = 'ASK_RETURN';       console.log('[VI SecondaryFix] → ASK_RETURN'); }
-          else if (isPaymentQuery(message))       { intent = 'ASK_PAYMENT';      console.log('[VI SecondaryFix] → ASK_PAYMENT'); }
-          else if (isTrackOrderQuery(message))    { intent = 'TRACK_ORDER';      console.log('[VI SecondaryFix] → TRACK_ORDER'); }
-          else if (isCancelOrderQuery(message))   { intent = 'CANCEL_ORDER';     console.log('[VI SecondaryFix] → CANCEL_ORDER'); }
-          else if (isChangeProductQuery(message)) { intent = 'CHANGE_PRODUCT';   console.log('[VI SecondaryFix] → CHANGE_PRODUCT'); }
-          else if (isContactQuery(message))       { intent = 'CONTACT';          console.log('[VI SecondaryFix] → CONTACT'); }
+          else if (isPriceComplaint(workingMessage))     { intent = 'PRICE_COMPLAINT';  console.log('[VI SecondaryFix] → PRICE_COMPLAINT'); }
+          else if (isPromoQuery(workingMessage))         { intent = 'ASK_PROMO';        console.log('[VI SecondaryFix] → ASK_PROMO'); }
+          else if (isDeliveryQuery(workingMessage))      { intent = 'ASK_DELIVERY';     console.log('[VI SecondaryFix] → ASK_DELIVERY'); }
+          else if (isReturnQuery(workingMessage))        { intent = 'ASK_RETURN';       console.log('[VI SecondaryFix] → ASK_RETURN'); }
+          else if (isPaymentQuery(workingMessage))       { intent = 'ASK_PAYMENT';      console.log('[VI SecondaryFix] → ASK_PAYMENT'); }
+          else if (isTrackOrderQuery(workingMessage))    { intent = 'TRACK_ORDER';      console.log('[VI SecondaryFix] → TRACK_ORDER'); }
+          else if (isCancelOrderQuery(workingMessage))   { intent = 'CANCEL_ORDER';     console.log('[VI SecondaryFix] → CANCEL_ORDER'); }
+          else if (isChangeProductQuery(workingMessage)) { intent = 'CHANGE_PRODUCT';   console.log('[VI SecondaryFix] → CHANGE_PRODUCT'); }
+          else if (isContactQuery(workingMessage))       { intent = 'CONTACT';          console.log('[VI SecondaryFix] → CONTACT'); }
         }
       }
     }
+    // (workingMessage = message sau khi spell-corrected, dùng trong tất cả handlers bên dưới)
 
     let aiResponse = { text: "Xin lỗi, tôi chưa hiểu ý bạn lắm. Bạn có thể nói rõ hơn được không?", link: null };
 
@@ -720,10 +884,28 @@ router.post('/b2c/chat', async (req, res) => {
         'xem', 'thông', 'tin', 'có', 'bán', 'không', 'shop', 'ơi', 'tiền',
         'cái', 'con', 'chiếc', 'cấu', 'hình', 'ram', 'chip', 'số', 'màn',
         'pin', 'bộ', 'nhớ', 'inch', 'cần', 'tôi', 'mình', 'em',
+        'thế', 'vậy', 'những', 'các', 'bạn', 'vừa', 'nói', 'kể', 'gợi', 'ý',
+        'rồi', 'sản', 'phẩm', 'chúng', 'nó', 'này', 'đó', 'của', 'kia', 'với',
+        'chi', 'tiết', 'mẫu', 'loại', 'dòng', 'hãng', 'của'
       ]);
       const tokens = new (require('../ai/Tokenizer'))().tokenize(message);
-      const entityKeywords = tokens.filter(w => !intentVerbs.has(w)).join(' ').trim();
-      const msgNorm = removeDiacritics(message).toLowerCase();
+      
+      // Ưu tiên dùng kết quả từ module NER (chính xác hơn), nếu không có mới dùng bộ lọc từ khóa
+      let entityKeywords = nerEntities.productName || tokens.filter(w => !intentVerbs.has(w.toLowerCase())).join(' ').trim();
+      
+      // XỬ LÝ CÂU HỎI NỐI TIẾP (FOLLOW-UP) TOÀN DIỆN
+      // Nếu câu nói KHÔNG chứa tên sản phẩm/danh mục cụ thể (vd: "giá bao nhiêu", "cấu hình ntn")
+      if (!nerEntities.productName && !nerEntities.category) {
+        const storeHistory = conversationStore.get(sessionId);
+        if (storeHistory && storeHistory.length > 0) {
+            const prevProduct = extractProductFromHistory(storeHistory);
+            if (prevProduct) {
+                // Kế thừa ngữ cảnh: Dùng lại tên sản phẩm cũ!
+                entityKeywords = prevProduct;
+                console.log(`[Follow-up] Kế thừa ngữ cảnh từ câu trước: ${prevProduct}`);
+            }
+        }
+      }
 
       if (!entityKeywords) {
         aiResponse.text = 'Dạ anh/chị cứ nói thoải mái nhé! Bên em có: **Điện thoại thông minh**, **Laptop**, **Máy tính bảng**, và **Phụ kiện** (tai nghe, đồng hồ, micro, loa...). Anh/chị cần tìm gì ạ?';
@@ -816,14 +998,73 @@ router.post('/b2c/chat', async (req, res) => {
       }
     }
 
+    // ── NHÓM: SẢN PHẨM TƯƠNG TỰ (Cosine Similarity) ────────────────────────────
+    else if (intent === 'SIMILAR_PRODUCT') {
+      // Dùng NER để lấy tên sản phẩm gốc
+      let productName = nerEntities.productName;
+      
+      // Nếu câu nói chỉ chứa từ "khác" mà không có tên sản phẩm, tìm trong lịch sử
+      if (!productName) {
+        const storeHistory = conversationStore.get(sessionId);
+        if (storeHistory && storeHistory.length > 0) {
+            const prevProduct = extractProductFromHistory(storeHistory);
+            if (prevProduct) productName = prevProduct;
+        }
+      }
+      productName = productName || workingMessage;
+      const foundBase = await prisma.product.findFirst({
+        where: { name: { contains: productName, mode: 'insensitive' }, is_deleted: false },
+      });
+
+      if (foundBase && cosineIndex.isIndexed()) {
+        // Tìm sản phẩm tương tự bằng Cosine Similarity
+        const maxPrice = nerEntities.budget ? nerEntities.budget * 0.95 : null; // Nếu có budget → lọc theo giá
+        const similar = cosineIndex.findSimilar(Number(foundBase.id), {
+          topN: 3,
+          maxPrice,
+          minSimilarity: 0.1,
+        });
+        if (similar.length > 0) {
+          const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+          const list = similar.map(s =>
+            `• **${s.name}** — ${fmt(s.price)} (độ tương đồng: ${(s.similarity * 100).toFixed(0)}%)`
+          ).join('\n');
+          aiResponse.text = `Dạ đây là các sản phẩm na ná **${foundBase.name}** bên em đang có ạ:\n\n${list}\n\nAnh/chị muốn xem chi tiết sản phẩm nào ạ?`;
+          aiResponse.link = `/product/${similar[0].productId}`;
+        } else {
+          aiResponse.text = `Dạ em đã tìm nhưng chưa thấy sản phẩm nào tương tự **${foundBase.name}** phù hợp trong kho ạ. Anh/chị muốn xem các sản phẩm cùng danh mục không ạ?`;
+          aiResponse.link = `/`;
+        }
+      } else if (cosineIndex.isIndexed()) {
+        // Không tìm thấy sản phẩm gốc → dùng text search
+        const similar = cosineIndex.findSimilarByText(workingMessage, { topN: 3 });
+        if (similar.length > 0) {
+          const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
+          const list = similar.map(s => `• **${s.name}** — ${fmt(s.price)}`).join('\n');
+          aiResponse.text = `Dạ dựa trên mô tả của anh/chị, đây là một số sản phẩm em thấy phù hợp:\n\n${list}\n\nAnh/chị xem thêm chi tiết nhé ạ!`;
+          aiResponse.link = `/product/${similar[0].id}`;
+        } else {
+          aiResponse.text = 'Dạ anh/chị mô tả thêm chi tiết sản phẩm muốn tìm (thương hiệu, tầm giá, tính năng) để em gợi ý chính xác hơn nhé ạ!';
+        }
+      } else {
+        aiResponse.text = 'Dạ anh/chị muốn tìm sản phẩm na ná loại nào? Anh/chị nêu tên model cụ thể để em so sánh và tìm sản phẩm tương đương nhé ạ!';
+      }
+    }
+
+    let isHandledByExpanded = false;
     // ── FALLBACK: Thử xử lý bảng Handler mở rộng nếu chưa có kết quả ở trên
     if (aiResponse.text === "Xin lỗi, tôi chưa hiểu ý bạn lắm. Bạn có thể nói rõ hơn được không?") {
-      const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
       const expandedResult = await handleExpandedIntent(intent, message, sessionId);
       if (expandedResult) {
         aiResponse.text = expandedResult.text;
         aiResponse.link = expandedResult.link;
+        isHandledByExpanded = true;
       }
+    }
+
+    if (!isHandledByExpanded && aiResponse.text !== "Xin lỗi, tôi chưa hiểu ý bạn lắm. Bạn có thể nói rõ hơn được không?") {
+      conversationStore.push(sessionId, 'user', message);
+      conversationStore.push(sessionId, 'assistant', aiResponse.text);
     }
 
     res.json(aiResponse);

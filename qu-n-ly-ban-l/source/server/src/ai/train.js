@@ -7,91 +7,146 @@ const prisma = new PrismaClient();
 const MODEL_PATH = path.join(__dirname, 'ai_model_weights.json');
 
 async function trainModel() {
-  console.log('--- KHỞI ĐỘNG HỆ THỐNG HUẤN LUYỆN (TRAINING) AI NỘI BỘ ---');
+  console.log('--- KHOI DONG HE THONG HUAN LUYEN (TRAINING) AI NOI BO ---');
   
   const ai = new NaiveBayes();
 
-  // ═══════════════════════════════════════════════════════════════════
-  // BƯỚC 1: Nạp toàn bộ mẫu câu tĩnh (từ trainingData.js)
-  // Bao gồm 50+ Intent: Greeting, Help, ASK_PRICE, COMPARE, v.v...
-  // ═══════════════════════════════════════════════════════════════════
-  console.log('[1/3] Đang nạp dữ liệu tĩnh từ trainingData.js...');
+  // ===================================================================
+  // BUOC 1: Nap toan bo mau cau tinh (tu trainingData.js)
+  // Bao gom 50+ Intent: Greeting, Help, ASK_PRICE, COMPARE, v.v...
+  // ===================================================================
+  console.log('[1/3] Dang nap du lieu tinh tu trainingData.js...');
   registerAllIntents(ai);
 
-  // ═══════════════════════════════════════════════════════════════════
-  // BƯỚC 2: Sinh thêm mẫu câu ĐỘNG từ dữ liệu thực trong Database
-  // Mỗi sản phẩm / danh mục sẽ tự tạo ra hàng chục câu hỏi mẫu
-  // ═══════════════════════════════════════════════════════════════════
-  console.log('[2/3] Đang kết nối Database để sinh câu hỏi mẫu động...');
+  // ===================================================================
+  // BUOC 2: Sinh them mau cau DONG tu du lieu thuc trong Database
+  // Moi san pham / danh muc se tu tao ra hang chuc cau hoi mau
+  // ===================================================================
+  console.log('[2/3] Dang ket noi Database de sinh cau hoi mau dong...');
   
   const categories = await prisma.category.findMany();
-  const products = await prisma.product.findMany({ where: { is_deleted: false } });
-
-  console.log(`      -> Tìm thấy ${categories.length} Danh mục và ${products.length} Sản phẩm.`);
-
-  // Sinh câu mẫu theo từng Danh mục
-  categories.forEach(cat => {
-    const name = cat.name.toLowerCase();
-    ai.addDocument(`tôi muốn mua ${name}`, 'SEARCH_CATEGORY');
-    ai.addDocument(`shop có bán ${name} không`, 'SEARCH_CATEGORY');
-    ai.addDocument(`cho xem các mẫu ${name}`, 'SEARCH_CATEGORY');
-    ai.addDocument(`giới thiệu ${name}`, 'SEARCH_CATEGORY');
-    ai.addDocument(`tầm tiền nào nên mua ${name}`, 'ASK_RECOMMEND');
-    ai.addDocument(`${name} nào ngon nhất hiện tại`, 'ASK_RECOMMEND');
+  const products = await prisma.product.findMany({
+    where: { is_deleted: false },
+    orderBy: { sold: 'desc' },
+    take: 1000 // Giới hạn 1000 sản phẩm phổ biến nhất để tránh OOM khi train 1.1M+ câu
   });
 
-  // Sinh câu mẫu theo từng Sản phẩm
+  console.log(`      -> Tim thay ${categories.length} Danh muc va ${products.length} San pham.`);
+
+  // Sinh cau mau theo tung Danh muc
+  categories.forEach(cat => {
+    const name = cat.name.toLowerCase();
+    ai.addDocument(`toi muon mua ${name}`, 'SEARCH_CATEGORY');
+    ai.addDocument(`shop co ban ${name} khong`, 'SEARCH_CATEGORY');
+    ai.addDocument(`cho xem cac mau ${name}`, 'SEARCH_CATEGORY');
+    ai.addDocument(`gioi thieu ${name}`, 'SEARCH_CATEGORY');
+    ai.addDocument(`tam tien nao nen mua ${name}`, 'ASK_RECOMMEND');
+    ai.addDocument(`${name} nao ngon nhat hien tai`, 'ASK_RECOMMEND');
+  });
+
+  // Sinh cau mau theo tung San pham
   products.forEach(prod => {
     const name = prod.name.toLowerCase();
 
-    // Tìm kiếm
-    ai.addDocument(`tôi muốn mua ${name}`, 'SEARCH_PRODUCT');
-    ai.addDocument(`tìm ${name}`, 'SEARCH_PRODUCT');
-    ai.addDocument(`shop có ${name} không`, 'SEARCH_PRODUCT');
-    ai.addDocument(`xem thông tin ${name}`, 'SEARCH_PRODUCT');
+    // Tim kiem
+    ai.addDocument(`toi muon mua ${name}`, 'SEARCH_PRODUCT');
+    ai.addDocument(`tim ${name}`, 'SEARCH_PRODUCT');
+    ai.addDocument(`shop co ${name} khong`, 'SEARCH_PRODUCT');
+    ai.addDocument(`xem thong tin ${name}`, 'SEARCH_PRODUCT');
 
-    // Hỏi giá
-    ai.addDocument(`giá ${name} bao nhiêu`, 'ASK_PRICE');
-    ai.addDocument(`cho hỏi giá ${name}`, 'ASK_PRICE');
-    ai.addDocument(`${name} này bao nhiêu tiền`, 'ASK_PRICE');
-    ai.addDocument(`xin báo giá ${name}`, 'ASK_PRICE');
-    ai.addDocument(`${name} mấy triệu`, 'ASK_PRICE');
+    // Hoi gia
+    ai.addDocument(`gia ${name} bao nhieu`, 'ASK_PRICE');
+    ai.addDocument(`cho hoi gia ${name}`, 'ASK_PRICE');
+    ai.addDocument(`${name} nay bao nhieu tien`, 'ASK_PRICE');
+    ai.addDocument(`xin bao gia ${name}`, 'ASK_PRICE');
+    ai.addDocument(`${name} may trieu`, 'ASK_PRICE');
 
-    // Hỏi cấu hình
-    ai.addDocument(`cấu hình ${name}`, 'ASK_SPECS');
-    ai.addDocument(`cho xem thông số ${name}`, 'ASK_SPECS');
-    ai.addDocument(`ram chip của ${name} là gì`, 'ASK_SPECS');
-    ai.addDocument(`${name} pin bao nhiêu`, 'ASK_SPECS');
-    ai.addDocument(`màn hình ${name} mấy inch`, 'ASK_SPECS');
-    ai.addDocument(`${name} có chống nước không`, 'ASK_SPECS');
+    // Hoi cau hinh
+    ai.addDocument(`cau hinh ${name}`, 'ASK_SPECS');
+    ai.addDocument(`cho xem thong so ${name}`, 'ASK_SPECS');
+    ai.addDocument(`ram chip cua ${name} la gi`, 'ASK_SPECS');
+    ai.addDocument(`${name} pin bao nhieu`, 'ASK_SPECS');
+    ai.addDocument(`man hinh ${name} may inch`, 'ASK_SPECS');
+    ai.addDocument(`${name} co chong nuoc khong`, 'ASK_SPECS');
 
-    // So sánh
-    ai.addDocument(`${name} có tốt không`, 'COMPARE_PRODUCT');
-    ai.addDocument(`so sánh ${name}`, 'COMPARE_PRODUCT');
-    ai.addDocument(`${name} hay loại khác`, 'COMPARE_PRODUCT');
+    // So sanh
+    ai.addDocument(`${name} co tot khong`, 'COMPARE_PRODUCT');
+    ai.addDocument(`so sanh ${name}`, 'COMPARE_PRODUCT');
+    ai.addDocument(`${name} hay loai khac`, 'COMPARE_PRODUCT');
 
-    // Kiểm tra tồn kho
-    ai.addDocument(`${name} còn hàng không`, 'CHECK_STOCK');
-    ai.addDocument(`${name} còn không shop`, 'CHECK_STOCK');
-    ai.addDocument(`còn ${name} không`, 'CHECK_STOCK');
+    // Kiem tra ton kho
+    ai.addDocument(`${name} con hang khong`, 'CHECK_STOCK');
+    ai.addDocument(`${name} con khong shop`, 'CHECK_STOCK');
+    ai.addDocument(`con ${name} khong`, 'CHECK_STOCK');
 
-    // Gợi ý
-    ai.addDocument(`nên mua ${name} không`, 'ASK_RECOMMEND');
+    // Goi y
+    ai.addDocument(`nen mua ${name} khong`, 'ASK_RECOMMEND');
   });
 
-  // ═══════════════════════════════════════════════════════════════════
-  // BƯỚC 3: Thực thi Huấn luyện và Lưu Model ra ổ cứng
-  // ═══════════════════════════════════════════════════════════════════
-  console.log('[3/3] Đang nhồi dữ liệu vào Thuật toán Mạng Xác suất (Naive Bayes)...');
+  // ===================================================================
+  // BUOC 3: Thuc thi Huan luyen va Luu Model ra o cung
+  // ===================================================================
+  console.log('[3/3] Dang nhoi du lieu vao Thuat toan Mang Xac suat (Naive Bayes)...');
   ai.train();
 
   await ai.saveModel(MODEL_PATH);
-  console.log('--- HOÀN TẤT ---');
-  console.log(`Đã xuất kết quả Bộ não AI ra file vật lý: ${MODEL_PATH}`);
+  console.log('--- Naive Bayes: HOAN TAT ---');
+  console.log(`Da xuat ket qua Bo nao AI ra file vat ly: ${MODEL_PATH}`);
+
+  // ===================================================================
+  // BUOC 4 (MOI - ENSEMBLE): Train Logistic Regression & Linear SVM
+  // Su dung cung corpus voi Naive Bayes (ai.documents da duoc populate)
+  // ===================================================================
+  console.log('\n--- BAT DAU TRAIN ENSEMBLE SUPPLEMENTARY MODELS ---');
+
+  // Chuyen doi documents cua NaiveBayes sang { text, intent }
+  const trainingCorpus = ai.documents.map(doc => ({
+    text:   doc.tokens.join(' '),
+    intent: doc.intentClass,
+  }));
+
+  console.log(`[Ensemble] Corpus: ${trainingCorpus.length} mau cau.`);
+
+  // -----------------------------------------------------------------
+  // BUOC 4A: Train Logistic Regression
+  // Luu: lr_model_weights.json
+  // -----------------------------------------------------------------
+  const LR_MODEL_PATH = path.join(__dirname, 'lr_model_weights.json');
+  try {
+    const LogisticRegression = require('./LogisticRegression');
+    const lr = new LogisticRegression({ learningRate: 0.1, epochs: 80, l2Lambda: 0.001 });
+    console.log('[4A/4B] Training Logistic Regression...');
+    lr.fit(trainingCorpus);
+    await lr.saveModel(LR_MODEL_PATH);
+    console.log('[4A] Logistic Regression: HOAN TAT');
+  } catch (err) {
+    console.error('[4A] LR training that bai (khong anh huong NaiveBayes):', err.message);
+  }
+
+  // -----------------------------------------------------------------
+  // BUOC 4B: Train Linear SVM (One-vs-Rest)
+  // Luu: svm_model_weights.json
+  // -----------------------------------------------------------------
+  const SVM_MODEL_PATH = path.join(__dirname, 'svm_model_weights.json');
+  try {
+    const LinearSVM = require('./LinearSVM');
+    const svm = new LinearSVM({ learningRate: 0.01, epochs: 40, lambda: 0.001 });
+    console.log('[4B/4B] Training Linear SVM (One-vs-Rest)...');
+    svm.fit(trainingCorpus);
+    await svm.saveModel(SVM_MODEL_PATH);
+    console.log('[4B] Linear SVM: HOAN TAT');
+  } catch (err) {
+    console.error('[4B] SVM training that bai (khong anh huong NaiveBayes):', err.message);
+  }
+
+  console.log('\n=== TRAINING TOAN BO HE THONG HOAN TAT ===');
+  console.log(`  NaiveBayes  -> ${MODEL_PATH}`);
+  console.log(`  LogisticReg -> ${LR_MODEL_PATH}`);
+  console.log(`  LinearSVM   -> ${SVM_MODEL_PATH}`);
   return true;
 }
 
-// Nếu chạy trực tiếp file bằng lệnh `node train.js`
+// Neu chay truc tiep file bang lenh `node train.js`
 if (require.main === module) {
   trainModel()
     .catch(e => console.error(e))
