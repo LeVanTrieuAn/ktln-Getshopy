@@ -63,6 +63,7 @@ router.get('/products', async (req, res) => {
     if (sort === 'price_asc') orderBy = { price: 'asc' };
     if (sort === 'price_desc') orderBy = { price: 'desc' };
     if (sort === 'newest') orderBy = { id: 'desc' };
+    if (sort === 'best_selling' || sort === 'bestseller' || sort === 'sold_desc') orderBy = { sold: 'desc' };
 
     // Fetch all matching products for post-query branch filtering (since branch_ids is complex JSON)
     let allProducts = await prisma.product.findMany({ where, orderBy });
