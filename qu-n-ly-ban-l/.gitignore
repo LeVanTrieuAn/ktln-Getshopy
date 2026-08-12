@@ -1,0 +1,7 @@
+node_modules/
+source/data/clickhouse/
+source/data/redis/
+.env
+.DS_Store
+
+**/ai_model_weights.json

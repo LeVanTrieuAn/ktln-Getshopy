@@ -1,0 +1,9 @@
+{
+  "legacyWatch": true,
+  "ignore": [
+    "src/ai/ai_model_weights.json",
+    "*.json"
+  ],
+  "watch": ["src"],
+  "ext": "js,mjs,cjs"
+}

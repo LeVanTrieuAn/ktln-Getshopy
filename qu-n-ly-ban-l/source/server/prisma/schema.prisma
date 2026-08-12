@@ -1,0 +1,141 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            Int      @id @default(autoincrement())
+  full_name     String
+  email         String   @unique
+  password_hash String
+  role          String   @default("admin")
+  status        String   @default("active")
+  created_at    DateTime @default(now())
+}
+
+model B2CCustomer {
+  id             BigInt   @id @default(autoincrement())
+  full_name      String
+  email          String   @unique
+  phone          String?
+  password_hash  String
+  loyalty_points Int      @default(0)
+  avatar         String?
+  provider       String   @default("local")
+  created_at     DateTime @default(now())
+}
+
+model Branch {
+  id         String   @id
+  name       String
+  address    String
+  is_deleted Boolean  @default(false)
+  created_at DateTime @default(now())
+}
+
+model Category {
+  id         String   @id
+  name       String
+  icon       String?
+  created_at DateTime @default(now())
+}
+
+model Brand {
+  id         String   @id
+  name       String
+  is_deleted Boolean  @default(false)
+  created_at DateTime @default(now())
+}
+
+model Product {
+  id             BigInt   @id @default(autoincrement())
+  name           String
+  price          Float
+  original_price Float
+  category_id    String
+  brand_id       String
+  stock          Int      @default(0)
+  rating         Float    @default(5)
+  sold           Int      @default(0)
+  image          String?
+  images         Json     @default("[]") // Array of strings
+  description    String?
+  variants       Json     @default("[]") // Array of variant objects
+  branch_ids     Json     @default("[]") // Array of branch strings
+  is_banner      Boolean  @default(false)
+  is_deleted     Boolean  @default(false)
+  created_at     DateTime @default(now())
+
+  @@index([category_id])
+  @@index([brand_id])
+  @@index([is_deleted, id])
+  @@index([price])
+}
+
+model Review {
+  id         String   @id
+  product_id BigInt
+  reviewer   String
+  rating     Int
+  comment    String
+  date       DateTime @default(now())
+  reply      String?
+  reply_date DateTime?
+}
+
+model FlashSale {
+  id               BigInt   @id @default(autoincrement())
+  title            String
+  start_time       DateTime
+  end_time         DateTime
+  product_id       String?
+  category_id      String?
+  discount_percent Int
+  is_deleted       Boolean  @default(false)
+}
+
+model FlashSaleItem {
+  id             BigInt   @id @default(autoincrement())
+  flash_sale_id  BigInt
+  product_id     BigInt
+  discount_price Float
+  limit          Int      @default(100)
+  sold           Int      @default(0)
+}
+
+model Order {
+  id          String   @id
+  customer    Json     // Customer info
+  items       Json     // Array of items
+  total       Float
+  discount    Float    @default(0)
+  shippingFee Float    @default(0)
+  subTotal    Float    @default(0)
+  status      String
+  date        DateTime @default(now())
+}
+
+model VoucherTier {
+  id                     BigInt   @id @default(autoincrement())
+  name                   String
+  min_points_required    Int      @default(0)
+  min_lifetime_spend_vnd Float    @default(0)
+  discount_amount_vnd    Float
+  active                 Int      @default(1)
+}
+
+model Voucher {
+  id               BigInt   @id @default(autoincrement())
+  code             String   @unique
+  min_order_value  Float
+  type             String   // "percent" or "fixed"
+  value            Float
+  max_discount     Float
+  is_deleted       Boolean  @default(false)
+}
