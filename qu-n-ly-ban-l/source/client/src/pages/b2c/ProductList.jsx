@@ -79,7 +79,7 @@ export default function ProductList() {
   };
 
   return (
-    <div>
+    <div style={{ padding: '100px 48px 48px', maxWidth: 1400, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <Title level={2} style={{ color: isDark ? '#fff' : '#111', margin: 0 }}>
           {searchQuery ? `${t('shop.search_results')}: "${searchQuery}"` : t('shop.all_products')}

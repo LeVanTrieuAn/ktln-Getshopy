@@ -144,7 +144,7 @@ export default function Account() {
   ];
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 0' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 48px' }}>
       <Row gutter={[32, 32]}>
         <Col xs={24} md={6}>
           <Card 

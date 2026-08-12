@@ -83,7 +83,7 @@ const floatingProducts = [
     img: macbookImg, 
     alt: 'MacBook',
     // Top-center, above Getshopy text
-    finalStyle: { top: '5%', left: '50%', width: 200, transform: 'translateX(-50%) rotate(5deg)' },
+    finalStyle: { top: '13%', left: '50%', width: 200, transform: 'translateX(-50%) rotate(5deg)' },
     delay: '0.2s'
   },
   { 
