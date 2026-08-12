@@ -83,12 +83,18 @@ Chạy lại: `docker exec source-server-1 node scripts/benchmark-products.js 15
 4. (Tuỳ chọn) GIN/trigram index cho tìm kiếm `name` (`ILIKE`) nếu tập dữ liệu lớn hơn.
 
 ## 5. Cách tái lập
+
+> Cập nhật sau khi merge nhánh `main` (đã đổi sang docker-compose kiểu production — build bằng Dockerfile, healthcheck, tên project `getshopy`, DB `getshopy` thay vì `istore`). Entrypoint container tự suy ra `DATABASE_URL` từ `POSTGRES_*` khi chạy `node src/index.js`, nhưng biến này **không** tự có khi `docker exec` một lệnh khác vào container — phải truyền tay như dưới.
+
 ```bash
 cd qu-n-ly-ban-l/source
-docker compose up -d postgres redis clickhouse
-docker compose restart server
-docker exec source-server-1 npx prisma db push --accept-data-loss   # tạo schema (đã có index)
-docker exec source-server-1 npm run seed:mock                        # seed đúng 50.000 sản phẩm
-docker exec source-server-1 npm run test:perf                        # 8 test tự động
-docker exec source-server-1 node scripts/benchmark-products.js 15    # benchmark before/after
+cp .env.example .env   # nếu chưa có
+docker compose up -d --build
+
+DB_URL="postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy?schema=public"
+docker exec -e DATABASE_URL="$DB_URL" -e DIRECT_URL="$DB_URL" getshopy-server-1 npm run seed:mock   # seed 50.000 sản phẩm
+docker exec getshopy-server-1 npm run test:perf                                                      # 8 test tự động
+docker exec -e DATABASE_URL="$DB_URL" -e DIRECT_URL="$DB_URL" getshopy-server-1 node scripts/benchmark-products.js 15
 ```
+
+**Đã re-run toàn bộ trên hạ tầng mới (2026-08-13):** 8/8 test vẫn pass (p95 `/products` = 11.2ms, p95 `/products/:id` = 3.6ms), benchmark before/after = 1315ms → 8.2ms (159.6x) — cùng cỡ với số đo trên hạ tầng cũ, xác nhận merge không làm hỏng các tối ưu.
