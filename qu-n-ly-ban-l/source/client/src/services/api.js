@@ -1,7 +1,7 @@
 const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
 function getToken() {
-  return localStorage.getItem('token');
+  return localStorage.getItem('b2c_token') || localStorage.getItem('token');
 }
 
 async function request(path, options = {}) {

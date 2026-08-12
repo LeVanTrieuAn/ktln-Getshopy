@@ -201,3 +201,38 @@ p {
 .animate-fade-in {
   animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+/* Daily Discover: five product cards per row on desktop, while retaining a
+   readable grid on smaller screens. */
+.daily-product-col {
+  flex: 0 0 100%;
+  max-width: 100%;
+}
+
+@media (min-width: 576px) {
+  .daily-product-col {
+    flex-basis: 50%;
+    max-width: 50%;
+  }
+}
+
+@media (min-width: 768px) {
+  .daily-product-col {
+    flex-basis: 33.333333%;
+    max-width: 33.333333%;
+  }
+}
+
+@media (min-width: 992px) {
+  .daily-product-col {
+    flex-basis: 25%;
+    max-width: 25%;
+  }
+}
+
+@media (min-width: 1200px) {
+  .daily-product-col {
+    flex-basis: 20%;
+    max-width: 20%;
+  }
+}

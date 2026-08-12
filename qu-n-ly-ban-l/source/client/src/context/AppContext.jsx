@@ -95,10 +95,19 @@ export function AppProvider({ children }) {
     localStorage.setItem('token', token);
   };
 
-  const logout = () => {
+  const clearAllUserSession = () => {
     setUser(null);
+    setB2cUser(null);
     localStorage.removeItem('user');
     localStorage.removeItem('token');
+    localStorage.removeItem('b2c_user');
+    localStorage.removeItem('b2c_token');
+    localStorage.removeItem('b2c_points');
+    localStorage.removeItem('b2c_addresses');
+  };
+
+  const logout = () => {
+    clearAllUserSession();
   };
 
   const b2cLogin = (userData, token) => {
@@ -121,9 +130,7 @@ export function AppProvider({ children }) {
   };
 
   const b2cLogout = () => {
-    setB2cUser(null);
-    localStorage.removeItem('b2c_user');
-    localStorage.removeItem('b2c_token');
+    clearAllUserSession();
   };
 
   return (

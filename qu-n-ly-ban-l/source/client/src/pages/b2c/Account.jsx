@@ -36,7 +36,7 @@ const MapResizer = () => {
 };
 
 export default function Account() {
-  const { isDark, wishlist, toggleWishlist, t, b2cUser } = useApp();
+  const { isDark, wishlist, toggleWishlist, t, b2cUser, user, b2cLogout, logout } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
@@ -70,11 +70,13 @@ export default function Account() {
     localStorage.setItem('b2c_addresses', JSON.stringify(addresses));
   }, [addresses]);
 
+  const currentUser = b2cUser || user;
+
   useEffect(() => {
-    if (b2cUser) {
-      handleLookup(b2cUser.email);
+    if (currentUser?.email) {
+      handleLookup(currentUser.email);
     }
-  }, [b2cUser]);
+  }, [currentUser]);
 
   const handleLookup = async (email = lookupEmail) => {
     if (!email) return message.error(t('account.lookup_placeholder'));
@@ -115,15 +117,34 @@ export default function Account() {
     }
   };
 
-  // Mock User profile (Since we don't have a real auth flow yet)
+  // User profile
   const mockUser = {
-    name: b2cUser ? (b2cUser.full_name || b2cUser.email) : 'Khách vãng lai',
+    name: currentUser ? (currentUser.full_name || currentUser.name || currentUser.email) : 'Khách vãng lai',
+    email: currentUser?.email || 'Chưa đăng nhập',
+    phone: currentUser?.phone || 'Chưa cập nhật',
     tier: points > 500 ? 'Thành viên Vàng' : (points > 100 ? 'Thành viên Bạc' : 'Thành viên Đồng'),
     points: points
   };
 
+  const handleLogout = () => {
+    b2cLogout();
+    logout();
+    message.success(t('account.logout_success'));
+    navigate('/', { replace: true });
+  };
+
+  const menuItems = [
+    { key: 'profile', icon: <UserOutlined />, label: t('account.profile') },
+    { key: 'orders', icon: <ShoppingOutlined />, label: t('account.my_orders') },
+    { key: 'address', icon: <EnvironmentOutlined />, label: t('account.address_book') },
+    { key: 'wishlist', icon: <HeartOutlined />, label: t('account.wishlist') },
+    { key: 'loyalty', icon: <TrophyOutlined />, label: t('account.loyalty') },
+    { type: 'divider' },
+    { key: 'logout', icon: <LogoutOutlined />, label: t('account.logout'), danger: true }
+  ];
+
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '40px 0' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 48px' }}>
       <Row gutter={[32, 32]}>
         <Col xs={24} md={6}>
           <Card 
@@ -147,25 +168,17 @@ export default function Account() {
             <Menu 
               mode="inline" 
               selectedKeys={[activeTab]}
-              onClick={(e) => {
-                if (e.key === 'logout') {
-                  message.success(t('account.logout_success'));
-                  navigate('/');
-                  return;
+              onClick={({ key }) => {
+                if (key === 'logout') {
+                  handleLogout();
+                } else {
+                  setActiveTab(key);
                 }
-                setActiveTab(e.key);
               }}
+              items={menuItems}
               style={{ background: 'transparent', border: 'none' }}
               theme={isDark ? 'dark' : 'light'}
-            >
-              <Menu.Item key="profile" icon={<UserOutlined />}>{t('account.profile')}</Menu.Item>
-              <Menu.Item key="orders" icon={<ShoppingOutlined />}>{t('account.my_orders')}</Menu.Item>
-              <Menu.Item key="address" icon={<EnvironmentOutlined />}>{t('account.address_book')}</Menu.Item>
-              <Menu.Item key="wishlist" icon={<HeartOutlined />}>{t('account.wishlist')}</Menu.Item>
-              <Menu.Item key="loyalty" icon={<TrophyOutlined />}>{t('account.loyalty')}</Menu.Item>
-              <Menu.Divider />
-              <Menu.Item key="logout" icon={<LogoutOutlined />} danger>{t('account.logout')}</Menu.Item>
-            </Menu>
+            />
           </Card>
         </Col>
 
@@ -346,20 +359,34 @@ export default function Account() {
 
             {activeTab === 'profile' && (
               <div>
-                <Title level={3} style={{ color: isDark ? '#fff' : '#000', marginBottom: 24 }}>Hồ sơ cá nhân</Title>
-                {/* Mock Form */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+                  <Title level={3} style={{ color: isDark ? '#fff' : '#000', margin: 0 }}>Hồ sơ cá nhân</Title>
+                  <Button 
+                    type="primary" 
+                    danger 
+                    icon={<LogoutOutlined />} 
+                    onClick={handleLogout}
+                    style={{ borderRadius: 8 }}
+                  >
+                    {t('account.logout')}
+                  </Button>
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
                   <div>
                     <div style={{ color: isDark ? '#aaa' : '#666', marginBottom: 8 }}>Họ và tên</div>
-                    <div style={{ padding: '8px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000' }}>{mockUser.name}</div>
+                    <div style={{ padding: '12px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{mockUser.name}</div>
                   </div>
                   <div>
                     <div style={{ color: isDark ? '#aaa' : '#666', marginBottom: 8 }}>Email</div>
-                    <div style={{ padding: '8px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000' }}>{mockUser.email}</div>
+                    <div style={{ padding: '12px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{mockUser.email}</div>
                   </div>
                   <div>
                     <div style={{ color: isDark ? '#aaa' : '#666', marginBottom: 8 }}>Số điện thoại</div>
-                    <div style={{ padding: '8px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000' }}>{mockUser.phone}</div>
+                    <div style={{ padding: '12px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{mockUser.phone}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: isDark ? '#aaa' : '#666', marginBottom: 8 }}>Hạng thành viên</div>
+                    <div style={{ padding: '12px 16px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', borderRadius: 8, color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{mockUser.tier}</div>
                   </div>
                 </div>
               </div>

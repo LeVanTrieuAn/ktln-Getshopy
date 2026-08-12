@@ -64,6 +64,7 @@ router.get('/products', async (req, res) => {
     if (sort === 'price_asc') orderBy = { price: 'asc' };
     if (sort === 'price_desc') orderBy = { price: 'desc' };
     if (sort === 'newest') orderBy = { id: 'desc' };
+    if (sort === 'best_selling' || sort === 'bestseller' || sort === 'sold_desc') orderBy = { sold: 'desc' };
 
     // Only the fields the shop list card / branch filter actually need —
     // skips description/variants which are only used on the detail page.
