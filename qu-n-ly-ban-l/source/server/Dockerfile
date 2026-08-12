@@ -1,7 +1,12 @@
-FROM node:20-alpine
+FROM node:20-bookworm-slim
 WORKDIR /app
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y openssl \
+    && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
+RUN ./node_modules/.bin/prisma generate
 EXPOSE 8080
+ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"]
 CMD ["node", "src/index.js"]
