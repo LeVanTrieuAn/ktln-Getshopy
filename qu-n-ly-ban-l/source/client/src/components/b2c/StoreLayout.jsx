@@ -13,7 +13,8 @@ import { SunOutlined, MoonOutlined } from '@ant-design/icons';
 const { Header, Content, Footer } = Layout;
 
 export default function StoreLayout() {
-  const { isDark, toggleTheme, bg, compareList, lang, toggleLang, t, b2cUser, b2cLogout, selectedBranch, setSelectedBranch } = useApp();
+  const { isDark, toggleTheme, bg, compareList, lang, toggleLang, t, b2cUser, user, b2cLogout, logout, selectedBranch, setSelectedBranch } = useApp();
+  const currentUser = b2cUser || user;
   const { cart, removeFromCart, cartTotal, cartCount, toggleSelect, toggleSelectAll, updateQuantity } = useCart();
   const navigate = useNavigate();
   const [cartOpen, setCartOpen] = useState(false);
@@ -279,25 +280,27 @@ export default function StoreLayout() {
           <div style={{ width: 1, height: 24, background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)', margin: '0 4px' }} />
 
           {/* SIGN UP & LOGIN */}
-          {b2cUser ? (
+          {currentUser ? (
             <Dropdown
               menu={{
                 items: [
                   { key: '1', label: t('nav.my_account'), icon: <UserOutlined />, onClick: () => navigate('/account') },
-                  { key: '2', label: t('nav.switch_account'), icon: <SwapOutlined />, onClick: () => { b2cLogout(); setAuthOpen(true); } },
-                  { key: '3', label: t('nav.logout'), icon: <LogoutOutlined />, onClick: () => { b2cLogout(); message.success(t('nav.logged_out_success')); navigate('/'); } }
+                  { key: '2', label: t('nav.switch_account'), icon: <SwapOutlined />, onClick: () => { b2cLogout(); logout(); setAuthOpen(true); } },
+                  { key: '3', label: t('nav.logout'), icon: <LogoutOutlined />, onClick: () => { b2cLogout(); logout(); message.success(t('nav.logged_out_success')); navigate('/'); } }
                 ]
               }}
               placement="bottomRight"
             >
               <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, height: 34 }}>
                 <Avatar 
-                  src={b2cUser.avatar ? b2cUser.avatar.replace('notionists', 'avataaars') : (`https://api.dicebear.com/7.x/avataaars/svg?seed=` + b2cUser.email)} 
+                  src={currentUser.avatar ? currentUser.avatar.replace('notionists', 'avataaars') : (`https://api.dicebear.com/7.x/avataaars/svg?seed=` + (currentUser.email || 'user'))} 
                   icon={<UserOutlined />} 
                   size={32} 
                   style={{ border: '2px solid #10b981', background: isDark ? '#1e293b' : '#fff' }} 
                 />
-                <span style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#fff' : '#000', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{b2cUser.full_name}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#fff' : '#000', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {currentUser.full_name || currentUser.name || currentUser.email}
+                </span>
               </div>
             </Dropdown>
           ) : (
