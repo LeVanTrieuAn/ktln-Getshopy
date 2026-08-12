@@ -1,15 +1,16 @@
 const express = require('express');
 const { prisma } = require('../db');
+const { cached } = require('../redis');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'istore_secret';
 
-// Get Categories
+// Get Categories — barely change, so cache for a few minutes instead of hitting DB every load
 router.get('/categories', async (req, res) => {
   try {
-    const categories = await prisma.category.findMany();
+    const categories = await cached('categories:all', 300, () => prisma.category.findMany());
     res.json(categories);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -36,10 +37,10 @@ const applyFlashSaleToProduct = (product, fsItems) => {
   return product;
 };
 
-// Get Brands
+// Get Brands — same rationale as categories
 router.get('/brands', async (req, res) => {
   try {
-    const brands = await prisma.brand.findMany({ where: { is_deleted: false } });
+    const brands = await cached('brands:active', 300, () => prisma.brand.findMany({ where: { is_deleted: false } }));
     res.json(brands);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -65,11 +66,24 @@ router.get('/products', async (req, res) => {
     if (sort === 'newest') orderBy = { id: 'desc' };
     if (sort === 'best_selling' || sort === 'bestseller' || sort === 'sold_desc') orderBy = { sold: 'desc' };
 
-    // Fetch all matching products for post-query branch filtering (since branch_ids is complex JSON)
-    let allProducts = await prisma.product.findMany({ where, orderBy });
+    // Only the fields the shop list card / branch filter actually need —
+    // skips description/variants which are only used on the detail page.
+    const listSelect = {
+      id: true, name: true, price: true, original_price: true, image: true,
+      stock: true, rating: true, sold: true, category_id: true, brand_id: true,
+      branch_ids: true, is_banner: true, created_at: true
+    };
+
+    let products, total;
 
     if (branch_id) {
-      allProducts = allProducts.filter(p => {
+      // branch_ids is a JSON array, so it can't be pushed into the SQL WHERE/LIMIT here.
+      // Bounded fallback: filter/paginate in-app over a capped candidate set instead of
+      // the full table. Known limitation — see PERF-PRODUCTS.md §3.1 for a real fix
+      // (jsonb containment query or a proper product_branch join table).
+      const BRANCH_FILTER_CAP = 5000;
+      let candidates = await prisma.product.findMany({ where, orderBy, take: BRANCH_FILTER_CAP, select: listSelect });
+      candidates = candidates.filter(p => {
         if (!p.branch_ids) return true;
         let arr = p.branch_ids;
         if (typeof arr === 'string') {
@@ -77,11 +91,16 @@ router.get('/products', async (req, res) => {
         }
         return !Array.isArray(arr) || arr.length === 0 || arr.includes(branch_id);
       });
+      total = candidates.length;
+      products = candidates.slice(skip, skip + limitNumber);
+    } else {
+      // Real DB-level pagination: only the requested page is ever fetched/serialized.
+      [products, total] = await Promise.all([
+        prisma.product.findMany({ where, orderBy, skip, take: limitNumber, select: listSelect }),
+        prisma.product.count({ where })
+      ]);
     }
 
-    const total = allProducts.length;
-    let products = allProducts.slice(skip, skip + limitNumber);
-    
     const fsItems = await getActiveFlashSaleItems();
     products = products.map(p => applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems));
 
