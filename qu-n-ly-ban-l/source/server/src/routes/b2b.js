@@ -1,5 +1,6 @@
 const express = require('express');
 const { prisma } = require('../db');
+const { invalidate } = require('../redis');
 const router = express.Router();
 
 // Get all reviews
@@ -116,7 +117,8 @@ router.post('/brands', async (req, res) => {
         name
       }
     });
-    
+    await invalidate('brands:active');
+
     res.json({ message: 'Brand added successfully', brand: newBrand });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -132,6 +134,7 @@ router.put('/brands/:id', async (req, res) => {
         ...(name && { name })
       }
     });
+    await invalidate('brands:active');
     res.json({ message: 'Brand updated successfully', brand });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Brand not found' });
@@ -145,6 +148,7 @@ router.delete('/brands/:id', async (req, res) => {
       where: { id: req.params.id },
       data: { is_deleted: true }
     });
+    await invalidate('brands:active');
     res.json({ message: 'Brand soft-deleted successfully' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Brand not found' });
@@ -155,7 +159,18 @@ router.delete('/brands/:id', async (req, res) => {
 // Products
 router.get('/products', async (req, res) => {
   try {
-    const products = await prisma.product.findMany({ where: { is_deleted: false }, orderBy: { id: 'desc' } });
+    // Admin table/dropdowns need the full catalog, but never read description/variants
+    // (only the product detail page does) — dropping them here cuts the ~50k-row
+    // payload significantly without changing what the UI can render.
+    const products = await prisma.product.findMany({
+      where: { is_deleted: false },
+      orderBy: { id: 'desc' },
+      select: {
+        id: true, name: true, price: true, original_price: true, category_id: true,
+        brand_id: true, stock: true, rating: true, sold: true, image: true, images: true,
+        branch_ids: true, is_banner: true, is_deleted: true, created_at: true
+      }
+    });
     res.json(products.map(p => ({ ...p, id: Number(p.id) })));
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "linux-musl-arm64-openssl-3.0.x"]
 }
 
 datasource db {
@@ -71,6 +71,11 @@ model Product {
   is_banner      Boolean  @default(false)
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
+
+  @@index([category_id])
+  @@index([brand_id])
+  @@index([is_deleted, id])
+  @@index([price])
 }
 
 model Review {

@@ -1,6 +1,5 @@
 const express = require('express');
 const { createClient } = require('@clickhouse/client');
-const { createClient: createRedisClient } = require('redis');
 const CircuitBreaker = require('opossum');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
@@ -10,6 +9,7 @@ const WebSocket = require('ws');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { prisma } = require('./db');
+const { redis } = require('./redis');
 
 // ─── GLOBAL ERROR HANDLERS (prevent nodemon/process crash from unhandled rejections) ───
 process.on('unhandledRejection', (reason) => {
@@ -45,11 +45,6 @@ const ch = createClient({
   url: process.env.CLICKHOUSE_HOST || 'http://localhost:8123',
   database: 'analytics',
 });
-
-// ─── REDIS CLIENT ───────────────────────────────────────────────
-const redis = createRedisClient({ url: process.env.REDIS_URL || 'redis://localhost:6379' });
-redis.on('error', err => console.error('Redis Client Error', err));
-redis.connect().then(() => console.log('📦 Redis connected')).catch(console.error);
 
 // ─── CIRCUIT BREAKER ────────────────────────────────────────────
 const clickhouseOptions = {

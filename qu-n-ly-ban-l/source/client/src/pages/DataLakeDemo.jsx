@@ -69,7 +69,7 @@ export default function DataLakeDemo() {
   }
 
   return (
-    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 0' }}>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '120px 24px 48px' }}>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <Title level={2} style={{ color: isDark ? '#fff' : '#000', margin: 0 }}>
           <DatabaseOutlined style={{ marginRight: 12, color: '#10b981' }} />

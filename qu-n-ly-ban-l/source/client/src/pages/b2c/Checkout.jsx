@@ -215,7 +215,8 @@ export default function Checkout() {
   }
 
   return (
-    <Row gutter={[40, 40]}>
+    <div style={{ padding: '100px 24px 48px', maxWidth: 1300, margin: '0 auto' }}>
+      <Row gutter={[40, 40]}>
       {/* Cột form thông tin */}
       <Col xs={24} lg={14}>
         <div className="glass-panel" style={{ padding: 40, borderRadius: 24 }}>
@@ -438,6 +439,7 @@ export default function Checkout() {
           </div>
         </div>
       </Col>
-    </Row>
+      </Row>
+    </div>
   );
 }

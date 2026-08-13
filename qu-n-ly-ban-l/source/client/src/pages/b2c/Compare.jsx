@@ -102,7 +102,7 @@ export default function Compare() {
   ];
 
   return (
-    <div style={{ padding: '40px 0', maxWidth: 1200, margin: '0 auto' }}>
+    <div style={{ padding: '120px 24px 48px', maxWidth: 1200, margin: '0 auto' }}>
       <Title level={2} style={{ color: isDark ? '#fff' : '#111', marginBottom: 32, textAlign: 'center' }}>
         {t('compare.title')} ({compareList.length}/3)
       </Title>

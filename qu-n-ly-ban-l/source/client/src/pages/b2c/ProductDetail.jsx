@@ -142,7 +142,7 @@ export default function ProductDetail() {
   };
 
   return (
-    <div>
+    <div style={{ padding: '100px 48px 48px', maxWidth: 1400, margin: '0 auto' }}>
       <Breadcrumb style={{ marginBottom: 24, fontSize: 14 }} items={[
         { title: <span onClick={() => navigate('/')} style={{ cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>{t('nav.home')}</span> },
         { title: <span style={{ color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>{t(`home.category_${product.category_id}`)}</span> },

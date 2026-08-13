@@ -70,6 +70,46 @@
       "id": "c4",
       "name": "Phụ kiện công nghệ",
       "icon": "AudioOutlined"
+    },
+    {
+      "id": "c5",
+      "name": "Tivi & Thiết bị giải trí",
+      "icon": "DesktopOutlined"
+    },
+    {
+      "id": "c6",
+      "name": "Máy ảnh & Quay phim",
+      "icon": "CameraOutlined"
+    },
+    {
+      "id": "c7",
+      "name": "Đồng hồ thông minh",
+      "icon": "ClockCircleOutlined"
+    },
+    {
+      "id": "c8",
+      "name": "Thiết bị âm thanh",
+      "icon": "CustomerServiceOutlined"
+    },
+    {
+      "id": "c9",
+      "name": "Gaming",
+      "icon": "PlayCircleOutlined"
+    },
+    {
+      "id": "c10",
+      "name": "Nhà thông minh",
+      "icon": "HomeOutlined"
+    },
+    {
+      "id": "c11",
+      "name": "Thiết bị văn phòng",
+      "icon": "PrinterOutlined"
+    },
+    {
+      "id": "c12",
+      "name": "Linh kiện máy tính",
+      "icon": "HddOutlined"
     }
   ],
   "brands": [

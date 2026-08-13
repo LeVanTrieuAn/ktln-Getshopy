@@ -38,7 +38,8 @@ export default function AIChatbot() {
       // Giả lập thời gian AI "suy nghĩ" để hiện hiệu ứng gõ phím chân thật (1.5s)
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      const response = await fetch('http://localhost:8080/api/b2c/chat', {
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      const response = await fetch(`${apiBaseUrl}/b2c/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
