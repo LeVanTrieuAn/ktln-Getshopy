@@ -6,6 +6,29 @@ import { useNavigate } from 'react-router-dom';
 
 const { Text } = Typography;
 
+// Parse markdown **bold** and *italic* to JSX
+function renderMarkdown(text) {
+  const parts = [];
+  const regex = /\*\*(.+?)\*\*|\*(.+?)\*/g;
+  let lastIndex = 0;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    if (match[1] !== undefined) {
+      parts.push(<strong key={match.index}>{match[1]}</strong>);
+    } else if (match[2] !== undefined) {
+      parts.push(<em key={match.index}>{match[2]}</em>);
+    }
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  return parts;
+}
+
 export default function AIChatbot() {
   const { isDark } = useApp();
   const navigate = useNavigate();
@@ -151,7 +174,7 @@ export default function AIChatbot() {
                   fontSize: 14,
                   lineHeight: 1.5
                 }}>
-                  {msg.text}
+                  {msg.sender === 'ai' ? renderMarkdown(msg.text) : msg.text}
                   {msg.link && (
                     <Button 
                       type="primary" 

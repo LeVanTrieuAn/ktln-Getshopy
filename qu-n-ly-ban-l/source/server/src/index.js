@@ -442,14 +442,15 @@ app.get('/api/supply-chain/sla-summary', authMiddleware, async (req, res) => {
         countIf(sla = 'ON_TIME') as on_time,
         countIf(sla = 'BREACHED') as breached,
         countIf(sla = 'PENDING') as pending,
-        avg(hours_elapsed) as avg_hours
+        avgIf(hours_elapsed, sla != 'PENDING') as avg_hours
       FROM (
         SELECT
-          dateDiff('hour', s.order_date, COALESCE(ov.voucher_date, now())) as hours_elapsed,
+          dateDiff('hour', s.order_date, ov.voucher_date) as hours_elapsed,
           multiIf(ov.voucher_id = '', 'PENDING', dateDiff('hour', s.order_date, ov.voucher_date) <= 24, 'ON_TIME', 'BREACHED') as sla
         FROM analytics.sale_orders s
         LEFT JOIN (SELECT order_id, min(voucher_date) as voucher_date, any(voucher_id) as voucher_id FROM analytics.output_vouchers WHERE category = 'COGS' GROUP BY order_id) ov ON s.order_id = ov.order_id
         WHERE s.status = 'CONFIRMED' AND s.order_date >= subtractDays(now(), 30) ${branchFilter}
+          AND ov.voucher_id != ''
       )
     `);
     const r = rows[0] || {};

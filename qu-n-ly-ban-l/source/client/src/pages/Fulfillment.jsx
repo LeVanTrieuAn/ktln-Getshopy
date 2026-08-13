@@ -41,7 +41,7 @@ export default function Fulfillment() {
     { title: 'Chi nhánh', dataIndex: 'branch_name', render: v => <Text style={{ color: subColor }}>{v}</Text> },
     { title: 'Sản phẩm', dataIndex: 'product_name', render: v => <Text style={{ color: subColor }}>{v}</Text> },
     { title: 'Thời gian đặt', dataIndex: 'order_date', render: v => <Text style={{ color: subColor }}>{dayjs(v).format('DD/MM HH:mm')}</Text> },
-    { title: 'Thời gian XL', dataIndex: 'hours_elapsed', render: v => <Text style={{ color: textColor }}>{v}h</Text> },
+    { title: 'Thời gian XL', dataIndex: 'hours_elapsed', render: v => <Text style={{ color: textColor }}>{Math.max(0, v || 0)}h</Text> },
     {
       title: 'Trạng thái', dataIndex: 'sla_status',
       render: (v) => {

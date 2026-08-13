@@ -82,7 +82,7 @@ export default function ProductDetail() {
 
   const isWished = wishlist?.some(p => p.id === product.id);
   const isCompared = compareList?.some(p => p.id === product.id);
-  const allImages = [product.image, ...(product.images || [])].filter(Boolean);
+  const allImages = [...new Set([product.image, ...(product.images || [])].filter(Boolean))];
 
   const getProductToAdd = () => {
     const p = { ...product };

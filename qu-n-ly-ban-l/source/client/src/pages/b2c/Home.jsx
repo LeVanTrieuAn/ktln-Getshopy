@@ -135,7 +135,7 @@ export default function Home() {
       try {
         setLoading(true);
         const [prodData, catData, flashData, topSellingData] = await Promise.all([
-          api.b2c.getProducts('ALL', '', 'newest', selectedBranch?.id, currentPage, 12),
+          api.b2c.getProducts('ALL', '', 'newest', selectedBranch?.id, currentPage, 15),
           api.b2c.getCategories(),
           api.b2c.getFlashSales(),
           api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 10)
@@ -781,12 +781,12 @@ export default function Home() {
         ))}
       </Row>
       
-      {totalProducts > 12 && (
+      {totalProducts > 15 && (
         <div style={{ textAlign: 'center', marginTop: 40, paddingBottom: 40 }}>
           <Pagination 
             current={currentPage} 
             total={totalProducts} 
-            pageSize={12} 
+            pageSize={15} 
             onChange={(page) => setCurrentPage(page)}
             showSizeChanger={false}
           />
