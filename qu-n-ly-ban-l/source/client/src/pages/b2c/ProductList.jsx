@@ -233,6 +233,8 @@ export default function ProductList() {
                     <img 
                       alt={p.name} 
                       src={p.image} 
+                      width={200}
+                      height={200}
                       style={{ height: 200, objectFit: 'contain' }} 
                       onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                     />

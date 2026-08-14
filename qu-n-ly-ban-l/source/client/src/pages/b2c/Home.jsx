@@ -26,14 +26,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
-
-import bannerImg from '../../assets/banner.png';
-import airpodsImg from '../../assets/airpods.png';
-import watchImg from '../../assets/watch.png';
-import cameraImg from '../../assets/camera.png';
-import iphoneImg from '../../assets/iphone.png';
-import macbookImg from '../../assets/macbook.png';
-import imacImg from '../../assets/imac.png';
+import HeroBanner from '../../components/b2c/HeroBanner';
 
 const { Title, Text } = Typography;
 const { Timer } = Statistic;
@@ -53,48 +46,6 @@ const iconMap = {
   'HddOutlined': <HddOutlined />,
 };
 
-// Floating product images config - positioned around the banner, close to center but avoiding text
-const floatingProducts = [
-  { 
-    img: airpodsImg, 
-    alt: 'AirPods Pro',
-    finalStyle: { top: '20%', left: '22%', width: 200, transform: 'rotate(-10deg)' },
-    delay: '0s'
-  },
-  { 
-    img: watchImg, 
-    alt: 'Apple Watch',
-    finalStyle: { bottom: '18%', left: '18%', width: 160, transform: 'rotate(5deg)' },
-    delay: '0.15s'
-  },
-  { 
-    img: cameraImg, 
-    alt: 'Security Camera',
-    finalStyle: { top: '20%', right: '18%', width: 180, transform: 'rotate(8deg)' },
-    delay: '0.3s'
-  },
-  { 
-    img: iphoneImg, 
-    alt: 'iPhone Pro',
-    finalStyle: { bottom: '15%', right: '22%', width: 150, transform: 'rotate(-12deg)' },
-    delay: '0.45s'
-  },
-  { 
-    img: macbookImg, 
-    alt: 'MacBook',
-    // Top-center, above Getshopy text
-    finalStyle: { top: '13%', left: '50%', width: 200, transform: 'translateX(-50%) rotate(5deg)' },
-    delay: '0.2s'
-  },
-  { 
-    img: imacImg, 
-    alt: 'iMac',
-    // Bottom-center, below Getshopy text
-    finalStyle: { bottom: '12%', left: '50%', width: 220, transform: 'translateX(-50%) rotate(-3deg)' },
-    delay: '0.35s'
-  }
-];
-
 export default function Home() {
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -105,7 +56,6 @@ export default function Home() {
   const [topSellingProducts, setTopSellingProducts] = useState([]);
   const [recommendations, setRecommendations] = useState([]);
   const [loadingRecs, setLoadingRecs] = useState(false);
-  const [animateProducts, setAnimateProducts] = useState(false);
   const scrollContainerRef = useRef(null);
   const { addToCart } = useCart();
   const { isDark, t, selectedBranch, b2cUser } = useApp();
@@ -124,11 +74,7 @@ export default function Home() {
     }
   };
 
-  // Trigger animation on mount
-  useEffect(() => {
-    const timer = setTimeout(() => setAnimateProducts(true), 100);
-    return () => clearTimeout(timer);
-  }, []);
+
 
   useEffect(() => {
     async function load() {
@@ -171,172 +117,24 @@ export default function Home() {
     loadRecs();
   }, [b2cUser]);
 
-  if (loading) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>;
-
   return (
     <div>
-      {/* Hero Banner Section */}
-      <div style={{
-        position: 'relative',
-        width: '100%',
-        height: '100vh',
-        minHeight: 600,
-        overflow: 'hidden',
-      }}>
-        {/* Banner Background Image */}
-        <img 
-          src={bannerImg} 
-          alt="Getshopy Banner" 
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            zIndex: 0,
-          }}
-        />
-        
-        {/* Dark overlay for depth */}
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          background: 'radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,0.3) 100%)',
-          zIndex: 1,
-        }} />
-
-        {/* Floating Product Images - animated from center outward */}
-        {floatingProducts.map((product, index) => (
-          <div
-            key={index}
-            style={{
-              position: 'absolute',
-              zIndex: 2,
-              transition: 'all 1s cubic-bezier(0.34, 1.56, 0.64, 1)',
-              transitionDelay: product.delay,
-              filter: 'drop-shadow(0 20px 40px rgba(0,0,0,0.4))',
-              cursor: 'pointer',
-              ...(animateProducts ? {
-                ...product.finalStyle,
-                opacity: 1,
-              } : {
-                top: '50%',
-                left: '50%',
-                width: 0,
-                opacity: 0,
-                transform: 'translate(-50%, -50%) scale(0)',
-              }),
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.filter = 'drop-shadow(0 25px 50px rgba(16,185,129,0.5))';
-              e.currentTarget.style.zIndex = '10';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.filter = 'drop-shadow(0 20px 40px rgba(0,0,0,0.4))';
-              e.currentTarget.style.zIndex = '2';
-            }}
-          >
-            <img 
-              src={product.img} 
-              alt={product.alt}
-              style={{
-                width: '100%',
-                height: 'auto',
-                pointerEvents: 'none',
-              }}
-            />
-          </div>
-        ))}
-
-        {/* CTA Buttons at bottom center */}
-        <div style={{
-          position: 'absolute',
-          bottom: 24,
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 5,
-          display: 'flex',
-          gap: 16,
-          opacity: animateProducts ? 1 : 0,
-          transition: 'opacity 0.8s ease 0.8s',
-        }}>
-          <div
-            onClick={() => navigate('/shop')}
-            style={{
-              padding: '14px 36px',
-              background: 'linear-gradient(135deg, #10b981, #047857)',
-              color: '#fff',
-              borderRadius: 50,
-              fontWeight: 700,
-              fontSize: 16,
-              cursor: 'pointer',
-              boxShadow: '0 8px 30px rgba(16,185,129,0.4)',
-              transition: 'all 0.3s ease',
-              border: 'none',
-              letterSpacing: '0.5px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-3px)';
-              e.currentTarget.style.boxShadow = '0 12px 40px rgba(16,185,129,0.6)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 8px 30px rgba(16,185,129,0.4)';
-            }}
-          >
-            Mua sắm ngay
-          </div>
-          <div
-            onClick={() => navigate('/shop')}
-            style={{
-              padding: '14px 36px',
-              background: 'rgba(255,255,255,0.15)',
-              backdropFilter: 'blur(10px)',
-              color: '#fff',
-              borderRadius: 50,
-              fontWeight: 600,
-              fontSize: 16,
-              cursor: 'pointer',
-              border: '1px solid rgba(255,255,255,0.3)',
-              transition: 'all 0.3s ease',
-              letterSpacing: '0.5px',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.25)';
-              e.currentTarget.style.transform = 'translateY(-3px)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
-              e.currentTarget.style.transform = 'translateY(0)';
-            }}
-          >
-            Khám phá ưu đãi
-          </div>
-        </div>
-      </div>
-
-      {/* CSS Animation Keyframes */}
-      <style>{`
-        @keyframes float {
-          0%, 100% { transform: translateY(0px); }
-          50% { transform: translateY(-12px); }
-        }
-        @keyframes pulse-glow {
-          0%, 100% { filter: drop-shadow(0 20px 40px rgba(0,0,0,0.4)); }
-          50% { filter: drop-shadow(0 25px 50px rgba(16,185,129,0.3)); }
-        }
-      `}</style>
+      {/* ══════════════════════════════════════════════════════════════════
+           HERO BANNER — Professional GSAP (HeroBanner component)
+           Nằm ngoài điều kiện loading để render ngay, triệt tiêu CLS = 1.0
+         ══════════════════════════════════════════════════════════════════ */}
+      <HeroBanner />
 
       {/* Content sections below banner */}
       <div style={{ padding: '48px 48px 0', maxWidth: 1400, margin: '0 auto' }}>
-
-      {/* Categories */}
-      <Title level={3} style={{ color: isDark ? '#fff' : '#111', marginBottom: 24 }}>{t('home.featured_categories')}</Title>
-      <Row gutter={[16, 16]} style={{ marginBottom: 48 }}>
+        
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '100px 0' }}><Spin size="large" /></div>
+        ) : (
+          <>
+            {/* Categories */}
+            <Title level={3} style={{ color: isDark ? '#fff' : '#111', marginBottom: 24 }}>{t('home.featured_categories')}</Title>
+            <Row gutter={[16, 16]} style={{ marginBottom: 48 }}>
         {featuredCategories.map(c => (
           <Col xs={12} sm={8} md={6} lg={4} key={c.id}>
             <div 
@@ -402,6 +200,8 @@ export default function Home() {
                       <img 
                         alt={p.name} 
                         src={p.image} 
+                        width={160}
+                        height={160}
                         style={{ height: 160, objectFit: 'contain' }} 
                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                       />
@@ -456,6 +256,8 @@ export default function Home() {
                       <img 
                         alt={p.name} 
                         src={p.image} 
+                        width={200}
+                        height={200}
                         style={{ height: 200, objectFit: 'contain' }} 
                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                       />
@@ -655,6 +457,8 @@ export default function Home() {
                         <img 
                           alt={p.name} 
                           src={p.image} 
+                          width={160}
+                          height={160}
                           style={{ height: 160, objectFit: 'contain' }} 
                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                         />
@@ -740,6 +544,8 @@ export default function Home() {
                   <img 
                     alt={p.name} 
                     src={p.image} 
+                    width={200}
+                    height={200}
                     style={{ height: 200, objectFit: 'contain' }} 
                     onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                   />
@@ -792,6 +598,8 @@ export default function Home() {
           />
         </div>
       )}
+          </>
+        )}
       </div>
     </div>
   );

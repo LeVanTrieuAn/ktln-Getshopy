@@ -174,6 +174,8 @@ export default function ProductDetail() {
                       <img 
                         src={img} 
                         alt={`${product.name} - ${idx}`} 
+                        width={400}
+                        height={400}
                         style={{ 
                           width: '100%', maxWidth: 400, height: '100%', objectFit: 'contain',
                           transform: `scale(${zoomScale})`, 
@@ -202,7 +204,7 @@ export default function ProductDetail() {
                       padding: 8, background: isDark ? '#111' : '#fff'
                     }}
                   >
-                    <img src={img} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="thumb" />
+                    <img src={img} width={64} height={64} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="thumb" />
                   </div>
                 ))}
               </div>
@@ -453,6 +455,8 @@ export default function ProductDetail() {
                         <img 
                           alt={p.name} 
                           src={p.image} 
+                          width={160}
+                          height={160}
                           style={{ height: 160, objectFit: 'contain' }} 
                           onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                         />
@@ -493,6 +497,8 @@ export default function ProductDetail() {
                       <img 
                         alt={p.name} 
                         src={p.image || (p.images && p.images[0])} 
+                        width={140}
+                        height={140}
                         style={{ height: 140, objectFit: 'contain' }} 
                         onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
                       />

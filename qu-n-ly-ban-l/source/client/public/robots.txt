@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Không index trang admin/B2B
+Disallow: /admin
+Disallow: /b2b
+Disallow: /api/
+
+# Sitemap (cập nhật domain khi deploy)
+# Sitemap: https://yourdomain.com/sitemap.xml

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+/* Google Fonts được load qua <link> trong index.html với preconnect để tránh render-blocking */
 
 :root {
   --primary: #0066CC;
@@ -26,7 +26,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-x: hidden;
+  overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -235,4 +235,19 @@ p {
     flex-basis: 20%;
     max-width: 20%;
   }
+}
+
+/* ─── Hero Pin Wrapper — CLS Prevention ────────────────────────────────────────
+   GSAP ScrollTrigger với pinSpacing:true inject padding-bottom: 200vh vào DOM
+   sau khi JS mount → gây CLS = 1.0 với CPU throttling.
+   Fix: pre-allocate toàn bộ scroll budget (100vh hero + 200vh pin = 300vh)
+   ngay từ CSS (loaded trước JS) → browser đã biết height trước khi React render.
+   contain: layout isolates GSAP's layout side-effects trong block này.
+   overflow-anchor: none prevents browser scroll-anchoring shift khi spacer insert.
+   ──────────────────────────────────────────────────────────────────────────── */
+.hero-pin-wrapper {
+  position: relative;
+  width: 100%;
+  height: 300vh;              /* 100vh hero + 200vh GSAP pin scroll budget */
+  overflow-anchor: none;      /* prevent scroll-anchor shift */
 }

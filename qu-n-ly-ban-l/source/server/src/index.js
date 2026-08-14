@@ -9,7 +9,7 @@ const WebSocket = require('ws');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { prisma } = require('./db');
-const { redis } = require('./redis');
+const { redis, isConnected: redisIsConnected, cached: redisCached } = require('./redis');
 
 // ─── GLOBAL ERROR HANDLERS (prevent nodemon/process crash from unhandled rejections) ───
 process.on('unhandledRejection', (reason) => {
@@ -65,10 +65,14 @@ chBreaker.fallback((queryStr, err) => {
 });
 
 async function fetchWithCache(cacheKey, ttl, queryStr) {
-  const cached = await redis.get(cacheKey);
-  if (cached) return JSON.parse(cached);
+  if (redisIsConnected()) {
+    const cached = await redis.get(cacheKey);
+    if (cached) return JSON.parse(cached);
+  }
   const data = await chBreaker.fire(queryStr);
-  await redis.setEx(cacheKey, ttl, JSON.stringify(data));
+  if (redisIsConnected()) {
+    await redis.setEx(cacheKey, ttl, JSON.stringify(data));
+  }
   return data;
 }
 
@@ -113,8 +117,10 @@ app.get('/api/dashboard/kpis', authMiddleware, async (req, res) => {
     const branchFilter = branch_id && branch_id !== 'ALL' ? `AND branch_id = '${branch_id}'` : '';
     const cacheKey = `kpi:${branch_id || 'ALL'}:${targetDate}`;
 
-    const cached = await redis.get(cacheKey);
-    if (cached) return res.json(JSON.parse(cached));
+    if (redisIsConnected()) {
+      const cached = await redis.get(cacheKey);
+      if (cached) return res.json(JSON.parse(cached));
+    }
 
     const [revToday, revYest, orders, cash, pending, voidOrders, allOrders] = await Promise.all([
       chBreaker.fire(`SELECT SUM(net_amount) as val FROM analytics.sale_orders WHERE toDate(order_date) = '${targetDate}' AND status = 'CONFIRMED' ${branchFilter}`),
@@ -148,7 +154,7 @@ app.get('/api/dashboard/kpis', authMiddleware, async (req, res) => {
       void_rate: parseFloat(voidRate),
     };
 
-    await redis.setEx(cacheKey, 30, JSON.stringify(result));
+    if (redisIsConnected()) await redis.setEx(cacheKey, 30, JSON.stringify(result));
     res.json(result);
   } catch (err) {
     if (err.message.includes('Hệ thống dữ liệu đang quá tải')) return res.status(503).json({ error: err.message });
@@ -622,7 +628,7 @@ app.post('/api/admin/simulate-sale', authMiddleware, async (req, res) => {
       format: 'JSONEachRow'
     });
     
-    await redis.flushAll(); // clear cache
+    if (redisIsConnected()) await redis.flushAll(); // clear cache
     res.json({ success: true, order_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -761,7 +767,7 @@ app.post('/api/b2c/checkout', async (req, res) => {
         }
       }
       
-      await redis.flushAll(); // Clear analytics cache
+      if (redisIsConnected()) await redis.flushAll(); // Clear analytics cache
     }
 
     // Broadcast STOCK_UPDATE via WebSocket

@@ -233,7 +233,7 @@ export default function Account() {
                         {order.items.slice(0, 2).map((item, idx) => (
                           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                              <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0])} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'contain', background: '#fff' }} />
+                              <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0])} alt={item.name} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'contain', background: '#fff' }} />
                               <div>
                                 <div style={{ color: isDark ? '#ccc' : '#444', fontWeight: 600 }}>{item.name}</div>
                                 {item.selectedVariant && <div style={{ fontSize: 12, color: '#888' }}>{item.selectedVariant.color} {item.selectedVariant.storage}</div>}
@@ -271,7 +271,7 @@ export default function Account() {
                             icon={<FilePdfOutlined />} 
                             onClick={() => {
                               const invoiceHtml = `
-                                <div style="padding: 40px; font-family: sans-serif; color: #000; background: #fff; width: 800px;">
+                                <div style="padding: 40px; font-family: sans-serif; color: #000; background: #fff; width: 100%; box-sizing: border-box;">
                                   <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #10b981; padding-bottom: 20px; margin-bottom: 30px;">
                                     <div>
                                       <h1 style="color: #10b981; margin: 0;">GETSHOPY STORE</h1>
@@ -579,7 +579,7 @@ export default function Account() {
               {selectedOrder.items.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: 12, border: '1px solid #eee', borderRadius: 12 }}>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0])} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain', background: '#fff' }} />
+                    <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0])} alt={item.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain', background: '#fff' }} />
                     <div>
                       <div style={{ color: isDark ? '#ccc' : '#222', fontWeight: 600 }}>{item.name}</div>
                       {item.selectedVariant && <div style={{ fontSize: 12, color: '#888' }}>{item.selectedVariant.color} {item.selectedVariant.storage}</div>}

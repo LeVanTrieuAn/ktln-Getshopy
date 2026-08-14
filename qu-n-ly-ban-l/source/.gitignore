@@ -1,7 +1,50 @@
-# Secrets
+# ── Environment / Secrets ─────────────────────────────────────────
 .env
+.env.local
+.env.*.local
 backend/.env
+server/.env
+client/.env
 
-# Local debug / scratch
+# ── Node.js ───────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ── Vite / Build output ───────────────────────────────────────────
+client/dist/
+client/.vite/
+*.tsbuildinfo
+
+# ── Prisma generated ─────────────────────────────────────────────
+server/src/generated/
+server/prisma/migrations/
+
+# ── Logs ─────────────────────────────────────────────────────────
+logs/
+*.log
 debug-*.log
 tmp_*_test.php
+
+# ── OS ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── IDE ───────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# ── Docker volumes (nếu mount local) ─────────────────────────────
+data/postgres/
+data/clickhouse/
+
+# ── Misc ─────────────────────────────────────────────────────────
+*.local
+.cache/

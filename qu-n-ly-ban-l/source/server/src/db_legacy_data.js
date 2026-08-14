@@ -55,7 +55,7 @@ const defaultData = {
         { 
             id: 4, name: 'MacBook Pro 14-inch M3 Pro', price: 49990000, original_price: 52990000, 
             category_id: 'c2', brand_id: 'b1', stock: 5, rating: 5.0, sold: 150,
-            image: 'https://store.storeimages.cdn-apple.com/8756/as-images.apple.com/is/mbp14-spaceblack-select-202310?wid=904&hei=840&fmt=jpeg&qlt=90&.v=1698271068106',
+            image: 'https://placehold.co/904x840/1a1a2e/ffffff?text=MacBook+Pro+14-inch+M3+Pro',
             images: [], description: 'Sức mạnh Pro đích thực trong màu Space Black hoàn toàn mới.', variants: []
         },
         { 

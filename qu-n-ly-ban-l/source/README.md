@@ -1,123 +1,202 @@
 # Getshopy Analytics
 
-Getshopy gồm một cửa hàng B2C, trang quản trị B2B và API phân tích. Toàn bộ stack chạy bằng Docker Compose gồm React/Nginx, Node.js/Express, PostgreSQL, ClickHouse và Redis.
+Getshopy gồm một cửa hàng B2C, trang quản trị B2B và API phân tích thời gian thực. Stack gồm React/Vite, Node.js/Express, PostgreSQL và ClickHouse.
 
-## Khởi động nhanh
+---
 
-Yêu cầu duy nhất là Docker Desktop (Docker Compose v2) đang chạy.
+## 🚀 Khởi động nhanh (Docker — khuyến nghị)
+
+Yêu cầu duy nhất: **Docker Desktop** (Docker Compose v2) đang chạy.
 
 ```bash
+git clone <repo-url>
+cd source
 docker compose up --build
 ```
 
-Lệnh này tự build frontend/backend, tạo schema PostgreSQL bằng Prisma, seed dữ liệu mẫu từ `server/db.json`, và khởi động năm container. Lần đầu cần lâu hơn vì Docker phải tải image và cài dependency.
+Sau khi build xong (~2–5 phút lần đầu):
 
-- Ứng dụng: http://localhost:3000
-- API/health: http://localhost:8081/api/health
-- Quản trị: http://localhost:3000/admin/login
-- Tài khoản mẫu B2B: `admin@gmail.com` / `admin`
+| Địa chỉ | Nội dung |
+|---|---|
+| http://localhost:5173 | 🛒 B2C Store (khách hàng) |
+| http://localhost:5173/admin | 🔧 Admin Panel (quản trị) |
+| http://localhost:8080/api/health | ✅ API Health Check |
 
-Để chạy nền, thêm `-d`: `docker compose up --build -d`. Kiểm tra trạng thái bằng `docker compose ps` và xem log bằng `docker compose logs -f`.
+**Tài khoản mẫu B2B:** `admin@gmail.com` / `admin`
 
-## Cấu hình môi trường
+---
 
-Stack có giá trị phát triển mặc định nên có thể chạy ngay bằng một lệnh. Khi cần đổi cổng, secret hoặc kết nối dữ liệu, tạo file `.env` ở thư mục gốc từ mẫu rồi chỉnh giá trị:
+## ⚙️ Chạy trực tiếp không qua Docker (dev)
+
+### Yêu cầu hệ thống
+- Node.js ≥ 20
+- PostgreSQL đang chạy
+- ClickHouse đang chạy (optional — chỉ cần cho admin analytics)
+
+### 1. Clone & cài dependencies
+
+```bash
+git clone <repo-url>
+cd source
+
+# Cài server dependencies
+cd server && npm install
+
+# Cài client dependencies
+cd ../client && npm install
+```
+
+### 2. Cấu hình môi trường
+
+```bash
+# Tạo file .env cho server (copy từ example rồi sửa)
+cp server/.env.example server/.env
+
+# Tạo file .env cho client
+cp client/.env.example client/.env
+```
+
+Mở `server/.env` và điền `DATABASE_URL`, `CLICKHOUSE_HOST` trỏ vào database của bạn.
+
+### 3. Setup database & seed dữ liệu
+
+```bash
+cd server
+npx prisma db push        # Tạo schema PostgreSQL
+npm run seed              # Seed dữ liệu mẫu (sản phẩm, branches, users)
+```
+
+### 4. Chạy
+
+```bash
+# Terminal 1 — Backend
+cd server && npm run dev     # → http://localhost:8080
+
+# Terminal 2 — Frontend (dev server với hot-reload)
+cd client && npm run dev     # → http://localhost:5173
+
+# Hoặc build production rồi preview
+cd client && npm run build && npm run preview   # → http://localhost:5173
+```
+
+---
+
+## 📦 Scripts
+
+### Client (`client/`)
+
+| Script | Mô tả |
+|---|---|
+| `npm run dev` | Dev server với hot-reload tại port 5173 |
+| `npm run build` | Build production vào `dist/` |
+| `npm run preview` | Serve production build tại port 5173 |
+| `npm run lint` | Lint với oxlint |
+
+### Server (`server/`)
+
+| Script | Mô tả |
+|---|---|
+| `npm run dev` | Nodemon dev server (auto-restart khi đổi file) |
+| `npm run seed` | Seed dữ liệu mẫu từ `db.json` vào PostgreSQL |
+| `npm run seed:mock` | Seed dữ liệu mock analytics vào ClickHouse |
+| `npm run test:perf` | Chạy performance tests |
+
+---
+
+## 🗂️ Cấu trúc thư mục
+
+```
+source/
+├── client/                 # React + Vite + Ant Design
+│   ├── src/
+│   │   ├── components/     # UI components (HeroBanner 3D, layouts...)
+│   │   ├── pages/          # B2C & B2B pages
+│   │   └── api/            # Axios API client
+│   ├── public/             # robots.txt, favicon, GLB models
+│   └── vite.config.js
+├── server/                 # Node.js + Express + Prisma
+│   ├── src/
+│   │   ├── index.js        # Entry point + Express routes
+│   │   ├── routes/         # b2c.js, b2b.js, ai.js
+│   │   ├── redis.js        # Optional Redis cache layer
+│   │   └── db.js           # Prisma client singleton
+│   └── prisma/
+│       └── schema.prisma   # Database schema
+├── clickhouse-init/        # ClickHouse schema + init SQL
+├── docker-compose.yml      # Docker Compose stack
+├── .env.example            # Biến môi trường mẫu
+└── README.md
+```
+
+---
+
+## 🔧 Biến môi trường
+
+Tạo `.env` từ `.env.example` ở thư mục gốc (dành cho Docker):
 
 ```bash
 cp .env.example .env
-docker compose up --build -d
 ```
 
-Không commit `.env`. File `server/.env` và `client/.env` chỉ dành cho cách chạy trực tiếp ngoài Docker; Docker Compose dùng file `.env` ở thư mục gốc và cố ý không đưa các file môi trường con vào image.
+### Các biến quan trọng
 
-### Biến Docker Compose
+| Biến | Mặc định | Mô tả |
+|---|---|---|
+| `CLIENT_PORT` | `5173` | Port frontend expose ra máy chủ |
+| `SERVER_PORT` | `8080` | Port backend expose ra máy chủ |
+| `JWT_SECRET` | `development-only-change-me` | **Bắt buộc đổi khi deploy production** |
+| `VITE_API_URL` | `http://localhost:8080/api` | URL API dùng trong trình duyệt |
+| `VITE_WS_URL` | `ws://localhost:8080` | WebSocket URL |
+| `DATABASE_URL` | *(tự tạo từ POSTGRES_*)* | Prisma connection string |
+| `CLICKHOUSE_HOST` | `http://localhost:8123` | ClickHouse URL |
+| `REDIS_URL` | *(không bắt buộc)* | Redis cache — nếu không set, server chạy không có cache |
 
-| Biến | Mặc định | Mục đích |
-| --- | --- | --- |
-| `CLIENT_PORT` | `3000` | Cổng máy chủ ánh xạ tới frontend Nginx (container port 80). |
-| `SERVER_PORT` | `8081` | Cổng máy chủ ánh xạ tới API/WebSocket (container port 8080). |
-| `NODE_ENV` | `development` | Môi trường Node.js của API. |
-| `JWT_SECRET` | `development-only-change-me` | Khoá ký JWT cho cả đăng nhập B2B và B2C. Bắt buộc thay bằng chuỗi ngẫu nhiên mạnh khi triển khai thật. |
-| `VITE_API_URL` | `http://localhost:8081/api` | Base URL API dùng trong **trình duyệt**. Được nhúng vào bundle khi build frontend; cần khớp với `SERVER_PORT` nếu đổi cổng. |
-| `VITE_WS_URL` | `ws://localhost:8081` | Base URL WebSocket dùng trong **trình duyệt**; cần khớp với `SERVER_PORT` nếu đổi cổng và cũng được nhúng lúc build. |
-| `POSTGRES_DB` | `getshopy` | Tên database PostgreSQL cục bộ. |
-| `POSTGRES_USER` | `getshopy` | User PostgreSQL cục bộ. |
-| `POSTGRES_PASSWORD` | `getshopy_dev_password` | Mật khẩu PostgreSQL cục bộ. Dùng giá trị không chứa ký tự cần URL-encode, hoặc tự khai báo hai URL bên dưới. |
-| `DATABASE_URL` | rỗng | Chuỗi Prisma qua pooler. Nếu để rỗng, backend tự tạo URL đến container `postgres` từ các biến `POSTGRES_*`. |
-| `DIRECT_URL` | rỗng | Chuỗi Prisma kết nối trực tiếp. Nếu để rỗng, backend dùng cùng giá trị `DATABASE_URL`. |
-| `CLICKHOUSE_DB` | `analytics` | Database analytics được tạo khi ClickHouse khởi tạo. |
-| `CLICKHOUSE_USER` | `default` | User do image ClickHouse tạo. Compose hiện cố định user này vì backend chưa truyền thông tin xác thực ClickHouse. |
-| `CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT` | `1` | Cờ của image ClickHouse để bật cơ chế quản lý access cho user mặc định. |
-| `OPENROUTER_API_KEY` | rỗng | Dự phòng cho tích hợp OpenRouter; mã nguồn hiện tại chưa đọc biến này. Không đưa API key thật vào README hoặc Git. |
-| `OPENROUTER_URL` | `https://openrouter.ai/api/v1` | Endpoint OpenRouter dự phòng, hiện chưa được mã nguồn sử dụng. |
-| `OPENROUTER_MODEL` | `google/gemini-2.5-flash` | Model OpenRouter dự phòng, hiện chưa được mã nguồn sử dụng. |
+> ⚠️ **Không commit `.env`** — đã có trong `.gitignore`.
 
-### Biến backend hỗ trợ khi chạy ngoài Compose
+---
 
-Các biến này được backend đọc trực tiếp. Compose đã cấp các giá trị nội bộ đúng cho chúng, nên thông thường không cần thêm vào `.env` gốc.
-
-| Biến | Mặc định trong mã nguồn | Ghi chú |
-| --- | --- | --- |
-| `PORT` | `8080` | Cổng Express khi chạy trực tiếp. Compose cố định cổng trong container là 8080 và dùng `SERVER_PORT` để đổi cổng máy chủ. |
-| `CLICKHOUSE_HOST` | `http://localhost:8123` | URL ClickHouse mà `server/src/index.js` dùng. Trong Docker là `http://clickhouse:8123`. |
-| `CLICKHOUSE_URL` | `http://localhost:8123` | URL ClickHouse mà module `server/src/clickhouse.js` dùng. Trong Docker cũng là `http://clickhouse:8123`. |
-| `CLICKHOUSE_DB` | `analytics` | Database ClickHouse (dùng bởi cả Compose và backend). |
-| `REDIS_URL` | `redis://localhost:6379` | URL Redis; trong Docker là `redis://redis:6379`. |
-| `POSTGRES_HOST` | `postgres` trong entrypoint Docker | Host được dùng để tự tạo `DATABASE_URL` khi hai URL Prisma để rỗng. |
-| `POSTGRES_PORT` | `5432` | Port được dùng để tự tạo URL Prisma. |
-
-Chỉ các biến có tiền tố `VITE_` mới được lộ sang frontend. Chúng không được chứa secret. Sau khi đổi `VITE_API_URL` hoặc `VITE_WS_URL`, chạy lại `docker compose up --build` để tạo bundle mới.
-
-## Thành phần và dữ liệu
-
-| Service | Vai trò | Truy cập từ máy chủ |
-| --- | --- | --- |
-| `client` | React được phục vụ bởi Nginx; Nginx có fallback cho các route SPA. | `CLIENT_PORT` (mặc định 5173) |
-| `server` | Express API, WebSocket, Prisma và xử lý AI. | `SERVER_PORT` (mặc định 8080) |
-| `postgres` | Dữ liệu nghiệp vụ: khách hàng, sản phẩm, đơn hàng, voucher… | Chỉ trong mạng Docker |
-| `clickhouse` | Dữ liệu và truy vấn analytics. Schema ở `clickhouse-init/01_schema.sql`. | Chỉ trong mạng Docker |
-| `redis` | Cache API. | Chỉ trong mạng Docker |
-
-PostgreSQL, ClickHouse và Redis lưu dữ liệu vào named volumes nên dữ liệu không mất khi `docker compose down` hoặc restart. Các dịch vụ dữ liệu không mở cổng ra máy chủ; dùng `docker compose exec` nếu cần kiểm tra chúng.
-
-## Vận hành thường dùng
+## 🐳 Vận hành Docker
 
 ```bash
-# Dừng stack, vẫn giữ dữ liệu
+# Khởi động foreground (xem log trực tiếp)
+docker compose up --build
+
+# Khởi động background
+docker compose up --build -d
+
+# Xem logs
+docker compose logs -f server
+docker compose logs -f client
+
+# Dừng (giữ nguyên dữ liệu)
 docker compose down
 
-# Theo dõi log backend
-docker compose logs -f server
-
-# Mở psql trong container PostgreSQL
-docker compose exec postgres psql -U getshopy -d getshopy
-
-# Xây lại frontend sau khi đổi VITE_* hoặc mã nguồn
+# Rebuild sau khi đổi code
 docker compose up --build -d
+
+# Xóa toàn bộ dữ liệu và seed lại từ đầu
+docker compose down -v && docker compose up --build
 ```
 
-Để xoá toàn bộ dữ liệu Docker cục bộ và seed lại từ đầu:
+---
 
-```bash
-docker compose down -v
-docker compose up --build
-```
+## 🛠️ Tech Stack
 
-`down -v` xoá vĩnh viễn volumes PostgreSQL, ClickHouse và Redis của dự án. Không dùng lệnh này nếu cần giữ dữ liệu local.
+| Layer | Công nghệ |
+|---|---|
+| Frontend | React 19 + Vite 6 + Ant Design 5 |
+| 3D / Animation | Three.js + React Three Fiber + GSAP ScrollTrigger |
+| Charts | ECharts + echarts-for-react |
+| Maps | Leaflet + react-leaflet |
+| Backend | Node.js + Express 5 + Prisma 5 |
+| Database | PostgreSQL 16 + ClickHouse 24.8 |
+| Cache | Redis 7 (optional — tắt nếu không set REDIS_URL) |
+| Build | Docker Compose v2 |
 
-## Chạy trực tiếp không qua Docker (tuỳ chọn)
+---
 
-Docker là cách khuyến nghị vì API cần PostgreSQL, ClickHouse và Redis. Nếu chạy trực tiếp, hãy tự cung cấp ba dịch vụ này, sao chép từng file ví dụ môi trường và chạy:
+## 🔒 Bảo mật
 
-```bash
-cp server/.env.example server/.env
-cp client/.env.example client/.env
-(cd server && npm ci && npx prisma db push && npm run seed && npm run dev)
-(cd client && npm ci && npm run dev)
-```
-
-Khi chạy trực tiếp, đặt `DATABASE_URL`, `DIRECT_URL`, `CLICKHOUSE_HOST`/`CLICKHOUSE_URL` và `REDIS_URL` tới các dịch vụ của bạn trước khi chạy Prisma.
-
-## Lưu ý bảo mật
-
-Không dùng mật khẩu, JWT secret hay API key mẫu trong môi trường thật. Nếu một API key hoặc thông tin kết nối từng xuất hiện trong file môi trường, log, Git hay tài liệu chia sẻ, hãy thu hồi/rotate nó ngay.
+- Không dùng `JWT_SECRET` mặc định khi deploy thật
+- Không commit `.env` hoặc API keys lên Git
+- Nếu secret đã lộ lên Git: **rotate ngay lập tức**

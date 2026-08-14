@@ -150,9 +150,10 @@ export default function StoreLayout() {
             { label: 'Khuyến mãi', path: '/shop?sort=discount' },
             { label: 'Danh mục', path: '/shop' },
           ].map((item) => (
-            <div
+            <a
               key={item.label}
-              onClick={() => navigate(item.path)}
+              href={item.path}
+              onClick={(e) => { e.preventDefault(); navigate(item.path); }}
               style={{
                 padding: '6px 14px',
                 borderRadius: 30,
@@ -162,6 +163,8 @@ export default function StoreLayout() {
                 color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)',
                 transition: 'all 0.25s ease',
                 whiteSpace: 'nowrap',
+                textDecoration: 'none',
+                display: 'inline-block',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
@@ -173,7 +176,7 @@ export default function StoreLayout() {
               }}
             >
               {item.label}
-            </div>
+            </a>
           ))}
         </nav>
 

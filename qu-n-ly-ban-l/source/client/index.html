@@ -1,10 +1,35 @@
 <!doctype html>
-<html lang="en">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>client</title>
+
+    <!-- Google Fonts: preconnect trước, load non-blocking với media trick -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+      onload="this.onload=null;this.rel='stylesheet'"
+    />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" />
+    </noscript>
+
+    <!-- SEO: Title & Description -->
+    <title>Getshopy — Nền tảng quản lý bán lẻ đa kênh</title>
+    <meta name="description" content="Getshopy là nền tảng quản lý bán lẻ đa kênh thông minh. Mua sắm thiết bị công nghệ chính hãng — điện thoại, laptop, tai nghe, đồng hồ thông minh với giá tốt nhất." />
+    <meta name="keywords" content="mua điện thoại, mua laptop, thiết bị công nghệ, cửa hàng điện tử, Getshopy" />
+    <meta name="robots" content="index, follow" />
+
+    <!-- Open Graph (Facebook / Zalo) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Getshopy — Nền tảng quản lý bán lẻ đa kênh" />
+    <meta property="og:description" content="Mua sắm thiết bị công nghệ chính hãng với giá tốt nhất tại Getshopy." />
+    <meta property="og:image" content="/favicon.svg" />
+    <meta property="og:locale" content="vi_VN" />
   </head>
   <body>
     <div id="root"></div>
