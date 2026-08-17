@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, startTransition } from 'react';
 import { Row, Col, Card, Typography, Spin, Tag, Rate, Statistic, Pagination } from 'antd';
 import {
   AppstoreOutlined,
@@ -86,11 +86,15 @@ export default function Home() {
           api.b2c.getFlashSales(),
           api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 10)
         ]);
-        setProducts(prodData.data || []);
-        setTotalProducts(prodData.total || 0);
-        setCategories(catData);
-        setFlashSale(flashData);
-        setTopSellingProducts(topSellingData.data || []);
+        // startTransition: đánh dấu render này là non-urgent
+        // React có thể yield cho browser giữa chừng → phá vỡ long tasks → giảm TBT
+        startTransition(() => {
+          setProducts(prodData.data || []);
+          setTotalProducts(prodData.total || 0);
+          setCategories(catData);
+          setFlashSale(flashData);
+          setTopSellingProducts(topSellingData.data || []);
+        });
       } catch (err) {
         console.error(err);
       } finally {

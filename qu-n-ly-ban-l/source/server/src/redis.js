@@ -13,11 +13,35 @@ if (redis) {
     .then(() => { isConnected = true; console.log('📦 Redis connected'); })
     .catch(err => console.warn('⚠️  Redis unavailable, running without cache:', err.message));
 } else {
-  console.log('ℹ️  REDIS_URL not set — running without cache');
+  console.log('ℹ️  REDIS_URL not set — using in-memory cache fallback');
 }
 
-// Read-through cache: falls back to DB if Redis is absent or fails.
+// ── In-memory cache (fallback khi không có Redis) ──────────────────
+// Tránh hit DB mỗi request → API từ 2-3s xuống còn <10ms sau lần đầu
+const memCache = new Map();
+
+function memGet(key) {
+  const entry = memCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiry) {
+    memCache.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function memSet(key, value, ttlSeconds) {
+  // Giới hạn cache size để tránh memory leak
+  if (memCache.size > 500) {
+    const firstKey = memCache.keys().next().value;
+    memCache.delete(firstKey);
+  }
+  memCache.set(key, { value, expiry: Date.now() + ttlSeconds * 1000 });
+}
+
+// ── Read-through cache: Redis → in-memory → DB ────────────────────
 async function cached(key, ttlSeconds, fetchFn) {
+  // 1. Thử Redis trước (nếu có)
   if (isConnected) {
     try {
       const hit = await redis.get(key);
@@ -27,8 +51,17 @@ async function cached(key, ttlSeconds, fetchFn) {
     }
   }
 
+  // 2. Thử in-memory cache (luôn có, ngay cả khi không có Redis)
+  const memHit = memGet(key);
+  if (memHit !== null) return memHit;
+
+  // 3. Fetch từ DB
   const data = await fetchFn();
 
+  // 4. Lưu vào in-memory cache
+  memSet(key, data, ttlSeconds);
+
+  // 5. Lưu vào Redis nếu có
   if (isConnected) {
     try {
       await redis.setEx(key, ttlSeconds, JSON.stringify(data));
@@ -41,6 +74,9 @@ async function cached(key, ttlSeconds, fetchFn) {
 }
 
 async function invalidate(...keys) {
+  // Xóa khỏi cả in-memory và Redis
+  keys.forEach(k => memCache.delete(k));
+
   if (!isConnected) return;
   try {
     await redis.del(keys);

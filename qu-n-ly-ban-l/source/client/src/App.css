@@ -3,7 +3,7 @@ body {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
-  transition: background-color 0.3s ease;
+  /* Removed background-color transition: not GPU-composited, hurts Lighthouse */
 }
 
 [data-theme='dark'] body {
