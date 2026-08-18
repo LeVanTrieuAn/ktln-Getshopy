@@ -139,3 +139,29 @@ model Voucher {
   max_discount     Float
   is_deleted       Boolean  @default(false)
 }
+
+// ── MLOps: Lưu toàn bộ lịch sử cuộc hội thoại Chatbot ──────────────────────
+// Phục vụ 2 mục đích:
+//   1. Admin theo dõi hành vi người dùng (Data Analytics)
+//   2. Nguồn dữ liệu cho quá trình Fine-tune lại model (Continuous Training)
+model ChatLog {
+  id          BigInt   @id @default(autoincrement())
+  session_id  String   // IP hoặc Device fingerprint (nhận diện phiên ẩn danh)
+  customer_id BigInt?  // Liên kết B2CCustomer nếu user đã đăng nhập
+  message     String   // Nội dung câu hỏi của khách hàng
+  response    String   // Câu trả lời của AI Chatbot
+  intent      String   // Intent Hugging Face phân loại (VD: SEARCH_PRODUCT)
+  score       Float    @default(0) // Độ tự tin (0.0 -> 1.0)
+  source      String   @default("huggingface") // rule | cache | huggingface | api_error
+  // MLOps Annotation — Admin gán nhãn lại những câu bị phân loại sai
+  corrected_intent String? // Nếu Admin sửa lại thì lưu vào đây
+  is_annotated     Boolean  @default(false) // Đã được Admin xem xét chưa
+  is_trained       Boolean  @default(false) // Đã đưa vào tập dữ liệu train chưa
+  created_at  DateTime @default(now())
+
+  @@index([session_id])
+  @@index([customer_id])
+  @@index([intent])
+  @@index([is_annotated])
+  @@index([created_at])
+}

@@ -795,6 +795,10 @@ app.use('/api/b2b', b2bRouter);
 const aiRouter = require('./routes/ai');
 app.use('/api', aiRouter);
 
+// ─── AI ADMIN ROUTES (MLOps — ChatLog quản lý & trigger train) ──
+const aiAdminRouter = require('./routes/aiAdmin');
+app.use('/api/b2b', aiAdminRouter);
+
 // ─── START ────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 iStore Analytics Server on http://localhost:${PORT}`);

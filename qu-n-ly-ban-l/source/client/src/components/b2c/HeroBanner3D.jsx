@@ -12,7 +12,7 @@
  */
 import React, { useRef, useMemo, useEffect, Suspense } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { useGLTF, Environment, Center, Stats } from '@react-three/drei';
+import { useGLTF, Center } from '@react-three/drei';
 
 // ─── Assets ───────────────────────────────────────────────────────────────────
 import m1Url  from '../../assets/Meshy_AI_Create_a_highly_detai_0814020033_texture.glb';
@@ -242,20 +242,32 @@ function AnimatedProduct({ config, animRef }) {
   );
 }
 
-// ─── 3D Scene ─────────────────────────────────────────────────────────────────
+// ─── 3D Scene ──────────────────────────────────────────────────────────────────
 function Scene({ animRef, invalidateRef }) {
   return (
     <>
       <FrameController animRef={animRef} invalidateRef={invalidateRef} />
-      <ambientLight intensity={0.65} />
-      <directionalLight position={[10, 10, 5]} intensity={1.2} />
-      <directionalLight position={[-8, -5, -3]} intensity={0.4} color="#10b981" />
-      {/* Suspense wraps the heavy GLB loaders — không hiện gì khi đang tải */}
+
+      {/*
+        ── Ánh sáng thủ công (thay thế Environment preset="city")
+        Environment preset tải file .hdr từ GitHub raw CDN → bị rate-limit 429.
+        Dùng 3 điểm ánh sáng sau để tạo hiệu ứng tương đương, hoàn toàn offline.
+      */}
+      <ambientLight intensity={0.55} />
+      {/* Key light — ánh sáng chính từ trên cao, hơi sang phải */}
+      <directionalLight position={[6, 10, 6]}  intensity={1.4} color="#ffffff" />
+      {/* Fill light — từ dưới trái, giảm bóng cứng */}
+      <directionalLight position={[-8, -4, -4]} intensity={0.5} color="#a7f3d0" />
+      {/* Rim light — viền đường vành thương hiệu Getshopy */}
+      <directionalLight position={[0, -6, -8]}  intensity={0.3} color="#059669" />
+      {/* Hemisphere — mô phỏng ánh sáng môi trường (sky vs ground) */}
+      <hemisphereLight skyColor="#dbeafe" groundColor="#064e3b" intensity={0.4} />
+
+      {/* Suspense bao GLB loaders — không hiện gì khi đang tải */}
       <Suspense fallback={null}>
         <BoxModel animRef={animRef} />
         {PRODUCTS.map((cfg, i) => <AnimatedProduct key={i} config={cfg} animRef={animRef} />)}
       </Suspense>
-      <Environment preset="city" />
     </>
   );
 }

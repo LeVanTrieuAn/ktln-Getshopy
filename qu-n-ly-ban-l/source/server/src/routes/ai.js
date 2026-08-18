@@ -2,1081 +2,482 @@ const express = require('express');
 const { prisma } = require('../db');
 const router = express.Router();
 
-const NaiveBayes = require('../ai/NaiveBayes');
-const path = require('path');
-const fs = require('fs');
-const { trainModel } = require('../ai/train');
-const {
-  handleExpandedIntent, removeDiacritics,
-  isPromoQuery, isDeliveryQuery, isReturnQuery, isPaymentQuery,
-  isPriceComplaint, isChangeProductQuery, isTrackOrderQuery, isCancelOrderQuery,
-  isContactQuery, conversationStore, extractProductFromHistory,
-} = require('./aiHandlers');
+// ── AI Modules ──────────────────────────────────────────────────────────────
+const { classifyIntent, removeDiacritics } = require('../ai/huggingface');
+const { generateChatResponse }             = require('../ai/llm');
 
-// ── DUAL-ENGINE NLP ──────────────────────────────────────────────────────────
-// Tiếng Việt  → NaiveBayes tự viết + aiHandlers.js (không thay đổi)
-// Tiếng Anh   → `natural` BayesClassifier + englishNLP.js
-// ─────────────────────────────────────────────────────────────────────────────
-const { detectLanguage, detectLanguageVerbose } = require('../ai/langDetect');
-const { predictEnglish, handleEnglishIntent }   = require('../ai/englishNLP');
+// ── Định dạng tiền tệ ────────────────────────────────────────────────────────
+const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
 
-// ── ENSEMBLE SUPPLEMENTARY LAYER (Module mới) ────────────────────────────────
-const EnsembleClassifier   = require('../ai/EnsembleClassifier');
-const LogisticRegression   = require('../ai/LogisticRegression');
-const LinearSVM            = require('../ai/LinearSVM');
-const { getSpellCorrector } = require('../ai/SpellCorrector');
-const { getCosineSimilarity } = require('../ai/CosineSimilarity');
-const { getCollaborativeFilter } = require('../ai/CollaborativeFilter');
-const { decisionTree }     = require('../ai/DecisionTree');
-const { fsm }              = require('../ai/FSM');
-const { ner }              = require('../ai/NER');
-
-// ══════════════════════════════════════════════════════════════════════════════
-// BẢNG ÁNH XẠ TỪ KHÓA → DANH MỤC
-// Dùng để tìm sản phẩm theo loại (tai nghe, đồng hồ, điện thoại...)
-// khi user hỏi chung chung mà không nêu đúng tên model sản phẩm.
-// Key là dạng KHÔNG DẤU để so sánh bằng removeDiacritics()
-// ══════════════════════════════════════════════════════════════════════════════
+// ── Keyword map: từ khoá → tên danh mục ──────────────────────────────────────
 const CATEGORY_KEYWORD_MAP = {
-  // Điện thoại thông minh
-  'dien thoai':         'Điện thoại thông minh',
-  'smartphone':         'Điện thoại thông minh',
-  'phone':              'Điện thoại thông minh',
-  'iphone':             'Điện thoại thông minh',
-  'galaxy':             'Điện thoại thông minh',
-  // Máy tính xách tay
-  'laptop':             'Máy tính xách tay',
-  'may tinh xach tay':  'Máy tính xách tay',
-  'notebook':           'Máy tính xách tay',
-  'may tinh':           'Máy tính xách tay',
-  'macbook':            'Máy tính xách tay',  // MacBook Air / Pro / M-series
-  // Máy tính bảng
-  'tablet':             'Máy tính bảng',
-  'ipad':               'Máy tính bảng',
-  'may tinh bang':      'Máy tính bảng',
-  // Phụ kiện công nghệ
-  'tai nghe':           'Phụ kiện công nghệ',
-  'headphone':          'Phụ kiện công nghệ',
-  'earphone':           'Phụ kiện công nghệ',
-  'earbuds':            'Phụ kiện công nghệ',
-  'airpods':            'Phụ kiện công nghệ',
-  'dong ho':            'Phụ kiện công nghệ',   // đồng hồ (thông minh)
-  'smartwatch':         'Phụ kiện công nghệ',
-  'apple watch':        'Phụ kiện công nghệ',
-  'micro':              'Phụ kiện công nghệ',
-  'microphone':         'Phụ kiện công nghệ',
-  'loa':                'Phụ kiện công nghệ',
-  'speaker':            'Phụ kiện công nghệ',
-  'phu kien':           'Phụ kiện công nghệ',   // phụ kiện
+  'dien thoai':  'Điện thoại thông minh',
+  'smartphone':  'Điện thoại thông minh',
+  'android':     'Điện thoại thông minh',
+  'laptop':      'Máy tính xách tay',
+  'may tinh xach tay': 'Máy tính xách tay',
+  'may tinh bang': 'Máy tính bảng',
+  'tablet':      'Máy tính bảng',
+  'tai nghe':    'Phụ kiện công nghệ',
+  'dong ho':     'Phụ kiện công nghệ',
+  'loa':         'Phụ kiện công nghệ',
 };
 
-// Danh sách thương hiệu phổ biến — dùng để lọc sản phẩm trong danh mục khi user nêu brand
-const BRAND_KEYWORDS = [
-  'apple', 'samsung', 'xiaomi', 'redmi', 'oppo', 'vivo', 'realme',
-  'google', 'pixel', 'huawei', 'honor', 'nokia', 'motorola',
-  'dell', 'asus', 'hp', 'lenovo', 'acer', 'msi', 'lg', 'sony',
-  'jbl', 'bose', 'sennheiser', 'jabra', 'beats', 'anker',
-  'garmin', 'fitbit', 'amazfit', 'casio',
-];
-
-// Regex nhận diện tin nhắn chào hỏi ngắn gọn
-// (Model train trên 1M+ sample SEARCH_PRODUCT dễ "nuốt" cả câu chào đơn giản)
-const GREETING_PATTERNS = [
-  /^(xin chào|hello|hi|hey|alo|chào|chào bạn|chào shop|hi shop|hey shop|shop ơi|em ơi|có ai không|có ai đó không|alo shop)[\s!.,?]*$/i,
-  /^(cho hỏi|hỏi thăm|xin chào nhé|chào nhé)[\s!.,?]*$/i,
-];
-
-// ── KHỞI TẠO CÁC MODEL AI ────────────────────────────────────────────────────
-const aiModel  = new NaiveBayes();
-const lrModel  = new LogisticRegression({ learningRate: 0.1, epochs: 80, l2Lambda: 0.001 });
-const svmModel = new LinearSVM({ learningRate: 0.01, epochs: 40, lambda: 0.001 });
-
-const MODEL_PATH   = path.join(__dirname, '../ai/ai_model_weights.json');
-const LR_MODEL_PATH  = path.join(__dirname, '../ai/lr_model_weights.json');
-const SVM_MODEL_PATH = path.join(__dirname, '../ai/svm_model_weights.json');
-
-/** Ensemble Classifier — sẽ được khởi tạo sau khi load xong cả 3 models */
-let ensembleModel = null;
-
-/** SpellCorrector singleton */
-const spellCorrector = getSpellCorrector();
-
-/** CosineSimilarity singleton — build index khi server khởi động */
-const cosineIndex = getCosineSimilarity();
-
-/** CollaborativeFilter singleton — build từ đơn hàng DB */
-const collabFilter = getCollaborativeFilter();
-
-// Hàm tải mô hình (Load model)
-async function initAI() {
-  // ── Load Naive Bayes (bắt buộc) ──────────────────────────────────
-  const loaded = await aiModel.loadModel(MODEL_PATH);
-  if (!loaded) {
-    console.log('[AI] Không tìm thấy file Model. Tiến hành tự động Huấn luyện (Training)...');
-    await trainModel();
-    await aiModel.loadModel(MODEL_PATH);
-  } else {
-    console.log('[AI] Đã tải thành công Mô hình Naive Bayes từ ổ cứng.');
-  }
-
-  // ── Load Logistic Regression (supplementary) ──────────────────────
-  const lrLoaded = await lrModel.loadModel(LR_MODEL_PATH);
-  if (!lrLoaded) console.warn('[AI] LR model chưa có — chạy node train.js để tạo.');
-
-  // ── Load Linear SVM (supplementary) ──────────────────────────────
-  const svmLoaded = await svmModel.loadModel(SVM_MODEL_PATH);
-  if (!svmLoaded) console.warn('[AI] SVM model chưa có — chạy node train.js để tạo.');
-
-  // ── Khởi tạo Ensemble Classifier ────────────────────────────────
-  // Tính toán trọng số động: nếu LR/SVM chưa train, dồn trọng số về NaiveBayes
-  let wNB = 0.40, wLR = 0.40, wSVM = 0.20;
-  if (!lrLoaded && !svmLoaded) {
-    wNB = 1.0; wLR = 0.0; wSVM = 0.0;
-  } else if (!lrLoaded) {
-    wNB = 0.70; wLR = 0.0; wSVM = 0.30;
-  } else if (!svmLoaded) {
-    wNB = 0.50; wLR = 0.50; wSVM = 0.0;
-  }
-
-  ensembleModel = new EnsembleClassifier(
-    { naiveBayes: aiModel, logisticReg: lrModel, linearSvm: svmModel },
-    { nb: wNB, lr: wLR, svm: wSVM, ruleBonus: 0.15 },
-    0.60  // confidence threshold
-  );
-  console.log('[AI] Ensemble Classifier khởi tạo thành công.');
-
-  // ── Build Cosine Similarity index từ Database ────────────────────
+// ── Lưu ChatLog vào DB (async, không block response) ──────────────────────────
+async function saveChatLog({ sessionId, customerId, message, response, intent, score, source }) {
   try {
-    const allProducts = await prisma.product.findMany({
-      where: { is_deleted: false },
-      select: { id: true, name: true, price: true },
-      orderBy: { sold: 'desc' }, // Ưu tiên build index cho sản phẩm bán chạy nhất
-      take: 2000, // Lấy tối đa 2000 sản phẩm để tránh tràn RAM (DB có >1M sản phẩm)
+    await prisma.chatLog.create({
+      data: {
+        session_id:  String(sessionId || 'unknown'),
+        customer_id: customerId ? BigInt(customerId) : null,
+        message:     String(message).slice(0, 2000),
+        response:    String(response).slice(0, 4000),
+        intent:      String(intent),
+        score:       Number(score) || 0,
+        source:      String(source || 'llm'),
+      }
     });
-    cosineIndex.buildIndex(allProducts.map(p => ({ ...p, id: Number(p.id) })));
-
-    // Mở rộng từ điển SpellCorrector với tên sản phẩm từ DB
-    spellCorrector.addProductNames(allProducts.map(p => p.name));
   } catch (err) {
-    console.warn('[AI] Build cosine index thất bại:', err.message);
-  }
-
-  // ── Build Collaborative Filter từ đơn hàng ──────────────────────
-  try {
-    const orders = await prisma.order.findMany({
-      select: { items: true },
-      orderBy: { id: 'desc' },
-      take: 1000,  // Giảm từ 5000 xuống 1000 để tránh tràn RAM
-    });
-    collabFilter.buildFromOrders(orders);
-  } catch (err) {
-    console.warn('[AI] Build collaborative filter thất bại:', err.message);
+    console.warn('[ChatLog] Lưu log thất bại:', err.message);
   }
 }
 
-// Chạy ngay khi Server khởi động — lỗi không được làm crash toàn bộ server
-initAI().catch(err => {
-  console.error('[AI] ⚠️  Khởi tạo AI thất bại, server vẫn tiếp tục chạy bình thường:', err.message);
-  console.error('[AI] Chatbot sẽ dùng fallback responses cho đến khi model được load thành công.');
-});
+// ─────────────────────────────────────────────────────────────────────────────
+// BUILD CONTEXT — Query DB theo intent để đưa vào prompt cho LLM
+// ─────────────────────────────────────────────────────────────────────────────
+async function buildContext(intent, message) {
+  const norm    = removeDiacritics(message).toLowerCase();
+  let products  = [];
+  let policy    = null;
+  let link      = null;
 
-// ==========================================
-// 1. AI Recommendation System (B2C)
-// ==========================================
-router.get('/b2c/recommendations', async (req, res) => {
   try {
-    const { email } = req.query;
-    
-    // Fallback products (top selling / random) in case AI fails or user has no history
-    const allProducts = await prisma.product.findMany({
-      where: { is_deleted: false, stock: { gt: 0 } },
-      orderBy: { id: 'desc' },
-      take: 20
-    });
-    const fallbackIds = allProducts.map(p => Number(p.id)).slice(0, 4);
+    switch (intent) {
 
-    if (!email) {
-      // Guest user -> Return top products
-      const prods = await prisma.product.findMany({
-        where: { id: { in: fallbackIds } }
-      });
-      return res.json(prods.map(p => ({ ...p, id: Number(p.id) })));
-    }
-
-    // 1. Fetch user order history
-    const orders = await prisma.order.findMany({
-      where: {
-        customer: {
-          path: ['email'],
-          equals: email
+      // ── Tìm sản phẩm / Hỏi giá / Hỏi specs ──────────────────────────────
+      case 'SEARCH_PRODUCT':
+      case 'ASK_PRICE':
+      case 'ASK_SPECS':
+      case 'ASK_ACCESSORIES':
+      case 'SEARCH_CATEGORY': {
+        // Bước 1: Trích ngân sách nếu có (dưới X triệu / tầm X triệu)
+        const budgetMatch = message.match(/(\d+[\d.,]*)\s*(triệu|tr\b|củ|k\b|nghìn)/i);
+        let priceFilter = {};
+        if (budgetMatch) {
+          const unit = budgetMatch[2].toLowerCase();
+          const val  = parseFloat(budgetMatch[1].replace(',', '.'));
+          const vnd  = (unit === 'k' || unit === 'nghìn') ? val * 1_000 : val * 1_000_000;
+          // "dưới X" hoặc "tầm X" → lấy ±30%
+          priceFilter = /duoi|dưới/.test(norm)
+            ? { lte: vnd }
+            : { lte: vnd * 1.3, gte: vnd * 0.7 };
         }
-      },
-      orderBy: { date: 'desc' },
-      take: 10
-    });
 
-    let historyText = "";
-    if (orders.length > 0) {
-      const boughtItems = orders.flatMap(o => o.items).map(i => i.name).slice(0, 5);
-      historyText = `Khách hàng này đã từng mua: ${boughtItems.join(', ')}.`;
-    } else {
-      historyText = `Khách hàng này chưa từng mua sản phẩm nào.`;
-    }
-
-    // Thay vì gọi OpenRouter, ta dùng thuật toán thống kê Gợi ý sản phẩm cùng Category hoặc ngẫu nhiên
-    const recentCategories = [...new Set(orders.flatMap(o => o.items).map(i => i.category_id))];
-    
-    let recommendedProducts = [];
-    if (recentCategories.length > 0) {
-      // Gợi ý các sản phẩm cùng danh mục mà khách đã mua
-      recommendedProducts = await prisma.product.findMany({
-        where: { category_id: { in: recentCategories }, is_deleted: false, stock: { gt: 0 } },
-        take: 4
-      });
-    }
-
-    if (recommendedProducts.length < 4) {
-      recommendedProducts = await prisma.product.findMany({
-        where: { id: { in: fallbackIds } }
-      });
-    }
-
-    res.json(recommendedProducts.map(p => ({ ...p, id: Number(p.id) })));
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==========================================
-// 2. AI Campaign Suggestions (B2B Admin)
-// ==========================================
-router.get('/b2b/campaign-suggestions', async (req, res) => {
-  try {
-    // 1. Gather context for AI
-    // - High stock products
-    const highStockProducts = await prisma.product.findMany({
-      where: { is_deleted: false, stock: { gt: 10 } },
-      orderBy: { stock: 'desc' },
-      take: 5
-    });
-    
-    // - Past flash sales
-    const pastSales = await prisma.flashSale.findMany({
-      where: { is_deleted: false },
-      orderBy: { id: 'desc' },
-      take: 3
-    });
-
-    const contextData = {
-      high_stock_products: highStockProducts.map(p => ({
-        id: Number(p.id),
-        name: p.name,
-        stock: p.stock,
-        price: p.price
-      })),
-      recent_campaigns: pastSales.map(fs => ({
-        title: fs.title,
-        discount_percent: fs.discount_percent
-      }))
-    };
-
-    // Thuật toán Rule-based đề xuất Chiến dịch Flash Sale
-    const topStock = highStockProducts[0];
-    const suggestion = {
-      title: `Sale Xả Kho ${topStock ? topStock.name : 'Sản Phẩm Hot'}`,
-      reason: `Sản phẩm ${topStock ? topStock.name : ''} đang có lượng tồn kho cao (${topStock ? topStock.stock : 0} cái). Cần đẩy hàng nhanh.`,
-      discount_percent: 20,
-      product_id: topStock ? Number(topStock.id) : null
-    };
-    
-    res.json({ success: true, suggestion });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// ==========================================
-// 3. AI Chatbot Assistant (B2C)
-// ==========================================
-router.post('/b2c/chat', async (req, res) => {
-  try {
-    const { message, history } = req.body;
-    if (!message) {
-      return res.status(400).json({ error: 'Message is required' });
-    }
-    const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
-
-    // ── BƯỚC 0 (MỚI): KIỂM TRA FSM — Luồng đặt hàng có cấu trúc ──────────────
-    // FSM PHẢI được kiểm tra TRƯỚC tất cả — nếu session đang active,
-    // bỏ qua toàn bộ NLP pipeline và giao hết cho FSM xử lý.
-    if (fsm.isActive(sessionId)) {
-      const fsmResult = fsm.process(sessionId, message);
-      return res.json({ text: fsmResult.text, link: null, intent: 'FSM_ORDER_FLOW' });
-    }
-
-    // ── BƯỚC 0B (MỚI): KIỂM TRA DECISION TREE — Luồng tư vấn chọn máy ────────
-    // DecisionTree session cũng override pipeline thông thường.
-    if (decisionTree.hasActiveSession(sessionId)) {
-      const msgNormDT = removeDiacritics(message).toLowerCase();
-      // Khách nói "hủy/thoát/thôi" → reset Decision Tree
-      if (/huy|thoat|thoi|stop|cancel|reset/.test(msgNormDT)) {
-        decisionTree.resetSession(sessionId);
-        return res.json({ text: 'Dạ anh/chị đã thoát khỏi chế độ tư vấn. Em có thể giúp gì thêm không ạ?', link: null, intent: 'DECISION_TREE_CANCEL' });
-      }
-      const dtResult = decisionTree.step(sessionId, message);
-      // Nếu đến leaf → query DB theo filters
-      if (dtResult.isLeaf && dtResult.filters) {
-        const filters = dtResult.filters;
-        const whereClause = {
-          is_deleted: false,
-          stock: { gt: 0 },
-          ...(filters.maxPrice ? { price: { lte: filters.maxPrice } } : {}),
-          ...(filters.minPrice ? { price: { gte: filters.minPrice } } : {}),
-        };
-        if (filters.category) {
-          const cat = await prisma.category.findFirst({ where: { name: { contains: filters.category, mode: 'insensitive' } } });
-          if (cat) whereClause.category_id = cat.id;
-        }
-        const dtProducts = await prisma.product.findMany({
-          where: whereClause,
-          orderBy: [{ sold: 'desc' }],
-          take: 3,
-        });
-        if (dtProducts.length > 0) {
-          const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-          const list = dtProducts.map(p => `• **${p.name}** — ${fmt(p.price)}`).join('\n');
-          const finalText = `${dtResult.text}\n\n🛍️ **Sản phẩm phù hợp tại Getshopy:**\n${list}\n\nAnh/chị muốn xem chi tiết mẫu nào không ạ?`;
-          return res.json({ text: finalText, link: `/product/${dtProducts[0].id}`, intent: 'DECISION_TREE_LEAF' });
-        }
-      }
-      return res.json({ text: dtResult.text, link: null, intent: 'DECISION_TREE_STEP' });
-    }
-
-    // ── BƯỚC 1 (MỚI): SPELL CORRECTION — Sửa lỗi chính tả ─────────────────────
-    // Chạy trước khi detect ngôn ngữ để tránh sai ngôn ngữ do lỗi chính tả.
-    const spellResult = spellCorrector.correctSentence(message);
-    const correctedMessage = spellResult.corrected;
-    // Dùng correctedMessage cho NLP, giữ message gốc để log
-    const workingMessage = correctedMessage;
-
-    // ── BƯỚC 2 (MỚI): NER — Trích xuất thực thể trước khi phân loại ───────────
-    const nerEntities = ner.extract(workingMessage);
-
-    // ── BƯỚC 3: PHÁT HIỆN NGÔN NGỮ ──────────────────────────────────────────
-    const langInfo = detectLanguageVerbose(workingMessage);
-    const lang     = langInfo.lang;   // 'vi' | 'en'
-    console.log(`[LangDetect] "${message.slice(0, 40)}" → lang=${lang} | confidence=${langInfo.confidence} | vietRatio=${langInfo.vietRatio}`);
-
-    // ── BƯỚC 4A: TIẾNG ANH → ENGLISH ENGINE (`natural`) ─────────────────────
-    if (lang === 'en') {
-      const { intent: enIntent, score: enScore } = predictEnglish(workingMessage);
-      console.log(`[EnglishNLP] Intent: ${enIntent} | Score: ${enScore.toFixed(3)}`);
-
-      const enResult = await handleEnglishIntent(enIntent, workingMessage);
-      return res.json({ text: enResult.text, link: enResult.link, lang: 'en', intent: enIntent });
-    }
-
-    // ── BƯỚC 4B: TIẾNG VIỆT → ENSEMBLE CLASSIFIER ────────────────────────────
-    let intent, score;
-
-    // Pre-classify: câu chào hỏi → luôn là GREETING (tránh misclassify)
-    const NO_DIAC_GREETING = /^(xin chao|hello|hi|hey|alo|chao|chao ban|chao shop|shop oi|em oi|co ai khong|co ai do khong|alo shop|good morning|good evening|good night|xin chao nhe|chao nhe)[\s!.,?]*$/i;
-    if (GREETING_PATTERNS.some(p => p.test(workingMessage.trim())) || NO_DIAC_GREETING.test(removeDiacritics(workingMessage.trim()))) {
-      intent = 'GREETING'; score = 1.0;
-      console.log(`[VI PreClassify] Greeting pattern matched → intent=GREETING`);
-    }
-    // Kiểm tra trigger luồng đặt hàng → khởi động FSM
-    else if (fsm.isOrderTrigger(workingMessage)) {
-      const fsmResult = fsm.startOrder(sessionId);
-      return res.json({ text: fsmResult.text, link: null, intent: 'FSM_ORDER_START' });
-    }
-    // Kiểm tra trigger tư vấn chọn máy → khởi động Decision Tree
-    else if (/tu van chon may|tu van|giup chon may|chon may giup|nen mua may gi|mua may gi/.test(removeDiacritics(workingMessage).toLowerCase())) {
-      const dtResult = decisionTree.start(sessionId);
-      return res.json({ text: dtResult.text, link: null, intent: 'DECISION_TREE_START' });
-    }
-    // Kiểm tra hỏi sản phẩm tương tự (cosine) hoặc sản phẩm khác (follow up)
-    else if (/na na|tuong tu|giong nhu|loai nay nhung|re hon ma giong|tuong duong|san pham khac|nao khac|loai khac/.test(removeDiacritics(workingMessage).toLowerCase())) {
-      intent = 'SIMILAR_PRODUCT'; score = 0.95;
-      console.log(`[VI PreClassify] → SIMILAR_PRODUCT (cosine similarity trigger)`);
-    }
-    else {
-      // ── ENSEMBLE CLASSIFIER (NaiveBayes + LR + SVM + Rule-based) ───────────
-      if (ensembleModel && ensembleModel.isReady()) {
-        const ensembleResult = ensembleModel.predict(workingMessage);
-        intent = ensembleResult.intent;
-        score  = ensembleResult.confidence;
-        console.log(`[VI Ensemble] Intent: ${intent} | Confidence: ${score.toFixed(3)} | isFallback: ${ensembleResult.isFallback} | src: ${ensembleResult.source}`);
-
-        // Nếu Ensemble không tự tin → trả về UNKNOWN fallback
-        if (ensembleResult.isFallback || intent === 'UNKNOWN') {
-          return res.json({
-            text: 'Dạ em xin lỗi, em chưa hiểu rõ ý anh/chị muốn nói ạ. 🤔 Anh/chị có thể diễn đạt lại không, hoặc chọn một trong các chủ đề: **Tìm sản phẩm**, **Hỏi giá**, **Tư vấn chọn máy**, **Giao hàng**, **Bảo hành** ạ?',
-            link: null,
-            intent: 'UNKNOWN',
-          });
-        }
-      } else {
-        // Fallback: Chỉ dùng NaiveBayes nếu Ensemble chưa sẵn sàng
-        ({ intent, score } = aiModel.predict(workingMessage));
-        console.log(`[VI NaiveBayes fallback] Intent: ${intent} | Score: ${score}`);
-      }
-
-      // ── Secondary Intent Correction (giữ nguyên logic cũ) ───────────────────
-      const CORRECTABLE_INTENTS = new Set([
-        'SEARCH_PRODUCT', 'SEARCH_CATEGORY', 'ASK_PRICE', 'ASK_SPECS', 'ASK_ACCESSORIES',
-        'ASK_RECOMMEND', 'CHECK_STOCK', 'COMPARE_PRODUCT', 'ASK_REVIEW',
-      ]);
-      if (CORRECTABLE_INTENTS.has(intent)) {
-        const msgN = removeDiacritics(workingMessage).toLowerCase();
-
-        const isCompare = /cai nao|ngon hon|tot hon|hay hon|dang mua hon|ban hon|manh hon|nhanh hon|thoi luong pin|nen chon|nen mua cai nao|so sanh|which is better/.test(msgN)
-          && /vs|va |hay | hoac |hoac la/.test(msgN);
-        if (isCompare) {
-          intent = 'COMPARE_SPECS';
-          console.log('[VI SecondaryFix] → COMPARE_SPECS (comparison query detected)');
-        } else {
-          const hasCategoryKW = Object.keys(CATEGORY_KEYWORD_MAP).some(kw => msgN.includes(kw));
-          if (hasCategoryKW && intent === 'ASK_RECOMMEND') {
-            intent = 'SEARCH_CATEGORY';
-            console.log('[VI SecondaryFix] → SEARCH_CATEGORY (category KW in ASK_RECOMMEND)');
-          }
-          else if (isPriceComplaint(workingMessage))     { intent = 'PRICE_COMPLAINT';  console.log('[VI SecondaryFix] → PRICE_COMPLAINT'); }
-          else if (isPromoQuery(workingMessage))         { intent = 'ASK_PROMO';        console.log('[VI SecondaryFix] → ASK_PROMO'); }
-          else if (isDeliveryQuery(workingMessage))      { intent = 'ASK_DELIVERY';     console.log('[VI SecondaryFix] → ASK_DELIVERY'); }
-          else if (isReturnQuery(workingMessage))        { intent = 'ASK_RETURN';       console.log('[VI SecondaryFix] → ASK_RETURN'); }
-          else if (isPaymentQuery(workingMessage))       { intent = 'ASK_PAYMENT';      console.log('[VI SecondaryFix] → ASK_PAYMENT'); }
-          else if (isTrackOrderQuery(workingMessage))    { intent = 'TRACK_ORDER';      console.log('[VI SecondaryFix] → TRACK_ORDER'); }
-          else if (isCancelOrderQuery(workingMessage))   { intent = 'CANCEL_ORDER';     console.log('[VI SecondaryFix] → CANCEL_ORDER'); }
-          else if (isChangeProductQuery(workingMessage)) { intent = 'CHANGE_PRODUCT';   console.log('[VI SecondaryFix] → CHANGE_PRODUCT'); }
-          else if (isContactQuery(workingMessage))       { intent = 'CONTACT';          console.log('[VI SecondaryFix] → CONTACT'); }
-        }
-      }
-    }
-    // (workingMessage = message sau khi spell-corrected, dùng trong tất cả handlers bên dưới)
-
-    let aiResponse = { text: "Xin lỗi, tôi chưa hiểu ý bạn lắm. Bạn có thể nói rõ hơn được không?", link: null };
-
-    if (intent === 'GREETING') {
-      aiResponse.text = "Dạ Getshopy xin chào ạ! Hôm nay anh/chị đang muốn tìm điện thoại, laptop hay phụ kiện nào để em hỗ trợ tư vấn nhanh nhất ạ?";
-    } 
-    else if (intent === 'HELP') {
-      aiResponse.text = "Dạ em là Trợ lý AI nội bộ của Getshopy đây ạ. Anh/chị cứ thoải mái cho em biết nhu cầu (mua máy làm việc, chơi game hay mua tặng), em sẽ lọc ra mẫu ưng ý nhất cho mình nhé!";
-    }
-    else if (intent === 'CONTACT') {
-      aiResponse.text = "Dạ cửa hàng Getshopy có địa chỉ tại TP.HCM ạ. Anh/chị có muốn xem bản đồ không?";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HỎI KHUYẾN MÃI ──
-    else if (intent === 'ASK_PROMO') {
-      try {
-        const activeSales = await prisma.flashSale.findMany({
-          where: { is_deleted: false, is_active: true },
-          take: 1
-        });
-        if (activeSales.length > 0) {
-          aiResponse.text = `Dạ hiện bên em đang có chương trình **"${activeSales[0].title}"** giảm tới **${activeSales[0].discount_percent}%** luôn ạ! Anh/chị tranh thủ nhanh kẻo hết nhé. Xem ngay tại trang chủ ạ!`;
-        } else {
-          aiResponse.text = "Dạ hiện bên em chưa có Flash Sale đang chạy ạ. Nhưng anh/chị có thể theo dõi trang chủ để cập nhật deal mới nhé!";
-        }
-      } catch (_e) {
-        // flashSale table chưa có / lỗi DB → dùng static response
-        console.warn('[AI] flashSale query failed:', _e.message);
-        aiResponse.text = "Dạ bên em đang có nhiều chương trình ưu đãi hấp dẫn! Anh/chị ghé trang chủ xem chi tiết các sản phẩm đang **giảm giá** và nhận **voucher** hấp dẫn nhé ạ!";
-      }
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HỎI GIAO HÀNG ──
-    else if (intent === 'ASK_DELIVERY') {
-      aiResponse.text = "Dạ bên em giao hàng toàn quốc ạ! Nội thành TP.HCM và Hà Nội giao trong **2–4 tiếng**, các tỉnh thành khác **1–3 ngày làm việc**. Đơn từ 500k được miễn phí ship ạ. Anh/chị muốn đặt hàng ngay không ạ?";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HỎI ĐỔI TRẢ BẢO HÀNH ──
-    else if (intent === 'ASK_RETURN') {
-      aiResponse.text = "Dạ Getshopy áp dụng chính sách **đổi trả trong 7 ngày** nếu sản phẩm lỗi do nhà sản xuất ạ. Bảo hành chính hãng **12 tháng**. Anh/chị yên tâm mua nhé, có vấn đề gì em hỗ trợ ngay ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HỎI THANH TOÁN ──
-    else if (intent === 'ASK_PAYMENT') {
-      aiResponse.text = "Dạ bên em hỗ trợ đa dạng hình thức thanh toán ạ: Tiền mặt, COD (nhận hàng trả tiền), chuyển khoản, thẻ tín dụng/ghi nợ, MoMo, ZaloPay, VNPAY. Đặc biệt **trả góp 0% lãi suất** qua thẻ tín dụng từ 3–24 tháng ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HỎI ĐÁNH GIÁ ──
-    else if (intent === 'ASK_REVIEW') {
-      const topProducts = await prisma.product.findMany({
-        where: { is_deleted: false, stock: { gt: 0 } },
-        orderBy: { id: 'desc' },
-        take: 1
-      });
-      const top = topProducts[0];
-      if (top) {
-        aiResponse.text = `Dạ em xin phép tư vấn thật lòng ạ: Hiện bên em đang bán rất chạy dòng **${top.name}** và khách hàng phản hồi rất tích cực về chất lượng. Anh/chị muốn xem chi tiết không ạ?`;
-        aiResponse.link = `/product/${top.id}`;
-      } else {
-        aiResponse.text = "Dạ sản phẩm bên em đều được kiểm định chất lượng trước khi đến tay khách hàng ạ. Anh/chị cứ yên tâm, có vấn đề gì em hỗ trợ đổi trả ngay nhé!";
-      }
-    }
-
-    // ── NHÓM: KIỂM TRA TỒN KHO ──
-    else if (intent === 'CHECK_STOCK') {
-      const intentVerbs = new Set(['còn', 'hàng', 'không', 'shop', 'sẵn', 'có', 'gấp', 'bao', 'giờ', 'lại', 'rồi', 'hết', 'ngay', 'hôm', 'nay', 'được', 'cần']);
-      const tokens = new (require('../ai/Tokenizer'))().tokenize(message);
-      const entityKeywords = tokens.filter(w => !intentVerbs.has(w)).join(' ').trim();
-
-      if (!entityKeywords) {
-        aiResponse.text = "Dạ anh/chị muốn kiểm tra tồn kho của sản phẩm nào ạ? Cứ nói tên máy cho em, em check liền ạ!";
-        return res.json(aiResponse);
-      }
-
-      const found = await prisma.product.findFirst({
-        where: { name: { contains: entityKeywords, mode: 'insensitive' }, is_deleted: false }
-      });
-
-      if (found) {
-        if (found.stock > 0) {
-          aiResponse.text = `Dạ **${found.name}** hiện vẫn còn **${found.stock} sản phẩm** trong kho ạ! Anh/chị đặt ngay kẻo hết nhé, hàng đang rất hot đấy ạ.`;
-          aiResponse.link = `/product/${found.id}`;
-        } else {
-          aiResponse.text = `Dạ rất tiếc, **${found.name}** hiện đã **tạm hết hàng** ạ. Anh/chị có muốn em gợi ý mẫu tương đương đang còn hàng không ạ?`;
-          aiResponse.link = "/";
-        }
-      } else {
-        aiResponse.text = "Dạ em chưa tìm thấy sản phẩm đó trong kho ạ. Anh/chị có thể nói rõ tên thương hiệu/model không để em kiểm tra chính xác hơn ạ?";
-      }
-    }
-
-    // ── NHÓM: SO SÁNH SẢN PHẨM ──
-    else if (intent === 'COMPARE_PRODUCT') {
-      const intentVerbs = new Set(['so', 'sánh', 'hay', 'cái', 'nào', 'ngon', 'hơn', 'tốt', 'đáng', 'tiền', 'loại', 'khác', 'mua', 'khác', 'bền', 'mình', 'với', 'hai', 'này', 'điểm', 'gì']);
-      const tokens = new (require('../ai/Tokenizer'))().tokenize(message);
-      const entityKeywords = tokens.filter(w => !intentVerbs.has(w)).join(' ').trim();
-
-      if (entityKeywords) {
-        const found = await prisma.product.findMany({
-          where: { name: { contains: entityKeywords, mode: 'insensitive' }, is_deleted: false },
-          take: 1
-        });
-        if (found.length > 0) {
-          const p = found[0];
-          const formattedPrice = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.price);
-          aiResponse.text = `Dạ em xin phép tư vấn thật lòng ạ: **${p.name}** bên em đang bán rất chạy với giá **${formattedPrice}**. Đây là lựa chọn được nhiều khách tin dùng! Anh/chị đang so sánh với dòng nào để em phân tích chi tiết hơn ạ?`;
-          aiResponse.link = `/product/${p.id}`;
-        } else {
-          aiResponse.text = "Dạ để em tư vấn so sánh chính xác, anh/chị có thể nói rõ tên 2 sản phẩm muốn so sánh không ạ? Ví dụ: \"iPhone 15 vs Samsung S24\" ạ.";
-        }
-      } else {
-        aiResponse.text = "Dạ anh/chị muốn so sánh những dòng sản phẩm nào với nhau ạ? Em sẽ phân tích ưu/nhược điểm để anh/chị chọn được máy ưng ý nhất!";
-      }
-    }
-
-    // ── NHÓM: GỢI Ý THEO NHU CẦU ──
-    else if (intent === 'ASK_RECOMMEND') {
-      // Phân tích xem có từ khóa về budget không
-      const budgetMatch = message.match(/(\d+)\s*(triệu|tr|củ)/i);
-      
-      let recommendedProducts = [];
-      if (budgetMatch) {
-        const budget = parseInt(budgetMatch[1]) * 1_000_000;
-        // Lọc sản phẩm trong khoảng ±20% budget
-        recommendedProducts = await prisma.product.findMany({
-          where: {
-            is_deleted: false,
-            stock: { gt: 0 },
-            price: { lte: budget * 1.2, gte: budget * 0.5 }
-          },
-          take: 3
-        });
-      } else {
-        // Không có budget, lấy sản phẩm bán chạy nhất (ID mới nhất)
-        recommendedProducts = await prisma.product.findMany({
-          where: { is_deleted: false, stock: { gt: 0 } },
-          orderBy: { id: 'desc' },
-          take: 3
-        });
-      }
-
-      if (recommendedProducts.length > 0) {
-        const names = recommendedProducts.map(p => `**${p.name}**`).join(', ');
-        const budgetText = budgetMatch ? ` tầm ${budgetMatch[1]} triệu` : '';
-        aiResponse.text = `Dạ với nhu cầu${budgetText}, em xin gợi ý: ${names} — đây đều là những mẫu đang bán rất chạy và được đánh giá cao ạ! Anh/chị muốn em tư vấn chi tiết cái nào không?`;
-        aiResponse.link = `/product/${recommendedProducts[0].id}`;
-      } else {
-        aiResponse.text = "Dạ anh/chị cho em biết thêm nhu cầu sử dụng (học tập, làm việc, gaming, chụp ảnh) và khoảng ngân sách để em gợi ý chính xác nhất ạ!";
-      }
-    }
-
-    // ── NHÓM: CHÊ MẮC / MẶC CẢ ──
-    else if (intent === 'PRICE_COMPLAINT') {
-      // Phát hiện xem khách có đề cập số tiền cụ thể không
-      const budgetMatch = message.match(/(\d+)\s*(triệu|tr|củ|k|nghìn)/i);
-
-      if (budgetMatch) {
-        const budget = budgetMatch[1];
-        const unit = budgetMatch[2].toLowerCase();
-        const budgetVnd = unit === 'k' || unit === 'nghìn'
-          ? parseInt(budget) * 1000
-          : parseInt(budget) * 1_000_000;
-
-        // Tìm sản phẩm phù hợp với budget
-        const cheaper = await prisma.product.findMany({
-          where: { is_deleted: false, stock: { gt: 0 }, price: { lte: budgetVnd } },
-          orderBy: { price: 'desc' },
-          take: 2
-        });
-
-        if (cheaper.length > 0) {
-          const names = cheaper.map(p => `**${p.name}**`).join(' hoặc ');
-          aiResponse.text = `Dạ em hiểu ạ! Với ngân sách đó thì bên em đang có ${names} — chất lượng rất ổn mà giá cực hợp lý đó ạ. Anh/chị xem thử nhé!`;
-          aiResponse.link = `/product/${cheaper[0].id}`;
-        } else {
-          aiResponse.text = `Dạ với mức ngân sách ${budget} ${unit} thì hiện tại bên em chưa có mẫu phù hợp ạ. Anh/chị có thể tăng thêm một chút hoặc để em gợi ý hàng cũ/refurbished giá rẻ hơn không ạ?`;
-        }
-      } else {
-        // Không có budget cụ thể, tư vấn chung
-        const cheapest = await prisma.product.findMany({
-          where: { is_deleted: false, stock: { gt: 0 } },
-          orderBy: { price: 'asc' },
-          take: 2
-        });
-        if (cheapest.length > 0) {
-          const names = cheapest.map(p => {
-            const price = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.price);
-            return `**${p.name}** (${price})`;
-          }).join(' và ');
-          aiResponse.text = `Dạ em thông cảm ạ! Bên em cũng có nhiều mẫu giá tốt hơn đó, ví dụ như ${names}. Anh/chị cho em biết ngân sách khoảng bao nhiêu để em tìm mẫu phù hợp nhất nhé!`;
-          aiResponse.link = `/product/${cheapest[0].id}`;
-        } else {
-          aiResponse.text = "Dạ em ghi nhận ạ! Anh/chị cho em biết budget tầm bao nhiêu để em tìm mẫu vừa đẹp vừa phù hợp túi tiền nhất cho mình nhé!";
-        }
-      }
-    }
-
-    // ── NHÓM: MUỐN ĐỔI MẶT HÀNG ──
-    else if (intent === 'CHANGE_PRODUCT') {
-      // Gợi ý 3 sản phẩm khác ngẫu nhiên từ DB
-      const alternatives = await prisma.product.findMany({
-        where: { is_deleted: false, stock: { gt: 0 } },
-        orderBy: { id: 'desc' },
-        take: 3
-      });
-      if (alternatives.length > 0) {
-        const names = alternatives.map(p => `**${p.name}**`).join(', ');
-        aiResponse.text = `Dạ không sao ạ, để em gợi ý thêm vài mẫu đang được khách hàng ưa chuộng: ${names}. Anh/chị thấy mẫu nào ưng mắt thì em tư vấn chi tiết thêm nhé!`;
-        aiResponse.link = `/product/${alternatives[0].id}`;
-      } else {
-        aiResponse.text = "Dạ anh/chị cứ cho em biết mình đang cần dòng sản phẩm gì, em sẽ lọc ra các mẫu phù hợp nhất ngay ạ!";
-      }
-    }
-
-    // ── NHÓM: THEO DÕI ĐƠN HÀNG ──
-    else if (intent === 'TRACK_ORDER') {
-      aiResponse.text = "Dạ để kiểm tra đơn hàng, anh/chị vui lòng đăng nhập vào tài khoản và vào mục **\"Đơn hàng của tôi\"** nhé ạ. Nếu đơn hàng chưa cập nhật sau 24h, anh/chị có thể liên hệ hotline **1800-xxxx** (miễn phí) để được hỗ trợ ngay ạ!";
-      aiResponse.link = "/profile";
-    }
-
-    // ── NHÓM: HỦY ĐƠN HÀNG ──
-    else if (intent === 'CANCEL_ORDER') {
-      aiResponse.text = "Dạ em hiểu ạ. Để hủy đơn, anh/chị vào **\"Đơn hàng của tôi\"** → Chọn đơn cần hủy → Nhấn \"Hủy đơn\" nhé ạ. Lưu ý đơn hàng chỉ hủy được khi còn ở trạng thái **\"Đang xử lý\"**, nếu đã giao cho shipper thì anh/chị chờ nhận rồi hoàn hàng nhé ạ!";
-      aiResponse.link = "/profile";
-    }
-
-    // ── NHÓM: HỎI QUÀ TẶNG KÈM ──
-    else if (intent === 'ASK_GIFT') {
-      aiResponse.text = "Dạ tùy từng sản phẩm sẽ có quà tặng kèm khác nhau ạ! Thông thường khi mua điện thoại sẽ có: **cáp sạc, củ sạc, ốp lưng** trong hộp. Mua laptop thường có **túi chống sốc**. Ngoài ra bên em hay có **khuyến mãi tặng tai nghe, bàn phím** theo từng đợt ạ. Anh/chị muốn em kiểm tra quà tặng kèm của sản phẩm cụ thể nào không?";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: KHIẾU NẠI / PHÀN NÀN ──
-    else if (intent === 'COMPLAINT') {
-      aiResponse.text = "Dạ em thành thật xin lỗi về trải nghiệm không tốt của anh/chị ạ! 🙏 Em đã ghi nhận và sẽ chuyển ngay lên bộ phận chăm sóc khách hàng. Anh/chị vui lòng để lại **số điện thoại** hoặc **email** để đội ngũ hỗ trợ liên hệ lại trong vòng **30 phút** nhé ạ. Hoặc anh/chị có thể gọi ngay hotline **1800-xxxx** (miễn phí, 24/7) ạ.";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: SMALLTALK / CHIT-CHAT ──
-    else if (intent === 'SMALLTALK') {
-      const picks = [
-        "Dạ cảm ơn anh/chị đã tin tưởng Getshopy! 😊 Anh/chị cần tư vấn thêm sản phẩm gì không ạ? Em luôn sẵn sàng hỗ trợ!",
-        "Dạ em cảm ơn ạ! Anh/chị có muốn xem thêm điện thoại, laptop hay phụ kiện gì không ạ?",
-        "Dạ anh/chị cứ thoải mái quay lại hỏi thêm nhé! 😊 Getshopy luôn ở đây để hỗ trợ ạ!",
-        "Dạ cảm ơn anh/chị! Nếu cần tư vấn thêm cứ nhắn em nhé. Chúc anh/chị mua sắm vui vẻ ạ! 🌟",
-      ];
-      aiResponse.text = picks[Math.floor(Math.random() * picks.length)];
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: PHẢN HỒI TÍCH CỰC ──
-    else if (intent === 'FEEDBACK_POSITIVE') {
-      aiResponse.text = "Dạ em rất vui khi được phục vụ anh/chị! 🌟 Cảm ơn anh/chị đã tin tưởng và ủng hộ Getshopy ạ! Anh/chị có thể để lại **đánh giá 5 sao** trên Google để khích lệ team bên em nhé ạ. Hẹn gặp lại anh/chị trong lần mua sắm tiếp theo! 💛";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: SẢN PHẨM BÁN CHẠY NHẤT ──
-    else if (intent === 'ASK_BEST_SELLER') {
-      try {
-        const best = await prisma.product.findMany({
-          where: { is_deleted: false },
-          orderBy: { sold: 'desc' },
-          take: 3,
-        });
-        if (best.length > 0) {
-          const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
-          const list = best.map((p, i) => `${i+1}. **${p.name}** — ${fmt(p.price)} (⭐${p.rating || 4.5}/5)`).join('\n');
-          aiResponse.text = `Dạ đây là TOP sản phẩm **bán chạy nhất** tại Getshopy ạ:\n\n${list}\n\nAnh/chị muốn tìm hiểu thêm về sản phẩm nào không ạ?`;
-          aiResponse.link = `/product/${best[0].id}`;
-        } else {
-          aiResponse.text = "Dạ bên em đang có rất nhiều sản phẩm hot! Anh/chị ghé trang chủ để xem danh sách bán chạy nhé ạ!";
-          aiResponse.link = "/";
-        }
-      } catch (_) {
-        aiResponse.text = "Dạ bên em đang có nhiều sản phẩm hot! Anh/chị vào trang chủ để xem top bán chạy nhé ạ!";
-        aiResponse.link = "/";
-      }
-    }
-
-    // ── NHÓM: HÀNG MỚI / PRE-ORDER ──
-    else if (intent === 'ASK_NEW_ARRIVAL' || intent === 'ASK_PREORDER') {
-      aiResponse.text = "Dạ Getshopy luôn cập nhật **hàng mới nhất** ngay khi về ạ! 📦 Anh/chị có thể:\n- Theo dõi **Fanpage Getshopy** để không bỏ lỡ tin mới\n- Đăng ký **nhận thông báo qua email** trên website\n- Đặt trước (pre-order) để được giá ưu đãi trước ngày ra mắt\n\nAnh/chị đang quan tâm dòng sản phẩm nào để em tư vấn chi tiết ạ?";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: CẦN HÀNG GẤP / HỎA TỐC ──
-    else if (intent === 'URGENT_NEED') {
-      aiResponse.text = "Dạ em hiểu anh/chị cần gấp! 🚀 Getshopy hỗ trợ:\n- **Giao hỏa tốc 2-4h** nội thành TP.HCM và Hà Nội\n- **Lấy tại cửa hàng ngay** (Click & Collect) nếu anh/chị ở gần\n- **Giao tiêu chuẩn 1-2 ngày** cho các tỉnh thành khác\n\nAnh/chị cần mua sản phẩm gì? Em kiểm tra tồn kho và đặt giao ngay nhé ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: MUA SỈ / DOANH NGHIỆP ──
-    else if (intent === 'BULK_ORDER') {
-      aiResponse.text = "Dạ Getshopy có chính sách **giá sỉ đặc biệt** cho đơn hàng số lượng lớn ạ! 🏢\n- **Từ 5 sản phẩm**: giảm 3-5%\n- **Từ 10 sản phẩm**: giảm 7-10%\n- **Từ 50+ sản phẩm**: báo giá riêng theo hợp đồng\n\nAnh/chị vui lòng liên hệ **hotline 1800-xxxx** hoặc email **wholesale@getshopy.vn** để được hỗ trợ trực tiếp nhé ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HÓA ĐƠN VAT ──
-    else if (intent === 'ASK_INVOICE') {
-      aiResponse.text = "Dạ Getshopy **xuất hóa đơn VAT (GTGT)** cho tất cả đơn hàng khi có yêu cầu ạ! 🧾\n- Cung cấp: **Tên công ty, Mã số thuế, Địa chỉ** lúc đặt hàng\n- Hóa đơn điện tử gửi qua **email** trong 24h\n- Giá hiển thị đã **bao gồm VAT 10%**\n\nAnh/chị cần hỗ trợ xuất hóa đơn cứ liên hệ **invoice@getshopy.vn** nhé ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: GÓI QUÀ / ĐÓNG GÓI ĐẶC BIỆT ──
-    else if (intent === 'ASK_GIFT_WRAP') {
-      aiResponse.text = "Dạ Getshopy có dịch vụ **gói quà miễn phí** cho mọi đơn hàng tặng quà ạ! 🎁\n- Hộp quà sang trọng + giấy gói đẹp\n- Thiệp chúc mừng cá nhân hoá (ghi nội dung theo yêu cầu)\n- Giao hàng kín đáo, đảm bảo yếu tố bất ngờ\n\nAnh/chị chọn **\"Gói quà\"** khi thanh toán hoặc nhắn em để được hỗ trợ nhé ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: TÍCH ĐIỂM / THÀNH VIÊN ──
-    else if (intent === 'ASK_LOYALTY') {
-      aiResponse.text = "Dạ Getshopy có chương trình **tích điểm thành viên** hấp dẫn ạ! 👑\n- **100.000đ** mua hàng = **1 điểm thưởng**\n- Điểm quy đổi được **voucher giảm giá, quà tặng** hấp dẫn\n- 3 hạng thành viên: **Bạc → Vàng → Kim cương** với ưu đãi riêng\n- **Quà tặng sinh nhật** đặc biệt cho thành viên\n\nAnh/chị đăng ký tài khoản để tích điểm ngay nhé ạ!";
-      aiResponse.link = "/";
-    }
-
-    // ── NHÓM: HÀNG CŨ / REFURBISHED ──
-    else if (intent === 'ASK_SECOND_HAND') {
-      aiResponse.text = "Dạ Getshopy có bán **máy refurbished (tân trang)** chất lượng cao ạ! ♻️\n- Máy đã qua **kiểm tra kỹ lưỡng** 100+ điểm\n- **Vệ sinh, thay linh kiện** mới nếu cần\n- **Bảo hành 6 tháng** như hàng mới\n- Giảm **15-25%** so với hàng mới nguyên seal\n\nAnh/chị muốn xem dòng nào? Em kiểm tra tồn kho nhé ạ!";
-      aiResponse.link = "/";
-    }
-
-
-    else if (intent === 'COMPARE_SPECS') {
-      // Bóc tách 2 tên sản phẩm từ câu hỏi (cách nhau bởi "và", "vs", "hay", "với")
-      const splitPattern = /\s+(vs\.?|và|hay|với|hoặc)\s+/i;
-      const rawParts = message.split(splitPattern).filter(p => p && !p.match(/^(vs\.?|và|hay|với|hoặc)$/i));
-
-      // Loại bỏ phần đuôi "thì cái nào...", "cái nào ngon hơn", "mua cái nào" ra khỏi tên sản phẩm
-      // Ví dụ: "MacBook Pro 14-inch M3 Pro thì cái nào chơi game ngon hơn" → "MacBook Pro 14-inch M3 Pro"
-      const COMPARE_TRAILING_NOISE = /\s*(thì |thi |cai nao|ngon hon|tot hon|hay hon|dang mua|nen mua|choi game|hoc tap|lam viec|gaming|hon|nao|chon|tuyen|muon|nao tot|nao ngon)[\s\S]*/i;
-      const cleanPart = (s) => removeDiacritics(s).replace(COMPARE_TRAILING_NOISE, '').trim();
-
-      const parts = rawParts.map(cleanPart).filter(Boolean);
-
-      if (parts.length >= 2) {
-        // Tìm 2 sản phẩm trong DB (đã được clean khỏi trailing noise)
-        const [p1, p2] = await Promise.all([
-          prisma.product.findFirst({ where: { name: { contains: parts[0], mode: 'insensitive' }, is_deleted: false } }),
-          prisma.product.findFirst({ where: { name: { contains: parts[parts.length - 1], mode: 'insensitive' }, is_deleted: false } })
-        ]);
-
-        if (p1 && p2) {
-          const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-          // Xây dựng bảng so sánh từ dữ liệu thực trong DB
-          const p1Desc = p1.description ? p1.description.substring(0, 80) + '...' : 'Xem thêm tại trang sản phẩm';
-          const p2Desc = p2.description ? p2.description.substring(0, 80) + '...' : 'Xem thêm tại trang sản phẩm';
-
-          aiResponse.text = [
-            `Dạ đây là so sánh nhanh giữa **${p1.name}** và **${p2.name}** ạ:`,
-            ``,
-            `📱 **${p1.name}**`,
-            `• Giá: ${fmt(p1.price)} | Đánh giá: ⭐ ${p1.rating}/5 | Đã bán: ${p1.sold}`,
-            `• ${p1Desc}`,
-            ``,
-            `📱 **${p2.name}**`,
-            `• Giá: ${fmt(p2.price)} | Đánh giá: ⭐ ${p2.rating}/5 | Đã bán: ${p2.sold}`,
-            `• ${p2Desc}`,
-            ``,
-            `👉 Anh/chị muốn em tư vấn chọn cái nào dựa theo nhu cầu cụ thể không ạ?`
-          ].join('\n');
-          // Link về sản phẩm phổ biến hơn (sold nhiều hơn)
-          aiResponse.link = `/product/${p1.sold >= p2.sold ? p1.id : p2.id}`;
-        } else if (p1 || p2) {
-          const found = p1 || p2;
-          const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-          aiResponse.text = `Dạ em tìm thấy **${found.name}** (${fmt(found.price)}, ⭐${found.rating}/5). Anh/chị có thể nói rõ tên sản phẩm thứ 2 muốn so sánh để em phân tích chi tiết hơn không ạ?`;
-          aiResponse.link = `/product/${found.id}`;
-        } else {
-          aiResponse.text = "Dạ anh/chị có thể nói rõ tên 2 sản phẩm muốn so sánh không ạ? Ví dụ: \"So sánh iPhone 15 vs Samsung S24\" hoặc \"MacBook Air và MacBook Pro cái nào tốt hơn\" ạ.";
-        }
-      } else {
-        aiResponse.text = "Dạ để so sánh cấu hình, anh/chị vui lòng nêu tên cả 2 sản phẩm nhé ạ! Ví dụ: **\"iPhone 15 vs Samsung S24\"** hoặc **\"MacBook Air hay Dell XPS\"** ạ.";
-      }
-    }
-
-    // ── NHÓM: SO SÁNH PHỤ KIỆN / BIẾN THỂ ĐI KÈM ──
-    else if (intent === 'COMPARE_ACCESSORIES') {
-      const intentVerbs = new Set(['có', 'màu', 'gì', 'nào', 'mấy', 'loại', 'dung', 'lượng', 'biến', 'thể', 'option', 'tặng', 'kèm', 'phụ', 'kiện', 'hộp', 'mua', 'lấy', 'combo']);
-      const tokens = new (require('../ai/Tokenizer'))().tokenize(message);
-      const entityKeywords = tokens.filter(w => !intentVerbs.has(w)).join(' ').trim();
-
-      const found = entityKeywords
-        ? await prisma.product.findFirst({ where: { name: { contains: entityKeywords, mode: 'insensitive' }, is_deleted: false } })
-        : null;
-
-      if (found) {
-        // Đọc variants (màu sắc, bộ nhớ) và in ra
-        let variantInfo = "Xem thêm chi tiết tại trang sản phẩm ạ.";
-        try {
-          const variants = Array.isArray(found.variants) ? found.variants : JSON.parse(found.variants || '[]');
-          if (variants.length > 0) {
-            // Nhóm theo key đầu tiên của variant (color, storage, ...)
-            const variantSummary = variants.slice(0, 5).map(v => {
-              const keys = Object.values(v).join(' / ');
-              return `• ${keys}`;
-            }).join('\n');
-            variantInfo = `Hiện có các biến thể:\n${variantSummary}`;
-          }
-        } catch (e) { /* variants không phải JSON hợp lệ */ }
-
-        aiResponse.text = [
-          `Dạ thông tin phụ kiện & biến thể của **${found.name}** ạ:`,
-          ``,
-          variantInfo,
-          ``,
-          `📦 Trong hộp thường có: Cáp sạc, Củ sạc, Hướng dẫn sử dụng (tùy phiên bản).`,
-          ``,
-          `Anh/chị muốn xem cụ thể màu/dung lượng nào còn hàng không ạ?`
-        ].join('\n');
-        aiResponse.link = `/product/${found.id}`;
-      } else {
-        aiResponse.text = "Dạ anh/chị muốn xem biến thể màu sắc/dung lượng của sản phẩm nào ạ? Cứ nói tên máy cho em, em tra ngay nhé!";
-      }
-    }
-
-    // ── NHÓM: TÌM KIẾM SẢN PHẨM (điện thoại, laptop, tablet, tai nghe, phụ kiện...) ──
-    else if (['SEARCH_PRODUCT', 'ASK_PRICE', 'SEARCH_CATEGORY', 'ASK_SPECS', 'ASK_ACCESSORIES'].includes(intent)) {
-      // Bước 1: Trích xuất từ khóa thực thể — loại bỏ động từ ý định
-      const intentVerbs = new Set([
-        'muốn', 'mua', 'tìm', 'kiếm', 'giá', 'bao', 'nhiêu', 'cho', 'hỏi',
-        'xem', 'thông', 'tin', 'có', 'bán', 'không', 'shop', 'ơi', 'tiền',
-        'cái', 'con', 'chiếc', 'cấu', 'hình', 'ram', 'chip', 'số', 'màn',
-        'pin', 'bộ', 'nhớ', 'inch', 'cần', 'tôi', 'mình', 'em',
-        'thế', 'vậy', 'những', 'các', 'bạn', 'vừa', 'nói', 'kể', 'gợi', 'ý',
-        'rồi', 'sản', 'phẩm', 'chúng', 'nó', 'này', 'đó', 'của', 'kia', 'với',
-        'chi', 'tiết', 'mẫu', 'loại', 'dòng', 'hãng', 'của'
-      ]);
-      const tokens = new (require('../ai/Tokenizer'))().tokenize(message);
-      
-      // Ưu tiên dùng kết quả từ module NER (chính xác hơn), nếu không có mới dùng bộ lọc từ khóa
-      let entityKeywords = nerEntities.productName || tokens.filter(w => !intentVerbs.has(w.toLowerCase())).join(' ').trim();
-      
-      // XỬ LÝ CÂU HỎI NỐI TIẾP (FOLLOW-UP) TOÀN DIỆN
-      // Nếu câu nói KHÔNG chứa tên sản phẩm/danh mục cụ thể (vd: "giá bao nhiêu", "cấu hình ntn")
-      if (!nerEntities.productName && !nerEntities.category) {
-        const storeHistory = conversationStore.get(sessionId);
-        if (storeHistory && storeHistory.length > 0) {
-            const prevProduct = extractProductFromHistory(storeHistory);
-            if (prevProduct) {
-                // Kế thừa ngữ cảnh: Dùng lại tên sản phẩm cũ!
-                entityKeywords = prevProduct;
-                console.log(`[Follow-up] Kế thừa ngữ cảnh từ câu trước: ${prevProduct}`);
-            }
-        }
-      }
-
-      if (!entityKeywords) {
-        aiResponse.text = 'Dạ anh/chị cứ nói thoải mái nhé! Bên em có: **Điện thoại thông minh**, **Laptop**, **Máy tính bảng**, và **Phụ kiện** (tai nghe, đồng hồ, micro, loa...). Anh/chị cần tìm gì ạ?';
-        return res.json(aiResponse);
-      }
-
-      // ── CẤP 1: Tìm sản phẩm theo tên cụ thể trong Database ──
-      let foundProducts = await prisma.product.findMany({
-        where: { name: { contains: entityKeywords, mode: 'insensitive' }, is_deleted: false },
-        orderBy: { sold: 'desc' },
-        take: 1
-      });
-
-      if (foundProducts.length > 0) {
-        // Tìm thấy sản phẩm cụ thể
-        const p = foundProducts[0];
-        const formattedPrice = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(p.price);
-        if (intent === 'ASK_PRICE') {
-          aiResponse.text = `Dạ siêu phẩm **${p.name}** bên em hiện đang có giá cực sốc chỉ **${formattedPrice}** thôi ạ. Không biết anh/chị thích bản màu nào để em check xem kho còn hàng không nhé?`;
-        } else if (intent === 'ASK_SPECS') {
-          const shortDesc = p.description ? (p.description.substring(0, 100) + '...') : 'Thiết kế sang trọng, hiệu năng mạnh mẽ.';
-          aiResponse.text = `Dạ về cấu hình, dòng **${p.name}** nổi bật với: ${shortDesc} Anh/chị click vào "Xem ngay" để đọc chi tiết thông số RAM, Chip, Màn hình nhé ạ.`;
-        } else {
-          aiResponse.text = `Dạ bên em đang sẵn hàng **${p.name}** giá chỉ **${formattedPrice}** ạ. Dòng này đang bán rất chạy! Anh/chị muốn xem thêm hình ảnh chi tiết không ạ?`;
-        }
-        aiResponse.link = `/product/${p.id}`;
-
-      } else {
-        // ── CẤP 2: Tìm theo bảng CATEGORY_KEYWORD_MAP (tai nghe, đồng hồ...) ──
+        // Bước 2: Tìm theo danh mục keyword
         const matchedCatName = Object.entries(CATEGORY_KEYWORD_MAP)
-          .find(([kw]) => msgNorm.includes(kw))?.[1];
+          .find(([kw]) => norm.includes(kw))?.[1];
 
         if (matchedCatName) {
           const category = await prisma.category.findFirst({
             where: { name: { contains: matchedCatName, mode: 'insensitive' } }
           });
-
           if (category) {
-            // Phát hiện thương hiệu (brand) trong tin nhắn để lọc thêm
-            const brand = BRAND_KEYWORDS.find(b => msgNorm.includes(b));
-
-            const catProducts = await prisma.product.findMany({
+            products = await prisma.product.findMany({
               where: {
                 category_id: category.id,
                 is_deleted: false,
                 stock: { gt: 0 },
-                ...(brand ? { name: { contains: brand, mode: 'insensitive' } } : {})
+                ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
               },
               orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
-              take: 3
+              take: 4,
             });
-
-            const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-
-            if (catProducts.length > 0) {
-              const productList = catProducts.map(p =>
-                `• **${p.name}** — ${fmt(p.price)} (⭐${p.rating}/5, đã bán: ${p.sold})`
-              ).join('\n');
-              const brandStr = brand
-                ? ` thương hiệu **${brand.charAt(0).toUpperCase() + brand.slice(1)}**`
-                : '';
-              aiResponse.text = `Dạ bên em đang có các **${category.name}**${brandStr} được ưa chuộng nhất ạ:\n\n${productList}\n\nAnh/chị muốn em tư vấn chi tiết mẫu nào, hoặc cho em biết ngân sách để em lọc chính xác hơn nhé ạ!`;
-              aiResponse.link = `/category/${category.id}`;
-            } else {
-              const brandStr = brand ? ` thương hiệu **${brand}**` : '';
-              aiResponse.text = `Dạ bên em hiện chưa có **${category.name}**${brandStr} trong kho ạ. Anh/chị có muốn xem thương hiệu khác trong danh mục này không ạ?`;
-              aiResponse.link = `/`;
-            }
-          } else {
-            // Category name tìm trong DB không ra (tên DB khác)
-            aiResponse.text = `Dạ bên em có 4 danh mục chính: **Điện thoại thông minh**, **Máy tính xách tay**, **Máy tính bảng**, và **Phụ kiện công nghệ** (tai nghe, đồng hồ thông minh, micro, loa...). Anh/chị muốn xem loại nào ạ?`;
+            link = `/shop?category=${category.id}`;
           }
+        }
 
-        } else {
-          // ── CẤP 3: Thử tìm theo tên danh mục trực tiếp ──
-          const foundCategories = await prisma.category.findMany({
-            where: { name: { contains: entityKeywords, mode: 'insensitive' } },
-            take: 1
+        // Bước 3: Nếu chưa có, tìm theo tên sản phẩm cụ thể
+        if (products.length === 0) {
+          const stopWords = new Set([
+            'muon','mua','tim','xem','gia','bao','nhieu','co','ban','khong',
+            'shop','oi','can','toi','minh','em','ban','cho','hoi','ve',
+            'duoi','tam','khoang','nao','gi','nhu','the','nay','do',
+          ]);
+          const tokens = norm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+          const keyword = tokens.join(' ').trim();
+
+          if (keyword) {
+            products = await prisma.product.findMany({
+              where: {
+                name: { contains: keyword, mode: 'insensitive' },
+                is_deleted: false,
+                ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+              },
+              orderBy: [{ sold: 'desc' }],
+              take: 4,
+            });
+            // Update link to search page
+            link = `/shop?search=${encodeURIComponent(keyword)}`;
+          }
+        }
+
+        // Bước 4: Fallback — sản phẩm bán chạy nhất
+        if (products.length === 0) {
+          products = await prisma.product.findMany({
+            where: { is_deleted: false, stock: { gt: 0 } },
+            orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+            take: 4,
           });
+          link = '/shop';
+        }
+        break;
+      }
 
-          if (foundCategories.length > 0) {
-            aiResponse.text = `Dạ bên em đang có rất nhiều mẫu mã thuộc dòng **${foundCategories[0].name}**. Anh/chị đang nhắm tới thương hiệu nào (Apple, Samsung, Dell...) hay có mức ngân sách tầm bao nhiêu để em lựa máy ngon nhất không ạ?`;
-            aiResponse.link = `/category/${foundCategories[0].id}`;
-          } else {
-            // ── CẤP 4: Fallback thân thiện ──
-            aiResponse.text = `Dạ em chưa tìm thấy sản phẩm "${entityKeywords}" trong kho ạ. Bên em đang có:\n• 📱 **Điện thoại thông minh** (iPhone, Samsung, Xiaomi, Oppo...)\n• 💻 **Laptop** (MacBook, Dell, Asus, HP...)\n• 📱 **Máy tính bảng** (iPad, Samsung Tab...)\n• 🎧 **Phụ kiện** (tai nghe, đồng hồ thông minh, micro, loa...)\n\nAnh/chị muốn tìm sản phẩm nào ạ?`;
-            aiResponse.link = '/';
+      // ── Gợi ý / Tư vấn chọn máy ──────────────────────────────────────────
+      case 'ASK_RECOMMEND': {
+        const budgetMatch = message.match(/(\d+[\d.,]*)\s*(triệu|tr\b|củ)/i);
+        let whereClause = { is_deleted: false, stock: { gt: 0 } };
+        if (budgetMatch) {
+          const budget = parseFloat(budgetMatch[1]) * 1_000_000;
+          whereClause.price = { lte: budget * 1.2, gte: budget * 0.5 };
+        }
+        products = await prisma.product.findMany({
+          where: whereClause,
+          orderBy: [{ rating: 'desc' }, { sold: 'desc' }],
+          take: 4,
+        });
+        if (products[0]) link = `/product/${products[0].id}`;
+        break;
+      }
+
+      // ── So sánh sản phẩm ──────────────────────────────────────────────────
+      case 'COMPARE_PRODUCT':
+      case 'COMPARE_SPECS': {
+        // Tách tên 2 sản phẩm bằng "vs", "và", "hay", "với"
+        const splitPat = /\s+(vs\.?|và|hay|với|hoặc)\s+/i;
+        const parts = message.split(splitPat)
+          .filter(s => s.length > 2 && !/^(vs\.?|và|hay|với|hoặc)$/i.test(s));
+
+        if (parts.length >= 2) {
+          const [p1, p2] = await Promise.all([
+            prisma.product.findFirst({
+              where: { name: { contains: parts[0].trim(), mode: 'insensitive' }, is_deleted: false }
+            }),
+            prisma.product.findFirst({
+              where: { name: { contains: parts[parts.length - 1].trim(), mode: 'insensitive' }, is_deleted: false }
+            }),
+          ]);
+          if (p1) products.push(p1);
+          if (p2) products.push(p2);
+          if (products[0]) link = `/product/${products[0].id}`;
+        }
+
+        // Nếu không tách được → lấy top sản phẩm bán chạy để LLM tự gợi ý
+        if (products.length === 0) {
+          products = await prisma.product.findMany({
+            where: { is_deleted: false, stock: { gt: 0 } },
+            orderBy: { sold: 'desc' },
+            take: 4,
+          });
+        }
+        break;
+      }
+
+      // ── Kiểm tra tồn kho ──────────────────────────────────────────────────
+      case 'CHECK_STOCK': {
+        const stopWords = new Set(['con','hang','khong','shop','san','co','gấp','het','ngay']);
+        const tokens = norm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+        const keyword = tokens.join(' ').trim();
+        if (keyword) {
+          const found = await prisma.product.findFirst({
+            where: { name: { contains: keyword, mode: 'insensitive' }, is_deleted: false }
+          });
+          if (found) {
+            products = [found];
+            link = `/product/${found.id}`;
           }
         }
+        break;
       }
-    }
 
-    // ── NHÓM: SẢN PHẨM TƯƠNG TỰ (Cosine Similarity) ────────────────────────────
-    else if (intent === 'SIMILAR_PRODUCT') {
-      // Dùng NER để lấy tên sản phẩm gốc
-      let productName = nerEntities.productName;
-      
-      // Nếu câu nói chỉ chứa từ "khác" mà không có tên sản phẩm, tìm trong lịch sử
-      if (!productName) {
-        const storeHistory = conversationStore.get(sessionId);
-        if (storeHistory && storeHistory.length > 0) {
-            const prevProduct = extractProductFromHistory(storeHistory);
-            if (prevProduct) productName = prevProduct;
-        }
-      }
-      productName = productName || workingMessage;
-      const foundBase = await prisma.product.findFirst({
-        where: { name: { contains: productName, mode: 'insensitive' }, is_deleted: false },
-      });
-
-      if (foundBase && cosineIndex.isIndexed()) {
-        // Tìm sản phẩm tương tự bằng Cosine Similarity
-        const maxPrice = nerEntities.budget ? nerEntities.budget * 0.95 : null; // Nếu có budget → lọc theo giá
-        const similar = cosineIndex.findSimilar(Number(foundBase.id), {
-          topN: 3,
-          maxPrice,
-          minSimilarity: 0.1,
+      // ── Sản phẩm bán chạy ─────────────────────────────────────────────────
+      case 'ASK_BEST_SELLER': {
+        products = await prisma.product.findMany({
+          where: { is_deleted: false },
+          orderBy: { sold: 'desc' },
+          take: 4,
         });
-        if (similar.length > 0) {
-          const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-          const list = similar.map(s =>
-            `• **${s.name}** — ${fmt(s.price)} (độ tương đồng: ${(s.similarity * 100).toFixed(0)}%)`
-          ).join('\n');
-          aiResponse.text = `Dạ đây là các sản phẩm na ná **${foundBase.name}** bên em đang có ạ:\n\n${list}\n\nAnh/chị muốn xem chi tiết sản phẩm nào ạ?`;
-          aiResponse.link = `/product/${similar[0].productId}`;
-        } else {
-          aiResponse.text = `Dạ em đã tìm nhưng chưa thấy sản phẩm nào tương tự **${foundBase.name}** phù hợp trong kho ạ. Anh/chị muốn xem các sản phẩm cùng danh mục không ạ?`;
-          aiResponse.link = `/`;
-        }
-      } else if (cosineIndex.isIndexed()) {
-        // Không tìm thấy sản phẩm gốc → dùng text search
-        const similar = cosineIndex.findSimilarByText(workingMessage, { topN: 3 });
-        if (similar.length > 0) {
-          const fmt = n => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
-          const list = similar.map(s => `• **${s.name}** — ${fmt(s.price)}`).join('\n');
-          aiResponse.text = `Dạ dựa trên mô tả của anh/chị, đây là một số sản phẩm em thấy phù hợp:\n\n${list}\n\nAnh/chị xem thêm chi tiết nhé ạ!`;
-          aiResponse.link = `/product/${similar[0].id}`;
-        } else {
-          aiResponse.text = 'Dạ anh/chị mô tả thêm chi tiết sản phẩm muốn tìm (thương hiệu, tầm giá, tính năng) để em gợi ý chính xác hơn nhé ạ!';
-        }
-      } else {
-        aiResponse.text = 'Dạ anh/chị muốn tìm sản phẩm na ná loại nào? Anh/chị nêu tên model cụ thể để em so sánh và tìm sản phẩm tương đương nhé ạ!';
+        break;
       }
+
+      // ── Sản phẩm mới nhất ─────────────────────────────────────────────────
+      case 'ASK_NEW_ARRIVAL': {
+        products = await prisma.product.findMany({
+          where: { is_deleted: false },
+          orderBy: { id: 'desc' },
+          take: 4,
+        });
+        break;
+      }
+
+      // ── Khuyến mãi / Flash sale ───────────────────────────────────────────
+      case 'ASK_PROMO': {
+        const activeSales = await prisma.flashSale.findMany({
+          where: { is_deleted: false, is_active: true },
+          take: 3,
+        });
+        if (activeSales.length > 0) {
+          policy = 'CHƯƠNG TRÌNH KHUYẾN MÃI ĐANG CHẠY:\n' +
+            activeSales.map(s =>
+              `- "${s.title}": giảm ${s.discount_percent}%` +
+              (s.end_date ? `, kết thúc ${new Date(s.end_date).toLocaleDateString('vi-VN')}` : '')
+            ).join('\n');
+        }
+        // Lấy sản phẩm đang sale
+        products = await prisma.product.findMany({
+          where: { is_deleted: false, stock: { gt: 0 } },
+          orderBy: { sold: 'desc' },
+          take: 3,
+        });
+        link = '/shop';
+        break;
+      }
+
+      // ── Chê mắc / Mặc cả ─────────────────────────────────────────────────
+      case 'PRICE_COMPLAINT': {
+        const budgetMatch = message.match(/(\d+[\d.,]*)\s*(triệu|tr\b|củ|k\b|nghìn)/i);
+        if (budgetMatch) {
+          const unit = budgetMatch[2].toLowerCase();
+          const val  = parseFloat(budgetMatch[1]);
+          const vnd  = (unit === 'k' || unit === 'nghìn') ? val * 1_000 : val * 1_000_000;
+          products = await prisma.product.findMany({
+            where: { is_deleted: false, stock: { gt: 0 }, price: { lte: vnd } },
+            orderBy: { price: 'desc' },
+            take: 3,
+          });
+        } else {
+          products = await prisma.product.findMany({
+            where: { is_deleted: false, stock: { gt: 0 } },
+            orderBy: { price: 'asc' },
+            take: 3,
+          });
+        }
+        if (products[0]) link = `/product/${products[0].id}`;
+        break;
+      }
+
+      // ── Giao hàng ─────────────────────────────────────────────────────────
+      case 'ASK_DELIVERY':
+        policy = 'Nội thành TP.HCM & HN: giao 2–4 tiếng. Tỉnh thành: 1–3 ngày. Miễn phí ship đơn từ 500k. Giao hỏa tốc có phụ phí.';
+        link = null;
+        break;
+
+      // ── Đổi trả / Bảo hành ───────────────────────────────────────────────
+      case 'ASK_RETURN':
+        policy = 'Đổi trả trong 7 ngày nếu lỗi NSX. Bảo hành chính hãng 12 tháng. Sản phẩm lỗi do người dùng không áp dụng.';
+        link = null;
+        break;
+
+      // ── Thanh toán ────────────────────────────────────────────────────────
+      case 'ASK_PAYMENT':
+        policy = 'Hỗ trợ: Tiền mặt, COD, chuyển khoản, MoMo, ZaloPay, VNPAY, Visa/Mastercard. Trả góp 0% lãi suất 3–24 tháng qua thẻ tín dụng.';
+        link = null;
+        break;
+
+      // ── Theo dõi đơn hàng ─────────────────────────────────────────────────
+      case 'TRACK_ORDER':
+        policy = 'Đăng nhập → Đơn hàng của tôi để xem trạng thái. Hotline hỗ trợ 24/7: 1800-xxxx (miễn phí).';
+        link = '/profile';
+        break;
+
+      // ── Hủy đơn ───────────────────────────────────────────────────────────
+      case 'CANCEL_ORDER':
+        policy = 'Hủy đơn: Đăng nhập → Đơn hàng của tôi → Chọn đơn → Hủy đơn. Chỉ hủy được khi đơn còn ở trạng thái "Đang xử lý".';
+        link = '/profile';
+        break;
+
+      // ── Liên hệ ───────────────────────────────────────────────────────────
+      case 'CONTACT':
+        policy = 'Địa chỉ: TP.HCM. Hotline: 1800-xxxx (miễn phí, 24/7). Email: support@getshopy.vn. Facebook/Zalo: Getshopy Official.';
+        link = null;
+        break;
+
+      // ── Thu cũ đổi mới ────────────────────────────────────────────────────
+      case 'ASK_TRADE_IN': {
+        products = await prisma.product.findMany({
+          where: { is_deleted: false, stock: { gt: 0 } },
+          orderBy: { sold: 'desc' },
+          take: 3,
+        });
+        policy = 'Getshopy hỗ trợ thu cũ đổi mới. Định giá miễn phí tại cửa hàng, giá thu tốt nhất thị trường.';
+        if (products[0]) link = `/product/${products[0].id}`;
+        break;
+      }
+
+      // ── Hàng cũ / Refurbished ─────────────────────────────────────────────
+      case 'ASK_SECOND_HAND':
+        policy = 'Getshopy bán máy refurbished (tân trang) được kiểm tra 100+ điểm, bảo hành 6 tháng, giảm 15–25% so với hàng mới.';
+        link = null;
+        break;
+
+      // Các intent còn lại không cần DB
+      default:
+        break;
+    }
+  } catch (err) {
+    console.warn(`[buildContext] Query thất bại cho intent=${intent}:`, err.message);
+  }
+
+  return { products, policy, link };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FALLBACK RESPONSE — Dùng khi LLM không khả dụng
+// ─────────────────────────────────────────────────────────────────────────────
+function fallbackResponse(intent, context) {
+  const { products, link } = context;
+
+  if (products.length > 0) {
+    const list = products.slice(0, 3)
+      .map(p => `**${p.name}** — ${fmt(p.price)}`)
+      .join(', ');
+    return {
+      text: `Dạ bên em đang có: ${list}. Anh/chị muốn tư vấn chi tiết sản phẩm nào không ạ?`,
+      link,
+    };
+  }
+
+  const defaults = {
+    GREETING:         { text: 'Dạ Getshopy xin chào ạ! Anh/chị đang cần tìm điện thoại, laptop hay phụ kiện gì ạ?', link: '/' },
+    ASK_DELIVERY:     { text: 'Dạ giao nội thành 2–4 tiếng, tỉnh thành 1–3 ngày, miễn phí ship từ 500k ạ!', link: '/' },
+    ASK_RETURN:       { text: 'Dạ đổi trả 7 ngày, bảo hành 12 tháng chính hãng ạ!', link: '/' },
+    ASK_PAYMENT:      { text: 'Dạ hỗ trợ COD, MoMo, ZaloPay, trả góp 0% ạ!', link: '/' },
+    TRACK_ORDER:      { text: 'Dạ anh/chị vào mục "Đơn hàng của tôi" để kiểm tra nhé ạ!', link: '/profile' },
+    CANCEL_ORDER:     { text: 'Dạ vào "Đơn hàng của tôi" → Chọn đơn → Hủy đơn nhé ạ!', link: '/profile' },
+    FEEDBACK_POSITIVE:{ text: 'Dạ cảm ơn anh/chị rất nhiều! 🌟 Getshopy luôn cố gắng phục vụ tốt nhất ạ!', link: '/' },
+    COMPLAINT:        { text: 'Dạ em thành thật xin lỗi! Anh/chị liên hệ hotline 1800-xxxx để được hỗ trợ ngay ạ!', link: '/' },
+  };
+
+  return defaults[intent] || {
+    text: 'Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có điện thoại, laptop, máy tính bảng và phụ kiện ạ!',
+    link: '/',
+  };
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 1. GET /api/b2c/products — Lấy sản phẩm theo danh mục (B2C storefront)
+// ══════════════════════════════════════════════════════════════════════════════
+router.get('/b2c/products', async (req, res) => {
+  try {
+    const { category, limit = 8, page = 1, search } = req.query;
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    const where = { is_deleted: false };
+    if (category) where.category_id = parseInt(category);
+    if (search)   where.name = { contains: search, mode: 'insensitive' };
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        include: { category: true, brand: true },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: parseInt(limit),
+        skip,
+      }),
+      prisma.product.count({ where }),
+    ]);
+
+    res.json({ products, total, page: parseInt(page), limit: parseInt(limit) });
+  } catch (err) {
+    console.error('[b2c/products]', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 2. GET /api/b2c/flash-sales — Flash sale đang hoạt động
+// ══════════════════════════════════════════════════════════════════════════════
+router.get('/b2c/flash-sales', async (req, res) => {
+  try {
+    const now = new Date();
+    const sales = await prisma.flashSale.findMany({
+      where: {
+        is_deleted: false,
+        is_active: true,
+        OR: [{ end_date: null }, { end_date: { gte: now } }],
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    res.json(sales);
+  } catch (err) {
+    console.error('[b2c/flash-sales]', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 3. POST /api/b2c/chat — AI Chatbot
+//    Pipeline: classifyIntent → buildContext (DB) → generateChatResponse (LLM)
+// ══════════════════════════════════════════════════════════════════════════════
+router.post('/b2c/chat', async (req, res) => {
+  try {
+    const { message, history = [] } = req.body;
+    if (!message?.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    const sessionId = req.ip || req.headers['x-forwarded-for'] || 'default';
+
+    // ── BƯỚC 1: Phân loại intent (mDeBERTa + rule-based) ──────────────────
+    const { intent, score, source } = await classifyIntent(message);
+    console.log(`[Chat] "${message.slice(0,50)}" → ${intent} (${score.toFixed?.(3) ?? score}, ${source})`);
+
+    // ── BƯỚC 2: Query DB theo intent để lấy context thực ──────────────────
+    const context = await buildContext(intent, message);
+
+    // ── BƯỚC 3: Sinh câu trả lời bằng LLM ────────────────────────────────
+    let responseText = null;
+    try {
+      responseText = await generateChatResponse({
+        intent,
+        context,
+        message,
+        history,
+      });
+    } catch (llmErr) {
+      console.warn('[Chat] LLM generation failed:', llmErr.message);
     }
 
-    let isHandledByExpanded = false;
-    // ── FALLBACK: Thử xử lý bảng Handler mở rộng nếu chưa có kết quả ở trên
-    if (aiResponse.text === "Xin lỗi, tôi chưa hiểu ý bạn lắm. Bạn có thể nói rõ hơn được không?") {
-      const expandedResult = await handleExpandedIntent(intent, message, sessionId);
-      if (expandedResult) {
-        aiResponse.text = expandedResult.text;
-        aiResponse.link = expandedResult.link;
-        isHandledByExpanded = true;
-      }
-    }
+    // ── BƯỚC 4: Fallback nếu LLM không khả dụng ──────────────────────────
+    const aiResponse = responseText
+      ? { text: responseText, link: context.link }
+      : fallbackResponse(intent, context);
 
-    if (!isHandledByExpanded && aiResponse.text !== "Xin lỗi, tôi chưa hiểu ý bạn lắm. Bạn có thể nói rõ hơn được không?") {
-      conversationStore.push(sessionId, 'user', message);
-      conversationStore.push(sessionId, 'assistant', aiResponse.text);
-    }
+    // ── Lưu ChatLog (fire-and-forget) ────────────────────────────────────
+    let customerId = null;
+    try {
+      const auth = req.headers.authorization;
+      if (auth?.startsWith('Bearer ')) {
+        const jwt = require('jsonwebtoken');
+        const decoded = jwt.verify(auth.split(' ')[1], process.env.JWT_SECRET);
+        customerId = decoded.id || decoded.customerId || null;
+      }
+    } catch (_) { /* chưa đăng nhập */ }
+
+    saveChatLog({
+      sessionId, customerId, message,
+      response: aiResponse.text,
+      intent, score, source,
+    });
 
     res.json(aiResponse);
+
   } catch (err) {
-    console.error('[AI Chat Error]', err.message);
-    // Quan trọng: luôn trả về { text } để client không nhận được empty response
+    console.error('[Chat Error]', err.message);
     res.json({
-      text: 'Dạ em đang gặp sự cố kỹ thuật nhỏ. Anh/chị vui lòng thử lại sau ít phút nhé ạ! Hoặc liên hệ hotline **1800-xxxx** (được hỗ trợ ngay) ạ.',
+      text: 'Dạ em đang gặp sự cố kỹ thuật nhỏ. Anh/chị vui lòng thử lại sau ít phút nhé ạ!',
       link: null,
     });
   }
 });
 
 module.exports = router;
-

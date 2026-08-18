@@ -21,6 +21,7 @@ const Alerts            = lazy(() => import('./pages/Alerts'));
 const Fulfillment       = lazy(() => import('./pages/Fulfillment'));
 const Reviews           = lazy(() => import('./pages/Reviews'));
 const DataLakeDemo      = lazy(() => import('./pages/DataLakeDemo'));
+const ChatbotManagement = lazy(() => import('./pages/ChatbotManagement'));
 
 // ── Lazy: B2C sub-routes (không cần cho first paint) ─────────────
 const ProductList   = lazy(() => import('./pages/b2c/ProductList'));
@@ -95,6 +96,7 @@ export default function App() {
                     <Route path="alerts"         element={<Alerts />} />
                     <Route path="fulfillment"    element={<Fulfillment />} />
                     <Route path="reviews"        element={<Reviews />} />
+                    <Route path="chatbot"        element={<ChatbotManagement />} />
                   </Route>
 
                   {/* B2C Storefront — Home eager, sub-routes lazy */}

@@ -20,15 +20,18 @@ Vấn đề đặt ra cho hệ thống AI:
 
 Để tránh nhầm lẫn về mặt kiến trúc và tối ưu hóa chi phí cũng như hiệu năng, hệ thống GetShopy chia AI làm 2 mảng tách biệt hoàn toàn:
 
-### 2.1. Generative AI (Sử dụng OpenRouter / OpenAI API)
-- **Cấu hình:** Sử dụng các biến môi trường `OPENROUTER_API_KEY`, `OPENROUTER_URL`, `OPENROUTER_MODEL`.
-- **Mục đích:** Xử lý ngôn ngữ tự nhiên (NLP). Dùng cho các tính năng "Trợ lý ảo (Chatbot) cho Admin", "Tóm tắt hàng ngàn lượt Review thành 1 đoạn văn bản ngắn", hoặc sinh nội dung tự động.
-- **Tại sao không dùng cho Recommendation?** Các mô hình ngôn ngữ lớn (LLM) có giới hạn Token (Context Window). Việc đẩy hàng triệu dòng lịch sử mua hàng từ Database vào LLM qua API là bất khả thi, gây lỗi tràn bộ nhớ, tốc độ chờ hàng phút và tiêu tốn hàng nghìn USD chi phí API.
+### 2.1. Generative AI & NLP Chatbot (Sử dụng Hugging Face Inference API)
+- **Cấu hình:** Sử dụng biến môi trường `HF_API_KEY`, `HF_MODEL`, `HF_CONFIDENCE_THRESHOLD`.
+- **Mục đích:** Xử lý ngôn ngữ tự nhiên (NLP) cho Chatbot B2C. Phân loại ý định (Intent Classification) từ tin nhắn của khách hàng thành 48 loại Intent khác nhau.
+- **Model hiện tại:** `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` — Zero-shot Multilingual Classification, hỗ trợ tiếng Việt.
+- **Kế hoạch:** Fine-tune model với bộ dữ liệu `trainingData` của Getshopy và host trên Hugging Face Hub. Model fine-tuned sẽ chính xác hơn đáng kể với domain điện tử tiêu dùng Việt Nam.
+- **Chi phí:** Free tier 30,000 calls/tháng. Sau đó khoảng $0.06/1,000 calls.
 
-### 2.2. Traditional Machine Learning (Sử dụng Thuật toán Nội bộ)
-- **Cấu hình:** Giao tiếp trực tiếp với Data Lake thông qua `CLICKHOUSE_URL`, `DATABASE_URL`.
-- **Mục đích:** Đây chính là "Trái tim" của hệ thống Gợi ý (Recommendation System) cho 1 triệu bản ghi.
-- **Kiến trúc:** Xây dựng một Microservice Python nội bộ (Local) kéo dữ liệu thô từ Database về, chuyển hóa thành ma trận số (Sparse Matrix) và tự huấn luyện mô hình (ALS/TF-IDF) ngay trên máy chủ của hệ thống. Quá trình này **miễn phí 100%**, siêu nhanh, bảo mật tuyệt đối (không đẩy dữ liệu ra bên ngoài) và hoàn toàn độc lập với OpenRouter.
+### 2.2. Recommendation System (Sử dụng thuật toán DB-based đơn giản)
+- **Cấu hình:** Giao tiếp trực tiếp với Database thông qua `DATABASE_URL`.
+- **Mục đích:** Gợi ý sản phẩm cho người dùng B2C dựa trên lịch sử mua hàng.
+- **Kiến trúc hiện tại:** Lọc sản phẩm theo danh mục (Category Filtering) — sản phẩm cùng danh mục mà user đã mua. Nếu chưa có lịch sử, trả về sản phẩm mới nhất/bán chạy nhất.
+- **Kế hoạch nâng cấp (tương lai):** Tích hợp Python AI Microservice với thuật toán ALS (Collaborative Filtering) — xem chi tiết tại phần 3-6 của tài liệu này.
 
 ---
 

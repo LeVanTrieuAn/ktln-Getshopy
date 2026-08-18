@@ -5,7 +5,7 @@ import {
   DashboardOutlined, DollarOutlined, ReconciliationOutlined,
   AlertOutlined, CarOutlined, SettingOutlined, LogoutOutlined,
   GlobalOutlined, BellOutlined, MenuFoldOutlined, MenuUnfoldOutlined,
-  ShoppingOutlined, StarOutlined,
+  ShoppingOutlined, StarOutlined, RobotOutlined,
 } from '@ant-design/icons';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
   { key: '/admin/alerts',         icon: <AlertOutlined />,           labelKey: 'nav.alerts' },
   { key: '/admin/fulfillment',    icon: <CarOutlined />,             labelKey: 'nav.fulfillment' },
   { key: '/admin/reviews',        icon: <StarOutlined />,            labelKey: 'Đánh giá' },
+  { key: '/admin/chatbot',        icon: <RobotOutlined />,           labelKey: 'Quản lý Chatbot AI' },
 ];
 
 export default function AppLayout() {

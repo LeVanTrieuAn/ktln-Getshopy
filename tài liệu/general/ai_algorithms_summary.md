@@ -1,72 +1,135 @@
 # Kiến trúc Trí tuệ Nhân tạo (AI) - Getshopy Chatbot
 
-Tài liệu này tóm tắt toàn bộ các thuật toán và cơ chế học máy (Machine Learning) đang được vận hành bên trong hệ thống Chatbot của Getshopy. Hệ thống được thiết kế theo mô hình **Pipeline đa tầng (Multi-layer)** kết hợp giữa AI thống kê, Học máy truyền thống và Logic định tuyến.
+Tài liệu này mô tả kiến trúc AI Chatbot của Getshopy sau khi tích hợp **Hugging Face Inference API**.
+Hệ thống được thiết kế theo mô hình **Pipeline đa tầng (Multi-layer)** kết hợp giữa Rule-based Pre-classifier, Hugging Face Cloud Model và Business Logic Handler.
 
 > [!TIP]
-> Sự kết hợp giữa nhiều thuật toán độc lập giúp Chatbot xử lý ngôn ngữ tự nhiên Tiếng Việt một cách trơn tru, bao dung với lỗi chính tả, và phản hồi có ngữ cảnh.
+> Việc chuyển sang Hugging Face cho phép sử dụng model AI mạnh hơn, đã được pre-train trên hàng tỷ câu văn và hỗ trợ tiếng Việt. Model có thể được fine-tune thêm với dữ liệu đặc thù của Getshopy.
 
 ---
 
-## 1. Pipeline Xử Lý Ngôn Ngữ Tự Nhiên (NLP)
+## 1. Kiến trúc Pipeline Xử Lý (mới)
 
 Dòng chảy dữ liệu (Data flow) của một tin nhắn khách hàng đi qua các bước sau:
 
 ```mermaid
 flowchart TD
-    A[Tin nhắn người dùng] --> B(Spell Corrector - Sửa lỗi chính tả)
-    B --> C(NER - Bóc tách Thực thể)
-    C --> D{Pre-Classify / FSM / Tree?}
-    D -- Đang trong luồng --> E[FSM & Decision Tree]
-    D -- Câu hỏi tự do --> F[Ensemble Classifier]
-    F --> G[Context Manager - Xử lý ngữ cảnh]
-    G --> H((Intent Handlers - Xử lý Logic))
+    A[Tin nhắn người dùng] --> B{Pre-Classify Rule-Based}
+    B -- Pattern rõ ràng --> C[Kết quả tức thì]
+    B -- Không khớp --> D{Cache?}
+    D -- Cache hit --> E[Kết quả từ cache]
+    D -- Cache miss --> F[Hugging Face Inference API]
+    F --> G{Confidence >= 0.35?}
+    G -- Có --> H[Intent xác định]
+    G -- Không --> I[UNKNOWN → Hỏi lại]
+    H --> J[Secondary Correction Rule]
+    J --> K[Business Logic Handlers - aiHandlers.js]
+    K --> L((Trả về Response cho User))
 ```
 
 ---
 
-## 2. Chi tiết 8 Thuật Toán và Cơ Chế
+## 2. Module NLP Duy Nhất: `src/ai/huggingface.js`
 
-### 2.1. Sửa Lỗi Chính Tả (Spell Corrector)
-- **Thuật toán:** **Khoảng cách Levenshtein (Levenshtein Distance)**
-- **Vai trò:** Đo lường số bước tối thiểu (thêm, sửa, xóa ký tự) để biến một từ sai thành từ đúng trong từ điển sản phẩm.
-- **Ví dụ:** Khách gõ `"macbok"` -> Khoảng cách đến `"macbook"` là 1 -> Tự động sửa thành `"macbook"`.
+Toàn bộ thư mục AI tự code cũ (NaiveBayes, LogisticRegression, LinearSVM, EnsembleClassifier, DecisionTree, FSM, NER, SpellCorrector, CosineSimilarity, CollaborativeFilter, v.v.) đã được thay thế bởi **một file duy nhất**.
 
-### 2.2. Nhận Dạng Thực Thể (NER - Named Entity Recognition)
-- **Thuật toán:** **Pattern Matching & Regular Expressions (Lấy cảm hứng từ CRF)**
-- **Vai trò:** Quét toàn bộ câu để "nhặt" ra các thông số cụ thể: *Tên Model (productName)*, *Dung lượng (storage)*, *Màu sắc (color)*, *Ngân sách (budget)*.
-- **Ví dụ:** `"có cái ip 15 pro max nào 256gb màu đen tầm 25 củ không"` -> `{ productName: "iPhone 15 Pro Max", storage: "256GB", color: "đen", budget: 25000000 }`.
+### 2.1. Cấu hình
 
-### 2.3. Phân Loại Ý Định (Intent Classification) bằng Ensemble
-Thay vì dùng 1 mô hình duy nhất, hệ thống kết hợp (Voting) 4 phương pháp khác nhau để đưa ra phán đoán chính xác nhất.
+| Biến môi trường | Mô tả | Mặc định |
+|:---|:---|:---|
+| `HF_API_KEY` | API Key từ huggingface.co | *(bắt buộc)* |
+| `HF_MODEL` | Tên model trên Hugging Face Hub | `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli` |
+| `HF_CONFIDENCE_THRESHOLD` | Ngưỡng độ tin cậy tối thiểu | `0.35` |
 
-| Thuật toán | Vai trò / Ưu điểm | Trọng số |
-| :--- | :--- | :--- |
-| **Naive Bayes** | Mô hình xác suất dựa trên định lý Bayes. Hoạt động cực tốt với lượng text ngắn và từ vựng khổng lồ (triệu mẫu). | `40% - 100%` |
-| **Logistic Regression** | Học theo SGD và Softmax Loss. Có khả năng trả về điểm tự tin (Confidence Score) chính xác để quyết định có Fallback (xin lỗi vì không hiểu) hay không. | `40%` |
-| **Linear SVM** | Support Vector Machine (One-vs-Rest). Giúp vạch ra "đường ranh giới" sắc bén giữa các ý định (Intent) gần giống nhau. | `20%` |
-| **Rule-Based** | Phân loại theo Regex cứng. Dành cho các Intent mang tính hệ thống (xin chào, kiểm tra đơn...). | `Bonus +15%` |
+### 2.2. Model hiện tại
 
-> [!NOTE] 
-> **Dynamic Weights (Trọng số động):** Nếu Logistic Regression và SVM chưa được huấn luyện (chưa có model weights), hệ thống tự động dồn 100% trọng số biểu quyết cho Naive Bayes để đảm bảo Chatbot không bao giờ bị gián đoạn.
+- **Tên:** `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli`
+- **Loại:** Zero-shot Classification (Multilingual)
+- **Ngôn ngữ hỗ trợ:** 100+ ngôn ngữ, bao gồm tiếng Việt
+- **Cách hoạt động:** Nhận tin nhắn + danh sách 48 Intent labels → Trả về label phù hợp nhất kèm điểm confidence
 
-### 2.4. Tìm Kiếm Sản Phẩm Tương Tự (Similar Products)
-- **Thuật toán:** **TF-IDF (Term Frequency-Inverse Document Frequency) kết hợp Cosine Similarity**
-- **Vai trò:** Khi khách hàng yêu cầu `"còn sản phẩm nào khác không?"` hoặc `"có cái nào na ná không?"`. Thuật toán sẽ mã hóa tên/mô tả của các sản phẩm thành Vector toán học, sau đó tính Góc Cosine giữa chúng. Góc càng nhỏ (Cosine -> 1), hai sản phẩm càng giống nhau.
+### 2.3. Kế hoạch Fine-tuning (Option B — Đã chọn)
 
-### 2.5. Gợi Ý Bán Chéo (Cross-Selling / Recommendation)
-- **Thuật toán:** **Lọc Cộng Tác (Collaborative Filtering - Item-based Co-occurrence Matrix)**
-- **Vai trò:** Khai thác lịch sử hóa đơn trong Database. Đếm số lần 2 sản phẩm được mua cùng nhau (A mua kèm B). 
-- **Ví dụ:** Khi khách cho iPhone 15 vào giỏ, AI gợi ý Ốp lưng và Củ sạc vì ma trận cho thấy xác suất mua kèm rất cao.
+Bộ dữ liệu training cũ (`trainingData.js`) đã được backup tại `src/AI (Not used)/`. Quy trình fine-tune:
 
-### 2.6. Quản Lý Luồng Đặt Hàng (Order Flow)
-- **Cơ chế:** **Máy Trạng Thái Hữu Hạn (FSM - Finite State Machine)**
-- **Vai trò:** Ép người dùng đi theo 1 luồng cố định khi đặt hàng, không cho phép "nhảy cóc" trạng thái: `Thu thập Sản phẩm` -> `Hỏi Địa chỉ` -> `Hỏi SĐT` -> `Xác nhận Đơn`. Bất kỳ tin nhắn nào lạc đề đều được lưu lại và nhắc người dùng quay lại trạng thái hiện tại.
+```text
+1. Export trainingData.js → CSV format (message, intent)
+2. Upload lên Hugging Face Hub (private dataset)
+3. Fine-tune PhoBERT hoặc mDeBERTa trên Google Colab (miễn phí GPU)
+4. Upload model fine-tuned lên Hugging Face Hub
+5. Cập nhật HF_MODEL trong .env → model mới có data Getshopy
+```
 
-### 2.7. Trợ Lý Tư Vấn Tuyến Tính (Guided Advice)
-- **Cơ chế:** **Cây Quyết Định (Decision Tree)**
-- **Vai trò:** Xử lý câu hỏi mở: *"Tư vấn giúp tôi"*. AI đóng vai trò người bán hàng, liên tục phân nhánh đặt câu hỏi (Ngân sách bao nhiêu? -> Dùng để chơi game hay làm việc? -> Màn hình lớn hay nhỏ?). Mỗi câu trả lời cắt tỉa bớt tập sản phẩm cho đến khi ra được 1-2 sự lựa chọn tối ưu nhất.
+**Lợi ích:** Model fine-tuned sẽ chính xác hơn đáng kể với ngôn ngữ và domain cụ thể của Getshopy.
 
-### 2.8. Quản Lý Ngữ Cảnh Nối Tiếp (Context Management)
-- **Cơ chế:** **Short-term Memory Retrieval**
-- **Vai trò:** Khắc phục nhược điểm "não cá vàng" của Bot vô trạng thái (Stateless). Nếu AI phát hiện câu hỏi (Hỏi giá, Cấu hình) nhưng **NER module không tìm thấy tên sản phẩm**, nó sẽ lục lại lịch sử chat, trích xuất thực thể từ câu trả lời trước đó của chính nó để điền vào chỗ trống.
-- **Ví dụ:** `Bot: "Đây là Dell XPS"` -> `User: "Bản 32GB giá bao nhiêu?"` (Tự động tra giá Dell XPS bản 32GB).
+---
+
+## 3. Intent Labels (48 Intents)
+
+| Nhóm | Intents |
+|:---|:---|
+| **Chào hỏi / Chung** | GREETING, HELP, CONTACT, SMALLTALK, FEEDBACK_POSITIVE |
+| **Tìm kiếm sản phẩm** | SEARCH_PRODUCT, SEARCH_CATEGORY, ASK_PRICE, ASK_SPECS, ASK_ACCESSORIES |
+| **Tư vấn mua hàng** | ASK_RECOMMEND, ASK_BEST_SELLER, ASK_NEW_ARRIVAL, ASK_PREORDER |
+| **Câu hỏi kỹ thuật** | ASK_CAMERA, ASK_BATTERY, ASK_DISPLAY, ASK_STORAGE, ASK_CONNECTIVITY, ASK_GAMING, ASK_WATERPROOF, ASK_OS, ASK_DESIGN, ASK_COMPATIBILITY |
+| **Chính sách** | ASK_PROMO, ASK_DELIVERY, ASK_RETURN, ASK_PAYMENT, ASK_REVIEW, ASK_INVOICE |
+| **Dịch vụ bổ sung** | ASK_GIFT, ASK_GIFT_WRAP, ASK_LOYALTY, ASK_SECOND_HAND, ASK_AUTHENTIC, ASK_TRADE_IN, ASK_REPAIR |
+| **So sánh** | COMPARE_PRODUCT, COMPARE_SPECS, COMPARE_ACCESSORIES |
+| **Quản lý đơn hàng** | CHECK_STOCK, TRACK_ORDER, CANCEL_ORDER, CHANGE_PRODUCT |
+| **Xử lý phàn nàn** | PRICE_COMPLAINT, COMPLAINT |
+| **Thương mại** | BULK_ORDER, URGENT_NEED |
+| **Fallback** | UNKNOWN |
+
+---
+
+## 4. Pre-Classifier (Rule-Based — Không tốn API)
+
+Một số pattern đơn giản được xử lý **trước khi gọi Hugging Face API** để tiết kiệm quota và giảm latency:
+
+| Pattern | Intent |
+|:---|:---|
+| Câu chào ngắn (`xin chào`, `hi`, `hello`) | GREETING |
+| `đơn hàng của tôi` + `kiểm tra/tra` | TRACK_ORDER |
+| `hủy đơn` | CANCEL_ORDER |
+| `giao hàng`, `ship`, `phí ship` | ASK_DELIVERY |
+| `thanh toán`, `MoMo`, `VNPAY`, `trả góp` | ASK_PAYMENT |
+| `bảo hành`, `đổi trả` | ASK_RETURN |
+
+---
+
+## 5. Cache Layer
+
+Module tự động cache kết quả phân loại trong bộ nhớ RAM:
+- **Dung lượng tối đa:** 200 entries
+- **TTL (Time-to-live):** 10 phút
+- **Eviction:** LRU (xóa entry cũ nhất khi đầy)
+
+Cùng một câu hỏi gửi lần 2 sẽ được trả về từ cache trong **< 1ms** thay vì gọi API.
+
+---
+
+## 6. Business Logic Handler — `aiHandlers.js`
+
+File `aiHandlers.js` (~2400 dòng) **không thay đổi** và **không chứa thuật toán AI**.  
+Nó chứa:
+- `ConversationQueue` — Lưu lịch sử hội thoại 10 tin gần nhất/session
+- Bộ câu trả lời phong phú (5-8 biến thể/intent) → Tránh lặp lại
+- Helper functions: `removeDiacritics`, `extractProductFromHistory`, `extractBudget`
+- Hàm `handleExpandedIntent()` — Xử lý các intent đặc biệt (thương lượng, camera, pin, v.v.)
+
+---
+
+## 7. So Sánh Kiến Trúc Cũ vs Mới
+
+| Tiêu chí | AI tự code (cũ) | Hugging Face API (mới) |
+|:---|:---|:---|
+| **Số file AI** | 17 files (~200KB code + 4MB weights) | 1 file (`huggingface.js`) |
+| **Model** | NaiveBayes + LR + SVM Ensemble | mDeBERTa-v3 (500M+ params) |
+| **Ngôn ngữ** | Tiếng Việt + Tiếng Anh (2 engine) | Đa ngôn ngữ (1 model) |
+| **Training** | Tự train từ đầu (JavaScript) | Fine-tune model có sẵn (Python/Colab) |
+| **Khả năng mở rộng** | Phải code thêm thuật toán | Swap model URL là xong |
+| **Chi phí** | 0 (local) | Free tier 30k calls/tháng |
+| **Bảo trì** | Cao (code phức tạp) | Thấp (chỉ 1 file) |
+
+> [!NOTE]
+> **Backup:** Toàn bộ code AI cũ được giữ nguyên tại `src/AI (Not used)/` — Hoạt động như "thùng chứa dữ liệu không có dây điện". Không có import nào trỏ vào thư mục này.

@@ -58,10 +58,7 @@ export default function AIChatbot() {
     setIsTyping(true);
 
     try {
-      // Giả lập thời gian AI "suy nghĩ" để hiện hiệu ứng gõ phím chân thật (1.5s)
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+      const apiBaseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8082/api';
       const response = await fetch(`${apiBaseUrl}/b2c/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -215,7 +212,7 @@ export default function AIChatbot() {
               onPressEnter={handleSend}
               placeholder="Nhập câu hỏi của bạn..." 
               size="large"
-              style={{ borderRadius: 24, background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', color: isDark ? '#fff' : '#000' }}
+              style={{ borderRadius: 24, paddingLeft: 20, paddingRight: 8, paddingTop: 4, paddingBottom: 4, background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', color: isDark ? '#fff' : '#000' }}
               suffix={
                 <Button 
                   type="text" 

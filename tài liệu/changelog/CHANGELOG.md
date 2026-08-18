@@ -4,6 +4,35 @@ Tài liệu này dùng để theo dõi lịch sử các phiên bản (Versions),
 
 ---
 
+## [v0.2.0] - 2026-08-17
+**Giai đoạn: Tích hợp Hugging Face AI — Thay thế toàn bộ Pipeline NLP tự code**
+
+### Thêm Mới (Added)
+- **`src/ai/huggingface.js`**: Module NLP mới duy nhất, thay thế toàn bộ 17 files AI cũ. Gọi Hugging Face Inference API để phân loại Intent (48 loại) từ tin nhắn khách hàng.
+- **48 Intent Labels**: Mở rộng danh sách Intent (từ ~20 lên 48) với đầy đủ các nhóm: tìm kiếm, tư vấn, kỹ thuật, chính sách, dịch vụ, so sánh, quản lý đơn.
+- **Rule-based Pre-classifier**: Xử lý pattern đơn giản (chào hỏi, giao hàng, thanh toán) ngay lập tức mà không cần gọi API.
+- **In-memory Cache Layer**: Cache kết quả phân loại (200 entries, TTL 10 phút) giảm thiểu API calls.
+- **Biến môi trường mới**: `HF_API_KEY`, `HF_MODEL`, `HF_CONFIDENCE_THRESHOLD` trong `.env` và `.env.example`.
+- **Dependency mới**: `@huggingface/inference` thay thế `natural`.
+
+### Thay Đổi (Changed)
+- **`src/routes/ai.js`**: Viết lại hoàn toàn phần NLP pipeline. Xóa toàn bộ imports cũ (13 dòng require). Pipeline mới: `classifyIntent()` → Secondary Correction → Handler dispatch.
+- **Tài liệu `ai_algorithms_summary.md`**: Viết lại hoàn toàn, mô tả kiến trúc Hugging Face mới thay vì 8 thuật toán cũ.
+- **Tài liệu `Chien_Luoc_AI_Recommendation_DataLake.md`**: Cập nhật section 2.1 và 2.2 phản ánh chiến lược AI mới.
+
+### Đã Xóa (Removed)
+- **`src/ai/` (17 files)**: Xóa toàn bộ pipeline AI tự code bao gồm NaiveBayes, LogisticRegression, LinearSVM, EnsembleClassifier, DecisionTree, FSM, NER, SpellCorrector, CosineSimilarity, CollaborativeFilter, TFIDFVectorizer, Tokenizer, langDetect, englishNLP, train.js, trainingData.js, ai_model_weights.json (~4MB).
+- **Tính năng FSM** (Luồng đặt hàng có cấu trúc): Tạm gỡ bỏ — có thể khôi phục sau.
+- **Tính năng DecisionTree** (Tư vấn chọn máy): Tạm gỡ bỏ — có thể khôi phục sau.
+- **Tính năng CosineSimilarity** (Sản phẩm tương tự): Tạm gỡ bỏ.
+- **Tính năng CollaborativeFilter** (Gợi ý bán chéo): Tạm gỡ bỏ.
+- **Dependency `natural`**: Không còn dùng sau khi xóa `englishNLP.js`.
+
+### Backup
+- Toàn bộ code AI cũ được giữ nguyên tại **`src/AI (Not used)/`** — không có bất kỳ import nào trỏ vào. Hoạt động như "thùng chứa dữ liệu không có dây điện".
+
+---
+
 ## [v0.1.0] - 2026-08-03
 **Giai đoạn: Hoàn thiện Kiến trúc Nền tảng & Prototype Backend**
 

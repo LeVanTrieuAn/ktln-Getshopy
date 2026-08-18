@@ -1,0 +1,128 @@
+# ============================================================
+# MLOps Pipeline — Getshopy Intent Classifier
+# File: .github/workflows/mlops-pipeline.yml
+# ============================================================
+#
+# Workflow này tự động hóa quá trình Fine-tune lại model
+# Hugging Face khi Admin bấm nút "Khởi chạy Train Model"
+# trên trang Quản lý Chatbot AI (Admin Panel).
+#
+# Trigger: workflow_dispatch (được kích hoạt bằng API call từ Server)
+# Inputs:  dataset_size — Số lượng câu dữ liệu mới cần train
+#
+# Yêu cầu GitHub Secrets:
+#   HF_TOKEN        — Hugging Face API Token (Settings > Tokens)
+#   DATABASE_URL    — PostgreSQL connection string (để lấy dataset)
+#   HF_USERNAME     — Tên tài khoản Hugging Face của bạn
+# ============================================================
+
+name: 🤖 MLOps — Fine-tune Chatbot Intent Classifier
+
+on:
+  # Kích hoạt thủ công từ API (được gọi bởi server khi Admin bấm nút Train)
+  workflow_dispatch:
+    inputs:
+      dataset_size:
+        description: 'Số câu dữ liệu mới để train'
+        required: false
+        default: '0'
+
+  # Tùy chọn: Tự động chạy hàng tuần vào 2 giờ sáng Chủ Nhật (UTC+7)
+  # schedule:
+  #   - cron: '0 19 * * 0'  # 02:00 ICT = 19:00 UTC Thứ 7
+
+env:
+  HF_USERNAME:  ${{ secrets.HF_USERNAME || 'your-hf-username' }}
+  MODEL_NAME:   getshopy-intent-classifier
+  BASE_MODEL:   MoritzLaurer/mDeBERTa-v3-base-mnli-xnli
+  PYTHON_VER:   "3.10"
+
+jobs:
+  fine-tune:
+    name: Fine-tune & Deploy Chatbot Model
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      # ── 1. Checkout source code ──────────────────────────────
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Cài đặt Python ───────────────────────────────────
+      - name: 🐍 Setup Python ${{ env.PYTHON_VER }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VER }}
+          cache: 'pip'
+
+      # ── 3. Cài đặt dependencies Python ──────────────────────
+      - name: 📦 Install Python dependencies
+        run: |
+          pip install --upgrade pip
+          pip install \
+            transformers==4.40.0 \
+            torch==2.3.0 \
+            datasets==2.19.0 \
+            huggingface_hub==0.23.0 \
+            scikit-learn==1.4.2 \
+            psycopg2-binary==2.9.9 \
+            accelerate==0.30.0 \
+            evaluate==0.4.2
+
+      # ── 4. Tải dataset từ PostgreSQL ─────────────────────────
+      - name: 🗄️  Export Training Dataset from Database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python server/src/scripts/export_dataset.py
+          echo "Dataset exported successfully"
+          wc -l training_dataset.jsonl || echo "Dataset file created"
+
+      # ── 5. Chạy Fine-tuning ──────────────────────────────────
+      - name: 🏋️  Fine-tune Model
+        env:
+          HF_TOKEN:    ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ env.HF_USERNAME }}
+          BASE_MODEL:  ${{ env.BASE_MODEL }}
+          MODEL_NAME:  ${{ env.MODEL_NAME }}
+        run: |
+          python server/src/scripts/train_mlops.py \
+            --dataset training_dataset.jsonl \
+            --base-model $BASE_MODEL \
+            --output-dir ./fine-tuned-model \
+            --epochs 3 \
+            --batch-size 16
+
+      # ── 6. Đánh giá model (Evaluation) ──────────────────────
+      - name: 📊 Evaluate Model Accuracy
+        id: evaluate
+        run: |
+          python server/src/scripts/evaluate_model.py \
+            --model-dir ./fine-tuned-model \
+            --threshold 0.80
+          echo "evaluation_passed=true" >> $GITHUB_OUTPUT
+
+      # ── 7. Push model lên Hugging Face Hub ──────────────────
+      - name: 🚀 Deploy to Hugging Face Hub
+        if: steps.evaluate.outputs.evaluation_passed == 'true'
+        env:
+          HF_TOKEN:    ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ env.HF_USERNAME }}
+          MODEL_NAME:  ${{ env.MODEL_NAME }}
+        run: |
+          python server/src/scripts/push_to_hub.py \
+            --model-dir ./fine-tuned-model \
+            --repo-id "$HF_USERNAME/$MODEL_NAME" \
+            --commit-message "Auto-trained: ${{ github.run_id }} (${{ inputs.dataset_size }} new samples)"
+          echo "✅ Model deployed to HuggingFace Hub: $HF_USERNAME/$MODEL_NAME"
+
+      # ── 8. Thông báo kết quả ─────────────────────────────────
+      - name: 📢 Pipeline Summary
+        run: |
+          echo "## 🤖 MLOps Pipeline Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Bước | Kết quả |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Dataset size | ${{ inputs.dataset_size }} câu mới |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model gốc | ${{ env.BASE_MODEL }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Model mới | ${{ env.HF_USERNAME }}/${{ env.MODEL_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Trạng thái | ✅ Hoàn thành |" >> $GITHUB_STEP_SUMMARY
