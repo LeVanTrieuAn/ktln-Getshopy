@@ -1,5 +1,5 @@
 import { Layout, Badge, Input, Button, Drawer, Row, Col, Checkbox, InputNumber, Dropdown, message, Avatar } from 'antd';
-import { ShoppingOutlined, SearchOutlined, ShoppingCartOutlined, UserOutlined, FireOutlined, LogoutOutlined, SwapOutlined, FileSearchOutlined, TagOutlined, HomeOutlined, AppstoreOutlined, EnvironmentOutlined, DownOutlined } from '@ant-design/icons';
+import { ShoppingOutlined, SearchOutlined, ShoppingCartOutlined, UserOutlined, FireOutlined, LogoutOutlined, SwapOutlined, FileSearchOutlined, TagOutlined, HomeOutlined, AppstoreOutlined, EnvironmentOutlined, DownOutlined, RobotOutlined, BulbOutlined } from '@ant-design/icons';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import AIChatbot from './AIChatbot';
@@ -66,39 +66,89 @@ export default function StoreLayout() {
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [searchExpanded, setSearchExpanded] = useState(false);
+  const [isAiSearch, setIsAiSearch] = useState(false);    // true khi đang hiện kết quả AI
+  const [aiHint, setAiHint] = useState('');               // nhãn giải thích từ AI
+  const [offerAiSearch, setOfferAiSearch] = useState(false); // hiện "để AI tìm giúp" button
+  const [isAiSearching, setIsAiSearching] = useState(false);  // đang chạy AI search
   const searchRef = useRef(null);
+  const searchInputRef = useRef(null);
 
-  // Close dropdown when clicking outside
+  // Close search & dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (searchRef.current && !searchRef.current.contains(event.target)) {
         setShowSearchDropdown(false);
+        setSearchExpanded(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Debounced search
+  const handleSearchExpand = () => {
+    setSearchExpanded(true);
+    setTimeout(() => searchInputRef.current?.focus(), 50);
+  };
+
+  const handleSearchCollapse = () => {
+    if (!searchKeyword) {
+      setSearchExpanded(false);
+      setShowSearchDropdown(false);
+    }
+  };
+
+  // Hàm gọi AI search khi user chủ động bấm nút
+  const handleAiSearch = async () => {
+    if (!searchKeyword.trim()) return;
+    setOfferAiSearch(false);
+    setIsAiSearching(true);
+    try {
+      const aiResult = await api.ai.smartSearch(searchKeyword);
+      if (aiResult && aiResult.products && aiResult.products.length > 0) {
+        setSearchResults(aiResult.products.slice(0, 5));
+        setIsAiSearch(true);
+        setAiHint(aiResult.hint || 'Kết quả từ AI');
+      } else {
+        setIsAiSearch(true);
+        setAiHint('AI cũng không tìm thấy sản phẩm phù hợp');
+      }
+    } catch (err) {
+      console.warn('[SmartSearch] AI failed:', err.message);
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
+  // Debounced normal search only
   useEffect(() => {
     if (!searchKeyword.trim()) {
       setSearchResults([]);
+      setIsAiSearch(false);
+      setAiHint('');
+      setOfferAiSearch(false);
       return;
     }
+    setIsAiSearch(false);
+    setAiHint('');
+    setOfferAiSearch(false);
     const timer = setTimeout(async () => {
       try {
         setIsSearching(true);
         const results = await api.b2c.getProducts('ALL', searchKeyword, 'newest');
-        setSearchResults(results.slice(0, 5)); // Show max 5 results
+        const top5 = (results || []).slice(0, 5);
+        setSearchResults(top5);
+        // Nếu 0 kết quả → đề xuất AI (user tự chọn)
+        if (top5.length === 0) setOfferAiSearch(true);
       } catch (e) {
         console.error(e);
       } finally {
         setIsSearching(false);
       }
-    }, 400); // 400ms debounce
-
+    }, 500);
     return () => clearTimeout(timer);
   }, [searchKeyword]);
+
 
   return (
     <Layout style={{ minHeight: '100vh', background: bg }}>
@@ -109,40 +159,41 @@ export default function StoreLayout() {
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 50,
-        width: '80%',
-        maxWidth: 1200,
-        padding: '0 24px',
-        background: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.85)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.08)'}`,
-        borderRadius: 50,
+        width: '90%',
+        maxWidth: 1400,
+        padding: '0 32px',
+        background: isDark ? 'rgba(15, 23, 42, 0.65)' : 'rgba(255, 255, 255, 0.75)',
+        backdropFilter: 'blur(24px)',
+        WebkitBackdropFilter: 'blur(24px)',
+        border: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)'}`,
+        borderRadius: 24,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        height: 52,
-        lineHeight: '52px',
-        boxShadow: '0 4px 24px rgba(0,0,0,0.08)',
+        height: 64,
+        lineHeight: '64px',
+        boxShadow: isDark ? '0 10px 40px rgba(0,0,0,0.5)' : '0 10px 40px rgba(0,0,0,0.03)',
+        overflow: 'visible',
       }}>
         {/* LOGO */}
         <div 
           onClick={() => navigate('/')}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', flexShrink: 0 }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', flexShrink: 0 }}
         >
           <div style={{
-            width: 34, height: 34,
-            background: 'linear-gradient(135deg, #10b981, #047857)',
-            borderRadius: 10,
+            width: 32, height: 32,
+            background: isDark ? '#fff' : '#000',
+            borderRadius: '50%',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16,
           }}>
-            <ShoppingOutlined style={{ color: '#fff' }} />
+            <ShoppingOutlined style={{ color: isDark ? '#000' : '#fff' }} />
           </div>
-          <div style={{ color: isDark ? '#fff' : '#1a1a1a', fontWeight: 800, fontSize: 17, lineHeight: 1 }}>Getshopy</div>
+          <div style={{ color: isDark ? '#fff' : '#111', fontWeight: 700, fontSize: 18, letterSpacing: '-0.5px', lineHeight: 1 }}>Getshopy.</div>
         </div>
 
         {/* NAV LINKS */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 6, margin: '0 12px' }}>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: 24, margin: '0 24px' }}>
           {[
             { label: 'Trang chủ', path: '/' },
             { label: 'Sản phẩm', path: '/shop' },
@@ -154,25 +205,14 @@ export default function StoreLayout() {
               key={item.label}
               href={item.path}
               onClick={(e) => { e.preventDefault(); navigate(item.path); }}
+              className="minimal-nav-link"
               style={{
-                padding: '6px 14px',
-                borderRadius: 30,
                 cursor: 'pointer',
-                fontSize: 13,
-                fontWeight: 600,
-                color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)',
-                transition: 'all 0.25s ease',
-                whiteSpace: 'nowrap',
+                fontSize: 14,
+                fontWeight: 500,
+                color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+                transition: 'all 0.3s ease',
                 textDecoration: 'none',
-                display: 'inline-block',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
-                e.currentTarget.style.color = '#10b981';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.7)';
               }}
             >
               {item.label}
@@ -183,104 +223,198 @@ export default function StoreLayout() {
         {/* RIGHT SECTION: Search + Auth */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
           
-          {/* COMPACT SEARCH */}
+          {/* FULL SEARCH BAR */}
           <div ref={searchRef} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Input 
-              size="small"
-              placeholder="Tìm kiếm..."
-              prefix={<SearchOutlined style={{ color: '#888', fontSize: 14 }} />}
-              value={searchKeyword}
-              onChange={(e) => {
-                setSearchKeyword(e.target.value);
-                setShowSearchDropdown(true);
-              }}
-              onFocus={() => { if (searchKeyword) setShowSearchDropdown(true); }}
-              onPressEnter={(e) => {
-                setShowSearchDropdown(false);
-                if (e.target.value.trim()) {
-                  navigate(`/shop?search=${encodeURIComponent(e.target.value.trim())}`);
-                } else {
-                  navigate('/shop');
-                }
-              }}
-              style={{ 
-                width: 150,
-                borderRadius: 30,
-                background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-                border: 'none',
-                color: isDark ? '#fff' : '#000',
-                height: 34,
-                fontSize: 12,
-              }}
-            />
-            
-            {/* LIVE SEARCH DROPDOWN */}
-            {showSearchDropdown && (searchKeyword.trim() !== '') && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              width: 240,
+              height: 38,
+              borderRadius: 19,
+              background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)'}`,
+              transition: 'border-color 0.2s ease, background 0.2s ease',
+            }}>
+              {/* Icon */}
               <div style={{
-                position: 'absolute', top: 42, left: 0, right: 0, minWidth: 300,
+                minWidth: 38, height: 38,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                <SearchOutlined style={{
+                  fontSize: 14,
+                  color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
+                }} />
+              </div>
+              {/* Input */}
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder="Tìm kiếm..."
+                value={searchKeyword}
+                onChange={(e) => {
+                  setSearchKeyword(e.target.value);
+                  setShowSearchDropdown(true);
+                }}
+                onFocus={(e) => {
+                  setShowSearchDropdown(true);
+                  e.currentTarget.parentElement.style.borderColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)';
+                  e.currentTarget.parentElement.style.background = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.parentElement.style.borderColor = '';
+                  e.currentTarget.parentElement.style.background = '';
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setShowSearchDropdown(false);
+                    if (searchKeyword.trim()) navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
+                    else navigate('/shop');
+                  }
+                  if (e.key === 'Escape') {
+                    setSearchKeyword('');
+                    setShowSearchDropdown(false);
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  fontSize: 13,
+                  color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
+                  paddingRight: 14,
+                }}
+              />
+            </div>
+            {(showSearchDropdown || offerAiSearch || isAiSearching) && (searchKeyword.trim() !== '') && (
+              <div style={{
+                position: 'absolute', top: 46, right: 0, width: 320,
                 background: isDark ? '#1e293b' : '#fff',
                 borderRadius: 16,
-                boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
-                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #eee',
+                boxShadow: isDark ? '0 16px 40px rgba(0,0,0,0.5)' : '0 16px 40px rgba(0,0,0,0.08)',
+                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
                 zIndex: 1000,
                 overflow: 'hidden'
               }}>
-                {isSearching ? (
-                  <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>Đang tìm kiếm...</div>
-                ) : searchResults.length > 0 ? (
+
+                {/* State 1: Đang tìm kiếm thường */}
+                {isSearching && (
+                  <div style={{ padding: '14px 16px', textAlign: 'center', color: '#888', fontSize: 13 }}>
+                    Đang tìm kiếm...
+                  </div>
+                )}
+
+                {/* State 2: Đang hỏi AI */}
+                {isAiSearching && (
+                  <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+                    <RobotOutlined style={{ fontSize: 28, marginBottom: 12, color: isDark ? '#34d399' : '#10b981' }} />
+                    <div style={{ fontSize: 13, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>Đang hỏi AI tìm giúp bạn...</div>
+                  </div>
+                )}
+
+                {/* State 3: Không có kết quả → offer AI */}
+                {!isSearching && !isAiSearching && offerAiSearch && (
+                  <div style={{ padding: '24px 16px', textAlign: 'center' }}>
+                    <SearchOutlined style={{ fontSize: 24, marginBottom: 12, color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)' }} />
+                    <div style={{ fontSize: 13, color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)', marginBottom: 4 }}>
+                      Không tìm thấy kết quả nào cho
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#fff' : '#111', marginBottom: 14 }}>
+                      "{searchKeyword}"
+                    </div>
+                    <button
+                      onMouseDown={(e) => { e.preventDefault(); handleAiSearch(); }}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '8px 18px',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        border: 'none', borderRadius: 20,
+                        color: '#fff', fontSize: 13, fontWeight: 600,
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
+                        transition: 'opacity 0.2s',
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                    >
+                      <BulbOutlined /> Để AI tìm giúp bạn
+                    </button>
+                  </div>
+                )}
+
+                {/* State 4: Có kết quả (thường hoặc AI) */}
+                {!isSearching && !isAiSearching && !offerAiSearch && searchResults.length > 0 && (
                   <div>
+                    {/* AI hint banner */}
+                    {isAiSearch && aiHint && (
+                      <div style={{
+                        padding: '8px 14px',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                        background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.07)',
+                        borderBottom: isDark ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(16,185,129,0.12)',
+                      }}>
+                        <BulbOutlined style={{ fontSize: 14, color: isDark ? '#34d399' : '#10b981' }} />
+                        <span style={{ fontSize: 12, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>AI: {aiHint}</span>
+                      </div>
+                    )}
                     {searchResults.map(p => (
-                      <div 
+                      <div
                         key={p.id}
-                        onClick={() => {
+                        onMouseDown={() => {
                           setShowSearchDropdown(false);
+                          setSearchExpanded(false);
                           navigate(`/product/${p.id}`);
                           setSearchKeyword('');
+                          setIsAiSearch(false);
+                          setOfferAiSearch(false);
                         }}
                         style={{
-                          padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
-                          cursor: 'pointer', borderBottom: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid #f0f0f0',
-                          color: isDark ? '#fff' : '#000'
+                          padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12,
+                          cursor: 'pointer', borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f5f5f5',
+                          color: isDark ? '#fff' : '#111'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#f9fafb'}
+                        onMouseEnter={(e) => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#fafafa'}
                         onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                       >
-                        <img src={p.image || (p.images && p.images[0])} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain', background: '#fff', borderRadius: 8, padding: 4 }} />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                          <div style={{ color: '#10b981', fontSize: 13, fontWeight: 700 }}>{p.price?.toLocaleString('vi-VN')} đ</div>
+                        <img src={p.image || (p.images && p.images[0])} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain', background: isDark ? '#111' : '#f5f5f5', borderRadius: 8, padding: 4, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontWeight: 500, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                          <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)', fontSize: 12, fontWeight: 500 }}>{p.price?.toLocaleString('vi-VN')} đ</div>
                         </div>
                       </div>
                     ))}
-                    <div 
-                      onClick={() => {
+                    <div
+                      onMouseDown={() => {
                         setShowSearchDropdown(false);
+                        setSearchExpanded(false);
                         navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
                       }}
-                      style={{ padding: 12, textAlign: 'center', color: '#10b981', cursor: 'pointer', fontWeight: 600 }}
+                      style={{ padding: '10px 16px', textAlign: 'center', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)', cursor: 'pointer', fontWeight: 500, fontSize: 13, borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f0' }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#fafafa'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                     >
-                      {t('nav.search_results_for')} "{searchKeyword}"
+                      Xem tất cả kết quả cho "{searchKeyword}"
                     </div>
                   </div>
-                ) : (
-                  <div style={{ padding: 16, textAlign: 'center', color: '#888' }}>{t('nav.no_results')}</div>
                 )}
+
               </div>
             )}
           </div>
 
           {/* CART ICON */}
-          <Badge count={cartCount} showZero={false} color="#10b981" size="small">
+          <Badge count={cartCount} showZero={false} size="small" style={{ backgroundColor: isDark ? '#fff' : '#000', color: isDark ? '#000' : '#fff', boxShadow: 'none' }}>
             <Button 
               type="text" 
-              icon={<ShoppingCartOutlined style={{ fontSize: 18, color: isDark ? '#fff' : '#333' }} />} 
+              icon={<ShoppingCartOutlined style={{ fontSize: 20, color: isDark ? '#fff' : '#111' }} />} 
               onClick={() => setCartOpen(true)}
-              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 34, width: 34, padding: 0, borderRadius: 30 }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 38, width: 38, padding: 0, borderRadius: '50%' }}
             />
           </Badge>
 
           {/* DIVIDER */}
-          <div style={{ width: 1, height: 24, background: isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)', margin: '0 4px' }} />
+          <div style={{ width: 1, height: 20, background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)', margin: '0 8px' }} />
 
           {/* SIGN UP & LOGIN */}
           {currentUser ? (
@@ -294,14 +428,14 @@ export default function StoreLayout() {
               }}
               placement="bottomRight"
             >
-              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, height: 34 }}>
+              <div style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, height: 38 }}>
                 <Avatar 
                   src={currentUser.avatar ? currentUser.avatar.replace('notionists', 'avataaars') : (`https://api.dicebear.com/7.x/avataaars/svg?seed=` + (currentUser.email || 'user'))} 
                   icon={<UserOutlined />} 
                   size={32} 
-                  style={{ border: '2px solid #10b981', background: isDark ? '#1e293b' : '#fff' }} 
+                  style={{ border: `1px solid ${isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)'}`, background: isDark ? '#1e293b' : '#fff' }} 
                 />
-                <span style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#fff' : '#000', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#fff' : '#111', maxWidth: 80, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {currentUser.full_name || currentUser.name || currentUser.email}
                 </span>
               </div>
@@ -311,38 +445,34 @@ export default function StoreLayout() {
               <div
                 onClick={() => setAuthOpen(true)}
                 style={{
-                  padding: '5px 16px',
-                  borderRadius: 30,
+                  padding: '6px 16px',
+                  borderRadius: 20,
                   cursor: 'pointer',
                   fontSize: 13,
-                  fontWeight: 600,
-                  color: isDark ? '#fff' : '#000',
-                  transition: 'all 0.25s ease',
-                  whiteSpace: 'nowrap',
-                  lineHeight: 'normal',
+                  fontWeight: 500,
+                  color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)',
+                  transition: 'all 0.3s ease',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = isDark ? '#fff' : '#000'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'; }}
               >
                 Đăng ký
               </div>
               <div
                 onClick={() => setAuthOpen(true)}
                 style={{
-                  padding: '5px 20px',
-                  borderRadius: 30,
+                  padding: '6px 20px',
+                  borderRadius: 20,
                   cursor: 'pointer',
                   fontSize: 13,
-                  fontWeight: 700,
-                  color: isDark ? '#fff' : '#000',
-                  background: 'transparent',
-                  border: isDark ? '1.5px solid rgba(255,255,255,0.7)' : '1.5px solid #000',
-                  transition: 'all 0.25s ease',
-                  whiteSpace: 'nowrap',
-                  lineHeight: 'normal',
+                  fontWeight: 500,
+                  color: isDark ? '#000' : '#fff',
+                  background: isDark ? '#fff' : '#000',
+                  border: 'none',
+                  transition: 'all 0.3s ease',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = 0.8; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = 1; }}
               >
                 Đăng nhập
               </div>
@@ -351,13 +481,13 @@ export default function StoreLayout() {
         </div>
       </Header>
       <style>{`
-        .nav-link:hover { color: #10b981 !important; }
-        .nav-link { position: relative; }
-        .nav-link::after {
-          content: ''; position: absolute; width: 0; height: 2px; bottom: -8px; left: 0;
-          background-color: #10b981; transition: width 0.3s;
+        .minimal-nav-link:hover { color: ${isDark ? '#fff' : '#000'} !important; }
+        .minimal-nav-link { position: relative; display: inline-block; }
+        .minimal-nav-link::after {
+          content: ''; position: absolute; width: 0; height: 1.5px; bottom: -4px; left: 0;
+          background-color: ${isDark ? '#fff' : '#000'}; transition: width 0.3s ease;
         }
-        .nav-link:hover::after { width: 100%; }
+        .minimal-nav-link:hover::after { width: 100%; }
       `}</style>
 
       <Content style={{ padding: 0, width: '100%', position: 'relative', zIndex: 1 }}>

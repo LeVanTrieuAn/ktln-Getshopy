@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Row, Col, Card, Typography, Spin, Tag, Rate, Select, Empty, InputNumber, Button, Checkbox, Slider, Radio, Divider, Pagination } from 'antd';
-import { ShoppingCartOutlined, FilterOutlined } from '@ant-design/icons';
+import { ShoppingCartOutlined, FilterOutlined, RobotOutlined, BulbOutlined, FrownOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
@@ -26,6 +26,12 @@ export default function ProductList() {
   const [brands, setBrands] = useState([]);
   const [minRating, setMinRating] = useState(0);
 
+  // AI search states
+  const [aiResults, setAiResults] = useState([]);
+  const [aiHint, setAiHint] = useState('');
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiSearchDone, setAiSearchDone] = useState(false);
+
   const { addToCart } = useCart();
   const { isDark, t, selectedBranch } = useApp();
   const navigate = useNavigate();
@@ -34,6 +40,30 @@ export default function ProductList() {
   const queryParams = new URLSearchParams(location.search);
   const categoryFilter = queryParams.get('category') || 'ALL';
   const searchQuery = queryParams.get('search') || '';
+
+  // Reset AI khi search query thay đổi
+  useEffect(() => {
+    setAiResults([]);
+    setAiHint('');
+    setAiSearchDone(false);
+  }, [searchQuery]);
+
+  const handleAiSearch = async () => {
+    if (!searchQuery.trim()) return;
+    setIsAiLoading(true);
+    setAiSearchDone(false);
+    try {
+      const result = await api.ai.smartSearch(searchQuery);
+      setAiResults(result?.products || []);
+      setAiHint(result?.hint || 'Kết quả gợi ý từ AI');
+      setAiSearchDone(true);
+    } catch (err) {
+      console.error('[AI Search]', err);
+      setAiSearchDone(true);
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
 
   useEffect(() => {
     async function load() {
@@ -213,7 +243,110 @@ export default function ProductList() {
         <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>
       ) : products.length === 0 ? (
         <div className="glass-panel" style={{ padding: 64, textAlign: 'center', borderRadius: 24 }}>
-          <Empty description={<span style={{ color: isDark ? '#aaa' : '#555' }}>{t('shop.no_products')}</span>} />
+
+          {/* Trạng thái chưa search AI */}
+          {!aiSearchDone && !isAiLoading && (
+            <>
+              <Empty description={null} />
+              <div style={{ marginTop: 16, color: isDark ? '#aaa' : '#666', fontSize: 15 }}>
+                {t('shop.no_products')}
+              </div>
+              {searchQuery && (
+                <div style={{ marginTop: 24 }}>
+                  <div style={{ color: isDark ? 'rgba(255,255,255,0.45)' : 'rgba(0,0,0,0.4)', fontSize: 13, marginBottom: 14 }}>
+                    Bạn có muốn để AI tìm sản phẩm phù hợp với&nbsp;
+                    <strong style={{ color: isDark ? '#fff' : '#111' }}>"{searchQuery}"</strong>&nbsp;không?
+                  </div>
+                  <button
+                    onClick={handleAiSearch}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 8,
+                      padding: '10px 24px',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      border: 'none', borderRadius: 24,
+                      color: '#fff', fontSize: 14, fontWeight: 600,
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 16px rgba(16,185,129,0.35)',
+                      transition: 'opacity 0.2s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
+                    onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                  >
+                    {isAiLoading ? (
+                      <><Spin size="small" style={{ marginRight: 6 }} /> Đang hỏi AI...</>
+                    ) : (
+                      <><BulbOutlined /> Để AI tìm giúp bạn</>
+                    )}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Đang hỏi AI */}
+          {isAiLoading && (
+            <div style={{ padding: '24px 0' }}>
+              <RobotOutlined style={{ fontSize: 40, marginBottom: 16, color: isDark ? '#34d399' : '#10b981' }} />
+              <br/>
+              <Spin size="large" />
+              <div style={{ marginTop: 16, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>
+                Đang hỏi AI tìm giúp bạn...
+              </div>
+            </div>
+          )}
+
+          {/* Kết quả AI */}
+          {aiSearchDone && aiResults.length > 0 && (
+            <>
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '6px 16px', marginBottom: 28,
+                background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.08)',
+                border: `1px solid ${isDark ? 'rgba(16,185,129,0.3)' : 'rgba(16,185,129,0.2)'}`,
+                borderRadius: 20,
+              }}>
+                <BulbOutlined style={{ fontSize: 16, color: isDark ? '#34d399' : '#10b981' }} />
+                <span style={{ fontSize: 13, color: isDark ? '#34d399' : '#10b981', fontWeight: 600 }}>AI: {aiHint}</span>
+              </div>
+              <Row gutter={[24, 24]} style={{ textAlign: 'left' }}>
+                {aiResults.map(p => (
+                  <Col xs={24} sm={12} md={8} lg={6} key={p.id}>
+                    <Card
+                      hoverable
+                      onClick={() => navigate(`/product/${p.id}`)}
+                      style={{
+                        borderRadius: 16, background: isDark ? 'rgba(255,255,255,0.03)' : '#fff',
+                        border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #eee',
+                        overflow: 'hidden',
+                      }}
+                      cover={
+                        <div style={{ padding: 20, background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', display: 'flex', justifyContent: 'center' }}>
+                          <img alt={p.name} src={p.image || p.images?.[0]} style={{ height: 160, objectFit: 'contain' }}
+                            onError={(e) => { e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=No+Image'; }} />
+                        </div>
+                      }
+                    >
+                      <div style={{ fontWeight: 600, fontSize: 14, color: isDark ? '#fff' : '#111', marginBottom: 6, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#10b981' }}>{p.price?.toLocaleString('vi-VN')} đ</div>
+                      {p.category && <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{p.category}</div>}
+                    </Card>
+                  </Col>
+                ))}
+              </Row>
+            </>
+          )}
+
+          {/* AI cũng không tìm thấy */}
+          {aiSearchDone && aiResults.length === 0 && (
+            <>
+              <Empty description={<span style={{ color: isDark ? '#aaa' : '#555' }}>AI cũng không tìm thấy sản phẩm phù hợp</span>} />
+              <button onClick={() => { setAiSearchDone(false); }}
+                style={{ marginTop: 16, padding: '8px 20px', borderRadius: 20, border: `1px solid ${isDark ? 'rgba(255,255,255,0.2)' : '#ddd'}`, background: 'transparent', cursor: 'pointer', color: isDark ? '#aaa' : '#666', fontSize: 13 }}>
+                Thử lại
+              </button>
+            </>
+          )}
+
         </div>
       ) : (
         <Row gutter={[24, 24]}>

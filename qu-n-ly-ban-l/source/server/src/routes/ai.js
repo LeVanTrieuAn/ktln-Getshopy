@@ -19,8 +19,19 @@ const CATEGORY_KEYWORD_MAP = {
   'may tinh bang': 'Máy tính bảng',
   'tablet':      'Máy tính bảng',
   'tai nghe':    'Phụ kiện công nghệ',
+  'dong ho thong minh': 'Đồng hồ thông minh',
+  'smartwatch':  'Đồng hồ thông minh',
   'dong ho':     'Phụ kiện công nghệ',
   'loa':         'Phụ kiện công nghệ',
+  'tivi':        'Tivi & Thiết bị giải trí',
+  'tv':          'Tivi & Thiết bị giải trí',
+  'may anh':     'Máy ảnh & Quay phim',
+  'camera':      'Máy ảnh & Quay phim',
+  'am thanh':    'Thiết bị âm thanh',
+  'gaming':      'Gaming',
+  'nha thong minh': 'Nhà thông minh',
+  'van phong':   'Thiết bị văn phòng',
+  'linh kien':   'Linh kiện máy tính',
 };
 
 // ── Lưu ChatLog vào DB (async, không block response) ──────────────────────────
@@ -73,51 +84,93 @@ async function buildContext(intent, message) {
             : { lte: vnd * 1.3, gte: vnd * 0.7 };
         }
 
-        // Bước 2: Tìm theo danh mục keyword
-        const matchedCatName = Object.entries(CATEGORY_KEYWORD_MAP)
-          .find(([kw]) => norm.includes(kw))?.[1];
+        const stopWords = new Set([
+          'muon','mua','tim','xem','gia','bao','nhieu','co','ban','khong',
+          'shop','oi','can','toi','minh','em','ban','cho','hoi','ve',
+          'duoi','tam','khoang','nao','gi','nhu','the','nay','do',
+          'tiep','theo','la','nua','them','voi','nhe','nha'
+        ]);
+        
+        let normClean = norm
+          .replace(/may tinh xach tay|may tinh/g, 'laptop')
+          .replace(/dien thoai/g, 'smartphone')
+          .replace(/may tinh bang/g, 'tablet')
+          .replace(/\btv\b/g, 'tivi');
+
+        // Bước 2: Tìm theo danh mục keyword và các từ khóa thêm
+        let matchedKw = null;
+        let matchedCatName = null;
+        for (const [kw, catName] of Object.entries(CATEGORY_KEYWORD_MAP)) {
+          if (new RegExp(`\\b${kw}\\b`).test(normClean)) {
+            matchedCatName = catName;
+            matchedKw = kw;
+            break;
+          }
+        }
 
         if (matchedCatName) {
           const category = await prisma.category.findFirst({
             where: { name: { contains: matchedCatName, mode: 'insensitive' } }
           });
           if (category) {
-            products = await prisma.product.findMany({
-              where: {
-                category_id: category.id,
-                is_deleted: false,
-                stock: { gt: 0 },
-                ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
-              },
-              orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
-              take: 4,
-            });
+            const extraTokens = normClean.replace(matchedKw, '').split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+            if (extraTokens.length > 0) {
+              products = await prisma.product.findMany({
+                where: {
+                  category_id: category.id,
+                  OR: extraTokens.map(t => ({ name: { contains: t, mode: 'insensitive' } })),
+                  is_deleted: false,
+                  stock: { gt: 0 },
+                  ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+                }
+              });
+              if (products.length > 0) {
+                products.forEach(p => {
+                  p._score = extraTokens.filter(t => p.name.toLowerCase().includes(t.toLowerCase())).length;
+                });
+                products.sort((a, b) => b._score - a._score || b.sold - a.sold);
+                products = products.slice(0, 4);
+              }
+            }
+            
+            // Fallback nếu extraTokens không có hoặc không tìm thấy sp nào (ví dụ user type "tiếp theo là tv nữa")
+            if (products.length === 0) {
+              products = await prisma.product.findMany({
+                where: {
+                  category_id: category.id,
+                  is_deleted: false,
+                  stock: { gt: 0 },
+                  ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+                },
+                orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+                take: 4,
+              });
+            }
             link = `/shop?category=${category.id}`;
           }
         }
 
-        // Bước 3: Nếu chưa có, tìm theo tên sản phẩm cụ thể
+        // Bước 3: Nếu chưa có, tìm theo tên sản phẩm cụ thể (Tối ưu full-text JS)
         if (products.length === 0) {
-          const stopWords = new Set([
-            'muon','mua','tim','xem','gia','bao','nhieu','co','ban','khong',
-            'shop','oi','can','toi','minh','em','ban','cho','hoi','ve',
-            'duoi','tam','khoang','nao','gi','nhu','the','nay','do',
-          ]);
-          const tokens = norm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
-          const keyword = tokens.join(' ').trim();
-
-          if (keyword) {
-            products = await prisma.product.findMany({
+          const tokens = normClean.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1);
+          if (tokens.length > 0) {
+            let candidateProducts = await prisma.product.findMany({
               where: {
-                name: { contains: keyword, mode: 'insensitive' },
+                OR: tokens.map(t => ({ name: { contains: t, mode: 'insensitive' } })),
                 is_deleted: false,
                 ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
               },
-              orderBy: [{ sold: 'desc' }],
-              take: 4,
+              take: 50,
             });
-            // Update link to search page
-            link = `/shop?search=${encodeURIComponent(keyword)}`;
+            if (candidateProducts.length > 0) {
+              candidateProducts.forEach(p => {
+                p._score = tokens.filter(t => p.name.toLowerCase().includes(t.toLowerCase())).length;
+              });
+              candidateProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
+              products = candidateProducts.slice(0, 4);
+              const keyword = tokens.join(' ');
+              link = `/shop?search=${encodeURIComponent(keyword)}`;
+            }
           }
         }
 
@@ -480,4 +533,208 @@ router.post('/b2c/chat', async (req, res) => {
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// AI SMART SEARCH — Hiểu câu tìm kiếm mơ hồ / ngôn ngữ tự nhiên
+// POST /api/ai/smart-search
+// Body: { query: string }
+// Returns: { products: [], hint: string, keywords: string[] }
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/ai/smart-search', async (req, res) => {
+  const { query } = req.body;
+  if (!query || !String(query).trim()) {
+    return res.status(400).json({ error: 'query is required' });
+  }
+
+  const rawQuery = String(query).trim();
+
+  try {
+    // ── BƯỚC 1: Gọi LLM để extract search keywords từ câu mơ hồ ─────────────
+    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+    const OPENROUTER_MODEL   = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
+    const OPENROUTER_URL     = process.env.OPENROUTER_URL
+      ? `${process.env.OPENROUTER_URL}/chat/completions`
+      : 'https://openrouter.ai/api/v1/chat/completions';
+
+    let keywords = [];
+    let categoryHint = null;
+    let priceMax = null;
+    let priceMin = null;
+    let hint = '';
+
+    if (OPENROUTER_API_KEY) {
+      const systemPrompt = `Bạn là AI trợ lý tìm kiếm sản phẩm cho cửa hàng điện tử Getshopy.
+Nhiệm vụ: Phân tích câu tìm kiếm của khách hàng (có thể là ngôn ngữ thông thường, slang, mơ hồ) 
+và trả về JSON với các trường sau:
+- "keywords": mảng tối đa 4 từ khóa tìm kiếm sản phẩm quan trọng nhất (TIẾNG VIỆT CÓ DẤU chuẩn xác, danh từ chính yếu để tra cứu DB, hoặc tên thương hiệu. RẤT QUAN TRỌNG: Phải ghi có dấu, ví dụ "điện thoại" thay vì "dien thoai").
+- "category": tên danh mục nếu xác định được (chọn CHÍNH XÁC một trong: "Điện thoại thông minh", "Máy tính xách tay", "Máy tính bảng", "Phụ kiện công nghệ", "Tivi & Thiết bị giải trí", "Máy ảnh & Quay phim", "Đồng hồ thông minh", "Máy chơi game", "Thiết bị nhà thông minh", "Thiết bị mạng", null nếu không rõ)
+- "price_max": ngân sách tối đa (số nguyên, đơn vị VNĐ, null nếu không đề cập)
+- "price_min": ngân sách tối thiểu (số nguyên, đơn vị VNĐ, null nếu không đề cập)  
+- "hint": câu giải thích ngắn về kết quả tìm kiếm bằng tiếng Việt (ví dụ: "Smartphone cao cấp phổ biến nhất")
+
+Ví dụ:
+- "điện thoại xịn xịn" → {"keywords":["điện thoại", "flagship", "cao cấp"],"category":"Điện thoại thông minh","price_max":null,"price_min":null,"hint":"Smartphone cao cấp, hiệu năng mạnh mẽ"}
+- "máy tính làm đồ họa dưới 30 triệu" → {"keywords":["laptop", "đồ họa", "máy tính xách tay"],"category":"Máy tính xách tay","price_max":30000000,"price_min":null,"hint":"Laptop cấu hình mạnh cho thiết kế đồ họa"}
+- "tai nghe chống ồn" → {"keywords":["tai nghe", "chống ồn", "ANC"],"category":"Phụ kiện công nghệ","price_max":null,"price_min":null,"hint":"Tai nghe chống ồn chủ động (ANC)"}
+
+Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
+
+      try {
+        const response = await fetch(OPENROUTER_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+            'HTTP-Referer': 'https://getshopy.com',
+            'X-Title': 'Getshopy AI Search',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: OPENROUTER_MODEL,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user',   content: rawQuery },
+            ],
+            temperature: 0.3,
+            max_tokens: 200,
+          }),
+          signal: AbortSignal.timeout(15_000),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const content = data?.choices?.[0]?.message?.content?.trim();
+          if (content) {
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            if (jsonMatch) {
+              const parsed = JSON.parse(jsonMatch[0]);
+              keywords    = Array.isArray(parsed.keywords) ? parsed.keywords : [];
+              categoryHint = parsed.category || null;
+              priceMax    = parsed.price_max ? Number(parsed.price_max) : null;
+              priceMin    = parsed.price_min ? Number(parsed.price_min) : null;
+              hint        = parsed.hint || '';
+              console.log(`[SmartSearch] LLM parsed → keywords=${keywords}, category=${categoryHint}, hint="${hint}"`);
+            }
+          }
+        }
+      } catch (llmErr) {
+        console.warn('[SmartSearch] LLM failed, using fallback keyword split:', llmErr.message);
+      }
+    }
+
+    // ── Fallback: tách từ thủ công nếu LLM thất bại ─────────────────────────
+    if (keywords.length === 0) {
+      const norm = removeDiacritics(rawQuery).toLowerCase();
+      const stopWords = new Set(['toi','muon','can','mua','tim','kiem','cho','mot','cai','san','pham','cua','va','hoac','hay','la','de','xem','gia']);
+      keywords = norm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1).slice(0, 4);
+      hint = `Kết quả cho "${rawQuery}"`;
+    }
+
+    // ── BƯỚC 2: Query DB ─────────────────────────────────────────────────────
+    let products = [];
+    const allCategories = await prisma.category.findMany({});
+    const categoryMap = {};
+    allCategories.forEach(c => categoryMap[c.id] = c.name);
+
+    const priceFilter = {};
+    if (priceMax) priceFilter.lte = priceMax;
+    if (priceMin) priceFilter.gte = priceMin;
+
+    let matchedCatId = null;
+    if (categoryHint) {
+      const matchedCat = allCategories.find(c => removeDiacritics(c.name).toLowerCase().includes(removeDiacritics(categoryHint).toLowerCase()));
+      if (matchedCat) matchedCatId = matchedCat.id;
+    }
+
+    // Ưu tiên 1: Tìm theo keyword trước (nếu có keyword)
+    if (keywords.length > 0) {
+      const keywordProducts = await prisma.product.findMany({
+        where: {
+          OR: [
+            ...keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+            ...keywords.map(k => ({ description: { contains: k, mode: 'insensitive' } }))
+          ],
+          is_deleted: false,
+          ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+        },
+        take: 50,
+      });
+
+      // Score by keyword match count and category
+      keywordProducts.forEach(p => {
+        const pNameNorm = removeDiacritics(p.name || '').toLowerCase();
+        const pDescNorm = removeDiacritics(p.description || '').toLowerCase();
+        
+        let score = 0;
+        keywords.forEach(k => {
+          const kNorm = removeDiacritics(k).toLowerCase();
+          if (pNameNorm.includes(kNorm)) score += 5; // Tên trúng từ khóa -> ưu tiên cao nhất
+          if (pDescNorm.includes(kNorm)) score += 1;
+        });
+
+        // Boost điểm cực mạnh nếu trúng category AI dự đoán
+        if (matchedCatId && p.category_id === matchedCatId) {
+          score += 10;
+        }
+
+        p._score = score;
+      });
+      
+      keywordProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
+      products = keywordProducts.slice(0, 8);
+    }
+
+    // Ưu tiên 2: Nếu không đủ kết quả từ keyword, nhưng có category -> lấy sản phẩm hot của category đó
+    if (products.length < 4 && matchedCatId) {
+      const catWhere = {
+        is_deleted: false,
+        category_id: matchedCatId,
+        ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+      };
+      const catProducts = await prisma.product.findMany({
+        where: catWhere,
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 8,
+      });
+
+      const existingIds = new Set(products.map(p => String(p.id)));
+      for (const p of catProducts) {
+        if (!existingIds.has(String(p.id))) {
+          products.push(p);
+          existingIds.add(String(p.id));
+        }
+        if (products.length >= 8) break;
+      }
+    }
+
+    // ── BƯỚC 3: Fallback — top sellers nếu vẫn trống ────────────────────────
+    if (products.length === 0) {
+      products = await prisma.product.findMany({
+        where: { is_deleted: false, stock: { gt: 0 } },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 8,
+      });
+      hint = hint || 'Sản phẩm bán chạy nhất';
+    }
+
+    // ── Serialize (BigInt → Number) ──────────────────────────────────────────
+    const serialized = products.slice(0, 8).map(p => ({
+      id:       Number(p.id),
+      name:     p.name,
+      price:    Number(p.price),
+      image:    p.images?.[0] || p.image || null,
+      images:   p.images || [],
+      rating:   p.rating ? Number(p.rating) : null,
+      sold:     Number(p.sold || 0),
+      stock:    Number(p.stock || 0),
+      category: categoryMap[p.category_id] || null,
+    }));
+
+    res.json({ products: serialized, hint, keywords });
+
+  } catch (err) {
+    console.error('[SmartSearch Error]', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
+
