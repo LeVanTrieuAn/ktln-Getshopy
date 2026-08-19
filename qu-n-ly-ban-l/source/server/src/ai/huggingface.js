@@ -407,10 +407,11 @@ async function classifyIntent(message) {
     return { intent: 'UNKNOWN', score: 0, source: 'no_api_key' };
   }
 
-  // Bước 4: Gọi Hugging Face Inference API
+  // Bước 4: Gọi HuggingFace Inference Router (hf-inference provider)
+  // api-inference.huggingface.co đã deprecated — dùng router mới
   try {
     const response = await fetch(
-      `https://api-inference.huggingface.co/models/${DEFAULT_MODEL}`,
+      `https://router.huggingface.co/hf-inference/models/${DEFAULT_MODEL}`,
       {
         method: 'POST',
         headers: {
@@ -441,8 +442,23 @@ async function classifyIntent(message) {
       return { intent: 'UNKNOWN', score: 0, source: 'model_loading' };
     }
 
-    const topIntent = data.labels?.[0] || 'UNKNOWN';
-    const topScore = data.scores?.[0] || 0;
+    // Parse response — router mới trả [{label, score}] thay vì {labels:[], scores:[]}
+    let labels, scores;
+    if (Array.isArray(data)) {
+      // Format mới: [{label: 'greeting', score: 0.39}, ...]
+      labels = data.map(item => item.label);
+      scores = data.map(item => item.score);
+    } else if (data.labels && data.scores) {
+      // Format cũ (fallback)
+      labels = data.labels;
+      scores = data.scores;
+    } else {
+      console.warn('[HF] Unexpected response format:', JSON.stringify(data).slice(0, 100));
+      return { intent: 'UNKNOWN', score: 0, source: 'parse_error' };
+    }
+
+    const topIntent = labels[0] || 'UNKNOWN';
+    const topScore = scores[0] || 0;
 
     console.log(`[HF] API result: "${text.slice(0, 40)}" → ${topIntent} (score: ${topScore.toFixed(3)})`);
 

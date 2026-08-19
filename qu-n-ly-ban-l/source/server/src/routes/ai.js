@@ -5,6 +5,7 @@ const router = express.Router();
 // ── AI Modules ──────────────────────────────────────────────────────────────
 const { classifyIntent, removeDiacritics } = require('../ai/huggingface');
 const { generateChatResponse }             = require('../ai/llm');
+const { analyzeProductImage }              = require('../ai/visualSearch');
 
 // ── Định dạng tiền tệ ────────────────────────────────────────────────────────
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -549,11 +550,9 @@ router.post('/ai/smart-search', async (req, res) => {
 
   try {
     // ── BƯỚC 1: Gọi LLM để extract search keywords từ câu mơ hồ ─────────────
-    const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-    const OPENROUTER_MODEL   = process.env.OPENROUTER_MODEL || 'google/gemini-2.5-flash';
-    const OPENROUTER_URL     = process.env.OPENROUTER_URL
-      ? `${process.env.OPENROUTER_URL}/chat/completions`
-      : 'https://openrouter.ai/api/v1/chat/completions';
+    const HF_API_KEY_SS  = process.env.HF_API_KEY;
+    const HF_LLM_MODEL_SS = process.env.HF_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
+    const HF_LLM_URL_SS   = `https://api-inference.huggingface.co/models/${HF_LLM_MODEL_SS}/v1/chat/completions`;
 
     let keywords = [];
     let categoryHint = null;
@@ -561,7 +560,7 @@ router.post('/ai/smart-search', async (req, res) => {
     let priceMin = null;
     let hint = '';
 
-    if (OPENROUTER_API_KEY) {
+    if (HF_API_KEY_SS) {
       const systemPrompt = `Bạn là AI trợ lý tìm kiếm sản phẩm cho cửa hàng điện tử Getshopy.
 Nhiệm vụ: Phân tích câu tìm kiếm của khách hàng (có thể là ngôn ngữ thông thường, slang, mơ hồ) 
 và trả về JSON với các trường sau:
@@ -579,24 +578,23 @@ Ví dụ:
 Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
 
       try {
-        const response = await fetch(OPENROUTER_URL, {
+        const response = await fetch(HF_LLM_URL_SS, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-            'HTTP-Referer': 'https://getshopy.com',
-            'X-Title': 'Getshopy AI Search',
+            'Authorization': `Bearer ${HF_API_KEY_SS}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: OPENROUTER_MODEL,
+            model: HF_LLM_MODEL_SS,
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user',   content: rawQuery },
             ],
             temperature: 0.3,
             max_tokens: 200,
+            stream: false,
           }),
-          signal: AbortSignal.timeout(15_000),
+          signal: AbortSignal.timeout(20_000),
         });
 
         if (response.ok) {
@@ -611,12 +609,12 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
               priceMax    = parsed.price_max ? Number(parsed.price_max) : null;
               priceMin    = parsed.price_min ? Number(parsed.price_min) : null;
               hint        = parsed.hint || '';
-              console.log(`[SmartSearch] LLM parsed → keywords=${keywords}, category=${categoryHint}, hint="${hint}"`);
+              console.log(`[SmartSearch] HF Qwen parsed → keywords=${keywords}, category=${categoryHint}, hint="${hint}"`);
             }
           }
         }
       } catch (llmErr) {
-        console.warn('[SmartSearch] LLM failed, using fallback keyword split:', llmErr.message);
+        console.warn('[SmartSearch] HF Qwen failed, using fallback keyword split:', llmErr.message);
       }
     }
 
@@ -733,6 +731,193 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
   } catch (err) {
     console.error('[SmartSearch Error]', err.message);
     res.status(500).json({ error: err.message });
+  }
+});
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 4. POST /api/b2c/visual-search — Tìm kiếm sản phẩm bằng hình ảnh
+//
+//    Pipeline 2 bước:
+//      [Bước 1] BLIP (HuggingFace) — Image Captioning: ảnh → caption tiếng Anh
+//      [Bước 2] Qwen2.5-72B (HuggingFace) — Phân tích caption → JSON có cấu trúc
+//      [Bước 3] Prisma DB — Tìm sản phẩm theo category + keywords
+// ══════════════════════════════════════════════════════════════════════════════
+router.post('/b2c/visual-search', async (req, res) => {
+  try {
+    const { imageBase64 } = req.body;
+
+    if (!imageBase64 || typeof imageBase64 !== 'string') {
+      return res.status(400).json({ error: 'imageBase64 la bat buoc' });
+    }
+    if (!imageBase64.startsWith('data:image/')) {
+      return res.status(400).json({ error: 'Dinh dang anh khong hop le.' });
+    }
+
+    console.log('[VisualSearch] Nhan yeu cau phan tich anh, kich thuoc:', Math.round(imageBase64.length / 1024), 'KB');
+
+    // BUOC 1 & 2: BLIP + Qwen phan tich anh
+    const { caption, analysis } = await analyzeProductImage(imageBase64);
+
+    if (!caption && !analysis) {
+      return res.json({
+        text: 'Da em chua nhan dang duoc san pham trong anh nay a! Anh/chi co the mo ta them bang van ban de em tim kiem giup khong a?',
+        products: [], caption: null, analysis: null,
+      });
+    }
+
+    if (analysis && !analysis.category && analysis.keywords?.length === 0) {
+      return res.json({
+        text: `Da em thay trong anh la: "${analysis.description_vi || caption}". Day co ve khong phai san pham dien tu a.`,
+        products: [], caption, analysis,
+      });
+    }
+
+    // BUOC 3: Doi chieu dac trung AI voi san pham trong DB
+    const keywords = (analysis?.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+    const brand    = (analysis?.brand    || '').toLowerCase().trim();
+    const category = analysis?.category  || null;
+    const color    = (analysis?.color    || '').toLowerCase().trim();
+
+    let categoryId = null;
+    let brandId    = null;
+
+    if (category) {
+      const catRecord = await prisma.category.findFirst({
+        where: { name: { contains: category, mode: 'insensitive' } },
+      });
+      if (catRecord) categoryId = catRecord.id;
+    }
+
+    if (brand) {
+      const brandRecord = await prisma.brand.findFirst({
+        where: { name: { contains: brand, mode: 'insensitive' }, is_deleted: false },
+      });
+      if (brandRecord) brandId = brandRecord.id;
+    }
+
+    let candidates = [];
+
+    if (categoryId) {
+      const byCat = await prisma.product.findMany({
+        where: { category_id: categoryId, is_deleted: false, stock: { gt: 0 } },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 60,
+      });
+      candidates.push(...byCat);
+    }
+
+    if (brandId) {
+      const byBrand = await prisma.product.findMany({
+        where: { brand_id: brandId, is_deleted: false, stock: { gt: 0 } },
+        orderBy: [{ sold: 'desc' }],
+        take: 30,
+      });
+      candidates.push(...byBrand);
+    }
+
+    if (keywords.length > 0) {
+      const byKeyword = await prisma.product.findMany({
+        where: {
+          OR: keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+          is_deleted: false,
+          stock: { gt: 0 },
+        },
+        take: 40,
+      });
+      candidates.push(...byKeyword);
+    }
+
+    if (candidates.length === 0) {
+      candidates = await prisma.product.findMany({
+        where: { is_deleted: false, stock: { gt: 0 } },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 20,
+      });
+    }
+
+    // Deduplicate
+    const seen = new Set();
+    candidates = candidates.filter(p => {
+      const key = p.id.toString();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Multi-dimensional scoring: category(+20) brand(+15) keyword(+8) brand-name(+5) color(+3) sold/rating bonus
+    candidates.forEach(p => {
+      const pName = (p.name || '').toLowerCase();
+      let score = 0;
+      if (categoryId && p.category_id === categoryId) score += 20;
+      if (brandId    && p.brand_id    === brandId)    score += 15;
+      keywords.forEach(k => { if (pName.includes(k)) score += 8; });
+      if (brand && pName.includes(brand)) score += 5;
+      if (color && pName.includes(color)) score += 3;
+      score += Math.min(Number(p.sold   || 0) / 1000, 3);
+      score += Math.min(Number(p.rating || 0) * 0.5, 2.5);
+      p._score = score;
+    });
+
+    candidates.sort((a, b) => b._score - a._score);
+    const products = candidates.slice(0, 4);
+
+    const serializedProducts = products.map(p => ({
+      id:     Number(p.id),
+      name:   p.name,
+      price:  Number(p.price),
+      image:  p.image || null,
+      rating: p.rating ? Number(p.rating) : null,
+      sold:   Number(p.sold  || 0),
+      stock:  Number(p.stock || 0),
+    }));
+
+    // BƯỚC 4: Dùng Qwen LLM sinh câu trả lời tự nhiên tiếng Việt
+    const visualContext = {
+      products: serializedProducts,
+    };
+    const visualMessage = serializedProducts.length > 0
+      ? `Khách vừa gửi ảnh. Gemini Vision nhận ra: ${analysis.description_vi || caption}` +
+        `${analysis.brand    ? `, thương hiệu ${analysis.brand}`    : ''}` +
+        `${analysis.color    ? `, màu ${analysis.color}`            : ''}` +
+        `${analysis.category ? `, danh mục ${analysis.category}`   : ''}. ` +
+        `Đã tìm thấy ${serializedProducts.length} sản phẩm phù hợp trong kho. ` +
+        `Hãy tư vấn ngắn gọn và gợi ý các sản phẩm trên cho khách.`
+      : `Khách vừa gửi ảnh. Gemini Vision nhận ra: ${analysis.description_vi || caption}` +
+        `${analysis.category ? `, danh mục ${analysis.category}` : ''}. ` +
+        `Hiện kho không có sản phẩm tương tự. Hãy thông báo thân thiện và hỏi thêm nhu cầu.`;
+
+    const llmText = await generateChatResponse({
+      intent: 'VISUAL_SEARCH',
+      context: visualContext,
+      message: visualMessage,
+      history: [],
+    });
+
+    // Fallback nếu LLM không trả lời được
+    const brandText    = analysis?.brand    ? ` **${analysis.brand}**`                       : '';
+    const categoryText = analysis?.category ? ` thuộc danh mục **${analysis.category}**`    : '';
+    const colorText    = analysis?.color    ? `, màu ${analysis.color}`                      : '';
+    const descText     = analysis?.description_vi || 'sản phẩm từ ảnh bạn gửi';
+
+    let responseText;
+    if (llmText) {
+      responseText = llmText;
+    } else if (serializedProducts.length > 0) {
+      responseText = `Dạ em đã phân tích ảnh và nhận ra đây là${brandText ? ` sản phẩm${brandText}` : ''} — ${descText}${colorText} ạ!\n\nDựa trên **danh mục**, **thương hiệu** và **từ khóa** nhận dạng được, bên em có **${serializedProducts.length} sản phẩm phù hợp** cho anh/chị tham khảo ạ!`;
+    } else {
+      responseText = `Dạ em nhận ra trong ảnh là ${descText}${colorText}${categoryText} ạ! Tuy nhiên hiện tại bên em chưa có sản phẩm tương tự trong kho ạ. Anh/chị muốn em tìm thêm sản phẩm nào khác không ạ?`;
+    }
+
+    console.log(`[VisualSearch] Hoàn thành — ${serializedProducts.length} sản phẩm, LLM: ${llmText ? 'OK' : 'fallback'}.`);
+
+    res.json({ text: responseText, products: serializedProducts, caption, analysis });
+
+  } catch (err) {
+    console.error('[VisualSearch Error]', err.message);
+    res.status(500).json({
+      text: 'Da em dang gap su co khi phan tich anh. Anh/chi vui long thu lai sau it phut nhe a!',
+      products: [],
+    });
   }
 });
 
