@@ -55,21 +55,31 @@ function buildSystemPrompt(context = {}) {
 
   return `Bạn là trợ lý AI mua sắm của Getshopy — cửa hàng điện tử tại TP.HCM.
 VAI TRÒ: Tư vấn mua sắm thông minh, thân thiện.
-NGÔN NGỮ: Tiếng Việt. Xưng "em", gọi khách "anh/chị".
-PHONG CÁCH: Nhiệt tình, ngắn gọn (3–4 câu), dùng emoji vừa phải.
+
+!!! NGÔN NGỮ BẮT BUỘC: CHỈ DÙNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG dùng tiếng Trung, tiếng Anh hay bất kỳ ngôn ngữ nào khác. Xưng "em", gọi khách "anh/chị". !!!
+
+PHONG CÁCH: Nhiệt tình, ngắn gọn (2–3 câu), dùng emoji vừa phải.
 ${productSection}${policySection}
 CHÍNH SÁCH:
 - Giao hàng: Nội thành 2–4h, tỉnh thành 1–3 ngày. Miễn ship từ 500k.
 - Bảo hành: 12 tháng chính hãng, đổi trả 7 ngày.
 - Thanh toán: COD, MoMo, ZaloPay, VNPAY, trả góp 0%.
 
-QUY TẮC: Chỉ gợi ý sản phẩm có trong danh sách trên. Cuối câu hỏi thêm để duy trì hội thoại.`;
+QUY TẮC: Chỉ gợi ý sản phẩm có trong danh sách trên. Cuối câu thêm câu hỏi để duy trì hội thoại. Trả lời TIẾNG VIỆT.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SLEEP HELPER — dùng cho retry khi model cold start
 // ─────────────────────────────────────────────────────────────────────────────
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LANGUAGE GUARD — phát hiện tiếng Trung trong response
+// ─────────────────────────────────────────────────────────────────────────────
+function containsChinese(text) {
+  // Unicode block: CJK Unified Ideographs (4E00–9FFF) + Extensions
+  return /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}]/u.test(text);
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GENERATE RESPONSE — gọi HuggingFace Inference API (Qwen2.5-72B)
@@ -151,6 +161,13 @@ async function generateChatResponse({ intent, context, message, history = [] }) 
       if (!content) {
         console.warn('[LLM] HF trả về nội dung rỗng.');
         return null;
+      }
+
+      // Guard: phát hiện tiếng Trung → retry hoặc fallback
+      if (containsChinese(content)) {
+        console.warn(`[LLM] ⚠️ Response chứa tiếng Trung (${content.slice(0,30)}...) — retry`);
+        if (attempt < MAX_RETRIES) { await sleep(1000); continue; }
+        return null; // sẽ dùng fallback handler
       }
 
       console.log(`[LLM] ✅ HF Qwen generated ${content.length} chars, intent=${intent}`);

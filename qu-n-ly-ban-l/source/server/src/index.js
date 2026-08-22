@@ -784,16 +784,16 @@ app.post('/api/b2c/checkout', async (req, res) => {
   }
 });
 
+// ─── AI ROUTES (đăng ký TRƯỚC b2c/b2b để /api/b2c/chat, /api/b2c/visual-search không bị 404) ──
+const aiRouter = require('./routes/ai');
+app.use('/api', aiRouter);
+
 const b2cRouter = require('./routes/b2c');
 app.use('/api/b2c', b2cRouter);
 
 // ─── B2B ADMIN ROUTES ─────────────────────────────────────────
 const b2bRouter = require('./routes/b2b');
 app.use('/api/b2b', b2bRouter);
-
-// ─── AI ROUTES ────────────────────────────────────────────────
-const aiRouter = require('./routes/ai');
-app.use('/api', aiRouter);
 
 // ─── AI ADMIN ROUTES (MLOps — ChatLog quản lý & trigger train) ──
 const aiAdminRouter = require('./routes/aiAdmin');

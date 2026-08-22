@@ -169,8 +169,9 @@ async function buildContext(intent, message) {
               });
               candidateProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
               products = candidateProducts.slice(0, 4);
-              const keyword = tokens.join(' ');
-              link = `/shop?search=${encodeURIComponent(keyword)}`;
+              if (products.length > 0) {
+                link = `/product/${products[0].id}`;
+              }
             }
           }
         }
@@ -398,76 +399,30 @@ function fallbackResponse(intent, context) {
     return {
       text: `Dạ bên em đang có: ${list}. Anh/chị muốn tư vấn chi tiết sản phẩm nào không ạ?`,
       link,
+      products
     };
   }
 
   const defaults = {
-    GREETING:         { text: 'Dạ Getshopy xin chào ạ! Anh/chị đang cần tìm điện thoại, laptop hay phụ kiện gì ạ?', link: '/' },
-    ASK_DELIVERY:     { text: 'Dạ giao nội thành 2–4 tiếng, tỉnh thành 1–3 ngày, miễn phí ship từ 500k ạ!', link: '/' },
-    ASK_RETURN:       { text: 'Dạ đổi trả 7 ngày, bảo hành 12 tháng chính hãng ạ!', link: '/' },
-    ASK_PAYMENT:      { text: 'Dạ hỗ trợ COD, MoMo, ZaloPay, trả góp 0% ạ!', link: '/' },
+    GREETING:         { text: 'Dạ Getshopy xin chào ạ! Anh/chị đang cần tìm điện thoại, laptop hay phụ kiện gì ạ?', link: null },
+    ASK_DELIVERY:     { text: 'Dạ giao nội thành 2–4 tiếng, tỉnh thành 1–3 ngày, miễn phí ship từ 500k ạ!', link: null },
+    ASK_RETURN:       { text: 'Dạ đổi trả 7 ngày, bảo hành 12 tháng chính hãng ạ!', link: null },
+    ASK_PAYMENT:      { text: 'Dạ hỗ trợ COD, MoMo, ZaloPay, trả góp 0% ạ!', link: null },
     TRACK_ORDER:      { text: 'Dạ anh/chị vào mục "Đơn hàng của tôi" để kiểm tra nhé ạ!', link: '/profile' },
     CANCEL_ORDER:     { text: 'Dạ vào "Đơn hàng của tôi" → Chọn đơn → Hủy đơn nhé ạ!', link: '/profile' },
-    FEEDBACK_POSITIVE:{ text: 'Dạ cảm ơn anh/chị rất nhiều! 🌟 Getshopy luôn cố gắng phục vụ tốt nhất ạ!', link: '/' },
-    COMPLAINT:        { text: 'Dạ em thành thật xin lỗi! Anh/chị liên hệ hotline 1800-xxxx để được hỗ trợ ngay ạ!', link: '/' },
+    FEEDBACK_POSITIVE:{ text: 'Dạ cảm ơn anh/chị rất nhiều! 🌟 Getshopy luôn cố gắng phục vụ tốt nhất ạ!', link: null },
+    COMPLAINT:        { text: 'Dạ em thành thật xin lỗi! Anh/chị liên hệ hotline 1800-xxxx để được hỗ trợ ngay ạ!', link: null },
   };
 
   return defaults[intent] || {
     text: 'Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có điện thoại, laptop, máy tính bảng và phụ kiện ạ!',
-    link: '/',
+    link: null,
   };
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 1. GET /api/b2c/products — Lấy sản phẩm theo danh mục (B2C storefront)
-// ══════════════════════════════════════════════════════════════════════════════
-router.get('/b2c/products', async (req, res) => {
-  try {
-    const { category, limit = 8, page = 1, search } = req.query;
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+// NOTE: /api/b2c/products is handled by routes/b2c.js — do not duplicate here.
 
-    const where = { is_deleted: false };
-    if (category) where.category_id = parseInt(category);
-    if (search)   where.name = { contains: search, mode: 'insensitive' };
-
-    const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: { category: true, brand: true },
-        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
-        take: parseInt(limit),
-        skip,
-      }),
-      prisma.product.count({ where }),
-    ]);
-
-    res.json({ products, total, page: parseInt(page), limit: parseInt(limit) });
-  } catch (err) {
-    console.error('[b2c/products]', err.message);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 2. GET /api/b2c/flash-sales — Flash sale đang hoạt động
-// ══════════════════════════════════════════════════════════════════════════════
-router.get('/b2c/flash-sales', async (req, res) => {
-  try {
-    const now = new Date();
-    const sales = await prisma.flashSale.findMany({
-      where: {
-        is_deleted: false,
-        is_active: true,
-        OR: [{ end_date: null }, { end_date: { gte: now } }],
-      },
-      orderBy: { created_at: 'desc' },
-    });
-    res.json(sales);
-  } catch (err) {
-    console.error('[b2c/flash-sales]', err.message);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-});
+// NOTE: /api/b2c/flash-sales is handled by routes/b2c.js — do not duplicate here.
 
 // ══════════════════════════════════════════════════════════════════════════════
 // 3. POST /api/b2c/chat — AI Chatbot
@@ -503,7 +458,7 @@ router.post('/b2c/chat', async (req, res) => {
 
     // ── BƯỚC 4: Fallback nếu LLM không khả dụng ──────────────────────────
     const aiResponse = responseText
-      ? { text: responseText, link: context.link }
+      ? { text: responseText, link: context.link, products: context.products }
       : fallbackResponse(intent, context);
 
     // ── Lưu ChatLog (fire-and-forget) ────────────────────────────────────
@@ -552,7 +507,7 @@ router.post('/ai/smart-search', async (req, res) => {
     // ── BƯỚC 1: Gọi LLM để extract search keywords từ câu mơ hồ ─────────────
     const HF_API_KEY_SS  = process.env.HF_API_KEY;
     const HF_LLM_MODEL_SS = process.env.HF_LLM_MODEL || 'Qwen/Qwen2.5-72B-Instruct';
-    const HF_LLM_URL_SS   = `https://api-inference.huggingface.co/models/${HF_LLM_MODEL_SS}/v1/chat/completions`;
+    const HF_LLM_URL_SS   = 'https://router.huggingface.co/featherless-ai/v1/chat/completions';
 
     let keywords = [];
     let categoryHint = null;
@@ -627,6 +582,11 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
     }
 
     // ── BƯỚC 2: Query DB ─────────────────────────────────────────────────────
+    // Chiến lược:
+    //   A. Có category + keywords → filter cứng category, tìm keyword trong NAME
+    //   B. Có category, không keywords → top bán chạy của category
+    //   C. Chỉ có keywords → tìm keyword trong NAME (không description → tránh false positive)
+    //   D. Fallback → top sellers toàn shop
     let products = [];
     const allCategories = await prisma.category.findMany({});
     const categoryMap = {};
@@ -637,80 +597,138 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
     if (priceMin) priceFilter.gte = priceMin;
 
     let matchedCatId = null;
+    let matchedCatName = null;
     if (categoryHint) {
-      const matchedCat = allCategories.find(c => removeDiacritics(c.name).toLowerCase().includes(removeDiacritics(categoryHint).toLowerCase()));
-      if (matchedCat) matchedCatId = matchedCat.id;
+      // Tìm category khớp TỐT NHẤT (ưu tiên khớp đầy đủ hơn khớp một phần)
+      const catNorm = removeDiacritics(categoryHint).toLowerCase();
+      const matchedCat = allCategories
+        .map(c => {
+          const cNorm = removeDiacritics(c.name).toLowerCase();
+          // Tính điểm: khớp đầy đủ = 3, cNorm chứa catNorm = 2, catNorm chứa cNorm = 1
+          let score = 0;
+          if (cNorm === catNorm) score = 3;
+          else if (cNorm.includes(catNorm)) score = 2;
+          else if (catNorm.includes(cNorm)) score = 1;
+          return { cat: c, score };
+        })
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)[0]?.cat;
+      if (matchedCat) { matchedCatId = matchedCat.id; matchedCatName = matchedCat.name; }
     }
 
-    // Ưu tiên 1: Tìm theo keyword trước (nếu có keyword)
-    if (keywords.length > 0) {
-      const keywordProducts = await prisma.product.findMany({
+    // Lọc bỏ keywords trùng với từ trong tên category (quá generic, gây false positive)
+    // Ví dụ: categoryHint="Điện thoại thông minh" → loại "thông minh", "điện thoại" khỏi keywords
+    let filteredKeywords = keywords;
+    if (matchedCatName) {
+      const catWords = new Set(removeDiacritics(matchedCatName).toLowerCase().split(/\s+/));
+      filteredKeywords = keywords.filter(k => {
+        const kNorm = removeDiacritics(k).toLowerCase();
+        // Giữ keyword nếu không phải là từ đơn thuần của tên category
+        return !catWords.has(kNorm) && !kNorm.split(/\s+/).every(w => catWords.has(w));
+      });
+    }
+
+    if (matchedCatId && filteredKeywords.length > 0) {
+      // A: Category làm bộ lọc cứng + keyword match trong NAME (chỉ dùng brand/model name)
+      const catKwProducts = await prisma.product.findMany({
         where: {
-          OR: [
-            ...keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
-            ...keywords.map(k => ({ description: { contains: k, mode: 'insensitive' } }))
-          ],
+          category_id: matchedCatId,
+          OR: filteredKeywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
           is_deleted: false,
           ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
         },
         take: 50,
       });
-
-      // Score by keyword match count and category
-      keywordProducts.forEach(p => {
+      catKwProducts.forEach(p => {
         const pNameNorm = removeDiacritics(p.name || '').toLowerCase();
-        const pDescNorm = removeDiacritics(p.description || '').toLowerCase();
-        
         let score = 0;
-        keywords.forEach(k => {
-          const kNorm = removeDiacritics(k).toLowerCase();
-          if (pNameNorm.includes(kNorm)) score += 5; // Tên trúng từ khóa -> ưu tiên cao nhất
-          if (pDescNorm.includes(kNorm)) score += 1;
+        filteredKeywords.forEach(k => {
+          if (pNameNorm.includes(removeDiacritics(k).toLowerCase())) score += 5;
         });
-
-        // Boost điểm cực mạnh nếu trúng category AI dự đoán
-        if (matchedCatId && p.category_id === matchedCatId) {
-          score += 10;
-        }
-
         p._score = score;
       });
-      
-      keywordProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
-      products = keywordProducts.slice(0, 8);
-    }
+      catKwProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
+      products = catKwProducts.slice(0, 8);
 
-    // Ưu tiên 2: Nếu không đủ kết quả từ keyword, nhưng có category -> lấy sản phẩm hot của category đó
-    if (products.length < 4 && matchedCatId) {
-      const catWhere = {
-        is_deleted: false,
-        category_id: matchedCatId,
-        ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
-      };
-      const catProducts = await prisma.product.findMany({
-        where: catWhere,
-        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
-        take: 8,
-      });
-
-      const existingIds = new Set(products.map(p => String(p.id)));
-      for (const p of catProducts) {
-        if (!existingIds.has(String(p.id))) {
-          products.push(p);
-          existingIds.add(String(p.id));
+      // Nếu keyword không match trong category → lấy top sản phẩm của category đó
+      if (products.length < 4) {
+        const catTop = await prisma.product.findMany({
+          where: {
+            category_id: matchedCatId,
+            is_deleted: false,
+            ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+          },
+          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+          take: 8,
+        });
+        const existingIds = new Set(products.map(p => String(p.id)));
+        for (const p of catTop) {
+          if (!existingIds.has(String(p.id))) { products.push(p); existingIds.add(String(p.id)); }
+          if (products.length >= 8) break;
         }
-        if (products.length >= 8) break;
       }
-    }
 
-    // ── BƯỚC 3: Fallback — top sellers nếu vẫn trống ────────────────────────
-    if (products.length === 0) {
+    } else if (matchedCatId) {
+      // B: Chỉ có category — hoặc filteredKeywords trống (toàn từ category) → top bán chạy của category
       products = await prisma.product.findMany({
-        where: { is_deleted: false, stock: { gt: 0 } },
+        where: {
+          category_id: matchedCatId,
+          is_deleted: false,
+          ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+        },
         orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
         take: 8,
       });
-      hint = hint || 'Sản phẩm bán chạy nhất';
+
+    } else if (keywords.length > 0) {
+      // C: Không có category — tìm keyword trong NAME (không description)
+      const kwProducts = await prisma.product.findMany({
+        where: {
+          OR: keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+          is_deleted: false,
+          ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+        },
+        take: 50,
+      });
+      kwProducts.forEach(p => {
+        const pNameNorm = removeDiacritics(p.name || '').toLowerCase();
+        let score = 0;
+        keywords.forEach(k => {
+          if (pNameNorm.includes(removeDiacritics(k).toLowerCase())) score += 5;
+        });
+        p._score = score;
+      });
+      kwProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
+      products = kwProducts.slice(0, 8);
+    }
+
+    // ── BƯỚC 3: Fallback ────────────────────────────────────────────────────
+    if (products.length === 0) {
+      // Nếu user chỉ định giá mà không tìm thấy sản phẩm nào → trả mảng rỗng kèm hint
+      if (Object.keys(priceFilter).length > 0) {
+        hint = hint || `Không tìm thấy sản phẩm trong tầm giá này`;
+        // Thử lại trong category (nếu có) mà không giới hạn giá → show top category để tham khảo
+        if (matchedCatId) {
+          products = await prisma.product.findMany({
+            where: { category_id: matchedCatId, is_deleted: false },
+            orderBy: [{ price: 'asc' }],
+            take: 8,
+          });
+          hint = `Không có sản phẩm trong tầm giá đó, đây là các lựa chọn rẻ nhất`;
+        }
+      } else {
+        // Không có giới hạn giá → fallback top sellers (có category filter nếu biết)
+        products = await prisma.product.findMany({
+          where: {
+            is_deleted: false,
+            stock: { gt: 0 },
+            ...(matchedCatId ? { category_id: matchedCatId } : {}),
+          },
+          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+          take: 8,
+        });
+        hint = hint || 'Sản phẩm bán chạy nhất';
+      }
     }
 
     // ── Serialize (BigInt → Number) ──────────────────────────────────────────

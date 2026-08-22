@@ -58,7 +58,14 @@ router.get('/products', async (req, res) => {
     let where = { is_deleted: false };
     if (category_id && category_id !== 'ALL') where.category_id = category_id;
     if (brand_id && brand_id !== 'ALL') where.brand_id = brand_id;
-    if (search) where.name = { contains: search, mode: 'insensitive' };
+    
+    // Handle multi-word search correctly using AND for each token
+    if (search) {
+      const searchTokens = search.trim().split(/\s+/).filter(Boolean);
+      if (searchTokens.length > 0) {
+        where.AND = searchTokens.map(t => ({ name: { contains: t, mode: 'insensitive' } }));
+      }
+    }
 
     let orderBy = { id: 'desc' };
     if (sort === 'price_asc') orderBy = { price: 'asc' };
@@ -77,22 +84,62 @@ router.get('/products', async (req, res) => {
     let products, total;
 
     if (branch_id) {
-      // branch_ids is a JSON array, so it can't be pushed into the SQL WHERE/LIMIT here.
-      // Bounded fallback: filter/paginate in-app over a capped candidate set instead of
-      // the full table. Known limitation — see PERF-PRODUCTS.md §3.1 for a real fix
-      // (jsonb containment query or a proper product_branch join table).
-      const BRANCH_FILTER_CAP = 5000;
-      let candidates = await prisma.product.findMany({ where, orderBy, take: BRANCH_FILTER_CAP, select: listSelect });
-      candidates = candidates.filter(p => {
-        if (!p.branch_ids) return true;
-        let arr = p.branch_ids;
-        if (typeof arr === 'string') {
-          try { arr = JSON.parse(arr); } catch(e) { arr = []; }
-        }
-        return !Array.isArray(arr) || arr.length === 0 || arr.includes(branch_id);
-      });
-      total = candidates.length;
-      products = candidates.slice(skip, skip + limitNumber);
+      // ── DB-level jsonb containment filter ──────────────────────────────────
+      // branch_ids is a proper jsonb array. Two cases:
+      //   branch_ids @> '["HCM001"]' → product is assigned to this branch
+      //   branch_ids = '[]'          → product is available at ALL branches
+      const branchJson = JSON.stringify([branch_id]);
+
+      const conditions = [`is_deleted = false`];
+      const params = [];
+
+      params.push(branchJson);
+      conditions.push(`(branch_ids::jsonb = '[]'::jsonb OR branch_ids::jsonb @> $${params.length}::jsonb)`);
+
+      if (category_id && category_id !== 'ALL') {
+        params.push(category_id);
+        conditions.push(`category_id = $${params.length}`);
+      }
+      if (brand_id && brand_id !== 'ALL') {
+        params.push(brand_id);
+        conditions.push(`brand_id = $${params.length}`);
+      }
+      
+      // Tokenized search for raw SQL
+      if (search) {
+        const searchTokens = search.trim().split(/\s+/).filter(Boolean);
+        searchTokens.forEach(t => {
+          params.push(`%${t}%`);
+          conditions.push(`name ILIKE $${params.length}`);
+        });
+      }
+
+      const whereSQL = conditions.join(' AND ');
+
+      const orderSQL =
+        sort === 'price_asc'  ? 'price ASC' :
+        sort === 'price_desc' ? 'price DESC' :
+        (sort === 'best_selling' || sort === 'bestseller' || sort === 'sold_desc') ? 'sold DESC' :
+        'id DESC'; // default: newest
+
+      const [rows, countRows] = await Promise.all([
+        prisma.$queryRawUnsafe(
+          `SELECT id, name, price, original_price, image, stock, rating, sold,
+                  category_id, brand_id, branch_ids, is_banner, created_at
+           FROM "Product"
+           WHERE ${whereSQL}
+           ORDER BY ${orderSQL}
+           LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+          ...params, limitNumber, skip
+        ),
+        prisma.$queryRawUnsafe(
+          `SELECT COUNT(*)::int AS count FROM "Product" WHERE ${whereSQL}`,
+          ...params
+        ),
+      ]);
+
+      total    = Number(countRows[0].count);
+      products = rows.map(p => ({ ...p, id: Number(p.id) }));
     } else {
       // Real DB-level pagination: only the requested page is ever fetched/serialized.
       [products, total] = await Promise.all([

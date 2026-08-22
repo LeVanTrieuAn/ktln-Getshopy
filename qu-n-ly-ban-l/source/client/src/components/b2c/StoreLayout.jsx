@@ -67,9 +67,6 @@ export default function StoreLayout() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const [isAiSearch, setIsAiSearch] = useState(false);    // true khi đang hiện kết quả AI
-  const [aiHint, setAiHint] = useState('');               // nhãn giải thích từ AI
-  const [offerAiSearch, setOfferAiSearch] = useState(false); // hiện "để AI tìm giúp" button
   const [isAiSearching, setIsAiSearching] = useState(false);  // đang chạy AI search
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -98,48 +95,35 @@ export default function StoreLayout() {
     }
   };
 
-  // Hàm gọi AI search khi user chủ động bấm nút
-  const handleAiSearch = async () => {
-    if (!searchKeyword.trim()) return;
-    setOfferAiSearch(false);
-    setIsAiSearching(true);
-    try {
-      const aiResult = await api.ai.smartSearch(searchKeyword);
-      if (aiResult && aiResult.products && aiResult.products.length > 0) {
-        setSearchResults(aiResult.products.slice(0, 5));
-        setIsAiSearch(true);
-        setAiHint(aiResult.hint || 'Kết quả từ AI');
-      } else {
-        setIsAiSearch(true);
-        setAiHint('AI cũng không tìm thấy sản phẩm phù hợp');
-      }
-    } catch (err) {
-      console.warn('[SmartSearch] AI failed:', err.message);
-    } finally {
-      setIsAiSearching(false);
-    }
-  };
 
-  // Debounced normal search only
+  // Debounced search: thường trước, nếu trống thì tự động gọi AI
   useEffect(() => {
     if (!searchKeyword.trim()) {
       setSearchResults([]);
-      setIsAiSearch(false);
-      setAiHint('');
-      setOfferAiSearch(false);
+      setIsAiSearching(false);
       return;
     }
-    setIsAiSearch(false);
-    setAiHint('');
-    setOfferAiSearch(false);
+    setIsAiSearching(false);
     const timer = setTimeout(async () => {
       try {
         setIsSearching(true);
         const results = await api.b2c.getProducts('ALL', searchKeyword, 'newest');
-        const top5 = (results || []).slice(0, 5);
-        setSearchResults(top5);
-        // Nếu 0 kết quả → đề xuất AI (user tự chọn)
-        if (top5.length === 0) setOfferAiSearch(true);
+        const top5 = (results?.data || []).slice(0, 5);
+        if (top5.length > 0) {
+          setSearchResults(top5);
+        } else {
+          // Tự động gọi AI khi không tìm thấy kết quả thường
+          setIsAiSearching(true);
+          try {
+            const aiResult = await api.ai.smartSearch(searchKeyword);
+            setSearchResults((aiResult?.products || []).slice(0, 5));
+          } catch (aiErr) {
+            console.warn('[SmartSearch] AI failed:', aiErr.message);
+            setSearchResults([]);
+          } finally {
+            setIsAiSearching(false);
+          }
+        }
       } catch (e) {
         console.error(e);
       } finally {
@@ -287,7 +271,7 @@ export default function StoreLayout() {
                 }}
               />
             </div>
-            {(showSearchDropdown || offerAiSearch || isAiSearching) && (searchKeyword.trim() !== '') && (
+            {(showSearchDropdown || isSearching || isAiSearching) && (searchKeyword.trim() !== '') && (
               <div style={{
                 position: 'absolute', top: 46, right: 0, width: 320,
                 background: isDark ? '#1e293b' : '#fff',
@@ -298,66 +282,24 @@ export default function StoreLayout() {
                 overflow: 'hidden'
               }}>
 
-                {/* State 1: Đang tìm kiếm thường */}
+                {/* Đang tìm kiếm thường */}
                 {isSearching && (
                   <div style={{ padding: '14px 16px', textAlign: 'center', color: '#888', fontSize: 13 }}>
                     Đang tìm kiếm...
                   </div>
                 )}
 
-                {/* State 2: Đang hỏi AI */}
-                {isAiSearching && (
+                {/* Đang hỏi AI (tự động) */}
+                {!isSearching && isAiSearching && (
                   <div style={{ padding: '24px 16px', textAlign: 'center' }}>
                     <RobotOutlined style={{ fontSize: 28, marginBottom: 12, color: isDark ? '#34d399' : '#10b981' }} />
-                    <div style={{ fontSize: 13, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>Đang hỏi AI tìm giúp bạn...</div>
+                    <div style={{ fontSize: 13, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>Đang để AI tìm giúp bạn...</div>
                   </div>
                 )}
 
-                {/* State 3: Không có kết quả → offer AI */}
-                {!isSearching && !isAiSearching && offerAiSearch && (
-                  <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                    <SearchOutlined style={{ fontSize: 24, marginBottom: 12, color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)' }} />
-                    <div style={{ fontSize: 13, color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)', marginBottom: 4 }}>
-                      Không tìm thấy kết quả nào cho
-                    </div>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#fff' : '#111', marginBottom: 14 }}>
-                      "{searchKeyword}"
-                    </div>
-                    <button
-                      onMouseDown={(e) => { e.preventDefault(); handleAiSearch(); }}
-                      style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 6,
-                        padding: '8px 18px',
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        border: 'none', borderRadius: 20,
-                        color: '#fff', fontSize: 13, fontWeight: 600,
-                        cursor: 'pointer',
-                        boxShadow: '0 4px 14px rgba(16,185,129,0.35)',
-                        transition: 'opacity 0.2s',
-                      }}
-                      onMouseEnter={(e) => e.currentTarget.style.opacity = '0.85'}
-                      onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                    >
-                      <BulbOutlined /> Để AI tìm giúp bạn
-                    </button>
-                  </div>
-                )}
-
-                {/* State 4: Có kết quả (thường hoặc AI) */}
-                {!isSearching && !isAiSearching && !offerAiSearch && searchResults.length > 0 && (
+                {/* Có kết quả */}
+                {!isSearching && !isAiSearching && searchResults.length > 0 && (
                   <div>
-                    {/* AI hint banner */}
-                    {isAiSearch && aiHint && (
-                      <div style={{
-                        padding: '8px 14px',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.07)',
-                        borderBottom: isDark ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(16,185,129,0.12)',
-                      }}>
-                        <BulbOutlined style={{ fontSize: 14, color: isDark ? '#34d399' : '#10b981' }} />
-                        <span style={{ fontSize: 12, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>AI: {aiHint}</span>
-                      </div>
-                    )}
                     {searchResults.map(p => (
                       <div
                         key={p.id}
@@ -366,8 +308,6 @@ export default function StoreLayout() {
                           setSearchExpanded(false);
                           navigate(`/product/${p.id}`);
                           setSearchKeyword('');
-                          setIsAiSearch(false);
-                          setOfferAiSearch(false);
                         }}
                         style={{
                           padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12,
@@ -396,6 +336,13 @@ export default function StoreLayout() {
                     >
                       Xem tất cả kết quả cho "{searchKeyword}"
                     </div>
+                  </div>
+                )}
+
+                {/* Không tìm thấy gì cả */}
+                {!isSearching && !isAiSearching && searchResults.length === 0 && (
+                  <div style={{ padding: '20px 16px', textAlign: 'center', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)', fontSize: 13 }}>
+                    Không tìm thấy sản phẩm phù hợp
                   </div>
                 )}
 

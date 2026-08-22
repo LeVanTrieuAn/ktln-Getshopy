@@ -170,7 +170,6 @@ export default function AIChatbot() {
     }
   };
 
-  // ─── Xử lý ảnh — Visual Search Pipeline ────────────────────────────────
   const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!e.target.files) return;
@@ -185,11 +184,12 @@ export default function AIChatbot() {
       setMessages(prev => [...prev, { sender: 'ai', text: 'Dạ chỉ hỗ trợ định dạng JPG, PNG, WEBP, GIF ạ!' }]);
       return;
     }
-    const previewUrl = URL.createObjectURL(file);
-    setMessages(prev => [...prev, { sender: 'user', text: 'Tìm sản phẩm tương tự ảnh này', imagePreview: previewUrl }]);
+
+    // Dùng base64 làm preview — không bị mất khi revokeObjectURL
+    const imageBase64 = await resizeAndEncode(file, 800);
+    setMessages(prev => [...prev, { sender: 'user', text: 'Tìm sản phẩm tương tự ảnh này', imagePreview: imageBase64 }]);
     setIsAnalyzing(true);
     try {
-      const imageBase64 = await resizeAndEncode(file, 800);
       const response = await fetch(`${API_BASE}/b2c/visual-search`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -210,7 +210,6 @@ export default function AIChatbot() {
       }]);
     } finally {
       setIsAnalyzing(false);
-      URL.revokeObjectURL(previewUrl);
     }
   };
 
@@ -397,14 +396,20 @@ export default function AIChatbot() {
                       style={{
                         marginTop: 10, padding: '6px 16px',
                         borderRadius: 20, border: 'none', cursor: 'pointer',
-                        background: 'rgba(255,255,255,0.2)',
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
                         color: '#fff', fontSize: 12, fontWeight: 600,
-                        backdropFilter: 'blur(4px)',
-                        transition: 'background 0.15s',
+                        boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
+                        transition: 'transform 0.15s, box-shadow 0.15s',
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                       }}
-                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.3)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.2)'; }}
+                      onMouseEnter={e => {
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.4)';
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.3)';
+                      }}
                     >
                       <ShoppingOutlined /> Xem ngay
                     </button>
