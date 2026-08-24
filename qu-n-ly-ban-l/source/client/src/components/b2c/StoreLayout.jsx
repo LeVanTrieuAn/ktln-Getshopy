@@ -389,37 +389,61 @@ export default function StoreLayout() {
             </Dropdown>
           ) : (
             <>
+              {/* Nút Đăng ký — ghost/outline */}
               <div
                 onClick={() => setAuthOpen(true)}
                 style={{
-                  padding: '6px 16px',
-                  borderRadius: 20,
+                  padding: '7px 18px',
+                  borderRadius: 10,
                   cursor: 'pointer',
                   fontSize: 13,
-                  fontWeight: 500,
-                  color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)',
-                  transition: 'all 0.3s ease',
+                  fontWeight: 600,
+                  color: isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)',
+                  border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)'}`,
+                  background: 'transparent',
+                  transition: 'all 0.2s ease',
+                  lineHeight: '20px',
+                  letterSpacing: '0.01em',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = isDark ? '#fff' : '#000'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.6)'; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = isDark ? '#fff' : '#000';
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)';
+                  e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.65)';
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
+                  e.currentTarget.style.background = 'transparent';
+                }}
               >
                 Đăng ký
               </div>
+
+              {/* Nút Đăng nhập — green gradient solid */}
               <div
                 onClick={() => setAuthOpen(true)}
                 style={{
-                  padding: '6px 20px',
-                  borderRadius: 20,
+                  padding: '7px 20px',
+                  borderRadius: 10,
                   cursor: 'pointer',
                   fontSize: 13,
-                  fontWeight: 500,
-                  color: isDark ? '#000' : '#fff',
-                  background: isDark ? '#fff' : '#000',
+                  fontWeight: 600,
+                  color: '#fff',
+                  background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
                   border: 'none',
-                  transition: 'all 0.3s ease',
+                  transition: 'all 0.2s ease',
+                  lineHeight: '20px',
+                  letterSpacing: '0.01em',
+                  boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
                 }}
-                onMouseEnter={(e) => { e.currentTarget.style.opacity = 0.8; }}
-                onMouseLeave={(e) => { e.currentTarget.style.opacity = 1; }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.45)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.3)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
               >
                 Đăng nhập
               </div>
