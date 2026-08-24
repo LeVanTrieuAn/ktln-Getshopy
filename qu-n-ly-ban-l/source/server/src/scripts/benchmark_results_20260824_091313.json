@@ -1,0 +1,1546 @@
+{
+  "timestamp": "2026-08-24T09:13:13.061657",
+  "models": {
+    "intent_classifier": {
+      "model": "MoritzLaurer/mDeBERTa-v3-base-mnli-xnli",
+      "total_samples": 191,
+      "rule_coverage_pct": 84.29,
+      "rule_accuracy_pct": 45.96,
+      "rule_avg_latency_ms": 0.0627,
+      "overall_accuracy_pct": 38.74,
+      "weighted_f1": 0.4236
+    },
+    "llm_qwen": null,
+    "gemini_vision": null
+  },
+  "raw_results": [
+    {
+      "text": "Xin chào shop",
+      "gt": "GREETING",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 7.021899999926973,
+      "source": "fallback"
+    },
+    {
+      "text": "Hello bên shop ơi",
+      "gt": "GREETING",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.09940000018104911,
+      "source": "fallback"
+    },
+    {
+      "text": "Hi, shop có nghe không?",
+      "gt": "GREETING",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.01610000026630587,
+      "source": "rule"
+    },
+    {
+      "text": "Chào shop, mình cần tư vấn",
+      "gt": "GREETING",
+      "predicted": "ASK_RECOMMEND",
+      "correct": false,
+      "latency_ms": 0.05959999998594867,
+      "source": "rule"
+    },
+    {
+      "text": "Alo shop ơi",
+      "gt": "GREETING",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.053700000080425525,
+      "source": "fallback"
+    },
+    {
+      "text": "Good morning shop",
+      "gt": "GREETING",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.06329999996523838,
+      "source": "fallback"
+    },
+    {
+      "text": "Shop ơi có ai không?",
+      "gt": "GREETING",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.016200000118260505,
+      "source": "rule"
+    },
+    {
+      "text": "Chào em nhé",
+      "gt": "GREETING",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.0525000000379805,
+      "source": "fallback"
+    },
+    {
+      "text": "iPhone 15 Pro giá bao nhiêu?",
+      "gt": "ASK_PRICE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.21470000001500011,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop Dell XPS 13 bán bao nhiêu tiền?",
+      "gt": "ASK_PRICE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.020500000118772732,
+      "source": "rule"
+    },
+    {
+      "text": "Samsung S24 Ultra giá mấy triệu vậy shop?",
+      "gt": "ASK_PRICE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.019099999917671084,
+      "source": "rule"
+    },
+    {
+      "text": "Hỏi giá AirPods Pro 2 đi shop",
+      "gt": "ASK_PRICE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.028200000087963417,
+      "source": "rule"
+    },
+    {
+      "text": "Giá Macbook Air M3 là bao nhiêu?",
+      "gt": "ASK_PRICE",
+      "predicted": "ASK_PRICE",
+      "correct": true,
+      "latency_ms": 0.023800000235496555,
+      "source": "rule"
+    },
+    {
+      "text": "Bao nhiêu tiền 1 cái tai nghe Sony WH1000XM5?",
+      "gt": "ASK_PRICE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.01939999992828234,
+      "source": "rule"
+    },
+    {
+      "text": "Price của iPad Pro 12.9 inch là gì?",
+      "gt": "ASK_PRICE",
+      "predicted": "ASK_PRICE",
+      "correct": true,
+      "latency_ms": 0.024399999801971717,
+      "source": "rule"
+    },
+    {
+      "text": "Shop bán iPhone 15 không?",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.019600000086938962,
+      "source": "rule"
+    },
+    {
+      "text": "Cho mình xem laptop gaming dưới 20 triệu",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.017799999568524072,
+      "source": "rule"
+    },
+    {
+      "text": "Tìm tai nghe chống ồn cho mình với",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.09600000021237065,
+      "source": "fallback"
+    },
+    {
+      "text": "Mình muốn mua Samsung Galaxy S24",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.01810000003388268,
+      "source": "rule"
+    },
+    {
+      "text": "Cần mua iPad mini, shop có không?",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.027099999897473026,
+      "source": "rule"
+    },
+    {
+      "text": "Có bán Xiaomi 14 không shop?",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.019699999938893598,
+      "source": "rule"
+    },
+    {
+      "text": "Điện thoại tầm 10 triệu có gì?",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.02299999960087007,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop tầm 15-20 triệu cho dân thiết kế",
+      "gt": "SEARCH_PRODUCT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.015800000255694613,
+      "source": "rule"
+    },
+    {
+      "text": "Cấu hình iPhone 15 Pro Max như thế nào?",
+      "gt": "ASK_SPECS",
+      "predicted": "FEEDBACK_POSITIVE",
+      "correct": false,
+      "latency_ms": 0.07159999995565158,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop Dell XPS cấu hình ra sao?",
+      "gt": "ASK_SPECS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.07520000008298666,
+      "source": "fallback"
+    },
+    {
+      "text": "Samsung S24 chip gì vậy?",
+      "gt": "ASK_SPECS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.06410000014511752,
+      "source": "fallback"
+    },
+    {
+      "text": "Thông số kỹ thuật của MacBook M3 là gì?",
+      "gt": "ASK_SPECS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.0718000001143082,
+      "source": "fallback"
+    },
+    {
+      "text": "CPU của laptop này là gì shop?",
+      "gt": "ASK_SPECS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.06089999988034833,
+      "source": "fallback"
+    },
+    {
+      "text": "Con này mấy nhân mấy luồng?",
+      "gt": "ASK_SPECS",
+      "predicted": "URGENT_NEED",
+      "correct": false,
+      "latency_ms": 0.04580000040732557,
+      "source": "rule"
+    },
+    {
+      "text": "Hàng giao trong bao lâu?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": true,
+      "latency_ms": 0.014199999895936344,
+      "source": "rule"
+    },
+    {
+      "text": "Ship về Đà Nẵng mất mấy ngày?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": true,
+      "latency_ms": 0.019699999938893598,
+      "source": "rule"
+    },
+    {
+      "text": "Phí giao hàng bao nhiêu shop?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": true,
+      "latency_ms": 0.020500000118772732,
+      "source": "rule"
+    },
+    {
+      "text": "Có free ship không?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.014299999747890979,
+      "source": "rule"
+    },
+    {
+      "text": "Giao hàng nhanh nhất bao lâu tới?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": true,
+      "latency_ms": 0.02229999972769292,
+      "source": "rule"
+    },
+    {
+      "text": "Bao giờ nhận được hàng?",
+      "gt": "ASK_DELIVERY",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.0669999999445281,
+      "source": "fallback"
+    },
+    {
+      "text": "Delivery fee là bao nhiêu?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": true,
+      "latency_ms": 0.011999999969702912,
+      "source": "rule"
+    },
+    {
+      "text": "Ship hỏa tốc có không shop?",
+      "gt": "ASK_DELIVERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": true,
+      "latency_ms": 0.010099999599333387,
+      "source": "rule"
+    },
+    {
+      "text": "Đổi trả hàng trong bao nhiêu ngày?",
+      "gt": "ASK_RETURN",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.012599999990925426,
+      "source": "rule"
+    },
+    {
+      "text": "Hàng lỗi có được đổi không?",
+      "gt": "ASK_RETURN",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.010000000202126103,
+      "source": "rule"
+    },
+    {
+      "text": "Chính sách bảo hành là gì?",
+      "gt": "ASK_RETURN",
+      "predicted": "ASK_RETURN",
+      "correct": true,
+      "latency_ms": 0.01920000022437307,
+      "source": "rule"
+    },
+    {
+      "text": "Bảo hành bao lâu vậy shop?",
+      "gt": "ASK_RETURN",
+      "predicted": "ASK_DELIVERY",
+      "correct": false,
+      "latency_ms": 0.009399999726156238,
+      "source": "rule"
+    },
+    {
+      "text": "Mua về không ưng có trả lại không?",
+      "gt": "ASK_RETURN",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.011899999663000926,
+      "source": "rule"
+    },
+    {
+      "text": "Warranty của iPhone này bao lâu?",
+      "gt": "ASK_RETURN",
+      "predicted": "ASK_DELIVERY",
+      "correct": false,
+      "latency_ms": 0.011099999937869143,
+      "source": "rule"
+    },
+    {
+      "text": "Thanh toán được bằng MoMo không?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "ASK_PAYMENT",
+      "correct": true,
+      "latency_ms": 0.021100000139995245,
+      "source": "rule"
+    },
+    {
+      "text": "Có chấp nhận trả góp không?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008700000307726441,
+      "source": "rule"
+    },
+    {
+      "text": "Thanh toán COD được không shop?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "ASK_PAYMENT",
+      "correct": true,
+      "latency_ms": 0.020200000108161476,
+      "source": "rule"
+    },
+    {
+      "text": "ZaloPay được không ạ?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "ASK_PAYMENT",
+      "correct": true,
+      "latency_ms": 0.01539999993838137,
+      "source": "rule"
+    },
+    {
+      "text": "Có thể dùng VNPAY không?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007800000275892671,
+      "source": "rule"
+    },
+    {
+      "text": "Chuyển khoản ngân hàng được không?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "ASK_PAYMENT",
+      "correct": true,
+      "latency_ms": 0.019999999949504854,
+      "source": "rule"
+    },
+    {
+      "text": "Trả góp 0% lãi suất có không?",
+      "gt": "ASK_PAYMENT",
+      "predicted": "ASK_PAYMENT",
+      "correct": true,
+      "latency_ms": 0.018399999589746585,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone 15 vs Samsung S24 cái nào tốt hơn?",
+      "gt": "COMPARE_PRODUCT",
+      "predicted": "COMPARE_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.13710000030187075,
+      "source": "rule"
+    },
+    {
+      "text": "So sánh MacBook Air M3 và Dell XPS đi shop",
+      "gt": "COMPARE_PRODUCT",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.054399999953602673,
+      "source": "fallback"
+    },
+    {
+      "text": "AirPods Pro hay Sony WH1000XM5 hơn?",
+      "gt": "COMPARE_PRODUCT",
+      "predicted": "FEEDBACK_POSITIVE",
+      "correct": false,
+      "latency_ms": 0.03730000025825575,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone 15 Pro Max với 15 Plus khác gì nhau?",
+      "gt": "COMPARE_PRODUCT",
+      "predicted": "COMPARE_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.01810000003388268,
+      "source": "rule"
+    },
+    {
+      "text": "Galaxy S24 Ultra hay iPhone 15 Pro Max ngon hơn?",
+      "gt": "COMPARE_PRODUCT",
+      "predicted": "COMPARE_PRODUCT",
+      "correct": true,
+      "latency_ms": 0.01920000022437307,
+      "source": "rule"
+    },
+    {
+      "text": "Con nào tốt hơn giữa Xiaomi 14 và Oppo Find X7?",
+      "gt": "COMPARE_PRODUCT",
+      "predicted": "ASK_RECOMMEND",
+      "correct": false,
+      "latency_ms": 0.01809999957913533,
+      "source": "rule"
+    },
+    {
+      "text": "Còn hàng AirPods Pro 2 không?",
+      "gt": "CHECK_STOCK",
+      "predicted": "CHECK_STOCK",
+      "correct": true,
+      "latency_ms": 0.01610000026630587,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone 15 màu titan tự nhiên còn không shop?",
+      "gt": "CHECK_STOCK",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008299999990413198,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop này hết hàng chưa?",
+      "gt": "CHECK_STOCK",
+      "predicted": "CHECK_STOCK",
+      "correct": true,
+      "latency_ms": 0.01539999993838137,
+      "source": "rule"
+    },
+    {
+      "text": "Tồn kho còn bao nhiêu cái?",
+      "gt": "CHECK_STOCK",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.010600000223348616,
+      "source": "rule"
+    },
+    {
+      "text": "Con Samsung S24 này out of stock chưa?",
+      "gt": "CHECK_STOCK",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.0073999999585794285,
+      "source": "rule"
+    },
+    {
+      "text": "Còn hàng không shop ơi?",
+      "gt": "CHECK_STOCK",
+      "predicted": "CHECK_STOCK",
+      "correct": true,
+      "latency_ms": 0.01339999971605721,
+      "source": "rule"
+    },
+    {
+      "text": "Theo dõi đơn hàng ở đâu?",
+      "gt": "TRACK_ORDER",
+      "predicted": "TRACK_ORDER",
+      "correct": true,
+      "latency_ms": 0.01539999993838137,
+      "source": "rule"
+    },
+    {
+      "text": "Đơn hàng của mình đến đâu rồi?",
+      "gt": "TRACK_ORDER",
+      "predicted": "TRACK_ORDER",
+      "correct": true,
+      "latency_ms": 0.01790000032997341,
+      "source": "rule"
+    },
+    {
+      "text": "Mã đơn hàng #1234 tình trạng thế nào?",
+      "gt": "TRACK_ORDER",
+      "predicted": "TRACK_ORDER",
+      "correct": true,
+      "latency_ms": 0.018799999907059828,
+      "source": "rule"
+    },
+    {
+      "text": "Khi nào đơn mình giao?",
+      "gt": "TRACK_ORDER",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.034700000014709076,
+      "source": "fallback"
+    },
+    {
+      "text": "Track order của mình được không?",
+      "gt": "TRACK_ORDER",
+      "predicted": "TRACK_ORDER",
+      "correct": true,
+      "latency_ms": 0.01939999992828234,
+      "source": "rule"
+    },
+    {
+      "text": "Hủy đơn hàng được không?",
+      "gt": "CANCEL_ORDER",
+      "predicted": "TRACK_ORDER",
+      "correct": false,
+      "latency_ms": 0.015199999779724749,
+      "source": "rule"
+    },
+    {
+      "text": "Cho mình cancel đơn số 5678",
+      "gt": "CANCEL_ORDER",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.04099999978279811,
+      "source": "fallback"
+    },
+    {
+      "text": "Không muốn mua nữa, hủy giúp mình",
+      "gt": "CANCEL_ORDER",
+      "predicted": "CANCEL_ORDER",
+      "correct": true,
+      "latency_ms": 0.020899999981338624,
+      "source": "rule"
+    },
+    {
+      "text": "Hủy mua đi shop ơi",
+      "gt": "CANCEL_ORDER",
+      "predicted": "CANCEL_ORDER",
+      "correct": true,
+      "latency_ms": 0.014900000223860843,
+      "source": "rule"
+    },
+    {
+      "text": "Gợi ý laptop tầm 20 triệu cho mình với",
+      "gt": "ASK_RECOMMEND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008200000138458563,
+      "source": "rule"
+    },
+    {
+      "text": "Nên mua iPhone hay Android?",
+      "gt": "ASK_RECOMMEND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007199999799922807,
+      "source": "rule"
+    },
+    {
+      "text": "Tư vấn cho mình tai nghe tập gym tốt",
+      "gt": "ASK_RECOMMEND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007500000265281415,
+      "source": "rule"
+    },
+    {
+      "text": "Recommend điện thoại chụp ảnh đẹp đi shop",
+      "gt": "ASK_RECOMMEND",
+      "predicted": "ASK_RECOMMEND",
+      "correct": true,
+      "latency_ms": 0.01829999973779195,
+      "source": "rule"
+    },
+    {
+      "text": "Mình cần mua laptop cho sinh viên, nên mua gì?",
+      "gt": "ASK_RECOMMEND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.010900000233959872,
+      "source": "rule"
+    },
+    {
+      "text": "Shop tư vấn cho mình phone chơi game tốt",
+      "gt": "ASK_RECOMMEND",
+      "predicted": "ASK_RECOMMEND",
+      "correct": true,
+      "latency_ms": 0.016899999991437653,
+      "source": "rule"
+    },
+    {
+      "text": "Sản phẩm nào bán chạy nhất?",
+      "gt": "ASK_BEST_SELLER",
+      "predicted": "ASK_BEST_SELLER",
+      "correct": true,
+      "latency_ms": 0.06309999980658176,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop nào bán nhiều nhất hiện nay?",
+      "gt": "ASK_BEST_SELLER",
+      "predicted": "ASK_BEST_SELLER",
+      "correct": true,
+      "latency_ms": 0.020200000108161476,
+      "source": "rule"
+    },
+    {
+      "text": "Điện thoại hot nhất bây giờ là gì?",
+      "gt": "ASK_BEST_SELLER",
+      "predicted": "ASK_BEST_SELLER",
+      "correct": true,
+      "latency_ms": 0.018899999759014463,
+      "source": "rule"
+    },
+    {
+      "text": "Bestseller của shop là gì?",
+      "gt": "ASK_BEST_SELLER",
+      "predicted": "ASK_BEST_SELLER",
+      "correct": true,
+      "latency_ms": 0.015099999927770114,
+      "source": "rule"
+    },
+    {
+      "text": "Hàng mới về gần đây là gì?",
+      "gt": "ASK_NEW_ARRIVAL",
+      "predicted": "ASK_NEW_ARRIVAL",
+      "correct": true,
+      "latency_ms": 0.015300000086426735,
+      "source": "rule"
+    },
+    {
+      "text": "Có iPhone 16 chưa?",
+      "gt": "ASK_NEW_ARRIVAL",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.03220000007786439,
+      "source": "fallback"
+    },
+    {
+      "text": "Sản phẩm mới nhất của shop là gì?",
+      "gt": "ASK_NEW_ARRIVAL",
+      "predicted": "ASK_NEW_ARRIVAL",
+      "correct": true,
+      "latency_ms": 0.01699999984339229,
+      "source": "rule"
+    },
+    {
+      "text": "New arrival tháng này có gì?",
+      "gt": "ASK_NEW_ARRIVAL",
+      "predicted": "ASK_NEW_ARRIVAL",
+      "correct": true,
+      "latency_ms": 0.0144999999065476,
+      "source": "rule"
+    },
+    {
+      "text": "Đặt trước iPhone 16 được không?",
+      "gt": "ASK_PREORDER",
+      "predicted": "ASK_PREORDER",
+      "correct": true,
+      "latency_ms": 0.034300000152143184,
+      "source": "rule"
+    },
+    {
+      "text": "Có cho pre-order Samsung Galaxy S25 không?",
+      "gt": "ASK_PREORDER",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.01049999991664663,
+      "source": "rule"
+    },
+    {
+      "text": "Khi nào iPhone 17 ra mắt?",
+      "gt": "ASK_PREORDER",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.035600000046542846,
+      "source": "fallback"
+    },
+    {
+      "text": "Cho mình đặt trước MacBook M4",
+      "gt": "ASK_PREORDER",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.010900000233959872,
+      "source": "rule"
+    },
+    {
+      "text": "Camera iPhone 15 Pro chụp đẹp không shop?",
+      "gt": "ASK_CAMERA",
+      "predicted": "ASK_CAMERA",
+      "correct": true,
+      "latency_ms": 0.026899999738816405,
+      "source": "rule"
+    },
+    {
+      "text": "Điện thoại này chụp ảnh ban đêm có tốt không?",
+      "gt": "ASK_CAMERA",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.0144999999065476,
+      "source": "rule"
+    },
+    {
+      "text": "Megapixel camera trước Samsung S24 là bao nhiêu?",
+      "gt": "ASK_CAMERA",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009500000032858225,
+      "source": "rule"
+    },
+    {
+      "text": "Selfie camera của Oppo Find X7 tốt không?",
+      "gt": "ASK_CAMERA",
+      "predicted": "ASK_CAMERA",
+      "correct": true,
+      "latency_ms": 0.02590000030977535,
+      "source": "rule"
+    },
+    {
+      "text": "Dùng máy này quay video 4K được không?",
+      "gt": "ASK_CAMERA",
+      "predicted": "ASK_CAMERA",
+      "correct": true,
+      "latency_ms": 0.023600000076839933,
+      "source": "rule"
+    },
+    {
+      "text": "Pin iPhone 15 dùng được bao lâu?",
+      "gt": "ASK_BATTERY",
+      "predicted": "ASK_DELIVERY",
+      "correct": false,
+      "latency_ms": 0.011799999811046291,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop này pin mấy tiếng?",
+      "gt": "ASK_BATTERY",
+      "predicted": "ASK_BATTERY",
+      "correct": true,
+      "latency_ms": 0.020399999812070746,
+      "source": "rule"
+    },
+    {
+      "text": "Samsung S24 Ultra dung lượng pin bao nhiêu mAh?",
+      "gt": "ASK_BATTERY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.00869999985297909,
+      "source": "rule"
+    },
+    {
+      "text": "Có sạc nhanh không shop?",
+      "gt": "ASK_BATTERY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007800000275892671,
+      "source": "rule"
+    },
+    {
+      "text": "Wireless charging support không?",
+      "gt": "ASK_BATTERY",
+      "predicted": "ASK_BATTERY",
+      "correct": true,
+      "latency_ms": 0.023300000066228677,
+      "source": "rule"
+    },
+    {
+      "text": "Màn hình Samsung S24 AMOLED hay LCD?",
+      "gt": "ASK_DISPLAY",
+      "predicted": "COMPARE_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.017100000150094274,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone 15 Pro Max inch mấy?",
+      "gt": "ASK_DISPLAY",
+      "predicted": "ASK_DISPLAY",
+      "correct": true,
+      "latency_ms": 0.022000000171829015,
+      "source": "rule"
+    },
+    {
+      "text": "Refresh rate màn hình là bao nhiêu Hz?",
+      "gt": "ASK_DISPLAY",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.012999999853491317,
+      "source": "rule"
+    },
+    {
+      "text": "Độ phân giải màn hình laptop này là gì?",
+      "gt": "ASK_DISPLAY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008900000011635711,
+      "source": "rule"
+    },
+    {
+      "text": "RAM bao nhiêu shop?",
+      "gt": "ASK_STORAGE",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.008400000297115184,
+      "source": "rule"
+    },
+    {
+      "text": "Storage 256GB hay 512GB?",
+      "gt": "ASK_STORAGE",
+      "predicted": "ASK_STORAGE",
+      "correct": true,
+      "latency_ms": 0.02080000012938399,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone 15 có bản 1TB không?",
+      "gt": "ASK_STORAGE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009000000318337698,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop này có thể nâng cấp RAM không?",
+      "gt": "ASK_STORAGE",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.011300000096525764,
+      "source": "rule"
+    },
+    {
+      "text": "Máy này có 5G không shop?",
+      "gt": "ASK_CONNECTIVITY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.00779999982114532,
+      "source": "rule"
+    },
+    {
+      "text": "WiFi 6E support không?",
+      "gt": "ASK_CONNECTIVITY",
+      "predicted": "ASK_CONNECTIVITY",
+      "correct": true,
+      "latency_ms": 0.021599999854515772,
+      "source": "rule"
+    },
+    {
+      "text": "Bluetooth version bao nhiêu?",
+      "gt": "ASK_CONNECTIVITY",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.010799999927257886,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone này có NFC không?",
+      "gt": "ASK_CONNECTIVITY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008200000138458563,
+      "source": "rule"
+    },
+    {
+      "text": "Laptop này chơi game được không?",
+      "gt": "ASK_GAMING",
+      "predicted": "ASK_GAMING",
+      "correct": true,
+      "latency_ms": 0.027800000225397525,
+      "source": "rule"
+    },
+    {
+      "text": "Máy này chơi PUBG Mobile mượt không?",
+      "gt": "ASK_GAMING",
+      "predicted": "ASK_GAMING",
+      "correct": true,
+      "latency_ms": 0.028200000087963417,
+      "source": "rule"
+    },
+    {
+      "text": "FPS Liên Quân trên máy này tầm bao nhiêu?",
+      "gt": "ASK_GAMING",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.013700000181415817,
+      "source": "rule"
+    },
+    {
+      "text": "Chơi Genshin Impact có lag không shop?",
+      "gt": "ASK_GAMING",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.010100000054080738,
+      "source": "rule"
+    },
+    {
+      "text": "IP68 không shop?",
+      "gt": "ASK_WATERPROOF",
+      "predicted": "ASK_WATERPROOF",
+      "correct": true,
+      "latency_ms": 0.01939999992828234,
+      "source": "rule"
+    },
+    {
+      "text": "Điện thoại này có chống nước không?",
+      "gt": "ASK_WATERPROOF",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.011500000255182385,
+      "source": "rule"
+    },
+    {
+      "text": "Ngâm nước bao lâu được?",
+      "gt": "ASK_WATERPROOF",
+      "predicted": "ASK_DELIVERY",
+      "correct": false,
+      "latency_ms": 0.009999999747378752,
+      "source": "rule"
+    },
+    {
+      "text": "Có flashsale không shop?",
+      "gt": "ASK_PROMO",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007900000127847306,
+      "source": "rule"
+    },
+    {
+      "text": "Voucher giảm giá có không?",
+      "gt": "ASK_PROMO",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.011699999959091656,
+      "source": "rule"
+    },
+    {
+      "text": "Mã giảm giá tháng này là gì?",
+      "gt": "ASK_PROMO",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.011300000096525764,
+      "source": "rule"
+    },
+    {
+      "text": "Sale 11/11 có khuyến mãi không?",
+      "gt": "ASK_PROMO",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008799999704933725,
+      "source": "rule"
+    },
+    {
+      "text": "Discount bao nhiêu phần trăm?",
+      "gt": "ASK_PROMO",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.011000000085914508,
+      "source": "rule"
+    },
+    {
+      "text": "Giá này cao quá, giảm thêm được không?",
+      "gt": "PRICE_COMPLAINT",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.013800000033370452,
+      "source": "rule"
+    },
+    {
+      "text": "Đắt quá shop ơi, bot giá xuống không?",
+      "gt": "PRICE_COMPLAINT",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.014199999895936344,
+      "source": "rule"
+    },
+    {
+      "text": "Mặc cả được không shop?",
+      "gt": "PRICE_COMPLAINT",
+      "predicted": "PRICE_COMPLAINT",
+      "correct": true,
+      "latency_ms": 0.031200000194075983,
+      "source": "rule"
+    },
+    {
+      "text": "Chỗ khác bán rẻ hơn, shop match price không?",
+      "gt": "PRICE_COMPLAINT",
+      "predicted": "ASK_PRICE",
+      "correct": false,
+      "latency_ms": 0.0144999999065476,
+      "source": "rule"
+    },
+    {
+      "text": "Dịch vụ shop tệ quá, mình không hài lòng",
+      "gt": "COMPLAINT",
+      "predicted": "COMPLAINT",
+      "correct": true,
+      "latency_ms": 0.041199999941454735,
+      "source": "rule"
+    },
+    {
+      "text": "Hàng giao sai màu rồi shop ơi",
+      "gt": "COMPLAINT",
+      "predicted": "ASK_DESIGN",
+      "correct": false,
+      "latency_ms": 0.03040000001419685,
+      "source": "rule"
+    },
+    {
+      "text": "Máy mua 3 ngày đã hỏng rồi",
+      "gt": "COMPLAINT",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.03689999994094251,
+      "source": "fallback"
+    },
+    {
+      "text": "Ship lâu quá, mình đã đặt 10 ngày rồi",
+      "gt": "COMPLAINT",
+      "predicted": "ASK_DELIVERY",
+      "correct": false,
+      "latency_ms": 0.012200000128359534,
+      "source": "rule"
+    },
+    {
+      "text": "Shop phục vụ tốt lắm, cảm ơn!",
+      "gt": "FEEDBACK_POSITIVE",
+      "predicted": "FEEDBACK_POSITIVE",
+      "correct": true,
+      "latency_ms": 0.03640000022642198,
+      "source": "rule"
+    },
+    {
+      "text": "Hàng chất lượng, đóng gói cẩn thận, 5 sao",
+      "gt": "FEEDBACK_POSITIVE",
+      "predicted": "URGENT_NEED",
+      "correct": false,
+      "latency_ms": 0.040500000068277586,
+      "source": "rule"
+    },
+    {
+      "text": "Cảm ơn shop nhé, mình rất hài lòng",
+      "gt": "FEEDBACK_POSITIVE",
+      "predicted": "FEEDBACK_POSITIVE",
+      "correct": true,
+      "latency_ms": 0.03820000029008952,
+      "source": "rule"
+    },
+    {
+      "text": "Giao hàng nhanh, nhân viên nhiệt tình, tuyệt vời",
+      "gt": "FEEDBACK_POSITIVE",
+      "predicted": "ASK_DELIVERY",
+      "correct": false,
+      "latency_ms": 0.013200000012147939,
+      "source": "rule"
+    },
+    {
+      "text": "Mua số lượng lớn có giá sỉ không?",
+      "gt": "BULK_ORDER",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.011699999959091656,
+      "source": "rule"
+    },
+    {
+      "text": "Mua 50 cái iPhone được chiết khấu bao nhiêu?",
+      "gt": "BULK_ORDER",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009500000032858225,
+      "source": "rule"
+    },
+    {
+      "text": "Công ty mình muốn mua 100 laptop, giá bulk?",
+      "gt": "BULK_ORDER",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.00869999985297909,
+      "source": "rule"
+    },
+    {
+      "text": "Cần giao ngay hôm nay được không?",
+      "gt": "URGENT_NEED",
+      "predicted": "URGENT_NEED",
+      "correct": true,
+      "latency_ms": 0.033799999982875306,
+      "source": "rule"
+    },
+    {
+      "text": "Mình cần gấp, có thể ship trong 2 tiếng không?",
+      "gt": "URGENT_NEED",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.011999999969702912,
+      "source": "rule"
+    },
+    {
+      "text": "Khẩn cấp cần laptop ngay hôm nay",
+      "gt": "URGENT_NEED",
+      "predicted": "URGENT_NEED",
+      "correct": true,
+      "latency_ms": 0.03460000016275444,
+      "source": "rule"
+    },
+    {
+      "text": "Địa chỉ cửa hàng ở đâu?",
+      "gt": "CONTACT",
+      "predicted": "CONTACT",
+      "correct": true,
+      "latency_ms": 0.03240000023652101,
+      "source": "rule"
+    },
+    {
+      "text": "Số điện thoại hotline là gì?",
+      "gt": "CONTACT",
+      "predicted": "CONTACT",
+      "correct": true,
+      "latency_ms": 0.03580000020519947,
+      "source": "rule"
+    },
+    {
+      "text": "Zalo shop là gì để liên hệ?",
+      "gt": "CONTACT",
+      "predicted": "CONTACT",
+      "correct": true,
+      "latency_ms": 0.03259999994043028,
+      "source": "rule"
+    },
+    {
+      "text": "Website shop là gì?",
+      "gt": "CONTACT",
+      "predicted": "BULK_ORDER",
+      "correct": false,
+      "latency_ms": 0.024699999812582973,
+      "source": "rule"
+    },
+    {
+      "text": "Hàng chính hãng không shop?",
+      "gt": "ASK_AUTHENTIC",
+      "predicted": "ASK_AUTHENTIC",
+      "correct": true,
+      "latency_ms": 0.03100000003541936,
+      "source": "rule"
+    },
+    {
+      "text": "Có đảm bảo hàng xịn không?",
+      "gt": "ASK_AUTHENTIC",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009399999726156238,
+      "source": "rule"
+    },
+    {
+      "text": "Nguồn gốc hàng từ đâu vậy?",
+      "gt": "ASK_AUTHENTIC",
+      "predicted": "ASK_AUTHENTIC",
+      "correct": true,
+      "latency_ms": 0.026400000024295878,
+      "source": "rule"
+    },
+    {
+      "text": "Thu cũ đổi mới không shop?",
+      "gt": "ASK_TRADE_IN",
+      "predicted": "ASK_TRADE_IN",
+      "correct": true,
+      "latency_ms": 0.02859999995052931,
+      "source": "rule"
+    },
+    {
+      "text": "Trade in iPhone 13 được bao nhiêu?",
+      "gt": "ASK_TRADE_IN",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007999999979801942,
+      "source": "rule"
+    },
+    {
+      "text": "Bán máy cũ đổi mới có không?",
+      "gt": "ASK_TRADE_IN",
+      "predicted": "ASK_TRADE_IN",
+      "correct": true,
+      "latency_ms": 0.030300000162242213,
+      "source": "rule"
+    },
+    {
+      "text": "Sửa iPhone ở đây được không?",
+      "gt": "ASK_REPAIR",
+      "predicted": "ASK_REPAIR",
+      "correct": true,
+      "latency_ms": 0.0390000000152213,
+      "source": "rule"
+    },
+    {
+      "text": "Cho mình bảo dưỡng laptop",
+      "gt": "ASK_REPAIR",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.01049999991664663,
+      "source": "rule"
+    },
+    {
+      "text": "Trung tâm bảo hành của shop ở đâu?",
+      "gt": "ASK_REPAIR",
+      "predicted": "ASK_RETURN",
+      "correct": false,
+      "latency_ms": 0.022199999875738285,
+      "source": "rule"
+    },
+    {
+      "text": "Có bán hàng cũ không shop?",
+      "gt": "ASK_SECOND_HAND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.008200000138458563,
+      "source": "rule"
+    },
+    {
+      "text": "iPhone 14 like new giá bao nhiêu?",
+      "gt": "ASK_SECOND_HAND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.006499999926745659,
+      "source": "rule"
+    },
+    {
+      "text": "Refurbished MacBook có bán không?",
+      "gt": "ASK_SECOND_HAND",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009500000032858225,
+      "source": "rule"
+    },
+    {
+      "text": "Tích điểm thành viên ở shop như thế nào?",
+      "gt": "ASK_LOYALTY",
+      "predicted": "ASK_LOYALTY",
+      "correct": true,
+      "latency_ms": 0.04660000013245735,
+      "source": "rule"
+    },
+    {
+      "text": "Điểm thưởng đổi được gì?",
+      "gt": "ASK_LOYALTY",
+      "predicted": "ASK_LOYALTY",
+      "correct": true,
+      "latency_ms": 0.0359000000571541,
+      "source": "rule"
+    },
+    {
+      "text": "Thành viên VIP có ưu đãi gì?",
+      "gt": "ASK_LOYALTY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009200000022246968,
+      "source": "rule"
+    },
+    {
+      "text": "Có gói quà không shop?",
+      "gt": "ASK_GIFT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.0073999999585794285,
+      "source": "rule"
+    },
+    {
+      "text": "Mua làm quà có hộp đẹp không?",
+      "gt": "ASK_GIFT",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.01049999991664663,
+      "source": "rule"
+    },
+    {
+      "text": "Gói quà tặng sinh nhật được không?",
+      "gt": "ASK_GIFT",
+      "predicted": "BULK_ORDER",
+      "correct": false,
+      "latency_ms": 0.034899999718618346,
+      "source": "rule"
+    },
+    {
+      "text": "Xuất hóa đơn VAT được không?",
+      "gt": "ASK_INVOICE",
+      "predicted": "ASK_INVOICE",
+      "correct": true,
+      "latency_ms": 0.03879999985656468,
+      "source": "rule"
+    },
+    {
+      "text": "Mình cần hóa đơn đỏ",
+      "gt": "ASK_INVOICE",
+      "predicted": "ASK_INVOICE",
+      "correct": true,
+      "latency_ms": 0.033400000120309414,
+      "source": "rule"
+    },
+    {
+      "text": "Invoice cho công ty được không?",
+      "gt": "ASK_INVOICE",
+      "predicted": "ASK_INVOICE",
+      "correct": true,
+      "latency_ms": 0.04150000040681334,
+      "source": "rule"
+    },
+    {
+      "text": "Phụ kiện iPhone 15 có gì đi kèm?",
+      "gt": "ASK_ACCESSORIES",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.042300000131945126,
+      "source": "fallback"
+    },
+    {
+      "text": "Ốp lưng Samsung S24 có không?",
+      "gt": "ASK_ACCESSORIES",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.04179999996267725,
+      "source": "fallback"
+    },
+    {
+      "text": "Sạc dự phòng 20000mAh bán không?",
+      "gt": "ASK_ACCESSORIES",
+      "predicted": "ASK_BATTERY",
+      "correct": false,
+      "latency_ms": 0.022699999590258813,
+      "source": "rule"
+    },
+    {
+      "text": "Màu sắc của iPhone 15 Pro có những gì?",
+      "gt": "ASK_DESIGN",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.017299999854003545,
+      "source": "rule"
+    },
+    {
+      "text": "Trọng lượng laptop này bao nhiêu gram?",
+      "gt": "ASK_DESIGN",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.009000000318337698,
+      "source": "rule"
+    },
+    {
+      "text": "Thiết kế mỏng không shop?",
+      "gt": "ASK_DESIGN",
+      "predicted": "ASK_DESIGN",
+      "correct": true,
+      "latency_ms": 0.025499999992462108,
+      "source": "rule"
+    },
+    {
+      "text": "AirPods có tương thích với Android không?",
+      "gt": "ASK_COMPATIBILITY",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.007999999979801942,
+      "source": "rule"
+    },
+    {
+      "text": "Watch này dùng được với iPhone không?",
+      "gt": "ASK_COMPATIBILITY",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.047900000026857015,
+      "source": "fallback"
+    },
+    {
+      "text": "So sánh thông số chip A17 Pro và Snapdragon 8 Gen 3",
+      "gt": "COMPARE_SPECS",
+      "predicted": "FEEDBACK_POSITIVE",
+      "correct": false,
+      "latency_ms": 0.0525000000379805,
+      "source": "rule"
+    },
+    {
+      "text": "RAM và storage khác gì nhau giữa 2 model này?",
+      "gt": "COMPARE_SPECS",
+      "predicted": "ASK_STORAGE",
+      "correct": false,
+      "latency_ms": 0.03100000003541936,
+      "source": "rule"
+    },
+    {
+      "text": "So sánh phụ kiện đi kèm bản thường và bản Pro",
+      "gt": "COMPARE_ACCESSORIES",
+      "predicted": "FEEDBACK_POSITIVE",
+      "correct": false,
+      "latency_ms": 0.04749999970954377,
+      "source": "rule"
+    },
+    {
+      "text": "Đổi sang model khác được không?",
+      "gt": "CHANGE_PRODUCT",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.044800000068789814,
+      "source": "fallback"
+    },
+    {
+      "text": "Mình muốn đổi sang bản 256GB",
+      "gt": "CHANGE_PRODUCT",
+      "predicted": "ASK_STORAGE",
+      "correct": false,
+      "latency_ms": 0.023999999939405825,
+      "source": "rule"
+    },
+    {
+      "text": "OS của máy này là gì?",
+      "gt": "ASK_OS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.03170000036334386,
+      "source": "fallback"
+    },
+    {
+      "text": "Chạy Android phiên bản mấy?",
+      "gt": "ASK_OS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.039399999877787195,
+      "source": "fallback"
+    },
+    {
+      "text": "iOS mấy vậy shop?",
+      "gt": "ASK_OS",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.029799999992974335,
+      "source": "fallback"
+    },
+    {
+      "text": "Mình cần hỗ trợ về sản phẩm",
+      "gt": "HELP",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.046099999963189475,
+      "source": "fallback"
+    },
+    {
+      "text": "Bot có thể làm gì giúp mình?",
+      "gt": "HELP",
+      "predicted": "SEARCH_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.015699999948992627,
+      "source": "rule"
+    },
+    {
+      "text": "Bạn là ai vậy?",
+      "gt": "HELP",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.04189999981463188,
+      "source": "fallback"
+    },
+    {
+      "text": "Trời hôm nay đẹp quá nhỉ",
+      "gt": "SMALLTALK",
+      "predicted": "URGENT_NEED",
+      "correct": false,
+      "latency_ms": 0.03129999959128327,
+      "source": "rule"
+    },
+    {
+      "text": "Bạn thích dùng iPhone hay Android?",
+      "gt": "SMALLTALK",
+      "predicted": "COMPARE_PRODUCT",
+      "correct": false,
+      "latency_ms": 0.020200000108161476,
+      "source": "rule"
+    },
+    {
+      "text": "Kể mình nghe về shop đi",
+      "gt": "SMALLTALK",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.04650000028050272,
+      "source": "fallback"
+    },
+    {
+      "text": "Hãy nói gì đó đi",
+      "gt": "UNKNOWN",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.031200000194075983,
+      "source": "fallback"
+    },
+    {
+      "text": "abcxyz123",
+      "gt": "UNKNOWN",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.02320000021427404,
+      "source": "fallback"
+    },
+    {
+      "text": "???",
+      "gt": "UNKNOWN",
+      "predicted": null,
+      "correct": false,
+      "latency_ms": 0.014699999610456871,
+      "source": "fallback"
+    }
+  ]
+}

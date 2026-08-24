@@ -1,0 +1,191 @@
+{"text": "Xin chào shop", "label": "GREETING"}
+{"text": "Hello bên shop ơi", "label": "GREETING"}
+{"text": "Hi, shop có nghe không?", "label": "GREETING"}
+{"text": "Chào shop, mình cần tư vấn", "label": "GREETING"}
+{"text": "Alo shop ơi", "label": "GREETING"}
+{"text": "Good morning shop", "label": "GREETING"}
+{"text": "Shop ơi có ai không?", "label": "GREETING"}
+{"text": "Chào em nhé", "label": "GREETING"}
+{"text": "iPhone 15 Pro giá bao nhiêu?", "label": "ASK_PRICE"}
+{"text": "Laptop Dell XPS 13 bán bao nhiêu tiền?", "label": "ASK_PRICE"}
+{"text": "Samsung S24 Ultra giá mấy triệu vậy shop?", "label": "ASK_PRICE"}
+{"text": "Hỏi giá AirPods Pro 2 đi shop", "label": "ASK_PRICE"}
+{"text": "Giá Macbook Air M3 là bao nhiêu?", "label": "ASK_PRICE"}
+{"text": "Bao nhiêu tiền 1 cái tai nghe Sony WH1000XM5?", "label": "ASK_PRICE"}
+{"text": "Price của iPad Pro 12.9 inch là gì?", "label": "ASK_PRICE"}
+{"text": "Shop bán iPhone 15 không?", "label": "SEARCH_PRODUCT"}
+{"text": "Cho mình xem laptop gaming dưới 20 triệu", "label": "SEARCH_PRODUCT"}
+{"text": "Tìm tai nghe chống ồn cho mình với", "label": "SEARCH_PRODUCT"}
+{"text": "Mình muốn mua Samsung Galaxy S24", "label": "SEARCH_PRODUCT"}
+{"text": "Cần mua iPad mini, shop có không?", "label": "SEARCH_PRODUCT"}
+{"text": "Có bán Xiaomi 14 không shop?", "label": "SEARCH_PRODUCT"}
+{"text": "Điện thoại tầm 10 triệu có gì?", "label": "SEARCH_PRODUCT"}
+{"text": "Laptop tầm 15-20 triệu cho dân thiết kế", "label": "SEARCH_PRODUCT"}
+{"text": "Cấu hình iPhone 15 Pro Max như thế nào?", "label": "ASK_SPECS"}
+{"text": "Laptop Dell XPS cấu hình ra sao?", "label": "ASK_SPECS"}
+{"text": "Samsung S24 chip gì vậy?", "label": "ASK_SPECS"}
+{"text": "Thông số kỹ thuật của MacBook M3 là gì?", "label": "ASK_SPECS"}
+{"text": "CPU của laptop này là gì shop?", "label": "ASK_SPECS"}
+{"text": "Con này mấy nhân mấy luồng?", "label": "ASK_SPECS"}
+{"text": "Hàng giao trong bao lâu?", "label": "ASK_DELIVERY"}
+{"text": "Ship về Đà Nẵng mất mấy ngày?", "label": "ASK_DELIVERY"}
+{"text": "Phí giao hàng bao nhiêu shop?", "label": "ASK_DELIVERY"}
+{"text": "Có free ship không?", "label": "ASK_DELIVERY"}
+{"text": "Giao hàng nhanh nhất bao lâu tới?", "label": "ASK_DELIVERY"}
+{"text": "Bao giờ nhận được hàng?", "label": "ASK_DELIVERY"}
+{"text": "Delivery fee là bao nhiêu?", "label": "ASK_DELIVERY"}
+{"text": "Ship hỏa tốc có không shop?", "label": "ASK_DELIVERY"}
+{"text": "Đổi trả hàng trong bao nhiêu ngày?", "label": "ASK_RETURN"}
+{"text": "Hàng lỗi có được đổi không?", "label": "ASK_RETURN"}
+{"text": "Chính sách bảo hành là gì?", "label": "ASK_RETURN"}
+{"text": "Bảo hành bao lâu vậy shop?", "label": "ASK_RETURN"}
+{"text": "Mua về không ưng có trả lại không?", "label": "ASK_RETURN"}
+{"text": "Warranty của iPhone này bao lâu?", "label": "ASK_RETURN"}
+{"text": "Thanh toán được bằng MoMo không?", "label": "ASK_PAYMENT"}
+{"text": "Có chấp nhận trả góp không?", "label": "ASK_PAYMENT"}
+{"text": "Thanh toán COD được không shop?", "label": "ASK_PAYMENT"}
+{"text": "ZaloPay được không ạ?", "label": "ASK_PAYMENT"}
+{"text": "Có thể dùng VNPAY không?", "label": "ASK_PAYMENT"}
+{"text": "Chuyển khoản ngân hàng được không?", "label": "ASK_PAYMENT"}
+{"text": "Trả góp 0% lãi suất có không?", "label": "ASK_PAYMENT"}
+{"text": "iPhone 15 vs Samsung S24 cái nào tốt hơn?", "label": "COMPARE_PRODUCT"}
+{"text": "So sánh MacBook Air M3 và Dell XPS đi shop", "label": "COMPARE_PRODUCT"}
+{"text": "AirPods Pro hay Sony WH1000XM5 hơn?", "label": "COMPARE_PRODUCT"}
+{"text": "iPhone 15 Pro Max với 15 Plus khác gì nhau?", "label": "COMPARE_PRODUCT"}
+{"text": "Galaxy S24 Ultra hay iPhone 15 Pro Max ngon hơn?", "label": "COMPARE_PRODUCT"}
+{"text": "Con nào tốt hơn giữa Xiaomi 14 và Oppo Find X7?", "label": "COMPARE_PRODUCT"}
+{"text": "Còn hàng AirPods Pro 2 không?", "label": "CHECK_STOCK"}
+{"text": "iPhone 15 màu titan tự nhiên còn không shop?", "label": "CHECK_STOCK"}
+{"text": "Laptop này hết hàng chưa?", "label": "CHECK_STOCK"}
+{"text": "Tồn kho còn bao nhiêu cái?", "label": "CHECK_STOCK"}
+{"text": "Con Samsung S24 này out of stock chưa?", "label": "CHECK_STOCK"}
+{"text": "Còn hàng không shop ơi?", "label": "CHECK_STOCK"}
+{"text": "Theo dõi đơn hàng ở đâu?", "label": "TRACK_ORDER"}
+{"text": "Đơn hàng của mình đến đâu rồi?", "label": "TRACK_ORDER"}
+{"text": "Mã đơn hàng #1234 tình trạng thế nào?", "label": "TRACK_ORDER"}
+{"text": "Khi nào đơn mình giao?", "label": "TRACK_ORDER"}
+{"text": "Track order của mình được không?", "label": "TRACK_ORDER"}
+{"text": "Hủy đơn hàng được không?", "label": "CANCEL_ORDER"}
+{"text": "Cho mình cancel đơn số 5678", "label": "CANCEL_ORDER"}
+{"text": "Không muốn mua nữa, hủy giúp mình", "label": "CANCEL_ORDER"}
+{"text": "Hủy mua đi shop ơi", "label": "CANCEL_ORDER"}
+{"text": "Gợi ý laptop tầm 20 triệu cho mình với", "label": "ASK_RECOMMEND"}
+{"text": "Nên mua iPhone hay Android?", "label": "ASK_RECOMMEND"}
+{"text": "Tư vấn cho mình tai nghe tập gym tốt", "label": "ASK_RECOMMEND"}
+{"text": "Recommend điện thoại chụp ảnh đẹp đi shop", "label": "ASK_RECOMMEND"}
+{"text": "Mình cần mua laptop cho sinh viên, nên mua gì?", "label": "ASK_RECOMMEND"}
+{"text": "Shop tư vấn cho mình phone chơi game tốt", "label": "ASK_RECOMMEND"}
+{"text": "Sản phẩm nào bán chạy nhất?", "label": "ASK_BEST_SELLER"}
+{"text": "Laptop nào bán nhiều nhất hiện nay?", "label": "ASK_BEST_SELLER"}
+{"text": "Điện thoại hot nhất bây giờ là gì?", "label": "ASK_BEST_SELLER"}
+{"text": "Bestseller của shop là gì?", "label": "ASK_BEST_SELLER"}
+{"text": "Hàng mới về gần đây là gì?", "label": "ASK_NEW_ARRIVAL"}
+{"text": "Có iPhone 16 chưa?", "label": "ASK_NEW_ARRIVAL"}
+{"text": "Sản phẩm mới nhất của shop là gì?", "label": "ASK_NEW_ARRIVAL"}
+{"text": "New arrival tháng này có gì?", "label": "ASK_NEW_ARRIVAL"}
+{"text": "Đặt trước iPhone 16 được không?", "label": "ASK_PREORDER"}
+{"text": "Có cho pre-order Samsung Galaxy S25 không?", "label": "ASK_PREORDER"}
+{"text": "Khi nào iPhone 17 ra mắt?", "label": "ASK_PREORDER"}
+{"text": "Cho mình đặt trước MacBook M4", "label": "ASK_PREORDER"}
+{"text": "Camera iPhone 15 Pro chụp đẹp không shop?", "label": "ASK_CAMERA"}
+{"text": "Điện thoại này chụp ảnh ban đêm có tốt không?", "label": "ASK_CAMERA"}
+{"text": "Megapixel camera trước Samsung S24 là bao nhiêu?", "label": "ASK_CAMERA"}
+{"text": "Selfie camera của Oppo Find X7 tốt không?", "label": "ASK_CAMERA"}
+{"text": "Dùng máy này quay video 4K được không?", "label": "ASK_CAMERA"}
+{"text": "Pin iPhone 15 dùng được bao lâu?", "label": "ASK_BATTERY"}
+{"text": "Laptop này pin mấy tiếng?", "label": "ASK_BATTERY"}
+{"text": "Samsung S24 Ultra dung lượng pin bao nhiêu mAh?", "label": "ASK_BATTERY"}
+{"text": "Có sạc nhanh không shop?", "label": "ASK_BATTERY"}
+{"text": "Wireless charging support không?", "label": "ASK_BATTERY"}
+{"text": "Màn hình Samsung S24 AMOLED hay LCD?", "label": "ASK_DISPLAY"}
+{"text": "iPhone 15 Pro Max inch mấy?", "label": "ASK_DISPLAY"}
+{"text": "Refresh rate màn hình là bao nhiêu Hz?", "label": "ASK_DISPLAY"}
+{"text": "Độ phân giải màn hình laptop này là gì?", "label": "ASK_DISPLAY"}
+{"text": "RAM bao nhiêu shop?", "label": "ASK_STORAGE"}
+{"text": "Storage 256GB hay 512GB?", "label": "ASK_STORAGE"}
+{"text": "iPhone 15 có bản 1TB không?", "label": "ASK_STORAGE"}
+{"text": "Laptop này có thể nâng cấp RAM không?", "label": "ASK_STORAGE"}
+{"text": "Máy này có 5G không shop?", "label": "ASK_CONNECTIVITY"}
+{"text": "WiFi 6E support không?", "label": "ASK_CONNECTIVITY"}
+{"text": "Bluetooth version bao nhiêu?", "label": "ASK_CONNECTIVITY"}
+{"text": "iPhone này có NFC không?", "label": "ASK_CONNECTIVITY"}
+{"text": "Laptop này chơi game được không?", "label": "ASK_GAMING"}
+{"text": "Máy này chơi PUBG Mobile mượt không?", "label": "ASK_GAMING"}
+{"text": "FPS Liên Quân trên máy này tầm bao nhiêu?", "label": "ASK_GAMING"}
+{"text": "Chơi Genshin Impact có lag không shop?", "label": "ASK_GAMING"}
+{"text": "IP68 không shop?", "label": "ASK_WATERPROOF"}
+{"text": "Điện thoại này có chống nước không?", "label": "ASK_WATERPROOF"}
+{"text": "Ngâm nước bao lâu được?", "label": "ASK_WATERPROOF"}
+{"text": "Có flashsale không shop?", "label": "ASK_PROMO"}
+{"text": "Voucher giảm giá có không?", "label": "ASK_PROMO"}
+{"text": "Mã giảm giá tháng này là gì?", "label": "ASK_PROMO"}
+{"text": "Sale 11/11 có khuyến mãi không?", "label": "ASK_PROMO"}
+{"text": "Discount bao nhiêu phần trăm?", "label": "ASK_PROMO"}
+{"text": "Giá này cao quá, giảm thêm được không?", "label": "PRICE_COMPLAINT"}
+{"text": "Đắt quá shop ơi, bot giá xuống không?", "label": "PRICE_COMPLAINT"}
+{"text": "Mặc cả được không shop?", "label": "PRICE_COMPLAINT"}
+{"text": "Chỗ khác bán rẻ hơn, shop match price không?", "label": "PRICE_COMPLAINT"}
+{"text": "Dịch vụ shop tệ quá, mình không hài lòng", "label": "COMPLAINT"}
+{"text": "Hàng giao sai màu rồi shop ơi", "label": "COMPLAINT"}
+{"text": "Máy mua 3 ngày đã hỏng rồi", "label": "COMPLAINT"}
+{"text": "Ship lâu quá, mình đã đặt 10 ngày rồi", "label": "COMPLAINT"}
+{"text": "Shop phục vụ tốt lắm, cảm ơn!", "label": "FEEDBACK_POSITIVE"}
+{"text": "Hàng chất lượng, đóng gói cẩn thận, 5 sao", "label": "FEEDBACK_POSITIVE"}
+{"text": "Cảm ơn shop nhé, mình rất hài lòng", "label": "FEEDBACK_POSITIVE"}
+{"text": "Giao hàng nhanh, nhân viên nhiệt tình, tuyệt vời", "label": "FEEDBACK_POSITIVE"}
+{"text": "Mua số lượng lớn có giá sỉ không?", "label": "BULK_ORDER"}
+{"text": "Mua 50 cái iPhone được chiết khấu bao nhiêu?", "label": "BULK_ORDER"}
+{"text": "Công ty mình muốn mua 100 laptop, giá bulk?", "label": "BULK_ORDER"}
+{"text": "Cần giao ngay hôm nay được không?", "label": "URGENT_NEED"}
+{"text": "Mình cần gấp, có thể ship trong 2 tiếng không?", "label": "URGENT_NEED"}
+{"text": "Khẩn cấp cần laptop ngay hôm nay", "label": "URGENT_NEED"}
+{"text": "Địa chỉ cửa hàng ở đâu?", "label": "CONTACT"}
+{"text": "Số điện thoại hotline là gì?", "label": "CONTACT"}
+{"text": "Zalo shop là gì để liên hệ?", "label": "CONTACT"}
+{"text": "Website shop là gì?", "label": "CONTACT"}
+{"text": "Hàng chính hãng không shop?", "label": "ASK_AUTHENTIC"}
+{"text": "Có đảm bảo hàng xịn không?", "label": "ASK_AUTHENTIC"}
+{"text": "Nguồn gốc hàng từ đâu vậy?", "label": "ASK_AUTHENTIC"}
+{"text": "Thu cũ đổi mới không shop?", "label": "ASK_TRADE_IN"}
+{"text": "Trade in iPhone 13 được bao nhiêu?", "label": "ASK_TRADE_IN"}
+{"text": "Bán máy cũ đổi mới có không?", "label": "ASK_TRADE_IN"}
+{"text": "Sửa iPhone ở đây được không?", "label": "ASK_REPAIR"}
+{"text": "Cho mình bảo dưỡng laptop", "label": "ASK_REPAIR"}
+{"text": "Trung tâm bảo hành của shop ở đâu?", "label": "ASK_REPAIR"}
+{"text": "Có bán hàng cũ không shop?", "label": "ASK_SECOND_HAND"}
+{"text": "iPhone 14 like new giá bao nhiêu?", "label": "ASK_SECOND_HAND"}
+{"text": "Refurbished MacBook có bán không?", "label": "ASK_SECOND_HAND"}
+{"text": "Tích điểm thành viên ở shop như thế nào?", "label": "ASK_LOYALTY"}
+{"text": "Điểm thưởng đổi được gì?", "label": "ASK_LOYALTY"}
+{"text": "Thành viên VIP có ưu đãi gì?", "label": "ASK_LOYALTY"}
+{"text": "Có gói quà không shop?", "label": "ASK_GIFT"}
+{"text": "Mua làm quà có hộp đẹp không?", "label": "ASK_GIFT"}
+{"text": "Gói quà tặng sinh nhật được không?", "label": "ASK_GIFT"}
+{"text": "Xuất hóa đơn VAT được không?", "label": "ASK_INVOICE"}
+{"text": "Mình cần hóa đơn đỏ", "label": "ASK_INVOICE"}
+{"text": "Invoice cho công ty được không?", "label": "ASK_INVOICE"}
+{"text": "Phụ kiện iPhone 15 có gì đi kèm?", "label": "ASK_ACCESSORIES"}
+{"text": "Ốp lưng Samsung S24 có không?", "label": "ASK_ACCESSORIES"}
+{"text": "Sạc dự phòng 20000mAh bán không?", "label": "ASK_ACCESSORIES"}
+{"text": "Màu sắc của iPhone 15 Pro có những gì?", "label": "ASK_DESIGN"}
+{"text": "Trọng lượng laptop này bao nhiêu gram?", "label": "ASK_DESIGN"}
+{"text": "Thiết kế mỏng không shop?", "label": "ASK_DESIGN"}
+{"text": "AirPods có tương thích với Android không?", "label": "ASK_COMPATIBILITY"}
+{"text": "Watch này dùng được với iPhone không?", "label": "ASK_COMPATIBILITY"}
+{"text": "So sánh thông số chip A17 Pro và Snapdragon 8 Gen 3", "label": "COMPARE_SPECS"}
+{"text": "RAM và storage khác gì nhau giữa 2 model này?", "label": "COMPARE_SPECS"}
+{"text": "So sánh phụ kiện đi kèm bản thường và bản Pro", "label": "COMPARE_ACCESSORIES"}
+{"text": "Đổi sang model khác được không?", "label": "CHANGE_PRODUCT"}
+{"text": "Mình muốn đổi sang bản 256GB", "label": "CHANGE_PRODUCT"}
+{"text": "OS của máy này là gì?", "label": "ASK_OS"}
+{"text": "Chạy Android phiên bản mấy?", "label": "ASK_OS"}
+{"text": "iOS mấy vậy shop?", "label": "ASK_OS"}
+{"text": "Mình cần hỗ trợ về sản phẩm", "label": "HELP"}
+{"text": "Bot có thể làm gì giúp mình?", "label": "HELP"}
+{"text": "Bạn là ai vậy?", "label": "HELP"}
+{"text": "Trời hôm nay đẹp quá nhỉ", "label": "SMALLTALK"}
+{"text": "Bạn thích dùng iPhone hay Android?", "label": "SMALLTALK"}
+{"text": "Kể mình nghe về shop đi", "label": "SMALLTALK"}
+{"text": "Hãy nói gì đó đi", "label": "UNKNOWN"}
+{"text": "abcxyz123", "label": "UNKNOWN"}
+{"text": "???", "label": "UNKNOWN"}

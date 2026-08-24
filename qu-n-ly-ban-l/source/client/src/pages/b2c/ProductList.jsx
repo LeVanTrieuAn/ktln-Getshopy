@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Row, Col, Card, Typography, Spin, Tag, Rate, Select, Empty, InputNumber, Button, Checkbox, Slider, Radio, Divider, Pagination } from 'antd';
 import { ShoppingCartOutlined, FilterOutlined, RobotOutlined, BulbOutlined, FrownOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -8,6 +8,14 @@ import { useApp } from '../../context/AppContext';
 
 const { Title, Text } = Typography;
 
+// ── Benchmark helper: chỉ bật khi URL có ?benchmark=true ───────────────────
+function useBenchmarkMode() {
+  return useMemo(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('benchmark'),
+    []
+  );
+}
+
 export default function ProductList() {
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
@@ -16,6 +24,8 @@ export default function ProductList() {
   const [brandList, setBrandList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState('newest');
+  const isBenchmark = useBenchmarkMode();
+  const benchRef    = useRef({ fetchStart: 0, renderStart: 0 });
   
   // Advanced filters
   const [minPrice, setMinPrice] = useState(null);
@@ -52,6 +62,11 @@ export default function ProductList() {
   useEffect(() => {
     async function load() {
       setLoading(true);
+      const t0 = isBenchmark ? performance.now() : 0;
+      if (isBenchmark) {
+        benchRef.current.fetchStart = t0;
+        console.log('[Benchmark] ProductList fetch start');
+      }
       try {
         let [prodData, catData, brandData] = await Promise.all([
           api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 12),
@@ -72,6 +87,15 @@ export default function ProductList() {
         setCategories(catData);
         setBrandList(brandData || []);
 
+        if (isBenchmark) {
+          const fetchEnd = performance.now();
+          const fetchMs  = Math.round(fetchEnd - t0);
+          console.log(`[Benchmark] ✅ ProductList fetch done: ${fetchMs}ms | rows=${allProds.length} | total=${prodData.total || 0}`);
+          if (prodData.total > 10000) {
+            console.warn(`[Benchmark] ⚠️  Large dataset: ${(prodData.total || 0).toLocaleString()} sản phẩm trong DB`);
+          }
+        }
+
         // Tự động gọi AI search nếu DB không tìm thấy sản phẩm nào và có từ khoá
         if (allProds.length === 0 && searchQuery.trim()) {
           setIsAiLoading(true);
@@ -91,6 +115,10 @@ export default function ProductList() {
         console.error(err);
       } finally {
         setLoading(false);
+        if (isBenchmark) {
+          const totalMs = Math.round(performance.now() - t0);
+          console.log(`[Benchmark] ProductList total load+render: ${totalMs}ms`);
+        }
       }
     }
     load();

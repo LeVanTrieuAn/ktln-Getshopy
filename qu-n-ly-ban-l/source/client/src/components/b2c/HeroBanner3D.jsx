@@ -10,7 +10,7 @@
  *   invalidateRef  — { fn: Function|null }   (bridge GSAP → WebGL invalidate)
  * ════════════════════════════════════════════════════════════════
  */
-import React, { useRef, useMemo, useEffect, Suspense } from 'react';
+import React, { useRef, useMemo, useEffect, Suspense, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { useGLTF, Center } from '@react-three/drei';
 
@@ -279,11 +279,109 @@ function Scene({ animRef, invalidateRef }) {
  * @param {{ fn: Function|null }}  props.invalidateRef — R3F invalidate bridge
  * @param {boolean}                props.isInView      — Mount Canvas only when in viewport
  */
+// ─── FPS Stats (Benchmark Mode) ──────────────────────────────────────────────
+// Chỉ bật khi URL có ?benchmark=true — không ảnh hưởng production
+function useFPSStats(enabled) {
+  const statsRef = useRef(null);
+  const rafRef   = useRef(null);
+
+  useEffect(() => {
+    if (!enabled) return;
+
+    // Load stats.js từ CDN (không cần npm install)
+    const script = document.createElement('script');
+    script.src = 'https://mrdoob.github.io/stats.js/build/stats.min.js';
+    script.onload = () => {
+      const stats = new window.Stats();
+      stats.showPanel(0); // 0=FPS, 1=MS/frame, 2=MB
+      stats.dom.style.cssText = [
+        'position:fixed',
+        'top:80px',
+        'right:16px',
+        'z-index:9999',
+        'opacity:0.9',
+        'pointer-events:none',
+      ].join(';');
+      document.body.appendChild(stats.dom);
+      statsRef.current = stats;
+
+      // Render loop để cập nhật stats
+      const loop = () => {
+        stats.update();
+        rafRef.current = requestAnimationFrame(loop);
+      };
+      rafRef.current = requestAnimationFrame(loop);
+      console.log('[Benchmark] FPS Stats enabled — ?benchmark=true');
+    };
+    document.head.appendChild(script);
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (statsRef.current?.dom?.parentNode) {
+        statsRef.current.dom.parentNode.removeChild(statsRef.current.dom);
+      }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    };
+  }, [enabled]);
+
+  return statsRef;
+}
+
+// ─── 3D Load Time Tracker ─────────────────────────────────────────────────────
+function useLoadTracker(isBenchmark) {
+  useEffect(() => {
+    if (!isBenchmark) return;
+    const t0 = performance.now();
+    console.log('[Benchmark] 3D Canvas mount — t=0ms');
+    return () => {
+      const elapsed = (performance.now() - t0).toFixed(0);
+      console.log(`[Benchmark] 3D Canvas unmount — lived ${elapsed}ms`);
+    };
+  }, [isBenchmark]);
+}
+
 export default function HeroBanner3D({ animRef, invalidateRef, isInView }) {
   const [canvasKey, setCanvasKey]       = React.useState(0);
   const [canvasEnabled, setCanvasEnabled] = React.useState(true);
   const contextHandled = React.useRef(false);
   const recoveryTimer  = React.useRef(null);
+
+  // ── Benchmark mode: bật khi URL có ?benchmark=true ──────────────────────
+  const isBenchmark = React.useMemo(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('benchmark'),
+    []
+  );
+  const [glbLoadTime, setGlbLoadTime] = React.useState(null);
+  useFPSStats(isBenchmark);
+  useLoadTracker(isBenchmark);
+
+  // Đo thời gian tải GLB (chỉ ở benchmark mode)
+  React.useEffect(() => {
+    if (!isBenchmark) return;
+    const t0 = performance.now();
+    // Dùng PerformanceObserver để bắt resource timing của .glb files
+    const observer = new PerformanceObserver((list) => {
+      const glbEntries = list.getEntries().filter(e => e.name.includes('.glb'));
+      if (glbEntries.length > 0) {
+        const times = glbEntries.map(e => ({
+          name: e.name.split('/').pop(),
+          duration_ms: Math.round(e.duration),
+          size_kb: Math.round(e.transferSize / 1024),
+        }));
+        console.table(times);
+        const maxTime = Math.max(...glbEntries.map(e => e.responseEnd - e.startTime));
+        setGlbLoadTime(Math.round(maxTime));
+        console.log(`[Benchmark] ✅ Tất cả GLB loaded — max=${Math.round(maxTime)}ms`);
+        observer.disconnect();
+      }
+    });
+    try {
+      observer.observe({ type: 'resource', buffered: true });
+    } catch (e) {
+      console.warn('[Benchmark] PerformanceObserver không khả dụng');
+    }
+    return () => observer.disconnect();
+  }, [isBenchmark]);
 
   React.useEffect(() => () => {
     if (recoveryTimer.current) clearTimeout(recoveryTimer.current);
@@ -313,20 +411,50 @@ export default function HeroBanner3D({ animRef, invalidateRef, isInView }) {
         setCanvasEnabled(true);
       }, 6000);
     }, true /* capture = true */);
-  }, []);
 
-  return (isInView && canvasEnabled) ? (
-    <Canvas
-      key={canvasKey}
-      frameloop="demand"
-      dpr={[1, 1.5]}
-      performance={{ min: 0.5 }}
-      camera={{ position: [0, 0, 12], fov: 50 }}
-      gl={{ powerPreference: 'high-performance', antialias: false }}
-      style={{ pointerEvents: 'auto' }}
-      onCreated={handleCreated}
-    >
-      <Scene animRef={animRef} invalidateRef={invalidateRef} />
-    </Canvas>
-  ) : null;
+    if (isBenchmark) {
+      const info = gl.getContext().getExtension('WEBGL_debug_renderer_info');
+      if (info) {
+        const renderer = gl.getContext().getParameter(info.UNMASKED_RENDERER_WEBGL);
+        console.log(`[Benchmark] GPU: ${renderer}`);
+      }
+      console.log(`[Benchmark] WebGL dpr=${gl.getPixelRatio()} antialias=false`);
+    }
+  }, [isBenchmark]);
+
+  return (
+    <>
+      {/* Benchmark overlay — chỉ hiện khi ?benchmark=true */}
+      {isBenchmark && (
+        <div style={{
+          position: 'fixed', bottom: 16, right: 16, zIndex: 9998,
+          background: 'rgba(0,0,0,0.75)', color: '#0f0', fontFamily: 'monospace',
+          fontSize: 11, padding: '8px 12px', borderRadius: 8,
+          pointerEvents: 'none', backdropFilter: 'blur(4px)',
+          border: '1px solid rgba(0,255,0,0.3)',
+        }}>
+          <div style={{ fontWeight: 700, marginBottom: 4, color: '#0f0' }}>🎮 3D Benchmark</div>
+          <div>GLB Load: {glbLoadTime != null ? `${glbLoadTime}ms` : 'loading...'}</div>
+          <div>Models: 5 GLB (Three.js/R3F)</div>
+          <div>frameloop: demand</div>
+          <div>dpr: [1, 1.5]</div>
+        </div>
+      )}
+
+      {(isInView && canvasEnabled) ? (
+        <Canvas
+          key={canvasKey}
+          frameloop="demand"
+          dpr={[1, 1.5]}
+          performance={{ min: 0.5 }}
+          camera={{ position: [0, 0, 12], fov: 50 }}
+          gl={{ powerPreference: 'high-performance', antialias: false }}
+          style={{ pointerEvents: 'auto' }}
+          onCreated={handleCreated}
+        >
+          <Scene animRef={animRef} invalidateRef={invalidateRef} />
+        </Canvas>
+      ) : null}
+    </>
+  );
 }

@@ -9,7 +9,17 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    watch: { usePolling: true }
+    watch: { usePolling: true },
+    // ── Proxy /api → backend Express (port 8080) ──────────────────────────────────
+    // Giải quyết vấn đề: request vào localhost:5173/api thì Vite
+    // không biết xử lý → proxy sang backend 8080 để tránh CORS + 500
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 
   preview: {

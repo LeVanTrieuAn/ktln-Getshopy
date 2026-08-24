@@ -1,4 +1,7 @@
-const BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+// Dùng relative URL '/api' để Vite proxy tự động forward sang backend :8080
+// — Không bị lỗi CORS, không cần hardcode port
+// — VITE_API_URL vẫn có thể override cho production deploy
+const BASE = import.meta.env.VITE_API_URL || '/api';
 
 function getToken() {
   return localStorage.getItem('b2c_token') || localStorage.getItem('token');
