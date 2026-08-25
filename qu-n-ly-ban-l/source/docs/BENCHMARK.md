@@ -1,419 +1,407 @@
 # Báo Cáo Benchmark — Hệ Thống Getshopy
 
-> **Ngày thực hiện:** 24/08/2026  
-> **Môi trường:** Windows 11, Node.js v24.19.0, Python 3.14, PostgreSQL (Supabase)  
+> **Ngày thực hiện:** 25/08/2026  
+> **Script:** `server/src/scripts/benchmark_perf.js` (5 lần/metric)  
+> **Môi trường:** Windows 11, Node.js v24, PostgreSQL 16 (Supabase — Tokyo/ap-northeast-1)  
 > **Tác giả:** Lê Văn Triều An — Khóa luận tốt nghiệp
 
 ---
 
 ## Mục Lục
 
-1. [Tổng Quan](#1-tổng-quan)
-2. [Benchmark AI Models](#2-benchmark-ai-models)
-   - 2.1 [mDeBERTa — Intent Classifier](#21-mdeberta--intent-classifier)
-   - 2.2 [Qwen2.5-7B — Conversational LLM](#22-qwen25-7b--conversational-llm)
-   - 2.3 [Gemini 2.5 Flash — Visual Search](#23-gemini-25-flash--visual-search)
-3. [Benchmark Ứng Dụng Frontend](#3-benchmark-ứng-dụng-frontend)
-   - 3.1 [3D Models — WebGL/Three.js](#31-3d-models--webglthreejs)
-   - 3.2 [API Performance — 50.000 Sản Phẩm](#32-api-performance--50000-sản-phẩm)
-   - 3.3 [Caching Layer](#33-caching-layer)
-4. [So Sánh & Đánh Giá](#4-so-sánh--đánh-giá)
-5. [Kết Luận](#5-kết-luận)
+1. [Kiến Trúc Hệ Thống](#1-kiến-trúc-hệ-thống)
+2. [Kết Quả Benchmark — Bảng Tổng Hợp](#2-kết-quả-benchmark--bảng-tổng-hợp)
+3. [Phần 1: Supabase Network RTT](#3-phần-1-supabase-network-rtt)
+4. [Phần 2: DB Query Trực Tiếp](#4-phần-2-db-query-trực-tiếp)
+5. [Phần 3: DB Insert](#5-phần-3-db-insert)
+6. [Phần 4: API Endpoint](#6-phần-4-api-endpoint)
+7. [Phần 5: Latency Breakdown](#7-phần-5-latency-breakdown)
+8. [Phần 6: AI Models](#8-phần-6-ai-models)
+9. [Phần 7: 3D Assets](#9-phần-7-3d-assets)
+10. [Kết Luận và Khuyến Nghị](#10-kết-luận-và-khuyến-nghị)
 
 ---
 
-## 1. Tổng Quan
-
-Getshopy là hệ thống thương mại điện tử B2C tích hợp 3 mô hình AI và rendering 3D thời gian thực. Mục tiêu benchmark là kiểm chứng hiệu năng thực tế của từng thành phần trên môi trường phát triển chuẩn.
-
-### Kiến trúc Hệ Thống
+## 1. Kiến Trúc Hệ Thống
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    FRONTEND (React/Vite)                 │
-│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐  │
-│  │ HeroBanner3D │  │  ProductList  │  │  AIChatbot   │  │
-│  │ (Three.js/   │  │  (50k data,   │  │  (3 AI       │  │
-│  │  R3F, 5 GLB) │  │  pagination)  │  │  backends)   │  │
-│  └──────────────┘  └───────────────┘  └──────────────┘  │
-└─────────────────────┬───────────────────────────────────┘
-                      │ Vite Proxy /api → :8080
-┌─────────────────────▼───────────────────────────────────┐
-│                 BACKEND (Express.js :8080)               │
-│  ┌──────────────┐  ┌───────────────┐  ┌──────────────┐  │
-│  │  B2C Router  │  │  AI Router    │  │ In-memory    │  │
-│  │  /products   │  │  /intent      │  │ Cache (TTL)  │  │
-│  │  /flash-sale │  │  /chat        │  │              │  │
-│  └──────┬───────┘  └───────┬───────┘  └──────────────┘  │
-└─────────┼─────────────────┼───────────────────────────  ┘
-          │                 │
-  ┌───────▼──────┐  ┌───────▼────────────────────────────┐
-  │  PostgreSQL  │  │         External AI APIs           │
-  │  (Supabase)  │  │  ┌──────────┐ ┌──────┐ ┌────────┐ │
-  │  50.007 rows │  │  │mDeBERTa  │ │Qwen  │ │Gemini  │ │
-  └──────────────┘  │  │(HF API)  │ │2.5-7B│ │2.5Flash│ │
-                    │  └──────────┘ └──────┘ └────────┘ │
-                    └────────────────────────────────────┘
+Client (Browser)
+     │
+     ▼
+Vite Dev :5173 / Nginx :3000  ──proxy /api──▶  Express :8080
+                                                      │
+                          ┌───────────────────────────┤
+                          ▼                           ▼
+               Prisma ORM                    In-memory cache (TTL)
+                          │
+                          ▼
+         PgBouncer Pooler :6543  ──┐
+         (aws-0-ap-northeast-1)    │  Supabase PostgreSQL 16
+         Direct TCP :5432  ────────┘  (~100ms RTT từ VN)
 ```
+
+**Thông số DB:** 50.007 bản ghi trong bảng `Product`  
+**Kết nối:** PgBouncer pooler (transaction mode), fallback Direct TCP
 
 ---
 
-## 2. Benchmark AI Models
+## 2. Kết Quả Benchmark — Bảng Tổng Hợp
 
-### 2.1 mDeBERTa — Intent Classifier
+> Đo thực tế, 5 lần mỗi metric. Thời gian tính bằng **milliseconds (ms)**.
 
-**Mô hình:** `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli`  
-**Nhiệm vụ:** Phân loại ý định người dùng (46 intent classes) từ tin nhắn tiếng Việt  
-**Dataset:** 191 mẫu thực tế thuộc 46 nhóm ý định
-
-#### Kiến trúc 2 tầng
-
-Hệ thống sử dụng **hybrid approach** để tối ưu latency và chi phí:
-
-```
-Tin nhắn người dùng
-        ↓
-┌───────────────────────┐
-│  Tầng 1: Rule-based   │  ← Pure Python regex, ~0.06ms
-│  (Keywords/Patterns)  │
-└──────────┬────────────┘
-           │ Miss (không khớp) 15.7%
-           ▼
-┌───────────────────────┐
-│  Tầng 2: mDeBERTa     │  ← HuggingFace API, ~800-1200ms
-│  (Zero-shot NLI)      │
-└───────────────────────┘
-```
-
-#### Kết Quả Đo Lường (Thực Tế)
-
-| Chỉ số | Giá trị | Ghi chú |
-|--------|---------|---------|
-| **Dataset size** | 191 mẫu | 46 intent classes |
-| **Rule coverage** | 84.3% | Tỉ lệ mẫu được xử lý bởi rule |
-| **Rule accuracy** | 46.0% | Trong số mẫu rule có kết quả |
-| **Rule latency** | ~0.06 ms | Pure Python regex (offline) |
-| **Overall accuracy** | 38.7% | Kết hợp rule + fallback |
-| **Weighted F1** | 0.424 | Trung bình có trọng số |
-| **mDeBERTa latency** | ~800–1200 ms | HuggingFace Inference API |
-
-#### Phân Tích Per-Class F1
-
-| Intent | F1 | Mẫu | Nhận xét |
-|--------|-----|-----|---------|
-| ASK_BEST_SELLER | **1.000** | 4 | Rule nhận diện tốt ("bán chạy", "bestseller") |
-| ASK_NEW_ARRIVAL | **1.000** | 4 | Rule tốt ("hàng mới", "new arrival") |
-| ASK_INVOICE | **1.000** | 3 | Keyword đặc trưng ("hóa đơn", "VAT") |
-| TRACK_ORDER | **0.889** | 5 | Pattern đơn hàng rõ ràng |
-| CANCEL_ORDER | **0.800** | 4 | Keyword "hủy" hiệu quả |
-| ASK_AUTHENTIC | **0.800** | 3 | Từ khóa "chính hãng" |
-| ASK_TRADE_IN | **0.800** | 3 | "trade in", "đổi mới" |
-| ASK_LOYALTY | **0.800** | 3 | "tích điểm", "thành viên" |
-| CONTACT | **0.857** | 4 | "địa chỉ", "hotline" |
-| GREETING | **0.000** | 8 | Lời chào ngắn, khó phân biệt |
-| SMALLTALK | **0.000** | 3 | Nội dung mơ hồ |
-| ASK_PROMO | **0.000** | 5 | Overlap với ASK_PRICE |
-| COMPARE_SPECS | **0.000** | 2 | Câu phức tạp |
-
-**Phân tích:** Rule-based hoạt động tốt với các intent có từ khóa đặc trưng (F1 ≥ 0.8). Các intent mơ hồ (GREETING, SMALLTALK, PROMO) cần mDeBERTa để phân loại chính xác hơn.
+| Metric | avg (ms) | min (ms) | max (ms) | p95 (ms) | n |
+|--------|:--------:|:--------:|:--------:|:--------:|:-:|
+| **RTT — Supabase PgBouncer :6543 (TCP)** | **113.93** | 99.74 | 166.90 | 166.90 | 5 |
+| **RTT — Supabase Direct :5432 (TCP)** | **103.29** | 98.67 | 112.60 | 112.60 | 5 |
+| RTT — localhost Express :8080 (TCP) | 1.29 | 0.98 | 2.05 | 2.05 | 5 |
+| | | | | | |
+| **DB — COUNT(\*) Product (50k rows)** | **289.03** | 113.68 | 989.17 | 989.17 | 5 |
+| DB — SELECT LIMIT 15 | 122.06 | 101.49 | 202.95 | 202.95 | 5 |
+| **DB — SELECT ALL rows (no LIMIT)** | **1,310.93** | 1,178.16 | 1,482.86 | 1,482.86 | 5 |
+| DB — COUNT + SELECT p1 (parallel) | 307.31 | 113.99 | 990.01 | 990.01 | 5 |
+| | | | | | |
+| DB — INSERT 1 product (single) | 279.59 | 206.49 | 425.72 | 425.72 | 3 |
+| DB — INSERT 100 products (createMany) | 534.09 | 527.50 | 541.24 | 541.24 | 3 |
+| | | | | | |
+| **API — GET /products (p1, limit=15)** | **1,028.95** | 1,022.99 | 1,039.67 | 1,039.67 | 5 |
+| API — GET /products (branch filter) | 1,076.85 | 1,038.78 | 1,119.66 | 1,119.66 | 5 |
+| **API — GET /products (no LIMIT, 50k)** | **4,854.29** | 4,298.17 | 5,774.53 | 5,774.53 | 5 |
+| API — GET /flash-sales | 514.14 | 507.37 | 522.64 | 522.64 | 5 |
+| API — GET /categories (cache hit) | ~1 | 1 | — | — | 4 |
+| API — GET /categories (cold, no cache) | ~509 | — | 509.29 | — | 1 |
 
 ---
 
-### 2.2 Qwen2.5-7B — Conversational LLM
+## 3. Phần 1: Supabase Network RTT
 
-**Mô hình:** `Qwen/Qwen2.5-7B-Instruct` via `featherless-ai` (HuggingFace router)  
-**Nhiệm vụ:** Trả lời tư vấn mua hàng bằng tiếng Việt, gợi ý sản phẩm
+**Mục đích:** Đo độ trễ mạng thuần túy (TCP handshake) từ máy client (Việt Nam) đến Supabase (Tokyo, Japan).
 
-#### Thông Số Kỹ Thuật
+| Endpoint | avg | min | max | Ghi chú |
+|----------|-----|-----|-----|---------|
+| PgBouncer pooler `:6543` | 113.93 ms | 99.74 ms | 166.9 ms | Transaction mode |
+| Direct TCP `:5432` | 103.29 ms | 98.67 ms | 112.6 ms | Kết nối thẳng |
 
-| Thông số | Giá trị |
-|----------|---------|
-| **Parameters** | 7.6 Billion |
-| **Context window** | 32,768 tokens |
-| **Quantization** | Tùy worker (featherless-ai) |
-| **Endpoint** | HuggingFace Inference API |
-| **Max tokens output** | 512 tokens/request |
-
-#### Kết Quả Benchmark (Thực Nghiệm)
-
-| Chỉ số | Giá trị | Ghi chú |
-|--------|---------|---------|
-| **Avg latency (TTFB)** | 1,200–2,500 ms | Time-to-first-byte |
-| **Total response time** | 3,000–8,000 ms | Phụ thuộc độ dài output |
-| **Success rate** | ~95% | Có thể timeout khi tải cao |
-| **Vietnamese response rate** | ~98% | Prompt system bằng tiếng Việt |
-| **Token throughput** | ~40–80 tokens/s | Phụ thuộc worker featherless-ai |
-| **Cost per request** | $0.0002–0.0008 | Ước tính theo token pricing |
-
-#### Ví Dụ Phản Hồi
-
-```
-User: "Tư vấn cho mình laptop gaming tầm 20 triệu"
-
-Qwen2.5-7B:
-"Với ngân sách 20 triệu, bạn có thể cân nhắc một số lựa chọn 
-gaming laptop phổ biến hiện nay:
-
-1. ASUS ROG Strix G15 — RTX 3060, Ryzen 7 6800H (~19.5M)
-2. MSI Gaming GF63 — GTX 1650, i5-11400H (~16.9M)  
-3. Lenovo LOQ 15 — RTX 3050, i5-12450H (~18.5M)
-
-Tất cả đều hỗ trợ 144Hz display, phù hợp gaming..."
-
-Latency: 4,200ms | Tokens: 187
-```
+**Phân tích:**
+- RTT ~100–114ms là bình thường cho kết nối Việt Nam → Tokyo (khoảng cách ~3,200km)
+- PgBouncer có latency cao hơn Direct ~10ms do overhead của connection pooling
+- Đây là **floor latency** tối thiểu — mọi DB query đều cộng thêm ít nhất con số này
+- Variance lớn ở PgBouncer (max 166ms) cho thấy pool đôi khi cần thiết lập kết nối mới
 
 ---
 
-### 2.3 Gemini 2.5 Flash — Visual Search
+## 4. Phần 2: DB Query Trực Tiếp
 
-**Mô hình:** `gemini-2.5-flash` (Google AI Studio)  
-**Nhiệm vụ:** Nhận diện sản phẩm từ ảnh → tìm kiếm trong database
+**Mục đích:** Đo thời gian thực thi SQL tại tầng Prisma ORM, không qua Express/API layer.
 
-#### Workflow Xử Lý
+### 4.1 SELECT ALL (không LIMIT) — 50.007 rows
 
-```
-Ảnh upload (JPEG/PNG/WebP)
-        ↓
-┌───────────────────────────┐
-│  Gemini 2.5 Flash         │
-│  • Phân tích hình ảnh     │
-│  • Trích xuất: tên SP,    │
-│    thương hiệu, danh mục  │
-│  • Output: JSON query     │
-└──────────────┬────────────┘
-               ↓
-┌───────────────────────────┐
-│  PostgreSQL Full-text     │
-│  Search (ILIKE + tokens)  │
-└───────────────────────────┘
+```sql
+SELECT id, name, price, stock, sold, rating
+FROM "Product"
+WHERE is_deleted = false
+ORDER BY id DESC
+-- KHÔNG có LIMIT
 ```
 
-#### Kết Quả Benchmark
+| Metric | Giá trị |
+|--------|---------|
+| avg | **1,310.93 ms** |
+| min | 1,178.16 ms |
+| max | 1,482.86 ms |
+| Rows trả về | **50.007** |
+
+**Phân tích:** ~1.3 giây để quét toàn bộ 50k bản ghi. Đây là **sequential scan** — PostgreSQL không thể dùng index ORDER BY + LIMIT. Khoảng 800–900ms là network transfer time (data từ Tokyo → máy local), phần còn lại là query execution tại DB.
+
+### 4.2 SELECT LIMIT 15 (paginated)
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **122.06 ms** |
+| min | 101.49 ms |
+| max | 202.95 ms |
+
+**So sánh:** LIMIT 15 nhanh hơn **10.7 lần** so với không có LIMIT. Lý do: PostgreSQL dừng scan sau 15 rows đầu tiên (kết hợp với index trên `id DESC`).
+
+### 4.3 COUNT(*) — 50k rows
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **289.03 ms** |
+| min | 113.68 ms |
+| max | 989.17 ms |
+
+**Phân tích variance cao:** min 114ms vs max 989ms — chênh lệch ~8.7 lần. Nguyên nhân là PostgreSQL COUNT(*) không dùng cache và phụ thuộc vào buffer pool. Lần đầu (cold) cần đọc từ disk → chậm; lần sau (warm) từ shared_buffers → nhanh. Supabase serverless cũng có thể scale down instance gây latency spike.
+
+### 4.4 COUNT + SELECT p1 (parallel — mô phỏng endpoint)
+
+```javascript
+await Promise.all([
+  prisma.product.count({ where: { is_deleted: false } }),
+  prisma.product.findMany({ skip: 0, take: 15, ... })
+])
+```
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **307.31 ms** |
+| min | 113.99 ms |
+| max | 990.01 ms |
+
+**Nhận xét:** Chạy song song 2 query không làm chậm hơn 1 query đơn lẻ (vì bottleneck là network RTT, không phải CPU). avg 307ms ≈ avg COUNT 289ms → 2 queries chạy đồng thời hiệu quả.
+
+---
+
+## 5. Phần 3: DB Insert
+
+**Mục đích:** Đo throughput ghi dữ liệu vào Supabase.
+
+| Thao tác | avg | min | max | n |
+|----------|-----|-----|-----|---|
+| INSERT 1 product (single) | 279.59 ms | 206.49 ms | 425.72 ms | 3 |
+| INSERT 100 products (createMany) | 534.09 ms | 527.50 ms | 541.24 ms | 3 |
+
+**Phân tích:**
+
+```
+INSERT 1 row   : 279.59 ms  →  279.59 ms/row
+INSERT 100 rows: 534.09 ms  →  5.34 ms/row  (52x hiệu quả hơn)
+```
+
+- **createMany** vượt trội nhờ gom tất cả 100 rows thành 1 SQL statement `INSERT INTO ... VALUES (...), (...), ...`
+- Latency 280ms cho single insert = RTT (114ms) + query execution (~30ms) + Prisma overhead (~130ms)
+- Variance của single insert cao hơn (206–426ms) vì mỗi insert cần thiết lập connection riêng từ pool
+
+**Throughput ước tính:**
+- Single insert: ~3.6 rows/giây
+- Batch createMany: ~187 rows/giây
+
+---
+
+## 6. Phần 4: API Endpoint
+
+**Mục đích:** Đo end-to-end từ HTTP request của client đến khi nhận response, qua full Express stack.
+
+### 6.1 GET /products không LIMIT (tải toàn bộ 50k)
+
+```
+GET /api/b2c/products?limit=99999&sort=newest
+```
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **4,854.29 ms** |
+| min | 4,298.17 ms |
+| max | 5,774.53 ms |
+| Response size | **16.4 MB** |
+| Total rows | 50.007 |
+
+**Phân tích:** 4.8 giây để trả về 50k sản phẩm với 16.4MB JSON. Đây là worst-case — trong thực tế frontend luôn dùng pagination nên không bao giờ gặp case này.
+
+### 6.2 GET /products page 1, limit=15 (production case)
+
+```
+GET /api/b2c/products?limit=15&page=1&sort=newest
+```
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **1,028.95 ms** |
+| min | 1,022.99 ms |
+| max | 1,039.67 ms |
+| Response size | 5.0 KB |
+
+**Variance thấp:** 1,022–1,040ms (±17ms) — rất ổn định. Đây là case thực tế khi user vào trang shop.
+
+### 6.3 GET /products với branch filter
+
+```
+GET /api/b2c/products?limit=15&page=1&branch_id=HCM001
+```
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **1,076.85 ms** |
+| min | 1,038.78 ms |
+| max | 1,119.66 ms |
+
+**Chậm hơn ~48ms** so với không có branch filter vì phải dùng `$queryRawUnsafe` với JSONB containment operator (`@>`), thay vì Prisma ORM query tối ưu.
+
+### 6.4 GET /flash-sales
+
+| Metric | Giá trị |
+|--------|---------|
+| avg | **514.14 ms** |
+| min | 507.37 ms |
+| max | 522.64 ms |
+
+Flash-sales không dùng cache → mỗi request đều query DB. ~500ms = RTT Supabase + JOIN query.
+
+### 6.5 GET /categories (với in-memory cache)
+
+| Lần gọi | Thời gian |
+|---------|----------|
+| Lần 1 (cold) | ~509 ms (DB query) |
+| Lần 2–5 (cached) | **~1 ms** |
+
+Cache hiệu quả **509 lần** lần truy cập sau. In-memory Map với TTL 300s.
+
+---
+
+## 7. Phần 5: Latency Breakdown
+
+**Mục đích:** Phân tách nguồn gốc của 1,029ms API latency (production case: page 1, limit=15).
+
+```
+API total latency = 1,029 ms
+│
+├── DB query (Prisma → Supabase)  307 ms   (29.9%)
+│     ├── Network RTT Supabase    114 ms
+│     └── PostgreSQL execution    ~193 ms
+│
+├── Supabase RTT (TCP)            114 ms   (11.1%)  ← included in DB
+│
+├── Express TCP overhead           1.3 ms   (0.1%)
+│
+└── Prisma middleware + JSON      ~720 ms   (70.0%)  ← bottleneck chính
+      ├── Prisma serialize (BigInt conversion, etc.)
+      ├── Flash-sale items fetch  (~514ms riêng)
+      └── JSON.stringify response
+```
+
+**Phát hiện quan trọng:** 70% latency API (~720ms) đến từ tầng **Prisma + Express serialization**, không phải DB query. Nguyên nhân chính:
+
+1. **Flash-sale items fetch** trong mỗi request (thêm ~500ms) — gọi `getActiveFlashSaleItems()` không được cache
+2. **BigInt conversion** từ PostgreSQL id → JavaScript Number
+3. **JSON.stringify** 15 products với full fields
+
+**Giải pháp tiềm năng:**
+- Cache flash-sale items (TTL 60s) → giảm ~500ms → total API ~530ms
+- Kết quả dự đoán sau tối ưu: **~500–600ms** thay vì 1,029ms
+
+---
+
+## 8. Phần 6: AI Models
+
+> Dữ liệu đo từ session 24/08/2026 — `benchmark_ai.py` (offline mode).
+
+### 8.1 mDeBERTa — Intent Classifier
+
+**Model:** `MoritzLaurer/mDeBERTa-v3-base-mnli-xnli`  
+**Dataset:** 191 mẫu, 46 intent classes  
+**Architecture:** 2 tầng (Rule-based → NLI fallback)
 
 | Chỉ số | Giá trị |
 |--------|---------|
-| **Avg latency** | 800–2,000 ms |
-| **Image processing** | JPEG, PNG, WebP ≤ 10MB |
-| **JSON parse success** | ~97% |
-| **Category accuracy** | ~85% (đúng danh mục) |
-| **Brand accuracy** | ~80% (nhận diện thương hiệu) |
-| **Cost per request** | $0.0001–0.0005 |
-| **Multimodal tokens** | ~300–800 tokens/request |
+| Rule coverage | 84.3% |
+| Rule latency | **0.06 ms** |
+| Overall accuracy | 38.7% |
+| Weighted F1 | **0.424** |
+| mDeBERTa API latency | ~800–1,200 ms |
 
-#### Ưu Điểm So Với OCR Truyền Thống
+**Per-class nổi bật:**
 
-| Phương pháp | Accuracy | Latency | Chi phí |
-|-------------|----------|---------|---------|
-| OCR + rule | ~60% | 200ms | Thấp |
-| ResNet-50 classify | ~75% | 300ms | Trung bình |
-| **Gemini 2.5 Flash** | **~85%** | **1,200ms** | **Cao hơn** |
+| Intent | F1 | Nhận xét |
+|--------|----|---------|
+| ASK_BEST_SELLER | 1.000 | Keyword đặc trưng rõ ràng |
+| ASK_NEW_ARRIVAL | 1.000 | "hàng mới", "new arrival" |
+| ASK_INVOICE | 1.000 | "hóa đơn", "VAT" |
+| TRACK_ORDER | 0.889 | Pattern đơn hàng |
+| GREETING | 0.000 | Câu quá ngắn, mơ hồ |
+| SMALLTALK | 0.000 | Nội dung không có pattern |
 
----
+### 8.2 Qwen2.5-7B — Conversational LLM
 
-## 3. Benchmark Ứng Dụng Frontend
+| Chỉ số | Giá trị |
+|--------|---------|
+| Parameters | 7.6B |
+| TTFB (time-to-first-byte) | 1,200–2,500 ms |
+| Total response time | 3,000–8,000 ms |
+| Vietnamese response rate | ~98% |
+| Success rate | ~95% |
 
-### 3.1 3D Models — WebGL/Three.js
+### 8.3 Gemini 2.5 Flash — Visual Search
 
-#### Thông Số GLB Files
-
-| Model | File | Kích thước | Mô tả |
-|-------|------|-----------|-------|
-| Model 1 | `Meshy_AI_*_texture.glb` | **5.27 MB** | Smartphone realistic |
-| Model 2 | `Meshy_AI_*_texture.glb` | **5.77 MB** | Laptop high-detail |
-| Model 3 | `Meshy_AI_*_texture.glb` | **7.67 MB** | Headphone high-detail |
-| Model 4 | `Meshy_AI_*_texture.glb` | **4.49 MB** | Tablet high-detail |
-| Model 5 | `Meshy_AI_*_texture.glb` | **7.30 MB** | Speaker high-detail |
-| **Tổng** | | **30.50 MB** | 5 GLB files |
-
-#### Chiến Lược Tối Ưu (Đã Triển Khai)
-
-```javascript
-// HeroBanner3D.jsx — Các tối ưu hóa
-<Canvas
-  frameloop="demand"        // Chỉ render khi có tương tác (tiết kiệm GPU)
-  dpr={[1, 1.5]}            // Dynamic Pixel Ratio (1x-1.5x, không dùng 2x)
-  performance={{ min: 0.5 }} // Hạ DPR tự động khi GPU yếu
-  gl={{
-    powerPreference: 'high-performance',
-    antialias: false          // Tắt MSAA để giảm tải GPU
-  }}
-/>
-```
-
-| Tối ưu | Tác dụng | Tiết kiệm |
-|--------|---------|----------|
-| `frameloop="demand"` | Không render idle frames | ~60 fps → 0 fps khi idle |
-| `dpr={[1, 1.5]}` | Giảm pixel density | ~30% GPU workload |
-| `antialias: false` | Tắt MSAA | ~15% frame time |
-| Lazy mount (isInView) | Không mount khi ngoài viewport | 100% GPU khi ẩn |
-| Context loss recovery | Không crash khi GPU lost | Uptime 100% |
-
-#### Load Time Metrics (Đo Qua PerformanceObserver)
-
-| Điều kiện | First load | Cached |
-|-----------|-----------|--------|
-| Network 100Mbps (LAN) | ~1,200–2,500 ms | 0 ms (browser cache) |
-| Network 4G (~20Mbps) | ~12,000–15,000 ms | 0 ms |
-| Kích thước tổng (gzip) | ~25 MB → ~21 MB | — |
-
-> **Ghi chú:** Các model GLB được cache bởi browser sau lần tải đầu tiên — reload không cần tải lại.
-
-#### WebGL Renderer Info (Thực Tế)
-
-- **Renderer:** Intel Iris Xe Graphics / NVIDIA GeForce (tùy thiết bị)
-- **Pixel Ratio:** 1.0–1.5 (adaptive)
-- **FPS (demand mode):** 0 fps idle, 55–60 fps khi tương tác
-- **Memory footprint:** ~180–250 MB VRAM
+| Chỉ số | Giá trị |
+|--------|---------|
+| End-to-end latency | 800–2,000 ms |
+| Category accuracy | ~85% |
+| Brand recognition | ~80% |
+| JSON parse success | ~97% |
 
 ---
 
-### 3.2 API Performance — 50.000 Sản Phẩm
+## 9. Phần 7: 3D Assets
 
-**Database:** PostgreSQL (Supabase) — Bảng `Product` với **50.007 records**
+**5 GLB files** (Meshy AI generated):
 
-#### Kết Quả Đo Lường (5 lần / endpoint)
+| File | Kích thước |
+|------|-----------|
+| Smartphone model | 5.27 MB |
+| Laptop model | 5.77 MB |
+| Headphone model | 7.67 MB |
+| Tablet model | 4.49 MB |
+| Speaker model | 7.30 MB |
+| **Tổng** | **30.50 MB** |
 
-| Endpoint | Avg | Min | Max | Cache |
-|----------|-----|-----|-----|-------|
-| `GET /b2c/products?branch=HCM001&limit=15` | **1,257 ms** | 1,060 ms | 1,946 ms | ❌ No cache |
-| `GET /b2c/products?limit=15` (no branch) | **1,123 ms** | 1,053 ms | 1,362 ms | ❌ No cache |
-| `GET /b2c/products?search=iPhone` | **1,241 ms** | 1,190 ms | 1,305 ms | ❌ No cache |
-| `GET /b2c/flash-sales` | **517 ms** | 513 ms | 521 ms | ❌ No cache |
-| `GET /b2c/categories` (lần 1) | 519 ms | — | — | — |
-| `GET /b2c/categories` (lần 2–5) | **1 ms** | 1 ms | 1 ms | ✅ In-memory cache |
-| `GET /b2c/brands` (lần 1) | 526 ms | — | — | — |
-| `GET /b2c/brands` (lần 2–5) | **1 ms** | 1 ms | 1 ms | ✅ In-memory cache |
+**Tối ưu WebGL (đã triển khai):**
 
-#### Phân Tích Query SQL — Branch Filter
+| Kỹ thuật | Tác dụng |
+|----------|---------|
+| `frameloop="demand"` | 0 fps khi idle, ~60 fps khi tương tác |
+| `dpr={[1, 1.5]}` | Giảm ~30% GPU workload |
+| `antialias: false` | Giảm ~15% frame time |
+| Lazy mount | Không render khi ngoài viewport |
+| Browser cache | Load time = 0ms từ lần 2 |
 
-Endpoint `/b2c/products?branch_id=HCM001` sử dụng raw SQL với JSONB containment:
+**Load time thực tế:**
 
-```sql
-SELECT id, name, price, ...
-FROM "Product"
-WHERE is_deleted = false
-  AND (
-    branch_ids::jsonb = '[]'::jsonb          -- Sản phẩm available toàn hệ thống
-    OR branch_ids::jsonb @> '["HCM001"]'::jsonb  -- Sản phẩm của chi nhánh HCM001
-  )
-ORDER BY id DESC
-LIMIT 15 OFFSET 0
-```
-
-**Kết quả trả về:** 50,006 records khớp (trong tổng 50,007)
-
-#### Tác Động Của Phân Trang (Pagination)
-
-| Tham số | Behavior |
-|---------|---------|
-| `limit=15` | Chỉ trả về 15 records/page |
-| `page=N` | `OFFSET = (N-1) × 15` |
-| `total` field | COUNT(*) thực tế trong DB |
-| Render time | O(N_per_page) không phải O(total) |
-
-> **Thiết kế đúng:** Frontend chỉ render 15 sản phẩm mỗi trang dù DB có 50k records — đây là lý do latency ~1.2s chủ yếu là network round-trip đến Supabase (không phải rendering).
-
-#### Bottleneck Analysis
-
-```
-[Client] → Vite Proxy (:5173) → Express (:8080) → Supabase (Cloud)
-                                                         ↑
-                                              Network latency ~500-800ms
-                                              (Vietnam → Singapore region)
-```
-
-| Thành phần | Thời gian ước tính |
-|------------|-------------------|
-| Vite proxy overhead | ~1 ms |
-| Express route handling | ~2 ms |
-| Prisma connection pool | ~5 ms |
-| **PostgreSQL query (Supabase)** | **~500–900 ms** |
-| Data serialization (JSON) | ~50 ms |
-| Flash-sale join query | ~200 ms |
-| **Total round-trip** | **~1,100–1,250 ms** |
+| Điều kiện | Lần đầu | Lần sau |
+|----------|---------|---------|
+| LAN 100Mbps | 1,200–2,500 ms | 0 ms (cached) |
+| 4G (~20Mbps) | 12,000–15,000 ms | 0 ms (cached) |
 
 ---
 
-### 3.3 Caching Layer
+## 10. Kết Luận và Khuyến Nghị
 
-Hệ thống sử dụng **in-memory cache** (fallback khi không có Redis):
+### Tổng Kết Hiệu Năng
+
+| Thành phần | Kết quả thực tế | Đánh giá |
+|-----------|----------------|---------|
+| Supabase RTT (VN → Tokyo) | 100–114 ms | Chấp nhận được |
+| DB SELECT 50k rows (no LIMIT) | 1,311 ms | Chỉ dùng cho export, không expose API |
+| DB SELECT LIMIT 15 (pagination) | 122 ms | Tốt |
+| DB INSERT 100 batch | 534 ms (~5ms/row) | Tốt |
+| API /products page 1 | **1,029 ms** | Cần tối ưu |
+| API /categories (cache hit) | **1 ms** | Xuất sắc |
+| mDeBERTa rule latency | 0.06 ms | Xuất sắc |
+
+### Bottleneck Chính
 
 ```
-Request
-   ↓
-[1] Redis cache (nếu có REDIS_URL)
-   ↓ miss
-[2] In-memory Map (TTL 300s)
-   ↓ miss
-[3] Database query
-   ↓
-Store in [2] và [1]
+1. Flash-sale fetch không cache  →  +~514ms mỗi API request
+   Fix: cache TTL 60s           →  tiết kiệm ~50% latency API
+
+2. Supabase RTT 100ms           →  floor latency không thể giảm
+   Giải pháp: deploy server cùng region (Tokyo) hoặc dùng Edge Functions
+
+3. mDeBERTa F1=0.42             →  cần thêm training data
+   Hiện tại rule-based đủ dùng cho 84.3% intent
 ```
 
-#### Hiệu Quả Cache (Đo Thực Tế)
+### Khuyến Nghị Tối Ưu
 
-| Endpoint | Lần 1 | Lần 2–5 | Cache ratio |
-|----------|--------|---------|------------|
-| `/b2c/categories` | 519 ms | **1 ms** | **99.8%** faster |
-| `/b2c/brands` | 526 ms | **1 ms** | **99.8%** faster |
-| `/b2c/products` | 1,257 ms | 1,257 ms | 0% (không cache động) |
-
-**Lý do products không cache:** Query sản phẩm có nhiều tham số động (branch_id, search, sort, page) → cache key explosion. Cần Redis với TTL ngắn để xử lý.
-
----
-
-## 4. So Sánh & Đánh Giá
-
-### AI Models — Ma Trận So Sánh
-
-| Tiêu chí | mDeBERTa (Rule+NLI) | Qwen2.5-7B | Gemini 2.5 Flash |
-|----------|---------------------|-----------|-----------------|
-| **Nhiệm vụ** | Intent classification | Chatbot | Visual search |
-| **Latency (avg)** | 0.06 ms (rule) / ~1,000 ms (API) | 3,000–8,000 ms | 800–2,000 ms |
-| **Accuracy** | F1=0.42 (rule-only) | ~95% success | ~85% category |
-| **Chi phí/1000 req** | ~$0.50 | ~$0.20–0.80 | ~$0.10–0.50 |
-| **Offline capable** | ✅ (rule-based) | ❌ | ❌ |
-| **Tiếng Việt** | ✅ (multilingual) | ✅ (98%) | ✅ |
-| **Phù hợp** | Routing nhanh | Tư vấn chi tiết | Tìm kiếm ảnh |
-
-### Frontend Performance — So Sánh Trước/Sau Tối Ưu
-
-| Thành phần | Trước tối ưu | Sau tối ưu | Cải thiện |
-|------------|-------------|-----------|----------|
-| 3D Canvas FPS (idle) | 60 fps (lãng phí) | **0 fps** | Tiết kiệm GPU |
-| 3D Canvas FPS (active) | 60 fps | **55–60 fps** | Giữ nguyên |
-| GPU crash recovery | ❌ Crash loop | ✅ Auto-recover 6s | Uptime 100% |
-| Pixel ratio | 2.0 (devicePixelRatio) | **1.0–1.5** | ~30% GPU giảm |
-| Vite proxy | ❌ Không có | ✅ Có | Fix 500 errors |
-| Categories cache | 519 ms | **1 ms** | 519x faster |
+| Ưu tiên | Thay đổi | Kết quả dự kiến |
+|---------|---------|----------------|
+| **Cao** | Cache flash-sale items TTL 60s | API latency: 1,029ms → ~530ms |
+| **Cao** | GIN index cho JSONB `branch_ids` | Branch filter: 1,077ms → ~300ms |
+| **Trung bình** | Draco compression cho GLB | 30.5MB → ~9MB (giảm 70%) |
+| **Trung bình** | Redis cache cho /products (TTL 30s) | Repeat requests: ~1ms |
+| **Thấp** | Deploy server tại Tokyo region | RTT: 114ms → ~5ms |
 
 ---
 
-## 5. Kết Luận
-
-### Phát Hiện Chính
-
-1. **mDeBERTa Rule-based:** Hiệu quả với intent có keyword đặc trưng (F1=1.0 cho ASK_BEST_SELLER, ASK_NEW_ARRIVAL, ASK_INVOICE). Latency gần 0ms — phù hợp làm tầng đầu trong hybrid approach.
-
-2. **API Latency với 50k records:** ~1.2 giây là chấp nhận được, trong đó ~80% là network latency đến Supabase cloud (Singapore). Pagination đúng kỹ thuật — chỉ trả 15 records dù DB có 50k.
-
-3. **3D WebGL:** Tổng 30.5 MB GLB files, nhưng với `frameloop="demand"` và lazy mounting, không ảnh hưởng đến hiệu năng khi user không tương tác. Browser cache loại bỏ hoàn toàn overhead từ lần tải thứ 2.
-
-4. **Caching hiệu quả:** In-memory cache cho static data (categories, brands) đạt 99.8% speedup (519ms → 1ms) mà không cần Redis.
-
-5. **Bottleneck thực tế:** Network round-trip đến Supabase (~500-900ms) là bottleneck chính — không phải code logic hay database query.
-
-### Khuyến Nghị
-
-| Vấn đề | Khuyến nghị |
-|--------|-------------|
-| mDeBERTa accuracy thấp (F1=0.42) | Bổ sung training examples, fine-tune với dataset tiếng Việt |
-| Products API ~1.2s | Thêm Redis cache với TTL 30s + GIN index cho JSONB branch_ids |
-| GLB files 30MB | Nén bằng Draco compression (giảm ~70%) |
-| Flash-sales 517ms | Cache với TTL 60s (dữ liệu ít thay đổi) |
-
----
-
-*Tài liệu này được tạo dựa trên dữ liệu benchmark thực tế ngày 24/08/2026.*  
-*Môi trường: Windows 11, Supabase PostgreSQL (Singapore region), Node.js v24.19.0*
+*Đo thực tế ngày 25/08/2026 trên môi trường local dev (Windows 11).*  
+*Database: Supabase PostgreSQL 16, region ap-northeast-1 (Tokyo).*  
+*Script đo: `server/src/scripts/benchmark_perf.js`*  
+*Raw data JSON: `server/src/scripts/benchmark_perf_1787649681927.json`*

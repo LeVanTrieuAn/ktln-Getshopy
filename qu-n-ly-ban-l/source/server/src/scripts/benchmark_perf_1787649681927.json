@@ -1,0 +1,116 @@
+{
+  "ts": "2026-08-25T09:21:21.927Z",
+  "runs": 5,
+  "results": {
+    "rtt_pooler": {
+      "avg": 113.93,
+      "min": 99.74,
+      "max": 166.9,
+      "p95": 166.9,
+      "runs": 5
+    },
+    "rtt_direct": {
+      "avg": 103.29,
+      "min": 98.67,
+      "max": 112.6,
+      "p95": 112.6,
+      "runs": 5
+    },
+    "db_count": {
+      "avg": 289.03,
+      "min": 113.68,
+      "max": 989.17,
+      "p95": 989.17,
+      "runs": 5
+    },
+    "db_select_all": {
+      "avg": 1310.93,
+      "min": 1178.16,
+      "max": 1482.86,
+      "p95": 1482.86,
+      "runs": 5,
+      "rows": 50007
+    },
+    "db_select_limit15": {
+      "avg": 122.06,
+      "min": 101.49,
+      "max": 202.95,
+      "p95": 202.95,
+      "runs": 5
+    },
+    "db_paginated": {
+      "avg": 307.31,
+      "min": 113.99,
+      "max": 990.01,
+      "p95": 990.01,
+      "runs": 5
+    },
+    "db_insert_100": {
+      "avg": 534.09,
+      "min": 527.5,
+      "max": 541.24,
+      "p95": 541.24,
+      "runs": 3
+    },
+    "db_insert_single": {
+      "avg": 279.59,
+      "min": 206.49,
+      "max": 425.72,
+      "p95": 425.72,
+      "runs": 3
+    },
+    "api_products_nolimit": {
+      "avg": 4854.29,
+      "min": 4298.17,
+      "max": 5774.53,
+      "p95": 5774.53,
+      "runs": 5,
+      "total_in_db": 50007,
+      "response_bytes": 16834062
+    },
+    "api_products_page1": {
+      "avg": 1028.95,
+      "min": 1022.99,
+      "max": 1039.67,
+      "p95": 1039.67,
+      "runs": 5,
+      "response_bytes": 5122
+    },
+    "api_products_branch": {
+      "avg": 1076.85,
+      "min": 1038.78,
+      "max": 1119.66,
+      "p95": 1119.66,
+      "runs": 5,
+      "response_bytes": 5122
+    },
+    "api_flash_sales": {
+      "avg": 514.14,
+      "min": 507.37,
+      "max": 522.64,
+      "p95": 522.64,
+      "runs": 5
+    },
+    "api_categories": {
+      "avg": 102.79,
+      "min": 1,
+      "max": 509.29,
+      "p95": 509.29,
+      "runs": 5
+    },
+    "server_tcp_rtt": {
+      "avg": 1.29,
+      "min": 0.98,
+      "max": 2.05,
+      "p95": 2.05,
+      "runs": 5
+    },
+    "breakdown": {
+      "api_total_ms": 1028.95,
+      "db_query_ms": 307.31,
+      "db_portion_pct": 29.9,
+      "supabase_rtt_ms": 113.93,
+      "express_overhead_ms": 720.4
+    }
+  }
+}
