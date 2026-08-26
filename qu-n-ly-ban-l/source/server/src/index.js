@@ -76,6 +76,26 @@ async function fetchWithCache(cacheKey, ttl, queryStr) {
   return data;
 }
 
+// ─── TARGETED CACHE INVALIDATION (C-04) ──────────────────────────
+// Thay redis.flushAll() bằng xóa đúng nhóm key analytics
+const ANALYTICS_CACHE_PATTERNS = [
+  'kpi:*', 'revHour:*', 'revTrend:*', 'revBranch:*', 'revCat:*',
+  'dashboard:*', 'topSelling:*', 'flashSale:*'
+];
+async function invalidateAnalyticsCache() {
+  if (!redisIsConnected()) return;
+  for (const pattern of ANALYTICS_CACHE_PATTERNS) {
+    let cursor = 0;
+    do {
+      const result = await redis.scan(cursor, { MATCH: pattern, COUNT: 100 });
+      cursor = result.cursor;
+      if (result.keys && result.keys.length > 0) {
+        await redis.del(result.keys);
+      }
+    } while (cursor !== 0);
+  }
+}
+
 // ─── AUTH MIDDLEWARE ──────────────────────────────────────────
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1];
@@ -372,8 +392,10 @@ app.get('/api/analytics/orders', async (req, res) => {
 // ─── ALERTS ───────────────────────────────────────────────────
 app.get('/api/alerts/active', authMiddleware, async (req, res) => {
   try {
+    // P-06: Column projection — ClickHouse columnar DB, SELECT * đọc thừa I/O
     const rows = await queryClickHouse(`
-      SELECT * FROM analytics.alert_events
+      SELECT event_id, event_type, severity, message, branch_id, triggered_at, acknowledged
+      FROM analytics.alert_events
       WHERE acknowledged = 0
       ORDER BY
         CASE severity WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 ELSE 4 END,
@@ -388,8 +410,10 @@ app.get('/api/alerts/active', authMiddleware, async (req, res) => {
 
 app.get('/api/alerts/history', authMiddleware, async (req, res) => {
   try {
+    // P-06: Column projection
     const rows = await queryClickHouse(`
-      SELECT * FROM analytics.alert_events
+      SELECT event_id, event_type, severity, message, branch_id, triggered_at, acknowledged
+      FROM analytics.alert_events
       ORDER BY triggered_at DESC LIMIT 100
     `);
     res.json(rows);
@@ -553,29 +577,43 @@ wss.on('connection', (ws) => {
   ws.on('close', () => wsClients.delete(ws));
 });
 
-// Broadcast latest KPI every 5 seconds
-setInterval(async () => {
+// P-04: Shared KPI cache — 1 query duy nhất mỗi 5s, broadcast cho TẤT CẢ clients
+// Tránh N×query khi có N admin dashboard mở đồng thời
+let _wsKpiCache = null;
+let _wsKpiLastFetch = 0;
+const WS_KPI_TTL_MS = 5000;
+
+async function fetchAndBroadcastKpi() {
   if (wsClients.size === 0) return;
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const rows = await queryClickHouse(`
-      SELECT SUM(net_amount) as revenue, COUNT(*) as orders
-      FROM analytics.sale_orders
-      WHERE toDate(order_date) = '${today}' AND status = 'CONFIRMED'
-    `);
-    const payload = JSON.stringify({
-      type: 'KPI_UPDATE',
-      data: {
-        revenue_today: parseFloat(rows[0]?.revenue || 0),
-        orders_today: parseInt(rows[0]?.orders || 0),
-        timestamp: new Date().toISOString(),
-      },
-    });
+    const now = Date.now();
+    // Chỉ query khi cache hết hạn
+    if (!_wsKpiCache || now - _wsKpiLastFetch >= WS_KPI_TTL_MS) {
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = await queryClickHouse(
+        `SELECT SUM(net_amount) as revenue, COUNT(*) as orders
+         FROM analytics.sale_orders
+         WHERE toDate(order_date) = '${today}' AND status = 'CONFIRMED'`
+      );
+      _wsKpiCache = {
+        type: 'KPI_UPDATE',
+        data: {
+          revenue_today: parseFloat(rows[0]?.revenue || 0),
+          orders_today:  parseInt(rows[0]?.orders  || 0),
+          timestamp:     new Date().toISOString(),
+        },
+      };
+      _wsKpiLastFetch = now;
+    }
+    // Broadcast cache đến tất cả clients — không query thêm
+    const payload = JSON.stringify(_wsKpiCache);
     wsClients.forEach(ws => { if (ws.readyState === WebSocket.OPEN) ws.send(payload); });
   } catch {
     // ClickHouse not ready yet, skip
   }
-}, 5000);
+}
+
+setInterval(fetchAndBroadcastKpi, 5000);
 
 // ─── SIMULATE MANUAL DATA ENTRY ────────────────────────────────
 app.post('/api/admin/simulate-sale', authMiddleware, async (req, res) => {
@@ -628,7 +666,7 @@ app.post('/api/admin/simulate-sale', authMiddleware, async (req, res) => {
       format: 'JSONEachRow'
     });
     
-    if (redisIsConnected()) await redis.flushAll(); // clear cache
+    await invalidateAnalyticsCache(); // C-04: chỉ xóa analytics keys, không xóa session/auth cache
     res.json({ success: true, order_id });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -767,7 +805,7 @@ app.post('/api/b2c/checkout', async (req, res) => {
         }
       }
       
-      if (redisIsConnected()) await redis.flushAll(); // Clear analytics cache
+      await invalidateAnalyticsCache(); // C-04: targeted invalidation
     }
 
     // Broadcast STOCK_UPDATE via WebSocket

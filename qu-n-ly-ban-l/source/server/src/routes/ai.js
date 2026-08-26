@@ -519,18 +519,22 @@ router.post('/ai/smart-search', async (req, res) => {
       const systemPrompt = `Bạn là AI trợ lý tìm kiếm sản phẩm cho cửa hàng điện tử Getshopy.
 Nhiệm vụ: Phân tích câu tìm kiếm của khách hàng (có thể là ngôn ngữ thông thường, slang, mơ hồ) 
 và trả về JSON với các trường sau:
-- "keywords": mảng tối đa 4 từ khóa tìm kiếm sản phẩm quan trọng nhất (TIẾNG VIỆT CÓ DẤU chuẩn xác, danh từ chính yếu để tra cứu DB, hoặc tên thương hiệu. RẤT QUAN TRỌNG: Phải ghi có dấu, ví dụ "điện thoại" thay vì "dien thoai").
-- "category": tên danh mục nếu xác định được (chọn CHÍNH XÁC một trong: "Điện thoại thông minh", "Máy tính xách tay", "Máy tính bảng", "Phụ kiện công nghệ", "Tivi & Thiết bị giải trí", "Máy ảnh & Quay phim", "Đồng hồ thông minh", "Máy chơi game", "Thiết bị nhà thông minh", "Thiết bị mạng", null nếu không rõ)
-- "price_max": ngân sách tối đa (số nguyên, đơn vị VNĐ, null nếu không đề cập)
+- "keywords": mảng tối đa 3 từ khóa tìm kiếm SẢN PHẨM QUAN TRỌNG NHẤT (TIẾNG VIỆT CÓ DẤU, danh từ chính yếu để tra cứu DB, hoặc tên thương hiệu). QUAN TRỌNG: Chỉ đưa vào keywords những từ THỰC SỰ đặc trưng cho sản phẩm cần tìm. Tên thương hiệu (Sony, Apple, Samsung...) và tên sản phẩm (màn hình, laptop, tai nghe...) là keywords tốt. KHÔNG đưa vào các từ mô tả chung chung như "tốt", "xịn", "cao cấp" trừ khi đó là tên model.
+- "brand": tên thương hiệu riêng biệt nếu có (ví dụ: "Sony", "Apple", "Samsung", null nếu không đề cập). Đây là trường riêng, không lặp lại trong keywords.
+- "category": tên danh mục nếu xác định được (chọn CHÍNH XÁC một trong: "Điện thoại thông minh", "Máy tính xách tay", "Máy tính bảng", "Phụ kiện công nghệ", "Tivi & Thiết bị giải trí", "Màn hình máy tính", "Máy ảnh & Quay phim", "Đồng hồ thông minh", "Máy chơi game", "Thiết bị nhà thông minh", "Thiết bị mạng", "Thiết bị âm thanh", null nếu không rõ). LƯU Ý QUAN TRỌNG: "màn hình", "monitor", "display" → "Màn hình máy tính"; "tivi", "TV" → "Tivi & Thiết bị giải trí"; "tai nghe", "loa", "headphone", "earphone", "earbuds", "speaker", "âm thanh" → "Thiết bị âm thanh".
+- "price_max": ngân sách tối đa (số nguyên, đơn vị VNĐ, null nếu không đề cập). LƯU Ý: "dưới X triệu" = X*1000000, "tầm X triệu" = X*1000000, "X trieu" = X*1000000.
 - "price_min": ngân sách tối thiểu (số nguyên, đơn vị VNĐ, null nếu không đề cập)  
-- "hint": câu giải thích ngắn về kết quả tìm kiếm bằng tiếng Việt (ví dụ: "Smartphone cao cấp phổ biến nhất")
+- "hint": câu giải thích ngắn về kết quả tìm kiếm bằng tiếng Việt (ví dụ: "Màn hình máy tính Sony")
 
 Ví dụ:
-- "điện thoại xịn xịn" → {"keywords":["điện thoại", "flagship", "cao cấp"],"category":"Điện thoại thông minh","price_max":null,"price_min":null,"hint":"Smartphone cao cấp, hiệu năng mạnh mẽ"}
-- "máy tính làm đồ họa dưới 30 triệu" → {"keywords":["laptop", "đồ họa", "máy tính xách tay"],"category":"Máy tính xách tay","price_max":30000000,"price_min":null,"hint":"Laptop cấu hình mạnh cho thiết kế đồ họa"}
-- "tai nghe chống ồn" → {"keywords":["tai nghe", "chống ồn", "ANC"],"category":"Phụ kiện công nghệ","price_max":null,"price_min":null,"hint":"Tai nghe chống ồn chủ động (ANC)"}
+- "màn hình của Sony" → {"keywords":["màn hình"],"brand":"Sony","category":"Màn hình máy tính","price_max":null,"price_min":null,"hint":"Màn hình máy tính Sony"}
+- "điện thoại Samsung dưới 10 triệu" → {"keywords":["điện thoại"],"brand":"Samsung","category":"Điện thoại thông minh","price_max":10000000,"price_min":null,"hint":"Điện thoại Samsung tầm trung"}
+- "tai nghe dưới 10 triệu" → {"keywords":["tai nghe"],"brand":null,"category":"Thiết bị âm thanh","price_max":10000000,"price_min":null,"hint":"Tai nghe dưới 10 triệu"}
+- "tai nghe chống ồn" → {"keywords":["tai nghe","chống ồn"],"brand":null,"category":"Thiết bị âm thanh","price_max":null,"price_min":null,"hint":"Tai nghe chống ồn chủ động (ANC)"}
+- "máy tính làm đồ họa dưới 30 triệu" → {"keywords":["đồ họa"],"brand":null,"category":"Máy tính xách tay","price_max":30000000,"price_min":null,"hint":"Laptop cấu hình mạnh cho thiết kế đồ họa"}
 
 Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
+
 
       try {
         const response = await fetch(HF_LLM_URL_SS, {
@@ -560,11 +564,16 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
             if (jsonMatch) {
               const parsed = JSON.parse(jsonMatch[0]);
               keywords    = Array.isArray(parsed.keywords) ? parsed.keywords : [];
+              // Đưa brand vào đầu keywords list nếu có (brand là filter quan trọng nhất)
+              const brand = parsed.brand ? String(parsed.brand).trim() : null;
+              if (brand && !keywords.some(k => removeDiacritics(k).toLowerCase() === removeDiacritics(brand).toLowerCase())) {
+                keywords = [brand, ...keywords];
+              }
               categoryHint = parsed.category || null;
               priceMax    = parsed.price_max ? Number(parsed.price_max) : null;
               priceMin    = parsed.price_min ? Number(parsed.price_min) : null;
               hint        = parsed.hint || '';
-              console.log(`[SmartSearch] HF Qwen parsed → keywords=${keywords}, category=${categoryHint}, hint="${hint}"`);
+              console.log(`[SmartSearch] HF Qwen parsed → keywords=${JSON.stringify(keywords)}, brand=${brand}, category=${categoryHint}, hint="${hint}"`);
             }
           }
         }
@@ -629,11 +638,12 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
     }
 
     if (matchedCatId && filteredKeywords.length > 0) {
-      // A: Category làm bộ lọc cứng + keyword match trong NAME (chỉ dùng brand/model name)
+      // A: Category làm bộ lọc cứng + TẤT CẢ keywords phải match trong NAME
+      // Dùng AND (mỗi keyword là 1 điều kiện bắt buộc) thay vì OR để tránh false positive
       const catKwProducts = await prisma.product.findMany({
         where: {
           category_id: matchedCatId,
-          OR: filteredKeywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+          AND: filteredKeywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
           is_deleted: false,
           ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
         },
@@ -648,10 +658,32 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
         p._score = score;
       });
       catKwProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
-      products = catKwProducts.slice(0, 8);
+      // Chỉ lấy sản phẩm có score >= 5 (phải match ít nhất 1 keyword có nghĩa)
+      products = catKwProducts.filter(p => p._score >= 5).slice(0, 8);
 
-      // Nếu keyword không match trong category → lấy top sản phẩm của category đó
-      if (products.length < 4) {
+      // Fallback: AND quá chặt không ra → thử OR nhưng yêu cầu score cao (match >= 2 keywords)
+      if (products.length < 2 && filteredKeywords.length >= 2) {
+        const catOrProducts = await prisma.product.findMany({
+          where: {
+            category_id: matchedCatId,
+            OR: filteredKeywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+            is_deleted: false,
+            ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+          },
+          take: 50,
+        });
+        catOrProducts.forEach(p => {
+          const pNameNorm = removeDiacritics(p.name || '').toLowerCase();
+          p._score = filteredKeywords.filter(k => pNameNorm.includes(removeDiacritics(k).toLowerCase())).length * 5;
+        });
+        catOrProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
+        // Chỉ lấy nếu match >= 2 keywords (tránh single-keyword false positive)
+        const minMatchRequired = filteredKeywords.length >= 2 ? 10 : 5;
+        products = catOrProducts.filter(p => p._score >= minMatchRequired).slice(0, 8);
+      }
+
+      // Nếu keyword vẫn không match trong category → lấy top sản phẩm của category đó
+      if (products.length < 2) {
         const catTop = await prisma.product.findMany({
           where: {
             category_id: matchedCatId,
@@ -681,10 +713,11 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
       });
 
     } else if (keywords.length > 0) {
-      // C: Không có category — tìm keyword trong NAME (không description)
+      // C: Không có category — yêu cầu TẤT CẢ keywords match trong NAME (AND)
+      // Tránh: query "màn hình Sony" → AND → chỉ lấy sp có cả "màn hình" lẫn "Sony" trong tên
       const kwProducts = await prisma.product.findMany({
         where: {
-          OR: keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+          AND: keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
           is_deleted: false,
           ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
         },
@@ -699,22 +732,68 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
         p._score = score;
       });
       kwProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
-      products = kwProducts.slice(0, 8);
+      // Yêu cầu match đủ tất cả keywords (AND đã đảm bảo điều này)
+      products = kwProducts.filter(p => p._score >= keywords.length * 5).slice(0, 8);
+
+      // Fallback: AND không ra kết quả (ít sản phẩm trong DB) → thử OR với score cao
+      if (products.length === 0 && keywords.length >= 2) {
+        const kwOrProducts = await prisma.product.findMany({
+          where: {
+            OR: keywords.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+            is_deleted: false,
+            ...(Object.keys(priceFilter).length ? { price: priceFilter } : {}),
+          },
+          take: 50,
+        });
+        kwOrProducts.forEach(p => {
+          const pNameNorm = removeDiacritics(p.name || '').toLowerCase();
+          p._score = keywords.filter(k => pNameNorm.includes(removeDiacritics(k).toLowerCase())).length * 5;
+        });
+        kwOrProducts.sort((a, b) => b._score - a._score || b.sold - a.sold);
+        // Chỉ lấy sản phẩm match >= 2 keywords (score >= 10)
+        products = kwOrProducts.filter(p => p._score >= 10).slice(0, 8);
+      }
     }
 
     // ── BƯỚC 3: Fallback ────────────────────────────────────────────────────
     if (products.length === 0) {
-      // Nếu user chỉ định giá mà không tìm thấy sản phẩm nào → trả mảng rỗng kèm hint
-      if (Object.keys(priceFilter).length > 0) {
-        hint = hint || `Không tìm thấy sản phẩm trong tầm giá này`;
-        // Thử lại trong category (nếu có) mà không giới hạn giá → show top category để tham khảo
+      const hasPriceFilter = Object.keys(priceFilter).length > 0;
+
+      if (hasPriceFilter) {
+        // Có price filter → BẮT BUỘC giữ price filter, không bao giờ bỏ
+        // Thử lại trong category (nếu có) VỚI price filter
         if (matchedCatId) {
           products = await prisma.product.findMany({
-            where: { category_id: matchedCatId, is_deleted: false },
+            where: {
+              category_id: matchedCatId,
+              is_deleted: false,
+              price: priceFilter,  // GIỮ price filter
+            },
             orderBy: [{ price: 'asc' }],
             take: 8,
           });
-          hint = `Không có sản phẩm trong tầm giá đó, đây là các lựa chọn rẻ nhất`;
+          if (products.length > 0) {
+            hint = `Các sản phẩm phù hợp trong tầm giá`;
+          }
+        }
+
+        // Vẫn không có → tìm toàn shop với price filter
+        if (products.length === 0) {
+          products = await prisma.product.findMany({
+            where: {
+              is_deleted: false,
+              price: priceFilter,  // VẪN giữ price filter!
+              stock: { gt: 0 },
+            },
+            orderBy: [{ sold: 'desc' }],
+            take: 8,
+          });
+          hint = hint || `Sản phẩm trong tầm giá`;
+        }
+
+        // Trường hợp cực kỳ hiếm: DB thực sự không có sản phẩm nào trong tầm giá
+        if (products.length === 0) {
+          hint = `Không tìm thấy sản phẩm nào trong tầm giá này`;
         }
       } else {
         // Không có giới hạn giá → fallback top sellers (có category filter nếu biết)
@@ -939,5 +1018,300 @@ router.post('/b2c/visual-search', async (req, res) => {
   }
 });
 
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 5. POST /api/ai/smart-search-image — Tìm kiếm kết hợp ảnh + văn bản từ searchbar
+//
+// 4 trường hợp xử lý:
+//   TH1: Chỉ có ảnh (query trống / enter ngay) → visual search thuần tuý
+//   TH2: Ảnh + query liên quan đến ảnh        → kết hợp cả hai
+//   TH3: Ảnh + query không liên quan đến ảnh  → ưu tiên query text
+//   TH4: Ảnh + query chung chung              → dùng AI cho cả hai
+// ══════════════════════════════════════════════════════════════════════════════
+router.post('/ai/smart-search-image', async (req, res) => {
+  const { query = '', imageBase64 } = req.body;
+  if (!imageBase64 || typeof imageBase64 !== 'string') {
+    return res.status(400).json({ error: 'imageBase64 is required' });
+  }
+  if (!imageBase64.startsWith('data:image/')) {
+    return res.status(400).json({ error: 'Invalid image format' });
+  }
+
+  const rawQuery = String(query).trim();
+
+  try {
+    // ── BƯỚC 1: Phân tích ảnh (luôn chạy) ────────────────────────────────
+    const { analyzeProductImage } = require('../ai/visualSearch');
+    const { caption, analysis } = await analyzeProductImage(imageBase64);
+
+    const imageKeywords  = (analysis?.keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean);
+    const imageBrand     = (analysis?.brand    || '').toLowerCase().trim();
+    const imageCategory  = analysis?.category  || null;
+    const imageDescVI    = analysis?.description_vi || caption || '';
+
+    const allCategories = await prisma.category.findMany({});
+    const categoryMap   = {};
+    allCategories.forEach(c => categoryMap[c.id] = c.name);
+
+    let products = [];
+    let hint     = '';
+    let mode     = 'image_only'; // 'image_only' | 'combined' | 'text_only' | 'ai_both'
+
+    // ── BƯỚC 2: Xác định trường hợp ──────────────────────────────────────
+    const VAGUE_PATTERNS = /^(tìm|tìm kiếm|mua|xem|tương tự|giống|kiểu này|loại này|cái này|sản phẩm này|gợi ý|recommend|similar|like this|tư vấn)$/i;
+    const isQueryEmpty  = !rawQuery;
+    const isQueryVague  = rawQuery && VAGUE_PATTERNS.test(rawQuery.replace(/\s+/g, ' ').trim());
+
+    // Kiểm tra query có liên quan đến ảnh không (dùng LLM hoặc keyword overlap)
+    let isQueryRelated = false;
+    if (rawQuery && !isQueryVague) {
+      const HF_API_KEY_SI  = process.env.HF_API_KEY;
+      const HF_LLM_URL_SI  = 'https://router.huggingface.co/featherless-ai/v1/chat/completions';
+      const HF_MODEL_SI    = process.env.HF_LLM_MODEL || 'Qwen/Qwen2.5-7B-Instruct';
+
+      if (HF_API_KEY_SI) {
+        try {
+          const relCheckResp = await fetch(HF_LLM_URL_SI, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${HF_API_KEY_SI}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model: HF_MODEL_SI,
+              messages: [
+                { role: 'system', content: `Bạn là AI kiểm tra xem câu tìm kiếm có liên quan đến mô tả ảnh không.
+Trả lời JSON: {"related": true/false, "reason": "ngắn gọn"}
+- related=true: câu tìm kiếm đề cập đến cùng loại sản phẩm, thương hiệu, hoặc danh mục với ảnh
+- related=false: câu tìm kiếm hoàn toàn khác loại sản phẩm với ảnh
+Ví dụ: ảnh="tai nghe Sony", query="Sony 1000XM5" → related=true
+Ví dụ: ảnh="tai nghe Sony", query="iPhone 15 Pro" → related=false
+Chỉ trả về JSON thuần.` },
+                { role: 'user', content: `Ảnh: "${imageDescVI}${imageBrand ? `, thương hiệu ${imageBrand}` : ''}${imageCategory ? `, danh mục ${imageCategory}` : ''}"\nCâu tìm kiếm: "${rawQuery}"` }
+              ],
+              temperature: 0.1,
+              max_tokens: 60,
+              stream: false,
+            }),
+            signal: AbortSignal.timeout(8000),
+          });
+          if (relCheckResp.ok) {
+            const relData = await relCheckResp.json();
+            const relContent = relData?.choices?.[0]?.message?.content?.trim() || '';
+            const relJson = relContent.match(/\{[\s\S]*\}/);
+            if (relJson) {
+              const parsed = JSON.parse(relJson[0]);
+              isQueryRelated = !!parsed.related;
+            }
+          }
+        } catch (e) {
+          // Fallback: kiểm tra keyword overlap thủ công
+          const { removeDiacritics } = require('../ai/huggingface');
+          const queryNorm = removeDiacritics(rawQuery).toLowerCase();
+          const imageTerms = [...imageKeywords, imageBrand, imageCategory || ''].filter(Boolean);
+          isQueryRelated = imageTerms.some(t => queryNorm.includes(removeDiacritics(t).toLowerCase()));
+        }
+      } else {
+        // Không có API key → fallback keyword overlap
+        const { removeDiacritics } = require('../ai/huggingface');
+        const queryNorm = removeDiacritics(rawQuery).toLowerCase();
+        const imageTerms = [...imageKeywords, imageBrand, imageCategory || ''].filter(Boolean);
+        isQueryRelated = imageTerms.some(t => t.length > 1 && queryNorm.includes(removeDiacritics(t).toLowerCase()));
+      }
+    }
+
+    // Xác định mode
+    if (isQueryEmpty || isQueryVague && !rawQuery) {
+      mode = 'image_only';
+    } else if (isQueryVague) {
+      mode = 'ai_both';
+    } else if (isQueryRelated) {
+      mode = 'combined';
+    } else {
+      mode = 'text_only';
+    }
+
+    console.log(`[SmartSearchImage] mode=${mode}, query="${rawQuery}", imageCategory=${imageCategory}, imageBrand=${imageBrand}`);
+
+    // ── BƯỚC 3: Query DB theo mode ────────────────────────────────────────
+
+    // Helper: tìm category id từ tên
+    const findCatId = (catName) => {
+      if (!catName) return null;
+      const { removeDiacritics } = require('../ai/huggingface');
+      const norm = removeDiacritics(catName).toLowerCase();
+      return allCategories
+        .map(c => ({ c, score: removeDiacritics(c.name).toLowerCase() === norm ? 3 : removeDiacritics(c.name).toLowerCase().includes(norm) ? 2 : norm.includes(removeDiacritics(c.name).toLowerCase()) ? 1 : 0 }))
+        .filter(x => x.score > 0)
+        .sort((a, b) => b.score - a.score)[0]?.c?.id || null;
+    };
+
+    const serializeProducts = (prods) => prods.slice(0, 8).map(p => ({
+      id:       Number(p.id),
+      name:     p.name,
+      price:    Number(p.price),
+      image:    p.images?.[0] || p.image || null,
+      images:   p.images || [],
+      rating:   p.rating ? Number(p.rating) : null,
+      sold:     Number(p.sold || 0),
+      stock:    Number(p.stock || 0),
+      category: categoryMap[p.category_id] || null,
+    }));
+
+    if (mode === 'image_only' || mode === 'ai_both') {
+      // Dùng visual search kết quả + nếu ai_both thì cộng thêm smart-search text
+      const imageCatId = findCatId(imageCategory);
+      const searchTerms = [...(imageBrand ? [imageBrand] : []), ...imageKeywords].filter(Boolean);
+
+      if (imageCatId && searchTerms.length > 0) {
+        const rows = await prisma.product.findMany({
+          where: {
+            category_id: imageCatId,
+            AND: searchTerms.slice(0, 2).map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+            is_deleted: false,
+          },
+          take: 50,
+        });
+        if (rows.length === 0 && searchTerms.length > 0) {
+          // Thử OR
+          const rows2 = await prisma.product.findMany({
+            where: {
+              category_id: imageCatId,
+              OR: searchTerms.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+              is_deleted: false,
+            },
+            take: 50,
+          });
+          rows2.forEach(p => {
+            const n = (p.name || '').toLowerCase();
+            p._score = searchTerms.filter(k => n.includes(k.toLowerCase())).length * 5;
+          });
+          rows2.sort((a, b) => b._score - a._score || b.sold - a.sold);
+          products = rows2.slice(0, 8);
+        } else {
+          rows.forEach(p => {
+            const n = (p.name || '').toLowerCase();
+            p._score = searchTerms.filter(k => n.includes(k.toLowerCase())).length * 5;
+          });
+          rows.sort((a, b) => b._score - a._score || b.sold - a.sold);
+          products = rows.slice(0, 8);
+        }
+      } else if (imageCatId) {
+        products = await prisma.product.findMany({
+          where: { category_id: imageCatId, is_deleted: false },
+          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+          take: 8,
+        });
+      }
+
+      // Nếu ai_both → merge thêm smart-search text results
+      if (mode === 'ai_both' && rawQuery) {
+        try {
+          const textResult = await (async () => {
+            // Gọi lại logic smart-search cho rawQuery
+            const resp2 = await fetch(`http://localhost:${process.env.PORT || 8080}/api/ai/smart-search`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ query: rawQuery }),
+              signal: AbortSignal.timeout(15000),
+            });
+            if (resp2.ok) return resp2.json();
+            return null;
+          })();
+          if (textResult?.products?.length > 0) {
+            const existingIds = new Set(products.map(p => String(p.id)));
+            for (const p of textResult.products) {
+              if (!existingIds.has(String(p.id))) {
+                products.push({
+                  id: p.id, name: p.name, price: p.price,
+                  images: p.images || [], image: p.image,
+                  rating: p.rating, sold: p.sold || 0, stock: p.stock || 0,
+                  category_id: null,
+                });
+                existingIds.add(String(p.id));
+              }
+              if (products.length >= 8) break;
+            }
+          }
+        } catch (e) {
+          console.warn('[SmartSearchImage] ai_both text merge failed:', e.message);
+        }
+      }
+
+      hint = mode === 'image_only'
+        ? `Sản phẩm tương tự: ${imageDescVI}`
+        : `Kết quả AI từ ảnh + "${rawQuery}"`;
+
+    } else if (mode === 'text_only') {
+      // TH3: Ưu tiên hoàn toàn query text, bỏ qua ảnh
+      try {
+        const resp3 = await fetch(`http://localhost:${process.env.PORT || 8080}/api/ai/smart-search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: rawQuery }),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (resp3.ok) {
+          const d = await resp3.json();
+          products = (d.products || []).map(p => ({ ...p, category_id: null }));
+          hint     = d.hint || `Kết quả cho "${rawQuery}"`;
+        }
+      } catch (e) {
+        console.warn('[SmartSearchImage] text_only smart-search failed:', e.message);
+      }
+
+    } else if (mode === 'combined') {
+      // TH2: Kết hợp query + image context
+      const imageCatId = findCatId(imageCategory);
+      try {
+        const resp4 = await fetch(`http://localhost:${process.env.PORT || 8080}/api/ai/smart-search`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query: `${rawQuery} ${imageBrand || ''} ${imageCategory || ''}`.trim() }),
+          signal: AbortSignal.timeout(20000),
+        });
+        if (resp4.ok) {
+          const d = await resp4.json();
+          // Ưu tiên sản phẩm có cùng category với ảnh
+          const textProducts = (d.products || []).map(p => ({ ...p, category_id: null }));
+          if (imageCatId) {
+            // Đảm bảo sản phẩm trong category ảnh nằm trước
+            const inCat   = textProducts.filter(p => p.category === categoryMap[imageCatId]);
+            const outCat  = textProducts.filter(p => p.category !== categoryMap[imageCatId]);
+            products = [...inCat, ...outCat].slice(0, 8);
+          } else {
+            products = textProducts.slice(0, 8);
+          }
+          hint = `Kết quả kết hợp ảnh + "${rawQuery}"`;
+        }
+      } catch (e) {
+        console.warn('[SmartSearchImage] combined smart-search failed:', e.message);
+      }
+    }
+
+    // ── Fallback nếu không có kết quả ────────────────────────────────────
+    if (products.length === 0) {
+      products = await prisma.product.findMany({
+        where: { is_deleted: false, stock: { gt: 0 } },
+        orderBy: [{ sold: 'desc' }],
+        take: 8,
+      });
+      hint = 'Sản phẩm phổ biến';
+    }
+
+    const serialized = serializeProducts(products);
+
+    res.json({
+      products: serialized,
+      hint,
+      mode,
+      imageCaption: imageDescVI,
+      imageAnalysis: { brand: analysis?.brand, category: imageCategory, keywords: imageKeywords },
+    });
+
+  } catch (err) {
+    console.error('[SmartSearchImage Error]', err.message);
+    res.status(500).json({ error: err.message, products: [], hint: '' });
+  }
+});
+
 module.exports = router;
+
 

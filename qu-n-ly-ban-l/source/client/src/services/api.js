@@ -69,6 +69,8 @@ export const api = {
     getRecommendations: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
     getCampaignSuggestions: () => request('/b2b/campaign-suggestions'),
     smartSearch: (query) => request('/ai/smart-search', { method: 'POST', body: JSON.stringify({ query }) }),
+    visualSearch: (imageBase64) => request('/b2c/visual-search', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
+    smartSearchWithImage: (query, imageBase64) => request('/ai/smart-search-image', { method: 'POST', body: JSON.stringify({ query, imageBase64 }) }),
   },
 
   // ─── B2B APIs ────────────────────────────────────────────────

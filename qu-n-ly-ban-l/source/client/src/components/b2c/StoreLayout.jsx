@@ -1,5 +1,5 @@
 import { Layout, Badge, Input, Button, Drawer, Row, Col, Checkbox, InputNumber, Dropdown, message, Avatar } from 'antd';
-import { ShoppingOutlined, SearchOutlined, ShoppingCartOutlined, UserOutlined, FireOutlined, LogoutOutlined, SwapOutlined, FileSearchOutlined, TagOutlined, HomeOutlined, AppstoreOutlined, EnvironmentOutlined, DownOutlined, RobotOutlined, BulbOutlined } from '@ant-design/icons';
+import { ShoppingOutlined, SearchOutlined, ShoppingCartOutlined, UserOutlined, FireOutlined, LogoutOutlined, SwapOutlined, FileSearchOutlined, TagOutlined, HomeOutlined, AppstoreOutlined, EnvironmentOutlined, DownOutlined, RobotOutlined, BulbOutlined, CameraOutlined } from '@ant-design/icons';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import AIChatbot from './AIChatbot';
@@ -67,9 +67,13 @@ export default function StoreLayout() {
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchDropdown, setShowSearchDropdown] = useState(false);
   const [searchExpanded, setSearchExpanded] = useState(false);
-  const [isAiSearching, setIsAiSearching] = useState(false);  // đang chạy AI search
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [searchImageBase64, setSearchImageBase64] = useState(null);
+  const [isImageSearching, setIsImageSearching] = useState(false);
+  const [imageSearchHint, setImageSearchHint] = useState('');
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
+  const searchImageInputRef = useRef(null);
 
   // Close search & dropdown when clicking outside
   useEffect(() => {
@@ -89,15 +93,75 @@ export default function StoreLayout() {
   };
 
   const handleSearchCollapse = () => {
-    if (!searchKeyword) {
+    if (!searchKeyword && !searchImageBase64) {
       setSearchExpanded(false);
       setShowSearchDropdown(false);
     }
   };
 
+  const resizeAndEncodeForSearch = (file) => new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const maxPx = 600;
+      const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * ratio);
+      canvas.height = Math.round(img.height * ratio);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.82));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Không đọc được ảnh')); };
+    img.src = url;
+  });
 
-  // Debounced search: thường trước, nếu trống thì tự động gọi AI
+  const handleSearchImageSelect = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { message.warning('Ảnh quá lớn (tối đa 5MB)'); return; }
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!validTypes.includes(file.type)) { message.warning('Chỉ hỗ trợ JPG, PNG, WEBP, GIF'); return; }
+    try {
+      const b64 = await resizeAndEncodeForSearch(file);
+      setSearchImageBase64(b64);
+      setSearchResults([]);
+      setImageSearchHint('');
+      setShowSearchDropdown(true);
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    } catch { message.error('Không đọc được ảnh'); }
+  };
+
+  const clearSearchImage = () => {
+    setSearchImageBase64(null);
+    setImageSearchHint('');
+    setSearchResults([]);
+  };
+
+
+  // Debounced search
   useEffect(() => {
+    // Có ảnh → dùng smart-search-image (4 trường hợp)
+    if (searchImageBase64) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsImageSearching(true);
+          setShowSearchDropdown(true);
+          const result = await api.ai.smartSearchWithImage(searchKeyword, searchImageBase64);
+          setSearchResults((result?.products || []).slice(0, 5));
+          setImageSearchHint(result?.hint || '');
+        } catch (e) {
+          console.warn('[ImageSearch]', e.message);
+          setSearchResults([]);
+        } finally {
+          setIsImageSearching(false);
+        }
+      }, searchKeyword ? 700 : 400);
+      return () => clearTimeout(timer);
+    }
+
+    // Không có ảnh → text search thường
     if (!searchKeyword.trim()) {
       setSearchResults([]);
       setIsAiSearching(false);
@@ -112,7 +176,6 @@ export default function StoreLayout() {
         if (top5.length > 0) {
           setSearchResults(top5);
         } else {
-          // Tự động gọi AI khi không tìm thấy kết quả thường
           setIsAiSearching(true);
           try {
             const aiResult = await api.ai.smartSearch(searchKeyword);
@@ -131,7 +194,7 @@ export default function StoreLayout() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [searchKeyword]);
+  }, [searchKeyword, searchImageBase64]);
 
 
   return (
@@ -212,137 +275,198 @@ export default function StoreLayout() {
             <div style={{
               display: 'flex',
               alignItems: 'center',
-              width: 240,
+              width: searchImageBase64 ? 290 : 240,
               height: 38,
               borderRadius: 19,
               background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-              border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)'}`,
-              transition: 'border-color 0.2s ease, background 0.2s ease',
+              border: `1px solid ${searchImageBase64 ? '#10b981' : (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.07)')}`,
+              transition: 'border-color 0.2s ease, background 0.2s ease, width 0.25s ease',
+              boxShadow: searchImageBase64 ? '0 0 0 3px rgba(16,185,129,0.12)' : 'none',
             }}>
-              {/* Icon */}
-              <div style={{
-                minWidth: 38, height: 38,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexShrink: 0,
-              }}>
-                <SearchOutlined style={{
-                  fontSize: 14,
-                  color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)',
-                }} />
+              {/* Search Icon */}
+              <div style={{ minWidth: 36, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <SearchOutlined style={{ fontSize: 14, color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)' }} />
               </div>
-              {/* Input */}
+
+              {/* Thumbnail ảnh khi đã chọn */}
+              {searchImageBase64 && (
+                <div style={{ position: 'relative', flexShrink: 0, marginRight: 5 }}>
+                  <img
+                    src={searchImageBase64}
+                    alt="search img"
+                    style={{ width: 24, height: 24, borderRadius: 5, objectFit: 'cover', border: '1.5px solid #10b981', display: 'block' }}
+                  />
+                  <div
+                    onClick={clearSearchImage}
+                    style={{
+                      position: 'absolute', top: -5, right: -5,
+                      width: 13, height: 13, borderRadius: '50%',
+                      background: '#ef4444', color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 7, cursor: 'pointer', fontWeight: 900,
+                      border: '1px solid #fff', lineHeight: 1,
+                    }}
+                  >✕</div>
+                </div>
+              )}
+
+              {/* Text input */}
               <input
                 ref={searchInputRef}
                 type="text"
-                placeholder="Tìm kiếm..."
+                placeholder={searchImageBase64 ? 'Thêm mô tả (tùy chọn)...' : 'Tìm kiếm...'}
                 value={searchKeyword}
-                onChange={(e) => {
-                  setSearchKeyword(e.target.value);
-                  setShowSearchDropdown(true);
-                }}
+                onChange={(e) => { setSearchKeyword(e.target.value); setShowSearchDropdown(true); }}
                 onFocus={(e) => {
                   setShowSearchDropdown(true);
-                  e.currentTarget.parentElement.style.borderColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)';
+                  e.currentTarget.parentElement.style.borderColor = searchImageBase64 ? '#10b981' : (isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.18)');
                   e.currentTarget.parentElement.style.background = isDark ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)';
                 }}
                 onBlur={(e) => {
-                  e.currentTarget.parentElement.style.borderColor = '';
+                  e.currentTarget.parentElement.style.borderColor = searchImageBase64 ? '#10b981' : '';
                   e.currentTarget.parentElement.style.background = '';
                 }}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     setShowSearchDropdown(false);
-                    if (searchKeyword.trim()) navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
-                    else navigate('/shop');
+                    if (searchImageBase64) {
+                      navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim() || '__image__')}`);
+                    } else if (searchKeyword.trim()) {
+                      navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
+                    } else { navigate('/shop'); }
                   }
-                  if (e.key === 'Escape') {
-                    setSearchKeyword('');
-                    setShowSearchDropdown(false);
-                  }
+                  if (e.key === 'Escape') { setSearchKeyword(''); setShowSearchDropdown(false); clearSearchImage(); }
                 }}
                 style={{
-                  flex: 1,
-                  background: 'transparent',
-                  border: 'none',
-                  outline: 'none',
-                  fontSize: 13,
-                  color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
-                  paddingRight: 14,
+                  flex: 1, background: 'transparent', border: 'none', outline: 'none',
+                  fontSize: 13, color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
+                  paddingRight: 2, minWidth: 0,
                 }}
               />
+
+              {/* Nút camera */}
+              <input
+                ref={searchImageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                style={{ display: 'none' }}
+                onChange={handleSearchImageSelect}
+              />
+              <div
+                onClick={() => searchImageInputRef.current?.click()}
+                title="Tìm kiếm bằng hình ảnh"
+                style={{
+                  minWidth: 30, height: 30, marginRight: 4,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  borderRadius: '50%', cursor: 'pointer', flexShrink: 0,
+                  background: searchImageBase64 ? 'rgba(16,185,129,0.2)' : 'transparent',
+                  color: searchImageBase64 ? '#10b981' : (isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)'),
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'rgba(16,185,129,0.18)'; e.currentTarget.style.color = '#10b981'; }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = searchImageBase64 ? 'rgba(16,185,129,0.2)' : 'transparent';
+                  e.currentTarget.style.color = searchImageBase64 ? '#10b981' : (isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)');
+                }}
+              >
+                <CameraOutlined style={{ fontSize: 14 }} />
+              </div>
             </div>
-            {(showSearchDropdown || isSearching || isAiSearching) && (searchKeyword.trim() !== '') && (
+
+            {/* DROPDOWN */}
+            {(showSearchDropdown || isSearching || isAiSearching || isImageSearching) &&
+              (searchKeyword.trim() !== '' || searchImageBase64) && (
               <div style={{
-                position: 'absolute', top: 46, right: 0, width: 320,
+                position: 'absolute', top: 46, right: 0, width: 340,
                 background: isDark ? '#1e293b' : '#fff',
                 borderRadius: 16,
                 boxShadow: isDark ? '0 16px 40px rgba(0,0,0,0.5)' : '0 16px 40px rgba(0,0,0,0.08)',
                 border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
-                zIndex: 1000,
-                overflow: 'hidden'
+                zIndex: 1000, overflow: 'hidden'
               }}>
 
+                {/* Hint header khi có ảnh */}
+                {searchImageBase64 && !isImageSearching && imageSearchHint && (
+                  <div style={{
+                    padding: '8px 14px',
+                    borderBottom: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f0',
+                    display: 'flex', alignItems: 'center', gap: 8,
+                  }}>
+                    <img src={searchImageBase64} alt="" style={{ width: 26, height: 26, borderRadius: 5, objectFit: 'cover', border: '1px solid #10b981' }} />
+                    <span style={{ fontSize: 11, color: '#10b981', fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {imageSearchHint}
+                    </span>
+                  </div>
+                )}
+
+                {/* Đang phân tích ảnh */}
+                {isImageSearching && (
+                  <div style={{ padding: '18px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 24, marginBottom: 8 }}>🔍</div>
+                    <div style={{ fontSize: 13, color: '#10b981', fontWeight: 600 }}>AI đang phân tích ảnh...</div>
+                  </div>
+                )}
+
                 {/* Đang tìm kiếm thường */}
-                {isSearching && (
-                  <div style={{ padding: '14px 16px', textAlign: 'center', color: '#888', fontSize: 13 }}>
-                    Đang tìm kiếm...
+                {isSearching && !isImageSearching && (
+                  <div style={{ padding: '14px 16px', textAlign: 'center', color: '#888', fontSize: 13 }}>Đang tìm kiếm...</div>
+                )}
+
+                {/* Đang hỏi AI */}
+                {!isSearching && !isImageSearching && isAiSearching && (
+                  <div style={{ padding: '20px 16px', textAlign: 'center' }}>
+                    <RobotOutlined style={{ fontSize: 26, marginBottom: 10, color: '#10b981' }} />
+                    <div style={{ fontSize: 13, color: '#10b981', fontWeight: 500 }}>Đang để AI tìm giúp bạn...</div>
                   </div>
                 )}
 
-                {/* Đang hỏi AI (tự động) */}
-                {!isSearching && isAiSearching && (
-                  <div style={{ padding: '24px 16px', textAlign: 'center' }}>
-                    <RobotOutlined style={{ fontSize: 28, marginBottom: 12, color: isDark ? '#34d399' : '#10b981' }} />
-                    <div style={{ fontSize: 13, color: isDark ? '#34d399' : '#10b981', fontWeight: 500 }}>Đang để AI tìm giúp bạn...</div>
-                  </div>
-                )}
-
-                {/* Có kết quả */}
-                {!isSearching && !isAiSearching && searchResults.length > 0 && (
+                {/* Kết quả */}
+                {!isSearching && !isAiSearching && !isImageSearching && searchResults.length > 0 && (
                   <div>
                     {searchResults.map(p => (
                       <div
                         key={p.id}
                         onMouseDown={() => {
-                          setShowSearchDropdown(false);
-                          setSearchExpanded(false);
+                          setShowSearchDropdown(false); setSearchExpanded(false);
                           navigate(`/product/${p.id}`);
-                          setSearchKeyword('');
+                          setSearchKeyword(''); clearSearchImage();
                         }}
                         style={{
                           padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12,
                           cursor: 'pointer', borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f5f5f5',
                           color: isDark ? '#fff' : '#111'
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#fafafa'}
-                        onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                        onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#fafafa'}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                       >
                         <img src={p.image || (p.images && p.images[0])} alt={p.name} style={{ width: 40, height: 40, objectFit: 'contain', background: isDark ? '#111' : '#f5f5f5', borderRadius: 8, padding: 4, flexShrink: 0 }} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 500, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</div>
                           <div style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)', fontSize: 12, fontWeight: 500 }}>{p.price?.toLocaleString('vi-VN')} đ</div>
                         </div>
+                        {searchImageBase64 && <span style={{ fontSize: 10, color: '#10b981', fontWeight: 700, flexShrink: 0, background: 'rgba(16,185,129,0.1)', padding: '2px 5px', borderRadius: 4 }}>AI</span>}
                       </div>
                     ))}
                     <div
                       onMouseDown={() => {
-                        setShowSearchDropdown(false);
-                        setSearchExpanded(false);
-                        navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
+                        setShowSearchDropdown(false); setSearchExpanded(false);
+                        navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim() || '__image__')}`);
                       }}
                       style={{ padding: '10px 16px', textAlign: 'center', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)', cursor: 'pointer', fontWeight: 500, fontSize: 13, borderTop: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f0' }}
-                      onMouseEnter={(e) => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#fafafa'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.04)' : '#fafafa'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      Xem tất cả kết quả cho "{searchKeyword}"
+                      {searchImageBase64
+                        ? `Xem tất cả kết quả từ ảnh${searchKeyword ? ` + "${searchKeyword}"` : ''}`
+                        : `Xem tất cả kết quả cho "${searchKeyword}"`}
                     </div>
                   </div>
                 )}
 
-                {/* Không tìm thấy gì cả */}
-                {!isSearching && !isAiSearching && searchResults.length === 0 && (
+                {/* Không có kết quả */}
+                {!isSearching && !isAiSearching && !isImageSearching && searchResults.length === 0 && (
                   <div style={{ padding: '20px 16px', textAlign: 'center', color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.4)', fontSize: 13 }}>
-                    Không tìm thấy sản phẩm phù hợp
+                    {searchImageBase64 ? 'Không tìm thấy sản phẩm phù hợp với ảnh' : 'Không tìm thấy sản phẩm phù hợp'}
                   </div>
                 )}
 

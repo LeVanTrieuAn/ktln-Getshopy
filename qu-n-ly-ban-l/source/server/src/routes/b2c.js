@@ -17,15 +17,33 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// P-01: In-memory TTL cache cho flash sale — tránh 2 DB queries mỗi request
+const FLASH_SALE_TTL_MS = 60_000; // 60 giây
+let _fsCache = null;
+let _fsCacheTime = 0;
+let _fsCachePromise = null; // Thundering herd prevention
+
 const getActiveFlashSaleItems = async () => {
-  const activeSale = await prisma.flashSale.findFirst({
-    where: { 
-      is_deleted: false,
-      end_time: { gt: new Date() } 
+  // Cache hit
+  if (_fsCache && Date.now() - _fsCacheTime < FLASH_SALE_TTL_MS) return _fsCache;
+  // Thundering herd: nếu đang fetch thì dùng chung promise
+  if (_fsCachePromise) return _fsCachePromise;
+  _fsCachePromise = (async () => {
+    try {
+      const activeSale = await prisma.flashSale.findFirst({
+        where: { is_deleted: false, end_time: { gt: new Date() } }
+      });
+      const items = activeSale
+        ? await prisma.flashSaleItem.findMany({ where: { flash_sale_id: activeSale.id } })
+        : [];
+      _fsCache = items;
+      _fsCacheTime = Date.now();
+      return _fsCache;
+    } finally {
+      _fsCachePromise = null;
     }
-  });
-  if (!activeSale) return [];
-  return await prisma.flashSaleItem.findMany({ where: { flash_sale_id: activeSale.id } });
+  })();
+  return _fsCachePromise;
 };
 
 const applyFlashSaleToProduct = (product, fsItems) => {
@@ -116,11 +134,16 @@ router.get('/products', async (req, res) => {
 
       const whereSQL = conditions.join(' AND ');
 
-      const orderSQL =
-        sort === 'price_asc'  ? 'price ASC' :
-        sort === 'price_desc' ? 'price DESC' :
-        (sort === 'best_selling' || sort === 'bestseller' || sort === 'sold_desc') ? 'sold DESC' :
-        'id DESC'; // default: newest
+      // P-05: Prisma type-safe orderBy — loại bỏ string interpolation vào raw SQL
+      const ORDER_MAP = {
+        price_asc:    'price ASC',
+        price_desc:   'price DESC',
+        best_selling: 'sold DESC',
+        bestseller:   'sold DESC',
+        sold_desc:    'sold DESC',
+        newest:       'id DESC',
+      };
+      const orderSQL = ORDER_MAP[sort] ?? 'id DESC';
 
       const [rows, countRows] = await Promise.all([
         prisma.$queryRawUnsafe(

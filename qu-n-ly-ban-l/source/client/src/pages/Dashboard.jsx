@@ -145,7 +145,10 @@ export default function Dashboard() {
 
   // WebSocket live update
   useEffect(() => {
-    const ws = new WebSocket(import.meta.env.VITE_WS_URL || 'ws://localhost:8080');
+    // M-07: Dựa vào window.location để tự động detect host, hoạt động cả local lẫn production
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.hostname}:8080`;
+    const ws = new WebSocket(wsHost);
     ws.onmessage = (e) => {
       try {
         const msg = JSON.parse(e.data);
