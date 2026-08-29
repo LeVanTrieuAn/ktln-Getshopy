@@ -43,7 +43,11 @@ model Category {
   id         String   @id
   name       String
   icon       String?
+  parent_id  String?  // null = danh mục cấp 1 (cha); có giá trị = danh mục cấp 2 (con)
+  sort_order Int      @default(0)
   created_at DateTime @default(now())
+
+  @@index([parent_id])
 }
 
 model Brand {
