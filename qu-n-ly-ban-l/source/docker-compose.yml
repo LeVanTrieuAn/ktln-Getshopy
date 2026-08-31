@@ -32,6 +32,8 @@ services:
       CLICKHOUSE_HOST: http://clickhouse:8123
       CLICKHOUSE_URL: http://clickhouse:8123
       REDIS_URL: redis://redis:6379
+      DATABASE_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
+      DIRECT_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
     # DNS tường minh — cho phép container gọi Hugging Face API bên ngoài
     dns:
       - 8.8.8.8
@@ -61,6 +63,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-getshopy}
       POSTGRES_USER: ${POSTGRES_USER:-getshopy}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-getshopy_dev_password}
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

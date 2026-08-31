@@ -203,7 +203,7 @@ export default function Home() {
                         width={160}
                         height={160}
                         style={{ height: 160, objectFit: 'contain' }} 
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
                       />
                       <Tag color="red" style={{ position: 'absolute', top: 12, left: 12, fontSize: 14, padding: '4px 8px', borderRadius: 8, fontWeight: 700 }}>
                         -{Math.round((1 - p.discount_price/p.original_price)*100)}%
@@ -259,7 +259,7 @@ export default function Home() {
                         width={200}
                         height={200}
                         style={{ height: 200, objectFit: 'contain' }} 
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
+                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
                       />
                     </div>
                   }
@@ -460,7 +460,7 @@ export default function Home() {
                           width={160}
                           height={160}
                           style={{ height: 160, objectFit: 'contain' }} 
-                          onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
+                          onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
                         />
 
                         {p.original_price > p.price && (
@@ -547,7 +547,7 @@ export default function Home() {
                     width={200}
                     height={200}
                     style={{ height: 200, objectFit: 'contain' }} 
-                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
+                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
                   />
                   {p.original_price > p.price && (
                     <Tag color="#10b981" style={{ position: 'absolute', top: 12, left: 12, borderRadius: 8, fontWeight: 700 }}>

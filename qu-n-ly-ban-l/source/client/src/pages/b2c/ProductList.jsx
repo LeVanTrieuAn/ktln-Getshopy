@@ -6,6 +6,30 @@ import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 
+// ── Category-aware image fallback ───────────────────────────────
+const FALLBACK_BY_CAT = {
+  phone:    'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&q=80&auto=format',
+  laptop:   'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format',
+  tablet:   'https://images.unsplash.com/photo-1544244015-0df4512b8c72?w=400&h=400&fit=crop&q=80&auto=format',
+  watch:    'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop&q=80&auto=format',
+  audio:    'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop&q=80&auto=format',
+  camera:   'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400&h=400&fit=crop&q=80&auto=format',
+  acc:      'https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&h=400&fit=crop&q=80&auto=format',
+  default:  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format',
+};
+function getFallback(categoryId) {
+  const c = categoryId || '';
+  if (c === 'cat-phone') return FALLBACK_BY_CAT.phone;
+  if (c === 'cat-laptop') return FALLBACK_BY_CAT.laptop;
+  if (c === 'cat-tablet') return FALLBACK_BY_CAT.tablet;
+  if (c === 'cat-watch') return FALLBACK_BY_CAT.watch;
+  if (c.startsWith('cat-av') || c.includes('earphone') || c.includes('headphone') || c.includes('speaker') || c.includes('mic')) return FALLBACK_BY_CAT.audio;
+  if (c.startsWith('cat-cam')) return FALLBACK_BY_CAT.camera;
+  if (c.startsWith('cat-mobile-acc')) return FALLBACK_BY_CAT.phone;
+  if (c.startsWith('cat-laptop-acc')) return FALLBACK_BY_CAT.laptop;
+  return FALLBACK_BY_CAT.default;
+}
+
 const { Title, Text } = Typography;
 
 // ── Benchmark helper: chỉ bật khi URL có ?benchmark=true ───────────────────
@@ -311,7 +335,7 @@ export default function ProductList() {
                       cover={
                         <div style={{ padding: 20, background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', display: 'flex', justifyContent: 'center' }}>
                           <img alt={p.name} src={p.image || p.images?.[0]} style={{ height: 160, objectFit: 'contain' }}
-                            onError={(e) => { e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=No+Image'; }} />
+                            onError={(e) => { e.target.src = 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&q=80&auto=format'; }} />
                         </div>
                       }
                     >
@@ -362,7 +386,7 @@ export default function ProductList() {
                       width={200}
                       height={200}
                       style={{ height: 200, objectFit: 'contain' }} 
-                      onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/400x400/222222/ffffff?text=Image+Not+Found'; }}
+                      onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }}
                     />
                     {p.original_price > p.price && (
                       <Tag color="#10b981" style={{ position: 'absolute', top: 12, left: 12, borderRadius: 8, fontWeight: 700 }}>
