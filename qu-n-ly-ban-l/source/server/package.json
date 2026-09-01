@@ -31,8 +31,11 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "axios": "^1.20.0",
+    "cheerio": "^1.2.0",
     "nodemon": "^3.1.14",
     "pg": "^8.23.0",
-    "prisma": "^5.10.2"
+    "prisma": "^5.10.2",
+    "puppeteer-core": "^25.9.0"
   }
 }
