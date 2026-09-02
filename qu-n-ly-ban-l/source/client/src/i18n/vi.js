@@ -3,7 +3,7 @@ const vi = {
   home: {
     featured_categories: 'Danh mục nổi bật',
     flash_sale_subtitle: 'Nhanh tay kẻo lỡ!',
-    daily_discover: 'Dành riêng cho bạn',
+    daily_discover: 'Toàn bộ sản phẩm',
     all_categories: 'Tất cả danh mục',
     top_selling: 'Top 10 Sản phẩm bán chạy nhất',
     top_selling_subtitle: 'Các sản phẩm được săn đón nhiều nhất',

@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { Row, Col, Typography, Button, Spin, Breadcrumb, Tabs, Divider, Tag, Rate, Avatar, List, Card, Input, message, Carousel } from 'antd';
-import { ShoppingCartOutlined, ThunderboltOutlined, CheckCircleOutlined, SafetyCertificateOutlined, UserOutlined, RobotOutlined, HeartOutlined, HeartFilled, SwapOutlined, GiftOutlined, CarOutlined, ReloadOutlined, PhoneOutlined } from '@ant-design/icons';
+import {
+  ShoppingCartOutlined, ThunderboltOutlined, CheckCircleOutlined, SafetyCertificateOutlined,
+  UserOutlined, RobotOutlined, HeartOutlined, HeartFilled, SwapOutlined, GiftOutlined,
+  CarOutlined, ReloadOutlined, PhoneOutlined,
+  MobileOutlined, LaptopOutlined, TabletOutlined,
+  WifiOutlined, ApiOutlined, CameraOutlined, CustomerServiceOutlined,
+  HddOutlined, CloudOutlined, ToolOutlined, DatabaseOutlined,
+  SettingOutlined, InfoCircleOutlined, FireOutlined, BulbOutlined,
+  DashboardOutlined, SoundOutlined, EyeOutlined, GlobalOutlined,
+  UnorderedListOutlined, ControlOutlined, FundOutlined, AlertOutlined,
+  ThunderboltFilled, StarOutlined, AppstoreOutlined,
+  ExperimentOutlined, ClockCircleOutlined, AimOutlined,
+} from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
@@ -929,43 +941,43 @@ function generateHighlights(product) {
 
   if (cat === 'cat-phone' || name.includes('iphone') || name.includes('galaxy') || name.includes('điện thoại')) {
     return [
-      { icon: '📱', text: `Màn hình ${pick(pid, ['AMOLED', 'OLED', 'Super AMOLED'])} ${pick(pid, ['6.4"', '6.6"', '6.7"'])}` },
-      { icon: '⚡', text: `Chip ${isHigh ? 'Flagship' : isMid ? 'Tầm trung' : 'Phổ thông'} mạnh mẽ` },
-      { icon: '🔋', text: `Pin ${pick(pid, ['4500', '5000', '4700'], 1)} mAh, sạc nhanh` },
-      { icon: isHigh ? '🌊' : '📸', text: isHigh ? 'Kháng nước IP67/IP68' : `Camera ${pick(pid, ['64MP', '50MP', '108MP'], 2)} AI` },
+      { icon: <EyeOutlined />,           text: `Màn hình ${pick(pid, ['AMOLED', 'OLED', 'Super AMOLED'])} ${pick(pid, ['6.4"', '6.6"', '6.7"'])}` },
+      { icon: <DashboardOutlined />,     text: `Chip ${isHigh ? 'Flagship' : isMid ? 'Tầm trung' : 'Phổ thông'} mạnh mẽ` },
+      { icon: <ThunderboltOutlined />,   text: `Pin ${pick(pid, ['4500', '5000', '4700'], 1)} mAh, sạc nhanh` },
+      { icon: isHigh ? <SafetyCertificateOutlined /> : <CameraOutlined />, text: isHigh ? 'Kháng nước IP67/IP68' : `Camera ${pick(pid, ['64MP', '50MP', '108MP'], 2)} AI` },
     ];
   }
   if (cat === 'cat-laptop' || name.includes('laptop') || name.includes('macbook')) {
     const isGaming = name.includes('rog') || name.includes('gaming') || name.includes('msi');
     return [
-      { icon: '⚡', text: `CPU ${pick(pid, ['Intel Core i7', 'AMD Ryzen 7', 'Intel Core i9'])} Gen mới nhất` },
-      { icon: '💾', text: `RAM ${pick(pid, [8, 16, 32], 1)}GB + SSD ${pick(pid, [256, 512, 1024], 2)}GB` },
-      { icon: '🖥️', text: `Màn hình ${pick(pid, ['Full HD', 'QHD', '2K'], 3)} ${isGaming ? '144Hz' : 'IPS'}` },
-      { icon: '🔋', text: `Pin ${pick(pid, [8, 10, 12], 4)} giờ — ${isGaming ? 'Sạc 200W' : 'Sạc USB-C 65W'}` },
+      { icon: <DashboardOutlined />,   text: `CPU ${pick(pid, ['Intel Core i7', 'AMD Ryzen 7', 'Intel Core i9'])} Gen mới nhất` },
+      { icon: <HddOutlined />,         text: `RAM ${pick(pid, [8, 16, 32], 1)}GB + SSD ${pick(pid, [256, 512, 1024], 2)}GB` },
+      { icon: <EyeOutlined />,         text: `Màn hình ${pick(pid, ['Full HD', 'QHD', '2K'], 3)} ${isGaming ? '144Hz' : 'IPS'}` },
+      { icon: <ThunderboltOutlined />, text: `Pin ${pick(pid, [8, 10, 12], 4)} giờ — ${isGaming ? 'Sạc 200W' : 'Sạc USB-C 65W'}` },
     ];
   }
   if (cat === 'cat-watch' || name.includes('watch') || name.includes('đồng hồ')) {
     return [
-      { icon: '❤️', text: 'Theo dõi sức khỏe 24/7 — Nhịp tim, SpO2, ECG' },
-      { icon: '🏃', text: `${pick(pid, ['40+', '80+', '100+'])} chế độ tập luyện` },
-      { icon: '🔋', text: `Pin ${pick(pid, ['3-5', '7-10', '14'], 1)} ngày liên tục` },
-      { icon: '🌊', text: `Kháng nước ${pick(pid, ['5ATM', 'IP68', '10ATM'], 2)}` },
+      { icon: <AlertOutlined />,           text: 'Theo dõi sức khỏe 24/7 — Nhịp tim, SpO2, ECG' },
+      { icon: <AimOutlined />,             text: `${pick(pid, ['40+', '80+', '100+'])} chế độ tập luyện` },
+      { icon: <ThunderboltOutlined />,     text: `Pin ${pick(pid, ['3-5', '7-10', '14'], 1)} ngày liên tục` },
+      { icon: <SafetyCertificateOutlined />, text: `Kháng nước ${pick(pid, ['5ATM', 'IP68', '10ATM'], 2)}` },
     ];
   }
   if (cat.startsWith('cat-av') || name.includes('tai nghe') || name.includes('loa')) {
     const isANC = name.includes('anc') || name.includes('noise cancel');
     return [
-      { icon: '🎵', text: `Driver ${pick(pid, ['10mm', '12mm', '40mm'])} cho âm thanh đỉnh cao` },
-      { icon: '🔋', text: `Pin ${pick(pid, ['8h', '24h', '30h'], 1)} liên tục` },
-      { icon: '📡', text: `Bluetooth ${pick(pid, ['5.2', '5.3'], 2)} — Ghép nối tức thì` },
-      { icon: isANC ? '🔇' : '💧', text: isANC ? 'Chống ồn chủ động (ANC)' : 'Kháng nước IPX4/IPX5' },
+      { icon: <SoundOutlined />,       text: `Driver ${pick(pid, ['10mm', '12mm', '40mm'])} cho âm thanh đỉnh cao` },
+      { icon: <ThunderboltOutlined />, text: `Pin ${pick(pid, ['8h', '24h', '30h'], 1)} liên tục` },
+      { icon: <WifiOutlined />,        text: `Bluetooth ${pick(pid, ['5.2', '5.3'], 2)} — Ghép nối tức thì` },
+      { icon: isANC ? <ControlOutlined /> : <SafetyCertificateOutlined />, text: isANC ? 'Chống ồn chủ động (ANC)' : 'Kháng nước IPX4/IPX5' },
     ];
   }
   return [
-    { icon: '✅', text: 'Chính hãng 100% — Bảo hành chính hãng' },
-    { icon: '🚚', text: 'Giao hàng toàn quốc trong 2–4 giờ' },
-    { icon: '↩️', text: 'Đổi trả miễn phí 30 ngày' },
-    { icon: '💳', text: 'Trả góp 0% lãi suất qua thẻ tín dụng' },
+    { icon: <SafetyCertificateOutlined />, text: 'Chính hãng 100% — Bảo hành chính hãng' },
+    { icon: <CarOutlined />,               text: 'Giao hàng toàn quốc trong 2–4 giờ' },
+    { icon: <ReloadOutlined />,            text: 'Đổi trả miễn phí 30 ngày' },
+    { icon: <GiftOutlined />,              text: 'Trả góp 0% lãi suất qua thẻ tín dụng' },
   ];
 }
 
@@ -991,42 +1003,433 @@ function generateDescription(product) {
 }
 
 // ══════════════════════════════════════════════════════════════════
-// SPEC TABLE component
+// ICON MAP — ánh xạ từ khóa trong tên section → Ant Design icon
+// ══════════════════════════════════════════════════════════════════
+const SECTION_ICONS = [
+  { keys: ['màn hình', 'display', 'screen'],         icon: <EyeOutlined /> },
+  { keys: ['bộ xử lý', 'cpu', 'chip', 'processor', 'ram'], icon: <DashboardOutlined /> },
+  { keys: ['camera', 'hình ảnh', 'video'],           icon: <CameraOutlined /> },
+  { keys: ['pin', 'sạc', 'battery', 'charge'],       icon: <ThunderboltOutlined /> },
+  { keys: ['kết nối', 'không dây', 'wifi', 'mạng', 'cổng', 'bluetooth', 'network'], icon: <WifiOutlined /> },
+  { keys: ['âm thanh', 'audio', 'loa', 'speaker', 'sound'], icon: <SoundOutlined /> },
+  { keys: ['thiết kế', 'vật lý', 'kích thước', 'trọng lượng'], icon: <AppstoreOutlined /> },
+  { keys: ['sức khỏe', 'cảm biến', 'health', 'sensor'], icon: <AlertOutlined /> },
+  { keys: ['lưu trữ', 'storage', 'hdd', 'ssd', 'thẻ nhớ'], icon: <HddOutlined /> },
+  { keys: ['bảo mật', 'security'],                  icon: <SafetyCertificateOutlined /> },
+  { keys: ['ai', 'thông minh', 'smart', 'deep learning'], icon: <ExperimentOutlined /> },
+  { keys: ['chế độ ban đêm', 'night', 'hồng ngoại'], icon: <BulbOutlined /> },
+  { keys: ['ứng dụng', 'phần mềm', 'app', 'software'], icon: <GlobalOutlined /> },
+  { keys: ['tính năng', 'feature'],                 icon: <ControlOutlined /> },
+  { keys: ['router', 'mesh', 'chuẩn wifi'],         icon: <ApiOutlined /> },
+  { keys: ['bàn phím', 'keyboard'],                 icon: <ToolOutlined /> },
+  { keys: ['thông số kỹ thuật', 'thông số', 'spec'], icon: <SettingOutlined /> },
+  { keys: ['thông tin', 'info', 'khác', 'other'],   icon: <InfoCircleOutlined /> },
+];
+
+function getSectionIcon(sectionTitle) {
+  const lower = sectionTitle.toLowerCase().replace(/[📱⚡🔋📷📡🎵🔊🎙️💾🖥️💻⌚❤️🏃🌊🎒🔭🤖📲🎥🌙🔌💡🔦🖱️⌨️🎧✏️📐🛡️💨🏷️ℹ️]/gu, '').trim();
+  const match = SECTION_ICONS.find(m => m.keys.some(k => lower.includes(k)));
+  return match ? match.icon : <UnorderedListOutlined />;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SPEC TABLE component — redesigned với icon chuyên nghiệp
 // ══════════════════════════════════════════════════════════════════
 function SpecTable({ specs, isDark }) {
+  const [openSections, setOpenSections] = useState(() => new Set(specs.map((_, i) => i)));
+
+  const toggleSection = (i) => {
+    setOpenSections(prev => {
+      const s = new Set(prev);
+      s.has(i) ? s.delete(i) : s.add(i);
+      return s;
+    });
+  };
+
+  // Strip emoji prefix to get clean text label
+  const cleanLabel = (str) => str.replace(/^[\p{Emoji}\s]+/gu, '').trim();
+
   return (
     <div style={{ padding: '24px 0' }}>
-      {specs.map((section, si) => (
-        <div key={si} style={{ marginBottom: 32 }}>
-          <div style={{
-            fontSize: 15, fontWeight: 700,
-            color: isDark ? '#10b981' : '#047857',
-            background: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.06)',
-            padding: '8px 16px', borderRadius: 8, marginBottom: 2,
-            borderLeft: '3px solid #10b981',
+      {specs.map((section, si) => {
+        const isOpen = openSections.has(si);
+        const icon = getSectionIcon(section.section);
+        const label = cleanLabel(section.section);
+        return (
+          <div key={si} style={{
+            marginBottom: 16,
+            borderRadius: 16,
+            overflow: 'hidden',
+            border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e5e7eb',
+            boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.04)',
           }}>
-            {section.section}
+            {/* Section header — clickable accordion */}
+            <div
+              onClick={() => toggleSection(si)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12,
+                padding: '14px 20px', cursor: 'pointer',
+                background: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.06)',
+                borderBottom: isOpen ? (isDark ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(16,185,129,0.15)') : 'none',
+                transition: 'background 0.2s',
+                userSelect: 'none',
+              }}
+            >
+              <span style={{
+                width: 34, height: 34, borderRadius: 10,
+                background: 'linear-gradient(135deg, #10b981, #047857)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 16, flexShrink: 0,
+              }}>{icon}</span>
+              <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: isDark ? '#10b981' : '#047857' }}>
+                {label}
+              </span>
+              <span style={{
+                fontSize: 12, color: isDark ? '#666' : '#aaa',
+                transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}>▼</span>
+            </div>
+
+            {/* Rows */}
+            {isOpen && (
+              <div>
+                {section.rows.map(([label, value], ri) => (
+                  <div key={ri} style={{
+                    display: 'flex', padding: '12px 20px', alignItems: 'center',
+                    background: ri % 2 === 0
+                      ? (isDark ? 'rgba(255,255,255,0.02)' : '#fafafa')
+                      : (isDark ? 'transparent' : '#fff'),
+                    borderBottom: ri < section.rows.length - 1
+                      ? (isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f3f4f6')
+                      : 'none',
+                  }}>
+                    <span style={{
+                      width: '38%', color: isDark ? '#94a3b8' : '#64748b',
+                      fontSize: 13.5, fontWeight: 500, flexShrink: 0,
+                    }}>{label}</span>
+                    <span style={{
+                      flex: 1, color: isDark ? '#e2e8f0' : '#1e293b',
+                      fontSize: 13.5, fontWeight: 600,
+                    }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          {section.rows.map(([label, value], ri) => (
-            <div key={ri} style={{
-              display: 'flex', padding: '11px 16px',
-              background: ri % 2 === 0
-                ? (isDark ? 'rgba(255,255,255,0.02)' : '#fafafa')
-                : (isDark ? 'transparent' : '#fff'),
-              borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f3f4f6',
+        );
+      })}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
+// PRODUCT TABS — custom animated tab system
+// ══════════════════════════════════════════════════════════════════
+function ProductTabs({ product, specs, highlights, description, isDark,
+  reviewRating, setReviewRating, reviewComment, setReviewComment,
+  submittingReview, submitReview }) {
+
+  const [activeTab, setActiveTab] = useState('specs');
+  const [displayTab, setDisplayTab] = useState('specs');
+  const [animating, setAnimating] = useState(false);
+
+  const switchTab = (key) => {
+    if (key === activeTab || animating) return;
+    setAnimating(true);
+    setTimeout(() => {
+      setDisplayTab(key);
+      setActiveTab(key);
+      setTimeout(() => setAnimating(false), 20);
+    }, 180);
+  };
+
+  const tabDefs = [
+    { key: 'info',    icon: <InfoCircleOutlined />,  label: 'Thông tin SP' },
+    { key: 'specs',   icon: <SettingOutlined />,     label: 'Thông số kỹ thuật' },
+    { key: 'reviews', icon: <StarOutlined />,        label: `Đánh giá (${product.reviews?.length || 0})` },
+  ];
+
+  return (
+    <div className="glass-panel" style={{ borderRadius: 24, overflow: 'hidden' }}>
+
+      {/* ── Custom Tab Bar */}
+      <div style={{
+        display: 'flex', padding: '0 32px',
+        borderBottom: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e5e7eb',
+        background: isDark ? 'rgba(255,255,255,0.01)' : '#fff',
+        gap: 4, overflowX: 'auto',
+      }}>
+        {tabDefs.map(tab => {
+          const isActive = activeTab === tab.key;
+          return (
+            <button key={tab.key} onClick={() => switchTab(tab.key)} style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '18px 20px', border: 'none', cursor: 'pointer',
+              background: 'transparent', position: 'relative', outline: 'none',
+              fontSize: 14.5, fontWeight: isActive ? 700 : 500,
+              color: isActive ? '#10b981' : (isDark ? '#94a3b8' : '#64748b'),
+              transition: 'color 0.25s ease', whiteSpace: 'nowrap', flexShrink: 0,
             }}>
               <span style={{
-                width: '40%', color: isDark ? '#888' : '#666',
-                fontSize: 14, fontWeight: 500, flexShrink: 0,
-              }}>{label}</span>
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 26, height: 26, borderRadius: 8,
+                background: isActive ? 'rgba(16,185,129,0.12)' : 'transparent',
+                color: isActive ? '#10b981' : 'inherit', fontSize: 13,
+                transition: 'all 0.25s ease',
+              }}>{tab.icon}</span>
+              {tab.label}
               <span style={{
-                flex: 1, color: isDark ? '#e5e7eb' : '#1a1a1a',
-                fontSize: 14, fontWeight: 500,
-              }}>{value}</span>
+                position: 'absolute', bottom: 0, left: 16, right: 16, height: 2,
+                borderRadius: '2px 2px 0 0',
+                background: isActive ? 'linear-gradient(90deg, #10b981, #047857)' : 'transparent',
+                transition: 'transform 0.3s ease, background 0.3s ease',
+                transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
+              }} />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Tab Content with Fade+Slide animation */}
+      <div style={{
+        padding: '36px 40px 48px',
+        opacity: animating ? 0 : 1,
+        transform: animating ? 'translateY(10px)' : 'translateY(0)',
+        transition: 'opacity 0.22s ease, transform 0.22s ease',
+      }}>
+
+        {/* ═ TAB: THÔNG TIN SẢN PHẨM */}
+        {displayTab === 'info' && (
+          <div>
+            {/* Description */}
+            <div style={{
+              background: isDark ? 'rgba(255,255,255,0.025)' : 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+              borderRadius: 20, padding: '28px 32px', marginBottom: 32,
+              border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <span style={{
+                  width: 36, height: 36, borderRadius: 10, flexShrink: 0,
+                  background: 'linear-gradient(135deg, #10b981, #047857)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 16,
+                }}><AppstoreOutlined /></span>
+                <span style={{ fontSize: 17, fontWeight: 700, color: isDark ? '#f1f5f9' : '#0f172a' }}>Giới thiệu sản phẩm</span>
+              </div>
+              <p style={{ fontSize: 15, lineHeight: 1.9, color: isDark ? '#94a3b8' : '#475569', margin: 0 }}>
+                {product.description?.trim() || description}
+              </p>
             </div>
-          ))}
-        </div>
-      ))}
+
+            {/* Highlights */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <span style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 16,
+              }}><StarOutlined /></span>
+              <span style={{ fontSize: 17, fontWeight: 700, color: isDark ? '#f1f5f9' : '#0f172a' }}>Điểm nổi bật</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 14, marginBottom: 36 }}>
+              {highlights.map((h, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 14, padding: '18px 22px', borderRadius: 16,
+                  background: isDark ? 'rgba(16,185,129,0.06)' : 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(4,120,87,0.04))',
+                  border: `1px solid ${isDark ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.2)'}`,
+                  transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'default',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(16,185,129,0.15)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
+                >
+                  <span style={{
+                    width: 42, height: 42, borderRadius: 12, flexShrink: 0,
+                    background: 'linear-gradient(135deg, #10b981, #047857)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: '#fff', fontSize: 18, boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                  }}>{h.icon}</span>
+                  <span style={{ fontSize: 14, color: isDark ? '#cbd5e1' : '#334155', lineHeight: 1.5, fontWeight: 500 }}>{h.text}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Policies */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+              <span style={{
+                width: 36, height: 36, borderRadius: 10,
+                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: '#fff', fontSize: 16,
+              }}><SafetyCertificateOutlined /></span>
+              <span style={{ fontSize: 17, fontWeight: 700, color: isDark ? '#f1f5f9' : '#0f172a' }}>Chính sách mua hàng</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+              {[
+                { icon: <SafetyCertificateOutlined />, color: '#10b981', bg: 'rgba(16,185,129,0.1)',  title: 'Bảo hành chính hãng', desc: '12–24 tháng tại hệ thống' },
+                { icon: <ReloadOutlined />,            color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  title: 'Đổi trả miễn phí',   desc: '30 ngày nếu lỗi nhà sản xuất' },
+                { icon: <CarOutlined />,               color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', title: 'Giao hàng nhanh',     desc: 'Giao trong 2–4 giờ nội thành' },
+                { icon: <GiftOutlined />,              color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', title: 'Quà tặng kèm',        desc: 'Phụ kiện chính hãng, hộp đẹp' },
+              ].map((p, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'flex-start', gap: 14, padding: '18px 20px', borderRadius: 16,
+                  background: isDark ? 'rgba(255,255,255,0.03)' : '#fff',
+                  border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
+                  boxShadow: isDark ? 'none' : '0 1px 6px rgba(0,0,0,0.05)',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = isDark ? '0 8px 24px rgba(0,0,0,0.3)' : '0 8px 24px rgba(0,0,0,0.08)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = isDark ? 'none' : '0 1px 6px rgba(0,0,0,0.05)'; }}
+                >
+                  <span style={{
+                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
+                    background: p.bg, color: p.color, fontSize: 18,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{p.icon}</span>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? '#f1f5f9' : '#0f172a', marginBottom: 4 }}>{p.title}</div>
+                    <div style={{ fontSize: 13, color: isDark ? '#64748b' : '#94a3b8' }}>{p.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ═ TAB: THÔNG SỐ KỸ THUẬT */}
+        {displayTab === 'specs' && <SpecTable specs={specs} isDark={isDark} />}
+
+        {/* ═ TAB: ĐÁNH GIÁ */}
+        {displayTab === 'reviews' && (
+          <div>
+            {/* Rating hero */}
+            <div style={{
+              display: 'flex', alignItems: 'center',
+              padding: '28px 32px', borderRadius: 20, marginBottom: 28,
+              background: isDark ? 'rgba(250,204,21,0.04)' : 'linear-gradient(135deg, #fffbeb, #fef3c7)',
+              border: isDark ? '1px solid rgba(250,204,21,0.12)' : '1px solid #fde68a',
+              flexWrap: 'wrap', gap: 24,
+            }}>
+              <div style={{ textAlign: 'center', flexShrink: 0 }}>
+                <div style={{ fontSize: 64, fontWeight: 900, color: '#f59e0b', lineHeight: 1, textShadow: '0 2px 8px rgba(245,158,11,0.3)' }}>
+                  {product.rating?.toFixed(1)}
+                </div>
+                <Rate disabled defaultValue={product.rating} style={{ fontSize: 18, color: '#f59e0b' }} />
+                <div style={{ fontSize: 13, color: isDark ? '#78716c' : '#92400e', marginTop: 6, fontWeight: 500 }}>
+                  {product.reviews?.length || 0} đánh giá
+                </div>
+              </div>
+              <div style={{ width: 1, height: 80, background: isDark ? 'rgba(250,204,21,0.15)' : '#fcd34d', flexShrink: 0 }} />
+              {product.reviews && product.reviews.length > 0 && (
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <span style={{
+                      width: 28, height: 28, borderRadius: 8,
+                      background: 'linear-gradient(135deg, #10b981, #047857)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontSize: 13,
+                    }}><RobotOutlined /></span>
+                    <span style={{ fontWeight: 700, color: '#10b981', fontSize: 14 }}>AI tóm tắt đánh giá</span>
+                    <Tag color="green" style={{ margin: 0, borderRadius: 8, fontSize: 11 }}>Beta</Tag>
+                  </div>
+                  <div style={{ fontSize: 14, color: isDark ? '#94a3b8' : '#475569', lineHeight: 1.7 }}>
+                    Phần lớn khách hàng <strong style={{ color: '#10b981' }}>rất hài lòng</strong>.{' '}
+                    Ưu điểm: hiệu năng mạnh, thiết kế đẹp, pin bền.{' '}
+                    Đa số đánh giá <strong style={{ color: '#f59e0b' }}>{product.rating?.toFixed(1)}/5 ★</strong> và sẽ giới thiệu cho bạn bè.
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Write review */}
+            <div style={{
+              background: isDark ? 'rgba(255,255,255,0.025)' : 'linear-gradient(135deg, #f8fafc, #f1f5f9)',
+              padding: '24px 28px', borderRadius: 20, marginBottom: 32,
+              border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e2e8f0',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18, fontWeight: 700, fontSize: 15, color: isDark ? '#f1f5f9' : '#0f172a' }}>
+                <span style={{
+                  width: 32, height: 32, borderRadius: 8,
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  color: '#fff', fontSize: 14,
+                }}><UserOutlined /></span>
+                Viết đánh giá của bạn
+              </div>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                <Avatar icon={<UserOutlined />} size={40}
+                  style={{ background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontSize: 13, color: isDark ? '#64748b' : '#94a3b8', marginBottom: 8 }}>Chọn số sao:</div>
+                    <Rate value={reviewRating} onChange={setReviewRating} style={{ fontSize: 24, color: '#f59e0b' }} />
+                  </div>
+                  <Input.TextArea rows={3} placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này..."
+                    value={reviewComment} onChange={e => setReviewComment(e.target.value)}
+                    style={{
+                      borderRadius: 12, resize: 'none', fontSize: 14,
+                      background: isDark ? 'rgba(0,0,0,0.3)' : '#fff',
+                      color: isDark ? '#e2e8f0' : '#1e293b',
+                      borderColor: isDark ? 'rgba(255,255,255,0.1)' : '#cbd5e1',
+                    }} />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+                    <Button type="primary" loading={submittingReview} onClick={submitReview}
+                      style={{
+                        background: 'linear-gradient(135deg, #10b981, #047857)',
+                        borderColor: 'transparent', borderRadius: 10,
+                        fontWeight: 600, height: 38, paddingInline: 24,
+                      }}>
+                      Gửi đánh giá
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Review list */}
+            {product.reviews && product.reviews.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {product.reviews.map((item, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex', gap: 16, padding: '20px 24px', borderRadius: 16,
+                    background: isDark ? 'rgba(255,255,255,0.02)' : '#fff',
+                    border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e5e7eb',
+                    boxShadow: isDark ? 'none' : '0 1px 4px rgba(0,0,0,0.04)',
+                    transition: 'transform 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateX(4px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = ''; }}
+                  >
+                    <Avatar icon={<UserOutlined />} size={44}
+                      style={{ background: `hsl(${(idx * 47 + 120) % 360}, 65%, 55%)`, flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <span style={{ fontWeight: 700, color: isDark ? '#f1f5f9' : '#0f172a', fontSize: 14 }}>
+                          {item.reviewer || 'Khách hàng ẩn danh'}
+                        </span>
+                        <Rate disabled value={item.rating} style={{ fontSize: 13, color: '#f59e0b' }} />
+                      </div>
+                      <div style={{ color: isDark ? '#94a3b8' : '#475569', fontSize: 14, lineHeight: 1.7, marginBottom: 8 }}>
+                        {item.comment}
+                      </div>
+                      <div style={{ fontSize: 12, color: isDark ? '#475569' : '#94a3b8' }}>
+                        {new Date(item.date).toLocaleString('vi-VN')}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: isDark ? '#475569' : '#94a3b8' }}>
+                <div style={{ fontSize: 48, marginBottom: 12 }}>💬</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Chưa có đánh giá nào</div>
+                <div style={{ fontSize: 14 }}>Hãy là người đầu tiên đánh giá sản phẩm này!</div>
+              </div>
+            )}
+          </div>
+        )}
+
+      </div>
     </div>
   );
 }
@@ -1363,167 +1766,19 @@ export default function ProductDetail() {
       </div>
 
       {/* ── TABS ─────────────────────────────────────────────────── */}
-      <div className="glass-panel" style={{ borderRadius: 24, overflow: 'hidden' }}>
-        <Tabs
-          defaultActiveKey="specs"
-          size="large"
-          style={{ padding: '0 40px' }}
-          tabBarStyle={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #eee', marginBottom: 0 }}
-          items={[
-            {
-              key: 'info',
-              label: <span style={{ fontSize: 15, fontWeight: 600, padding: '0 8px' }}>📋 Thông tin SP</span>,
-              children: (
-                <div style={{ padding: '32px 0' }}>
-                  {/* Description */}
-                  <div style={{
-                    background: isDark ? 'rgba(255,255,255,0.02)' : '#f9f9f9',
-                    borderRadius: 16, padding: '24px 28px', marginBottom: 28,
-                    border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid #eee',
-                  }}>
-                    <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: isDark ? '#fff' : '#111' }}>
-                      Giới thiệu sản phẩm
-                    </div>
-                    <p style={{ fontSize: 15, lineHeight: 1.8, color: isDark ? '#bbb' : '#444', margin: 0 }}>
-                      {product.description?.trim() || description}
-                    </p>
-                  </div>
-
-                  {/* Highlights */}
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: isDark ? '#fff' : '#111' }}>
-                    ✨ Điểm nổi bật
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12, marginBottom: 28 }}>
-                    {highlights.map((h, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '16px 20px', borderRadius: 12,
-                        background: isDark ? 'rgba(16,185,129,0.05)' : 'rgba(16,185,129,0.05)',
-                        border: isDark ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(16,185,129,0.15)',
-                      }}>
-                        <span style={{ fontSize: 24 }}>{h.icon}</span>
-                        <span style={{ fontSize: 14, color: isDark ? '#ddd' : '#333', lineHeight: 1.5, fontWeight: 500 }}>{h.text}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Policies */}
-                  <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 16, color: isDark ? '#fff' : '#111' }}>
-                    🛡️ Chính sách mua hàng
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                    {[
-                      { icon: <SafetyCertificateOutlined style={{ color: '#10b981', fontSize: 20 }} />, title: 'Bảo hành chính hãng', desc: '12–24 tháng tại hệ thống' },
-                      { icon: <ReloadOutlined style={{ color: '#3b82f6', fontSize: 20 }} />, title: 'Đổi trả miễn phí', desc: '30 ngày nếu lỗi nhà sản xuất' },
-                      { icon: <CarOutlined style={{ color: '#f59e0b', fontSize: 20 }} />, title: 'Giao hàng nhanh', desc: 'Giao trong 2–4 giờ nội thành' },
-                      { icon: <GiftOutlined style={{ color: '#8b5cf6', fontSize: 20 }} />, title: 'Quà tặng kèm', desc: 'Phụ kiện chính hãng, hộp đẹp' },
-                    ].map((p, i) => (
-                      <div key={i} style={{
-                        display: 'flex', alignItems: 'flex-start', gap: 12, padding: '16px 20px', borderRadius: 12,
-                        background: isDark ? 'rgba(255,255,255,0.03)' : '#fff',
-                        border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #eee',
-                      }}>
-                        {p.icon}
-                        <div>
-                          <div style={{ fontSize: 14, fontWeight: 700, color: isDark ? '#fff' : '#111', marginBottom: 4 }}>{p.title}</div>
-                          <div style={{ fontSize: 13, color: isDark ? '#888' : '#666' }}>{p.desc}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ),
-            },
-            {
-              key: 'specs',
-              label: <span style={{ fontSize: 15, fontWeight: 600, padding: '0 8px' }}>⚙️ Thông số kỹ thuật</span>,
-              children: <SpecTable specs={specs} isDark={isDark} />,
-            },
-            {
-              key: 'reviews',
-              label: <span style={{ fontSize: 15, fontWeight: 600, padding: '0 8px' }}>⭐ Đánh giá ({product.reviews?.length || 0})</span>,
-              children: (
-                <div style={{ padding: '32px 0' }}>
-                  {/* Rating summary */}
-                  <div style={{
-                    display: 'flex', gap: 32, alignItems: 'center', padding: '24px 28px', borderRadius: 16, marginBottom: 28,
-                    background: isDark ? 'rgba(255,255,255,0.02)' : '#f9f9f9',
-                    border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid #eee',
-                  }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: 56, fontWeight: 800, color: '#facc15', lineHeight: 1 }}>{product.rating?.toFixed(1)}</div>
-                      <Rate disabled defaultValue={product.rating} style={{ fontSize: 16, color: '#facc15' }} />
-                      <div style={{ fontSize: 13, color: isDark ? '#888' : '#666', marginTop: 4 }}>({product.reviews?.length || 0} đánh giá)</div>
-                    </div>
-                    <Divider type="vertical" style={{ height: 80, borderColor: isDark ? '#333' : '#eee' }} />
-                    {/* AI Summary */}
-                    {product.reviews && product.reviews.length > 0 && (
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                          <Avatar icon={<RobotOutlined />} style={{ background: '#10b981' }} size="small" />
-                          <span style={{ fontWeight: 700, color: '#10b981', fontSize: 14 }}>AI tóm tắt đánh giá</span>
-                          <Tag color="green" style={{ margin: 0, borderRadius: 8, fontSize: 11 }}>Beta</Tag>
-                        </div>
-                        <div style={{ fontSize: 14, color: isDark ? '#bbb' : '#555', lineHeight: 1.6 }}>
-                          Phần lớn khách hàng <strong style={{ color: '#10b981' }}>rất hài lòng</strong>. 
-                          Ưu điểm: hiệu năng mạnh, thiết kế đẹp, pin bền. 
-                          Đa số đánh giá <strong>{product.rating?.toFixed(1)}/5 ★</strong> và sẽ giới thiệu cho bạn bè.
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Review form */}
-                  <div style={{ background: isDark ? 'rgba(255,255,255,0.02)' : '#f9f9f9', padding: 24, borderRadius: 16, marginBottom: 28 }}>
-                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 16, color: isDark ? '#fff' : '#000' }}>Viết đánh giá của bạn</div>
-                    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                      <Avatar icon={<UserOutlined />} />
-                      <div style={{ flex: 1 }}>
-                        <Rate value={reviewRating} onChange={setReviewRating} style={{ marginBottom: 12, color: '#10b981' }} />
-                        <Input.TextArea rows={3} placeholder="Chia sẻ cảm nhận của bạn về sản phẩm này..." value={reviewComment}
-                          onChange={e => setReviewComment(e.target.value)}
-                          style={{ borderRadius: 12, background: isDark ? 'rgba(0,0,0,0.2)' : '#fff', color: isDark ? '#fff' : '#000', borderColor: isDark ? '#333' : '#d9d9d9' }} />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
-                          <Button type="primary" loading={submittingReview} onClick={submitReview}
-                            style={{ background: '#10b981', borderColor: '#10b981', borderRadius: 8, fontWeight: 600 }}>
-                            Gửi đánh giá
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Review list */}
-                  {product.reviews && product.reviews.length > 0 ? (
-                    <List itemLayout="horizontal" dataSource={product.reviews}
-                      renderItem={item => (
-                        <List.Item style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #f0f0f0', padding: '20px 0' }}>
-                          <List.Item.Meta
-                            avatar={<Avatar icon={<UserOutlined />} style={{ background: '#10b981' }} />}
-                            title={<span style={{ color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{item.reviewer || 'Khách hàng ẩn danh'}</span>}
-                            description={
-                              <div>
-                                <Rate disabled value={item.rating} style={{ fontSize: 12, color: '#facc15' }} />
-                                <div style={{ color: isDark ? '#bbb' : '#444', marginTop: 8, fontSize: 14, lineHeight: 1.6 }}>{item.comment}</div>
-                                <div style={{ color: isDark ? '#555' : '#999', fontSize: 12, marginTop: 6 }}>
-                                  {new Date(item.date).toLocaleString('vi-VN')}
-                                </div>
-                              </div>
-                            }
-                          />
-                        </List.Item>
-                      )} />
-                  ) : (
-                    <div style={{ color: '#888', textAlign: 'center', padding: '40px 0', fontSize: 15 }}>
-                      Chưa có đánh giá nào. Hãy là người đầu tiên đánh giá sản phẩm này!
-                    </div>
-                  )}
-                </div>
-              ),
-            },
-          ]}
-        />
-      </div>
-
+      <ProductTabs
+        product={product}
+        specs={specs}
+        highlights={highlights}
+        description={description}
+        isDark={isDark}
+        reviewRating={reviewRating}
+        setReviewRating={setReviewRating}
+        reviewComment={reviewComment}
+        setReviewComment={setReviewComment}
+        submittingReview={submittingReview}
+        submitReview={submitReview}
+      />
       {/* ── RELATED PRODUCTS ─────────────────────────────────────── */}
       {relatedProducts.length > 0 && (
         <div style={{ marginTop: 48 }}>

@@ -50,17 +50,19 @@ export default function Home() {
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [categories, setCategories] = useState([]);
   const [flashSale, setFlashSale] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [topSellingProducts, setTopSellingProducts] = useState([]);
-  const [recommendations, setRecommendations] = useState([]);
-  const [loadingRecs, setLoadingRecs] = useState(false);
+  const [activeCategories, setActiveCategories] = useState([]);
   const scrollContainerRef = useRef(null);
   const { addToCart } = useCart();
   const { isDark, t, selectedBranch, b2cUser } = useApp();
   const navigate = useNavigate();
-  const featuredCategories = categories.slice(0, 5);
+  const featuredCategories = categories.filter(c => !c.parent_id).slice(0, 5);
+  const rootCategories = activeCategories;
 
   const handleScrollLeft = () => {
     if (scrollContainerRef.current) {
@@ -76,21 +78,21 @@ export default function Home() {
 
 
 
+  // Load initial data (categories, flash sale, top selling)
   useEffect(() => {
     async function load() {
       try {
         setLoading(true);
-        const [prodData, catData, flashData, topSellingData] = await Promise.all([
-          api.b2c.getProducts('ALL', '', 'newest', selectedBranch?.id, currentPage, 15),
+        const [catData, flashData, topSellingData, activeCatData] = await Promise.all([
           api.b2c.getCategories(),
           api.b2c.getFlashSales(),
-          api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 10)
+          api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 10),
+          api.b2c.getActiveCategories(selectedBranch?.id || '')
         ]);
-        setProducts(prodData.data || []);
-          setTotalProducts(prodData.total || 0);
-          setCategories(catData);
-          setFlashSale(flashData);
-          setTopSellingProducts(topSellingData.data || []);
+        setCategories(catData);
+        setFlashSale(flashData);
+        setTopSellingProducts(topSellingData.data || []);
+        setActiveCategories(activeCatData || []);
       } catch (err) {
         console.error(err);
       } finally {
@@ -98,24 +100,30 @@ export default function Home() {
       }
     }
     load();
-  }, [selectedBranch, currentPage]);
+  }, [selectedBranch]);
 
+  // Load products by category & page
   useEffect(() => {
-    async function loadRecs() {
-      if (b2cUser && b2cUser.email) {
-        setLoadingRecs(true);
-        try {
-          const recs = await api.ai.getRecommendations(b2cUser.email);
-          setRecommendations(recs);
-        } catch (err) {
-          console.error('Failed to load recommendations', err);
-        } finally {
-          setLoadingRecs(false);
-        }
+    async function loadProducts() {
+      try {
+        setLoadingProducts(true);
+        const prodData = await api.b2c.getProducts(selectedCategory, '', 'newest', selectedBranch?.id, currentPage, 15);
+        setProducts(prodData.data || []);
+        setTotalProducts(prodData.total || 0);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingProducts(false);
       }
     }
-    loadRecs();
-  }, [b2cUser]);
+    loadProducts();
+  }, [selectedBranch, selectedCategory, currentPage]);
+
+  const handleCategoryTab = (catId) => {
+    setSelectedCategory(catId);
+    setCurrentPage(1);
+  };
+
 
   return (
     <div>
@@ -132,44 +140,6 @@ export default function Home() {
           <div style={{ textAlign: 'center', padding: '100px 0' }}><Spin size="large" /></div>
         ) : (
           <>
-            {/* Categories */}
-            <Title level={3} style={{ color: isDark ? '#fff' : '#111', marginBottom: 24 }}>{t('home.featured_categories')}</Title>
-            <Row gutter={[16, 16]} style={{ marginBottom: 48 }}>
-        {featuredCategories.map(c => (
-          <Col xs={12} sm={8} md={6} lg={4} key={c.id}>
-            <div 
-              style={{
-                background: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
-                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #eee',
-                borderRadius: 16, padding: '24px 16px', textAlign: 'center',
-                cursor: 'pointer', transition: 'all 0.3s'
-              }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.borderColor = '#10b981'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : '#eee'; }}
-              onClick={() => navigate(`/shop?category=${c.id}`)}
-            >
-              <div style={{ fontSize: 32, color: '#10b981', marginBottom: 12 }}>{iconMap[c.icon]}</div>
-              <div style={{ color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{t(`home.category_${c.id}`)}</div>
-            </div>
-          </Col>
-        ))}
-        <Col xs={12} sm={8} md={6} lg={4} key="all-categories">
-          <div
-            style={{
-              background: isDark ? 'rgba(16,185,129,0.12)' : '#ecfdf5',
-              border: '1px solid #10b981',
-              borderRadius: 16, padding: '24px 16px', textAlign: 'center',
-              cursor: 'pointer', transition: 'all 0.3s'
-            }}
-            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-5px)'; e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.2)' : '#d1fae5'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.12)' : '#ecfdf5'; }}
-            onClick={() => navigate('/shop')}
-          >
-            <div style={{ fontSize: 32, color: '#10b981', marginBottom: 12 }}><AppstoreOutlined /></div>
-            <div style={{ color: isDark ? '#fff' : '#000', fontWeight: 600 }}>{t('home.all_categories')}</div>
-          </div>
-        </Col>
-      </Row>
 
       {/* Flash Sale */}
       {flashSale && flashSale.items && flashSale.items.length > 0 && new Date(flashSale.end_time).getTime() > Date.now() && (
@@ -227,63 +197,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* AI Recommendations */}
-      {b2cUser && recommendations.length > 0 && (
-        <div style={{ marginBottom: 48 }}>
-          <Title level={2} style={{ color: isDark ? '#fff' : '#111', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-            <span style={{ 
-              background: 'linear-gradient(135deg, #8b5cf6, #3b82f6)', 
-              WebkitBackgroundClip: 'text', 
-              WebkitTextFillColor: 'transparent',
-              fontWeight: 800
-            }}>AI Gợi ý cho bạn</span>
-            <Tag color="purple" style={{ borderRadius: 12, border: 'none', background: 'rgba(139, 92, 246, 0.1)' }}>Powered by OpenRouter</Tag>
-          </Title>
-          <Row gutter={[24, 24]}>
-            {recommendations.map(p => (
-              <Col xs={24} sm={12} md={8} lg={6} key={p.id}>
-                <Card
-                  hoverable
-                  onClick={() => navigate(`/product/${p.id}`)}
-                  style={{
-                    borderRadius: 16, background: isDark ? 'rgba(139, 92, 246, 0.05)' : '#faf5ff',
-                    border: isDark ? '1px solid rgba(139, 92, 246, 0.2)' : '1px solid #e9d5ff',
-                    overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%'
-                  }}
-                  styles={{ body: { padding: 20, flex: 1, display: 'flex', flexDirection: 'column' } }}
-                  cover={
-                    <div style={{ padding: 24, background: isDark ? 'rgba(0,0,0,0.2)' : '#fff', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-                      <img 
-                        alt={p.name} 
-                        src={p.image} 
-                        width={200}
-                        height={200}
-                        style={{ height: 200, objectFit: 'contain' }} 
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
-                      />
-                    </div>
-                  }
-                >
-                  <div style={{ flex: 1 }}>
-                    <Title level={4} style={{ color: isDark ? '#fff' : '#000', margin: 0, fontSize: 16, height: 44, overflow: 'hidden' }}>{p.name}</Title>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16 }}>
-                    <div>
-                      <div style={{ fontSize: 20, fontWeight: 700, color: '#8b5cf6' }}>{p.price.toLocaleString('vi-VN')} đ</div>
-                    </div>
-                    <div 
-                      onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                      style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(139, 92, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8b5cf6', cursor: 'pointer', transition: 'all 0.3s' }}
-                    >
-                      <ShoppingCartOutlined style={{ fontSize: 18 }} />
-                    </div>
-                  </div>
-                </Card>
-              </Col>
-            ))}
-          </Row>
-        </div>
-      )}
 
       {/* Top 10 Best Selling Products Section */}
       {topSellingProducts && topSellingProducts.length > 0 && (
@@ -522,12 +435,54 @@ export default function Home() {
         </div>
       )}
 
-      {/* Daily Discover */}
-      <Title level={2} style={{ color: isDark ? '#fff' : '#111', display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-        <FireOutlined style={{ color: '#10b981' }} /> {t('home.daily_discover')}
-      </Title>
+      {/* Daily Discover — phân theo category */}
+      <div id="product-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
+        <Title level={2} style={{ color: isDark ? '#fff' : '#111', display: 'flex', alignItems: 'center', gap: 12, margin: 0 }}>
+          <FireOutlined style={{ color: '#10b981' }} /> {t('home.daily_discover')}
+        </Title>
+        {/* Category tabs */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => handleCategoryTab('ALL')}
+            style={{
+              padding: '8px 18px', borderRadius: 20, border: 'none', cursor: 'pointer',
+              fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
+              background: selectedCategory === 'ALL' ? '#10b981' : (isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6'),
+              color: selectedCategory === 'ALL' ? '#fff' : (isDark ? 'rgba(255,255,255,0.7)' : '#555'),
+              boxShadow: selectedCategory === 'ALL' ? '0 4px 12px rgba(16,185,129,0.35)' : 'none',
+            }}
+          >Tất cả</button>
+          {rootCategories.map(c => (
+            <button
+              key={c.id}
+              onClick={() => handleCategoryTab(c.id)}
+              style={{
+                padding: '8px 18px', borderRadius: 20, border: 'none', cursor: 'pointer',
+                fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
+                background: selectedCategory === c.id ? '#10b981' : (isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6'),
+                color: selectedCategory === c.id ? '#fff' : (isDark ? 'rgba(255,255,255,0.7)' : '#555'),
+                boxShadow: selectedCategory === c.id ? '0 4px 12px rgba(16,185,129,0.35)' : 'none',
+                display: 'flex', alignItems: 'center', gap: 6,
+              }}
+            >
+              {c.name}
+              {c.product_count != null && (
+                <span style={{
+                  fontSize: 11, fontWeight: 700,
+                  background: selectedCategory === c.id ? 'rgba(255,255,255,0.3)' : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'),
+                  borderRadius: 10, padding: '1px 7px',
+                  color: selectedCategory === c.id ? '#fff' : (isDark ? 'rgba(255,255,255,0.6)' : '#666'),
+                }}>{c.product_count}</span>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <Row gutter={[20, 20]}>
+      {loadingProducts ? (
+        <div style={{ textAlign: 'center', padding: '60px 0' }}><Spin size="large" /></div>
+      ) : null}
+      <Row gutter={[20, 20]} style={{ opacity: loadingProducts ? 0.4 : 1, transition: 'opacity 0.3s' }}>
         {products.map(p => (
           <Col className="daily-product-col" key={p.id}>
             <Card

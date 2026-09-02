@@ -17,6 +17,81 @@ router.get('/categories', async (req, res) => {
   }
 });
 
+// Get only root categories that have at least 1 product (for Home page tabs)
+router.get('/categories/active', async (req, res) => {
+  try {
+    const { branch_id } = req.query;
+
+    const cacheKey = `categories:active:${branch_id || 'all'}`;
+    const result = await cached(cacheKey, 120, async () => {
+      // 1. Lấy tất cả category
+      const allCategories = await prisma.category.findMany();
+
+      // 2. Đếm số sản phẩm theo category_id
+      let productGroups;
+      if (branch_id) {
+        const branchJson = JSON.stringify([branch_id]);
+        const rows = await prisma.$queryRawUnsafe(
+          `SELECT category_id, COUNT(*)::int AS count
+           FROM "Product"
+           WHERE is_deleted = false
+             AND (branch_ids::jsonb = '[]'::jsonb OR branch_ids::jsonb @> $1::jsonb)
+           GROUP BY category_id`,
+          branchJson
+        );
+        productGroups = rows;
+      } else {
+        productGroups = await prisma.product.groupBy({
+          by: ['category_id'],
+          where: { is_deleted: false },
+          _count: { id: true },
+        });
+      }
+
+      // category_id có sản phẩm
+      const catIdsWithProducts = new Set(
+        productGroups.map(g => g.category_id)
+      );
+
+      // 3. Xây map id -> category để tra nhanh parent
+      const catMap = {};
+      allCategories.forEach(c => { catMap[c.id] = c; });
+
+      // 4. Hàm leo lên tìm root category (parent_id null)
+      const getRootId = (catId) => {
+        let cur = catMap[catId];
+        while (cur && cur.parent_id) {
+          cur = catMap[cur.parent_id];
+        }
+        return cur ? cur.id : catId;
+      };
+
+      // 5. Tập root category có sản phẩm
+      const rootIdsWithProducts = new Set(
+        [...catIdsWithProducts].map(getRootId)
+      );
+
+      // 6. Trả về chỉ root categories (parent_id null) có sản phẩm, kèm product_count
+      const activeRoots = allCategories
+        .filter(c => !c.parent_id && rootIdsWithProducts.has(c.id))
+        .map(c => ({
+          ...c,
+          product_count: productGroups
+            .filter(g => getRootId(g.category_id) === c.id)
+            .reduce((sum, g) => sum + (g._count?.id ?? g.count ?? 0), 0),
+        }))
+        .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+
+      return activeRoots;
+    });
+
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // P-01: In-memory TTL cache cho flash sale — tránh 2 DB queries mỗi request
 const FLASH_SALE_TTL_MS = 60_000; // 60 giây
 let _fsCache = null;
@@ -58,24 +133,60 @@ const applyFlashSaleToProduct = (product, fsItems) => {
 // Get Brands — same rationale as categories
 router.get('/brands', async (req, res) => {
   try {
-    const brands = await cached('brands:active', 300, () => prisma.brand.findMany({ where: { is_deleted: false } }));
+    const brands = await cached('brands:active', 300, async () => {
+      const list = await prisma.brand.findMany({ where: { is_deleted: false }, orderBy: { name: 'asc' } });
+      // "Khác" luôn xuất hiện cuối cùng
+      const others = list.filter(b => b.name === 'Khác' || b.id === 'brand-other');
+      const rest   = list.filter(b => b.name !== 'Khác' && b.id !== 'brand-other');
+      return [...rest, ...others];
+    });
     res.json(brands);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
+/**
+ * Lấy tất cả category IDs (bao gồm chính nó + toàn bộ con cháu)
+ * Dùng để filter sản phẩm khi chọn category cha.
+ */
+async function getCategoryDescendants(rootId) {
+  const allCats = await cached('categories:all', 300, () => prisma.category.findMany());
+  const result = new Set();
+  const queue = [rootId];
+  while (queue.length) {
+    const cur = queue.shift();
+    result.add(cur);
+    allCats
+      .filter(c => c.parent_id === cur)
+      .forEach(c => queue.push(c.id));
+  }
+  return [...result];
+}
+
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
-    const { category_id, brand_id, search, sort, branch_id, page = 1, limit = 12 } = req.query;
+    const { category_id, brand_ids, search, sort, branch_id, page = 1, limit = 12 } = req.query;
     const pageNumber = parseInt(page, 10) || 1;
     const limitNumber = parseInt(limit, 10) || 12;
     const skip = (pageNumber - 1) * limitNumber;
+
+    // Parse multi-brand: brand_ids=br-apple,br-samsung  OR  brand_ids=br-apple
+    const brandIdList = brand_ids && brand_ids !== 'ALL'
+      ? brand_ids.split(',').map(s => s.trim()).filter(Boolean)
+      : [];
     
     let where = { is_deleted: false };
-    if (category_id && category_id !== 'ALL') where.category_id = category_id;
-    if (brand_id && brand_id !== 'ALL') where.brand_id = brand_id;
+
+    // Expand category filter to include all sub-categories
+    if (category_id && category_id !== 'ALL') {
+      const catIds = await getCategoryDescendants(category_id);
+      where.category_id = catIds.length === 1 ? catIds[0] : { in: catIds };
+    }
+
+    if (brandIdList.length === 1) where.brand_id = brandIdList[0];
+    else if (brandIdList.length > 1) where.brand_id = { in: brandIdList };
     
     // Handle multi-word search correctly using AND for each token
     if (search) {
@@ -114,13 +225,24 @@ router.get('/products', async (req, res) => {
       params.push(branchJson);
       conditions.push(`(branch_ids::jsonb = '[]'::jsonb OR branch_ids::jsonb @> $${params.length}::jsonb)`);
 
+      // Expand category filter to include all sub-categories (raw SQL path)
       if (category_id && category_id !== 'ALL') {
-        params.push(category_id);
-        conditions.push(`category_id = $${params.length}`);
+        const catIds = await getCategoryDescendants(category_id);
+        if (catIds.length === 1) {
+          params.push(catIds[0]);
+          conditions.push(`category_id = $${params.length}`);
+        } else {
+          // PostgreSQL ANY array parameter
+          params.push(catIds);
+          conditions.push(`category_id = ANY($${params.length})`);
+        }
       }
-      if (brand_id && brand_id !== 'ALL') {
-        params.push(brand_id);
+      if (brandIdList.length === 1) {
+        params.push(brandIdList[0]);
         conditions.push(`brand_id = $${params.length}`);
+      } else if (brandIdList.length > 1) {
+        params.push(brandIdList);
+        conditions.push(`brand_id = ANY($${params.length})`);
       }
       
       // Tokenized search for raw SQL
