@@ -1,0 +1,872 @@
+{
+  "cat-phone|br-xiaomi": [
+    "https://cdn.tgdd.vn/Products/Images/42/369617/xiaomi-redmi-note-17-4g-purple-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/369626/xiaomi-redmi-note-17-pro-5g-blue-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/369628/xiaomi-redmi-note-17-pro-max-5g-purple-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/367002/xiaomi-17t-5g-tim-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-samsung": [
+    "https://cdn.tgdd.vn/Products/Images/42/370544/samsung-galaxy-s26-fe-5g-blue-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/368057/samsung-galaxy-z-fold8-kem-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/368050/samsung-galaxy-z-fold8-ultra-violet-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/363401/samsung-galaxy-a37-trang-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-apple": [
+    "https://cdn.tgdd.vn/Products/Images/42/342679/iphone-17-pro-max-cam-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/329138/iphone-16-plus-xanh-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/342667/iphone-17-xanh-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/342676/iphone-17-pro-cam-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-khac": [
+    "https://cdn.tgdd.vn/Products/Images/42/368872/nothing-phone-4a-trang-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-oppo": [
+    "https://cdn.tgdd.vn/Products/Images/42/368250/oppo-reno16-f-trang-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/370752/oppo-a6-gold-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-realme": [
+    "https://cdn.tgdd.vn/Products/Images/42/367499/realme-16t-xanh-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-vivo": [
+    "https://cdn.tgdd.vn/Products/Images/42/363408/vivo-x300-ultra-xanh-thumb-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/42/363466/vivo-v70-fe-8gb-256gb-tim-thumb-1-600x600.jpg"
+  ],
+  "cat-phone|br-honor": [
+    "https://cdn.tgdd.vn/Products/Images/42/367011/honor-600-lite-8gb-256gb-xanh-thumb-600x600.jpg"
+  ],
+  "cat-phone|br-motorola": [
+    "https://cdn.tgdd.vn/Products/Images/42/368236/motorola-razr-fold-trang-thumb-600x600.jpg"
+  ],
+  "cat-laptop|br-hp": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/361311/hp-15-fc0023au-r5-7520u-d0bh1pa-thumb-639030592238863081-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/355729/hp-240r-g10-core-5-120u-c3ru7at-thumb01-639144570820332386-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/337420/hp-245-g10-r5-b8pf9at-638828180409840419-600x600.jpg"
+  ],
+  "cat-laptop|br-apple": [
+    "https://cdn.tgdd.vn/Products/Images/44/363537/macbook-neo-13-inch-a18-pro-8gb-256gb-xanh-duong-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/44/363487/macbook-air-13-inch-m5-16gb-512gb-70w-xanh-da-troi-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/44/363507/macbook-air-15-inch-m5-16gb-512gb-70w-xanh-den-600x600.jpg"
+  ],
+  "cat-laptop|br-asus": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/358132/asus-vivobook-s14-s3407va-core-5-210h-ly146w-thumb-638965583427975379-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/364397/asus-vivobook-16-a1607qa-x1-26-100-mb067w-thumb-2-639155694743786038-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/338323/asus-x1504va-core-5-bq185ws-thumb2-638929335505560781-600x600.jpg"
+  ],
+  "cat-laptop|br-dell": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/368556/dell-15-dc15255-r5-7530u-dc5r5973w1-2y-thumb-639180726788114595-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/362025/dell-15-dc15250-i5-1334u-dc5i5897w1-thumb-639046899814234946-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/364859/dell-15-dc15250-i5-1334u-71092479-thumb-639106625637480692-600x600.jpg"
+  ],
+  "cat-laptop|br-lenovo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367016/lenovo-ideapad-slim-3-15iph11-ultra-5-322-83ur00a4vn-thumb-639144382848821483-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/366746/lenovo-ideapad-slim-3-15arp10-r5-7535hs-83k700yuvn-thumb-639135011549694205-600x600.jpg"
+  ],
+  "cat-laptop|br-msi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/369212/msi-modern-15-f1mg-1264vn-core-5-120u-thumb-639192846390358481-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/342941/msi-modern-15-f13mg-i5-1334u-667vn-16gb-thumb-2-638981132535627040-600x600.jpg"
+  ],
+  "cat-laptop|br-acer": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/367375/acer-aspire-lite-14-al14-44p-r0sp-r7-7730u-nx-dmcsv-003-thumb-639148717867540539-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/363263/acer-aspire-go-15-ag15-72p-500w-core-5-120u-nx-jrrsv-007-thumb-639088209315732092-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/343122/acer-aspire-lite-15-al15-72p-581v-i5-13500h-nx-d4csv-001-thumb-638921804601704800-600x600.jpg"
+  ],
+  "cat-laptop|br-singpc": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/44/368189/singpc-m16-i382-i3-1215u-100826-102225-210-600x600.jpg"
+  ],
+  "cat-tablet|br-apple": [
+    "https://cdn.tgdd.vn/Products/Images/522/335308/ipad-11-wifi-yellow-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/363417/ipad-air-m4-11-inch-wifi-128gb-xam-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/331229/ipad-mini-7-wifi-purple-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/358082/ipad-pro-m5-wifi-11-inch-black-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/335311/ipad-11-5g-sliver-thumb-600x600.jpg"
+  ],
+  "cat-tablet|br-oppo": [
+    "https://cdn.tgdd.vn/Products/Images/522/361231/oppo-pad-5-8gb-256gb-hong-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/339287/oppo-pad-se-sliver-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/322613/oppo-pad-neo-6gb-thumb-1-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/522/333917/oppo-pad-3-bac-thumb-638725440842878647-600x600.jpg"
+  ],
+  "cat-tablet|br-xiaomi": [
+    "https://cdn.tgdd.vn/Products/Images/522/362716/xiaomi-pad-8-xanh-duong-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/362718/xiaomi-pad-8-pro-xam-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/339204/xiaomi-redmi-pad-2-gray-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/356854/xiaomi-redmi-pad-2-pro-sliver-thumb-600x600.jpg"
+  ],
+  "cat-tablet|br-samsung": [
+    "https://cdn.tgdd.vn/Products/Images/522/359089/samsung-galaxy-tab-a11-plus-5g-6gb-128gb-xam-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/359086/samsung-galaxy-tab-a11-plus-wifi-6gb-128gb-xam-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/345548/samsung-galaxy-tab-a11-4g-4gb-64gb-xam-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/343061/samsung-galaxy-tab-s10-lite-5g-6gb-128gb-xam-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/522/344721/samsung-galaxy-tab-s11-5g-12gb-128gb-xam-600x600.jpg"
+  ],
+  "cat-tablet|br-honor": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/522/345544/honor-pad-x7-wifi-4gb-64gb-150925-041634-575-600x600.jpg"
+  ],
+  "cat-tablet|br-lenovo": [
+    "https://cdn.tgdd.vn/Products/Images/522/342548/lenovo-idea-tab-5g-blue-thumb-600x600.jpg"
+  ],
+  "cat-watch|br-kidcare": [
+    "https://cdn.tgdd.vn/Products/Images/7077/358003/dong-ho-dinh-vi-tre-em-kidcare-sight-s25-den-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/354255/kidcare-k25-hong-thumb-1-600x600.jpg"
+  ],
+  "cat-watch|br-huawei": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7077/366954/huawei-watch-fit-5-42-9mm-day-nylon-thumb-3-639144521826494787-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/366955/huawei-watch-fit-5-pro-44-5mm-day-nylon-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/364509/huawei-watch-gt-runner-2-43-5mm-day-fluor-cam-thumb-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/362941/vong-deo-tay-thong-minh-huawei-band-11-vien-nhom-day-cao-su-xanh-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/334436/huawei-watch-fit-4-den-tb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/362942/vong-deo-tay-thong-minh-huawei-band-11-day-cao-su-den-thumb-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/362940/vong-deo-tay-thong-minh-huawei-band-11-pro-day-nylon-det-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/337872/huawei-watch-5-46mm-den-tb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/339492/huawei-watch-5-46mm-day-composite-tb-600x600.jpg"
+  ],
+  "cat-watch|br-amazfit": [
+    "https://cdn.tgdd.vn/Products/Images/7077/367947/amazfit-bip-max-49-5mm-day-silicone-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/364290/amazfit-active-3-premium-46mm-day-silicone-trang-600x600.jpg"
+  ],
+  "cat-watch|br-apple": [
+    "https://cdn.tgdd.vn/Products/Images/7077/344767/apple-watch-se-3-40mm-vien-nhom-day-the-thao-trang-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/344750/apple-watch-series-11-42mm-vien-nhom-day-the-thao-vang-hong-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/344764/apple-watch-ultra-3-gps-cellular-49mm-vien-titanium-day-ocean-den-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/344769/apple-watch-se-3-gps-cellular-40mm-vien-nhom-day-the-thao-den-600x600.jpg"
+  ],
+  "cat-watch|br-xiaomi": [
+    "https://cdn.tgdd.vn/Products/Images/7077/367410/vong-deo-tay-thong-minh-mi-band-10-pro-vien-gom-thumb-600x600.jpg"
+  ],
+  "cat-watch|br-samsung": [
+    "https://cdn.tgdd.vn/Products/Images/7077/369499/samsung-galaxy-watch9-bluetooth-40mm-day-silicone-thumb-trang-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7077/369324/samsung-galaxy-watch-ultra-2-xanh-thumb-600x600.jpg"
+  ],
+  "cat-mobile-acc-charger|br-anker": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/363084/sac-nhanh-type-c-iq3-45w-anker-nano-a121d-thumb4-639122867487367367-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/336363/adapter-sac-4-cong-usb-type-c-iq3-gan-140w-ai-led-display-anker-zolo-b2697-thumb02-639003538612947513-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/361289/bo-sac-nhanh-3-cong-usb-type-c-iq4-gan-100w-anker-b121b-kem-cap-typec-typec-thumb-2-639053776817605560-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/58/341846/cap-type-c-type-c-1-8m-anker-zolo-a8060-thumb-638901584116692212-600x600.jpg"
+  ],
+  "cat-mobile-acc-charger|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/284275/adapter-sac-dual-type-c-35w-apple-mnwp3-trang-thumb2-639175907649112247-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/251677/adapter-type-c-30w-iphone-ipad-macbook-apple-my1w2-thumb2-639175906527731752-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/230315/adapter-sac-type-c-20w-cho-iphone-ipad-apple-mhje3-thumb3-639175904526907769-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/367901/xmobile-cs-65w-aw-kem-cap-day-rut-type-c-va-sac-apple-watch-thumb-639161046979377547-600x600.jpg"
+  ],
+  "cat-mobile-acc-charger|br-xmobile": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/354311/adapter-sac-type-c-pd-30w-xmobile-bling-ds051al-thumb-638942186557293236-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/9499/309742/adapter-sac-type-c-pd-20w-xmobile-ds602a-thumb-7-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/9499/328314/adapter-sac-2-cong-type-c-pd-qc-3-0-20w-xmobile-dc02-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/58/367902/cap-sac-nhanh-lo-xo-da-nang-4-in-1-lightning-type-c-60w-1-5m-xmobile-cs312-thumb-639160171360202681-600x600.jpg"
+  ],
+  "cat-mobile-acc-charger|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/318156/adapter-sac-type-c-pd-25w-samsung-ep-t2510n-thumb02-639002948359534023-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/9499/325099/bo-adapter-sac-kem-cap-type-c-type-c-pd-45w-samsung-ep-t4511xb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/334095/adapter-sac-type-c-pd-45w-samsung-ep-t4511nb-den-thumb-638727253570893829-600x600.jpg"
+  ],
+  "cat-mobile-acc-charger|br-ugreen": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/332248/adapter-sac-type-c-pd-qc-4-0-gan-30w-ugreen-nexode-cd319-thumb-639008907030560628-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/358688/adapter-sac-4-cong-type-c-pd-qc3-0-gan-100w-ugreen-robot-uno-x688-45515b-thumb-638981095953266709-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/337975/adapter-sac-3-cong-usb-type-c-pd-3-0-gan-100w-ugreen-nexode-pro-x757-25874-thumb-638827644597968205-600x600.jpg"
+  ],
+  "cat-mobile-acc-charger|br-baseus": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/9499/310754/adapter-2-cong-usb-typecpd-kem-cap-typec-typec-1m-100w-baseus-ccgan100e5-thumb02-639002931138907458-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/58/337947/cap-type-c-lightning-1m-baseus-titanium-alloy-cb000135-thumb-638827592222899217-600x600.jpg"
+  ],
+  "cat-mobile-acc-case-tablet|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/325750/bao-da-smart-folio-cho-ipad-pro-m4-11-inch-thumb2-639179113640687758-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/325752/bao-da-smart-folio-cho-ipad-air-m2-11-inch-thumb2-639179116102187668-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/339263/bao-da-ipad-a16-ipad-10-pu-pc-ava-plus-oc-mesa-click-thumb1.-638869030773157011-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/339262/op-lung-ipad-a16-ipad-10-pu-pc-tpu-ava-plus-oc-logi-stand-thumb-638853265928661769-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/362878/bao-da-ipad-air-m3-m2-11-inch-pu-pc-ava-oc-mesa-click-thumb-639062482586015401-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/335129/bao-da-nap-gap-ipad-10-tpu-pu-esr-rebound-magnetic-den-thumb-638767697821190593-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1662/256522/op-lung-ipad-mini-6-proud-jm-hong-1.-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1662/326790/bao-da-ipad-air-6-13-inch-uniq-camden-click-ivory-thumb-600x600.jpg"
+  ],
+  "cat-mobile-acc-case-tablet|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/330741/bao-da-galaxy-tab-s9-samsung-kem-ban-phim-ai-thumb-638646261701213852-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/359404/bao-da-galaxy-tab-a11-plus-samsung-thumb-638996205286878556-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1662/312394/op-lung-galaxy-tab-s9-nhua-cung-da-pu-samsung-smart-book-den-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/356810/bao-da-galaxy-tab-a11-samsung-thumb-1-638945757225929920-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/336831/bao-da-galaxy-tab-s10-fe-samsung-kem-ban-phim-ai-thumb-638799662946847861-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/345527/bao-da-galaxy-tab-s11-kem-ban-phim-samsung-thumb-638936283441036709-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/330740/bao-da-galaxy-tab-s9-samsung-kem-ban-phim-ai-pad-chuot-thumb-638646238852486941-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/330739/bao-da-galaxy-tab-s10-plus-samsung-kem-ban-phim-ai-thumb-638646043527481888-600x600.jpg"
+  ],
+  "cat-mobile-acc-case-tablet|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/359337/bao-da-xiaomi-pad-2-pu-pc-ava-oc-cloud-thumb-638991657708630061-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/362876/bao-da-xiaomi-pad-2-pro-pu-pc-ava-oc-cloud-thumb-639059391665494440-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/362877/bao-da-xiaomi-pad-7-pad-7-pro-ava-oc-cloud-thumb-639059392450897754-600x600.jpg"
+  ],
+  "cat-mobile-acc-case-tablet|br-oppo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1662/362875/bao-da-oppo-pad-se-pu-pc-ava-oc-cloud-thumb-639059390696131943-600x600.jpg"
+  ],
+  "cat-mobile-acc-screen|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342895/mieng-dan-kinh-cuong-luc-iphone-17-mipow-bj702-bk-thumb2-639162566534207160-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342866/mieng-dan-kinh-cuong-luc-chong-nhin-trom-iphone-17-pro-ava-thumb2-639160849443115531-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/365681/mieng-dan-macbook-neo-13-inch-jcpal-thumb2-639120560672531974-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342863/mieng-dan-kinh-cuong-luc-iphone-17-pro-max-ava-thumb2-639163658772364565-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/329931/mieng-dan-kinh-cuong-luc-iphone-16-pro-max-premium-jincase-thumb2-639163782582127722-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/329935/mieng-dan-kinh-cuong-luc-iphone-16-premium-jincase-thumb2-639161271403745350-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342870/mieng-dan-kinh-cuong-luc-iphone-17-pro-jcpal-thumb2-639160990753788521-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/329932/mieng-dan-kinh-cuong-luc-iphone-16-pro-premium-jincase-thumb2-639163783068170869-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342862/mieng-dan-kinh-cuong-luc-iphone-17-pro-ava-thumb2-639163659134468539-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/329937/mieng-dan-kinh-cuong-luc-iphone-16-pro-max-jincase-thumb2-639163783845431141-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342896/mieng-dan-kinh-cuong-luc-chong-nhin-trom-iphone-17-pro-mipow-bj711-bk-thumb2-639160927660167532-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342861/mieng-dan-kinh-cuong-luc-iphone-air-ava-thumb2-639163659867840716-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/329934/mieng-dan-kinh-cuong-luc-iphone-16-plus-premium-jincase-thumb2-639163783471395139-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/329854/mieng-dan-kinh-cuong-luc-iphone-16-pro-max-jcpal-thumb2-639162592930010404-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/342884/mieng-dan-kinh-cuong-luc-iphone-air-uniq-thumb2-639163636868486650-600x600.jpg"
+  ],
+  "cat-mobile-acc-screen|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/369509/mieng-dan-kinh-samsung-galaxy-z-fold8-ultra-cuong-luc-ava-jc-thumb-639204195325641465-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/369505/mieng-dan-kinh-samsung-galaxy-z-fold8-cuong-luc-ava-jc-thumb-639204134067474882-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/369510/mieng-dan-kinh-samsung-galaxy-z-flip8-cuong-luc-ava-jc-thumb-639204199812361606-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/330750/mieng-dan-kinh-cuong-luc-samsung-galaxy-a06-jincase-thumb2-639163781245810200-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1363/330753/mieng-dan-kinh-cuong-luc-samsung-galaxy-s24-fe-jincase-thumb2-639163781932153414-600x600.jpg"
+  ],
+  "cat-mobile-acc-cam-cover|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/344600/mieng-dan-camera-iphone-17-pro-iphone-17-pro-max-optix-vien-nhom-thuy-tinh-uniq-thumb-638930533604528113-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/344597/mieng-dan-camera-iphone-17-optix-vien-nhom-thuy-tinh-uniq-bac-thumb-638930520311113589-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/344598/mieng-dan-camera-iphone-17-air-optix-pc-thuy-tinh-uniq-thumb-638930524387428189-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/344596/mieng-dan-camera-iphone-17-optix-pc-thuy-tinh-uniq-thumb-638930497218416907-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/344599/mieng-dan-camera-iphone-17-air-optix-vien-nhom-thuy-tinh-uniq-bacn-thumb-638930535386750054-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/358347/mieng-dan-camera-iphone-17-pro-iphone-17-pro-max-kinh-thuy-tinh-jcpal-xanh-thumb-638973280765335525-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/330306/mieng-dan-camera-iphone-16-pro-16-pro-max-optix-aluminium-uniq-den-thumb-638629654160016658-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/330305/mieng-dan-camera-iphone-16-16-plus-optix-aluminium-uniq-thumb-638629603678793740-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/330328/mieng-dan-camera-iphone-16-pro-16-pro-max-jcpal-thumb3-639063203045455081-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/330327/mieng-dan-camera-iphone-16-16-plus-optix-jcpal-thumb3-639063207811273081-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/359149/mieng-dan-camera-iphone-17-pro-iphone-17-pro-max-silicat-mipow-blue-thumb-1-638987971836308478-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/13118/315006/mieng-dan-camera-iphone-15-pro-optix-aluminium-uniq-xam-thumb-1-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/359150/mieng-dan-camera-iphone-16-pro-iphone-16-pro-max-mipow-den-thumb-638988009781897700-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/360870/mieng-dan-camera-iphone-17-pro-promax-dekey-3d-camera-lens-bac-thumb-639043860153057977-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/13118/314999/mieng-dan-camera-iphone-15-15-plus-optix-aluminium-uniq-den-thumb-1-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/360857/mieng-dan-camera-iphone-16-pro-promax-dekey-3d-camera-lens-bac-thumb-639043645575512899-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/13118/315009/mieng-dan-camera-iphone-15-pro-max-optix-aluminium-uniq-den-thumb-1-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/360838/mieng-dan-camera-iphone-14-promax-dekey-3d-camera-lens-dekey-den-thumb-639043627677736347-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/360839/mieng-dan-camera-iphone-14-pro-max-dekey-3d-camera-lens-tim-thumb-639043693561480728-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13118/360842/mieng-dan-camera-iphone-15-15-plus-master-glass-3d-camera-lens-dekey-den-180126-094333-299-600x600.jpg"
+  ],
+  "cat-mobile-acc-airpods-case|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/331972/tui-dung-airpods-4-silicone-pc-uniq-lino-hybrid-liquid-thumb-638675203689538052-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358770/tui-dung-airpods-pro-3-tpu-uniq-glase-thumb-638985837578670999-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/331971/tui-dung-airpods-4-silicone-pc-kem-moc-uniq-nexo-active-hybrid-thumb-1-638674767886323115-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358768/tui-dung-airpods-pro-3-silicone-pc-uniq-lino-liquid-thumb-638982211089515644-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358769/tui-dung-airpods-pro-3-pc-tpu-uniq-glase-pro-121125-102519-162-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/226382/TimerThumb/tui-dung-airpods-pro-nhua-deo-tpu-kem-moc-jm-sn12-(1).jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358772/tui-dung-airpods-pro-3-pc-tpu-uniq-clyde-thumb-638985660290018235-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/331973/tui-dung-airpods-4-nhua-pc-tpu-laut-aero-protect-thumb-638675249388574383-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358767/tui-dung-airpods-pro-3-pu-pc-uniq-lyden-vex-thumb-638983643610369750-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358773/tui-dung-airpods-pro-3-pc-tpu-uniq-veren-thumb-638985660517061237-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7925/358771/tui-dung-airpods-pro-3-tpu-uniq-iridescia-thumb-638985840450517323-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/233360/TimerThumb/pro-nhua-deo-tpu-nap18-(1).jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/233383/TimerThumb/1-2-nhua-deo-silicone-ck-ap002-(1).jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/233386/TimerThumb/tui-dung-airpods-1-2-nhua-deo-tpu-ck-f048-osmia-(1).jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/306542/TimerThumb/tui-dung-airpods-1-2-pod-silicone-laut-(1).jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/306568/TimerThumb/tui-dung-airpods-3-nhua-cung-vien-deo-laut-capsule-impkt-(1).jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/328649/tui-dung-airpods-pro-2-nhua-pc-tpu-uniq-clyde-lock-case-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/328650/tui-dung-airpods-pro-2-da-pu-nhua-pc-uniq-coehl-haven-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/225961/tui-dung-airpods-1-2-silicone-kem-moc-jm-fr03-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7925/226075/tui-dung-airpods-1-2-nhua-cung-jm-pd03-thumb-600x600.jpeg"
+  ],
+  "cat-mobile-acc-fan|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/363970/quat-cam-tay-ava-jf-402-thumb-639120211080189890-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/363968/quat-cam-tay-ava-jf-312-thumb-639120204537732645-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/363969/quat-cam-tay-ava-jf-203-thumb-639120216199201811-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/363967/quat-cam-tay-ava-jf-412-thumb-639120226594773857-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/366973/quat-cam-tay-ava-mini-jf329-thumb2-639148831548248471-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/369828/quat-de-ban-xoay-160-do-ava-jf418-thumb-639216289674097225-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/369826/quat-de-ban-ava-jf83-thumb1.-639216334543199253-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/369827/quat-de-ban-ava-jf340-thumb2-639222063042774855-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/7922/368515/quat-de-ban-mini-lock-lock-enf336ivy-090726-110652-016-300x300.jpg"
+  ],
+  "cat-mobile-acc-fan|br-hydrus": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/336952/quat-cam-tay-mini-hydrus-jf-95-thumb-639120231126413307-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/336959/quat-de-ban-hydrus-jf-96-thumb-639120236889015287-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/336954/quat-de-ban-hydrus-jf-83-thumb-639120268017408234-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/336957/quat-cam-tay-mini-hydrus-jf-91-thumb3-639120354101428210-600x600.jpg"
+  ],
+  "cat-mobile-acc-fan|br-totolink": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7922/363910/quat-de-ban-mini-totolink-fan03-thumb-639090803304529238-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/7922/363908/quat-sac-kep-mini-totolink-fan01-thumb-639090734357030927-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/7922/363909/quat-de-ban-mini-totolink-fan02-thumb-639090736019422360-300x300.jpg"
+  ],
+  "cat-mobile-acc-stand|br-ulanzi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/369154/gia-do-dien-thoai-kiem-tripod-mini-magnetic-24cm-ulanzi-ma60-thumb-639191554443320907-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/369155/gia-do-dien-thoai-magnetic-ket-hop-de-hit-silicone-ulanzi-ma39-thumb-639191868037690998-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/369349/gia-do-dien-thoai-magnetic-gap-gon-ulanzi-ma02-thumb-639198084521642132-600x600.jpg"
+  ],
+  "cat-mobile-acc-stand|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360552/de-dien-thoai-xoay-360-cs-sp003-ava-thumb-639026007074524390-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360553/de-dien-thoai-xoay-360-cs-sp007-ava-thumb-639026008679102023-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360554/de-dien-thoai-xoay-360-cs-sp011-ava-thumb-639026009928340337-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360548/de-laptop-xoay-360-jc-l98a-ava-thumb-639026177320300899-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360549/de-may-tinh-bang-xoay-360-jc-n9-ava-thumb-639026178608449769-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360551/de-may-tinh-bang-xoay-360-jc-d68-ava-thumb-639026179993456129-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360550/de-may-tinh-bang-xoay-360-jc-d158-ava-thumb-639026179408172949-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/360233/gia-do-dien-thoai-deo-co-ava-jcs1132-thumb-639011509908561528-600x600.jpg"
+  ],
+  "cat-mobile-acc-stand|br-orico": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/310465/de-laptop-orico-pfb-a24-thumb01-638998554250808483-600x600.jpg"
+  ],
+  "cat-mobile-acc-stand|br-havit": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/358801/de-laptop-havit-st7304-bac-thumb01-638998592485196374-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/358802/de-laptop-havit-st7400-trang-thumb01-638998596122628080-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/358800/de-laptop-xoay-360-havit-st7411-bac-thumb01-638998587304011735-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/369160/gia-do-dien-thoai-kep-cua-gio-xe-hoi-havit-st7211-thumb-639191423168508925-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/369159/gia-do-dien-thoai-hut-chan-khong-tu-tinh-xe-hoi-havit-st7204-thumb-639191871827602130-600x600.jpg"
+  ],
+  "cat-mobile-acc-stand|br-jcpal": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/337333/de-laptop-jcpal-jcp6257-thumb-01-638998560743874249-600x600.jpg"
+  ],
+  "cat-mobile-acc-stand|br-hyperspace": [
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/6862/363542/de-laptop-hyperspace-hs1110whgl-thumb-639092406845153116-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6862/363544/de-laptop-hyperstand-htu6-gr-thumb-639092419711618821-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-logitech": [
+    "https://cdn.tgdd.vn/Products/Images/86/299931/chuot-khong-day-logitech-silent-signature-m650-size-m-300523-084259-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/357602/chuot-bluetooth-logitech-mx-master-4-071025-021949-055-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/364802/chuot-khong-day-gaming-logitech-pro-x2-superstrike-thumb-639106147026683101-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/86/326724/chuot-bluetooth-gaming-logitech-g304-den-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/86/326657/chuot-bluetooth-silent-logitech-mx-anywhere-3s-hong-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/326725/chuot-co-day-gaming-logitech-g502-hero-240125-080633-229-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/86/311113/chuot-bluetooth-silent-logitech-m240-thumb-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/332191/chuot-apple-magic-mouse-usb-c-thumb-639177374017837047-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-rapoo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/358342/chuot-bluetooth-silent-rapoo-m590-231025-023747-874-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/338174/chuot-bluetooth-silent-rapoo-b2w-160525-040314-132-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-akko": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/342568/chuot-bluetooth-akko-cat-theme-mouse-pink-angie-thumb-2-639020975893832934-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/342567/chuot-bluetooth-akko-cat-theme-mouse-orange-kate-thumb-2-639020977017719720-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-razer": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/357672/chuot-co-day-gaming-razer-basilisk-v3-thumb-638961457030438394-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/357966/chuot-co-day-gaming-razer-deathadder-v3-thumb-638962333391941771-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/357685/chuot-sac-bluetooth-gaming-razer-cobra-pro-thumb-638961218046925080-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/357676/chuot-sac-bluetooth-gaming-razer-basilisk-v3-pro-35k-thumb-638961212130006611-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-philips": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/342853/chuot-bluetooth-philips-spk7438-xanh-thumb-638920747733583537-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-asus": [
+    "https://cdn.tgdd.vn/Products/Images/86/313254/chuot-co-day-gaming-asus-tuf-m3-gen-ii-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/86/326663/chuot-gaming-khong-day-asus-rog-strix-impact-iii-thumb-600x600.jpg"
+  ],
+  "cat-laptop-acc-mouse|br-corsair": [
+    "https://cdn.tgdd.vn/Products/Images/86/328220/chuot-co-day-gaming-corsair-katar-pro-240724-034643-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-logitech": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/341121/bo-ban-phim-chuot-bluetooth-logitech-mk250-210725-042039-677-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/359226/ban-phim-bluetooth-logitech-slim-solar-k980-thumb-638989750597343559-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/4547/323008/ban-phim-bluetooth-logitech-k380s-hong-thumb-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/4547/326735/ban-phim-bluetooth-logitech-signature-k650-den-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-dareu": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/339125/ban-phim-co-day-gaming-dareu-lk145-040625-035334-440-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-hyperwork": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/362516/ban-phim-bluetooth-hyperwork-silentkey-mini-thumb-639060715334381865-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/332193/ban-phim-apple-magic-keyboard-usb-c-mxcl3-thumb2-639179157836246935-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/325540/magic-keyboard-cho-ipad-pro-m4-11-inch-thumb2-639179155446121792-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/332194/ban-phim-apple-magic-keyboard-usb-c-touch-id-mxck3-thumb2-639179159588033322-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-machenike": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/361813/ban-phim-co-bluetooth-machenike-kg98-rgb-purple-gold-switch-thumb-2-639089967869442352-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-akko": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/342573/ban-phim-co-co-day-akko-fun60-pro-sp-white-thumb-638912843780683956-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/342574/ban-phim-co-bluetooth-akko-fun60-max-sp-glare-magnetic-switches-thumb-638913735730252132-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/342572/ban-phim-co-co-day-akko-fun60-pro-sp-black-thumb-638912839681085669-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/351689/ban-phim-co-bluetooth-akko-ac87-matcha-red-bean-stellar-rose-thumb-638937230949322389-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-razer": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/357611/ban-phim-co-co-day-gaming-razer-blackwidow-v4-x-green-switch-thumb-638956026949454594-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/357640/ban-phim-co-co-day-gaming-razer-blackwidow-v4-75-white-edition-thumb-638956031727280902-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/357645/ban-phim-co-bluetooth-razer-blackwidow-v4-tenkeyless-hyperspeed-orange-tactile-switch-thumb-638956073776974337-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/357642/ban-phim-co-co-day-gaming-razer-blackwidow-v4-pro-green-switch-thumb-638956050668418981-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4547/357643/ban-phim-co-co-day-gaming-razer-blackwidow-v4-pro-yellow-switch-thumb-638956052562831206-600x600.jpg"
+  ],
+  "cat-laptop-acc-keyboard|br-asus": [
+    "https://cdn.tgdd.vn/Products/Images/4547/279466/co-day-gaming-asus-tuf-k1-thumb-600x600.jpeg"
+  ],
+  "cat-laptop-acc-bag|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/339538/tui-chong-soc-laptop-16-inch-togo-tcs16-td-040725-022032-876-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/339545/balo-laptop-16-inch-togo-tgb06-040725-032301-233-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/339546/balo-laptop-16-inch-togo-tgb07-040725-032514-075-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/339547/balo-laptop-15-6-inch-togo-tgb08-thumb-639198161923118557-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338732/balo-laptop-15-6-inch-targus-tbb653gl-300525-015211-387-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338735/balo-laptop-15-6-inch-targus-geolite-essential-tsb960gl-300625-015938-518-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7923/328398/balo-laptop-15-6-inch-targus-tbb595gl-urban-convertible-290724-114014-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338733/balo-laptop-15-6-inch-targus-tbb63602gl-300625-025832-443-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338734/balo-laptop-15-6-inch-targus-transpire-compact-tbb632gl-300525-035402-978-600x600.jpg"
+  ],
+  "cat-laptop-acc-bag|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/327934/tui-xach-chong-soc-macbook-pro-14-inch-tomtoc-a14d2b1-thumb-639053706570383505-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338409/tui-chong-soc-macbook-pro-16-inch-tucano-velluto-100625-050356-062-600x600.jpg"
+  ],
+  "cat-laptop-acc-bag|br-tomtoc": [
+    "https://cdn.tgdd.vn/Products/Images/7923/327936/tui-chong-soc-laptop-14-inch-tomtoc-briefcase-premium-a11d3p1-150724-074646-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/336523/balo-laptop-16-inch-tomtoc-flap-100425-110627-116-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/7923/327935/tui-chong-soc-laptop-14-inch-tomtoc-a45-150724-050829-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/336530/tui-chong-soc-laptop-13-inch-tomtoc-spill-resistant-090425-103740-517-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/336525/tui-xach-chong-soc-laptop-16-inch-tomtoc-080425-040217-160-600x600.jpg"
+  ],
+  "cat-laptop-acc-bag|br-tucano": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338412/tui-xach-chong-soc-laptop-14-inch-tucano-smilza-superslim-240625-104409-126-600x600.png",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338424/balo-laptop-15-6-inch-tucano-gommo-230625-023632-512-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338425/balo-laptop-15-6-inch-tucano-rollo-230625-041649-228-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/7923/338426/tui-xach-chong-soc-laptop-14-inch-tucano-gommo-superslim-230625-054158-663-600x600.jpg"
+  ],
+  "cat-laptop-acc-pouch|br-tomtoc": [
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364582/tui-deo-cheo-tomtoc-slash-t27-shoulder-bag-t27s1t1gc-thumb-639098623257252932-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364579/tui-deo-cheo-tomtoc-crossbody-edc-sling-bag-t24s1d1-thumb-639096222063167253-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364584/tui-xach-tomtoc-electronic-organizer-t11m1d1-thumb-639100437837636317-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364601/tui-deo-cheo-tomtoc-wander-t26-x-pac-daily-sling-t26s1k1-thumb-639098793271932960-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364602/tui-deo-cheo-tomtoc-monster-hunter-edc-sling-bag-t21s1s1mh-thumb-639098812720040354-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364603/tui-deo-cheo-tomtoc-monster-hunter-edc-sling-bag-t21s1s2mh-thumb-639098823664527815-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364550/tui-deo-cheo-tomtoc-x-pac-aviator-t37-travel-crossbody-t37s1d2-thumb-639099511190615139-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364551/tui-deo-cheo-tomtoc-x-pac-aviator-t37-travel-crossbody-t37s1t1-thumb-639099512462430370-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364552/tui-deo-cheo-tomtoc-x-pac-aviator-t37-travel-crossbody-t37s1y1-thumb-639099513120846455-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364553/tui-deo-cheo-tomtoc-aviator-t37-travel-crossbody-t37s1d1-thumb-639099514097438475-300x300.jpg"
+  ],
+  "cat-laptop-acc-pouch|br-innostyle": [
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364530/tui-deo-cheo-innostyle-flexicarry-crossbody-sling-fc22blk-thumb-639101163851250636-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364531/tui-deo-cheo-innostyle-flexicarry-crossbody-sling-fc22db-thumb-639101163092394220-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364532/tui-deo-cheo-innostyle-flexicarry-crossbody-sling-fc22dd-thumb-639101167377112464-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364533/tui-deo-cheo-innostyle-flexicarry-crossbody-sling-fc22gn-thumb-639101168076663878-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364534/tui-deo-cheo-innostyle-versalsling-crossbody-bag-s2101bbg-thumb-639098741379918730-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364535/tui-deo-cheo-innostyle-versalsling-crossbody-bag-s2101bry-thumb-639098744596631981-600x600.jpg"
+  ],
+  "cat-laptop-acc-pouch|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364536/balo-topo-designs-mountain-sling-bag-31738-thumb-639098834731801646-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364537/balo-topo-designs-mountain-sling-bag-31752-thumb-639098838462467876-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/13818/364538/tui-xach-topo-designs-mini-quick-pack-29278-thumb-639098856406614976-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13818/364542/tui-deo-cheo-topo-designs-mini-shoulder-bag-29377-thumb-639099352683928169-600x600.jpg"
+  ],
+  "cat-laptop-acc-mousepad|br-hyperwork": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/362525/mieng-lot-chuot-hyperwork-core-pad-size-s-rhumb-639129859032112523-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/362526/mieng-lot-chuot-hyperwork-core-pad-size-l-thumb-639053891751451918-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/362522/mieng-lot-chuot-hyperwork-fable-45-cm-thumb-639053876019432335-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/362523/mieng-lot-chuot-hyperwork-fable-90-cm-thumb-639053882515288142-600x600.jpg"
+  ],
+  "cat-laptop-acc-mousepad|br-logitech": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/359527/mieng-lot-chuot-logitech-studio-series-thumb-02-639002067645551741-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/359528/mieng-lot-chuot-logitech-desk-mat-studio-series-thumb02-639002070459684315-600x600.jpg"
+  ],
+  "cat-laptop-acc-mousepad|br-dareu": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/366775/mieng-lot-chuot-dareu-esp108-thumb-639136658096072810-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/366777/mieng-lot-chuot-dareu-esp119-thumb-639136658312766563-600x600.jpg"
+  ],
+  "cat-laptop-acc-mousepad|br-akko": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/358070/mieng-lot-chuot-akko-cat-theme-mousepad-gary-mimo-thumb-638966547167736448-600x600.jpg"
+  ],
+  "cat-laptop-acc-mousepad|br-razer": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357851/mieng-lot-chuot-razer-goliathus-mobile-small-thumb-638962212044701634-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357845/mieng-lot-chuot-razer-gigantus-v2-soft-gaming-mouse-mat-large-thumb-638962214404821970-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357847/mieng-lot-chuot-razer-gigantus-v2-soft-gaming-mouse-mat-xxl-thumb-638959503276982467-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357854/mieng-lot-chuot-razer-pro-glide-xxl-soft-productivity-mouse-mat-thumb-638962198420546325-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357844/mieng-lot-chuot-razer-firefly-v2-pro-white-edition-thumb-638962218126493127-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357846/mieng-lot-chuot-razer-gigantus-v2-soft-gaming-mouse-mat-medium-thumb-638959499798822479-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357848/mieng-lot-chuot-razer-gigantus-v2-soft-gaming-mouse-mat-xxxl-thumb-638959505014860108-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357850/mieng-lot-chuot-razer-goliathus-chroma-extended-gaming-mouse-mat-thumb-638959521173498549-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357853/mieng-lot-chuot-razer-pro-glide-soft-productivity-mouse-mat-thumb-638962201777253774-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357856/mieng-lot-chuot-razer-strider-large-thumb-638962190508801620-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357857/mieng-lot-chuot-razer-strider-large-quartz-edition-thumb-2-638965784161819583-600x600.jpg"
+  ],
+  "cat-laptop-acc-mousepad|br-microsoft": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/6858/357841/mieng-lot-chuot-razer-firefly-v2-hard-surface-mat-thumb-638962228096985332-600x600.jpg"
+  ],
+  "cat-laptop-acc-drawing|br-kidcare": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/10421/366839/bang-ve-tu-xoa-da-sac-kidcare-man-hinh-lcd-12-inch-h12m-thumb-639144393213977581-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/10421/366838/bang-ve-tu-xoa-da-sac-kidcare-man-hinh-lcd-8-5-inch-h8m2-thumb-639143543434741748-600x600.jpg"
+  ],
+  "cat-laptop-acc-drawing|br-wacom": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/359202/bang-ve-dien-tu-wacom-intuos-small-bluetooth-ctl-4100wl-e0-c-thumb-638989921729184051-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/359207/bang-ve-dien-tu-wacom-one-s-pen-tablet-ctc4110wlw0c-thumb-638989928691895420-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/362633/bang-ve-dien-tu-wacom-intuos-small-ctl-4100-k0-c-thumb-639056233868610833-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/359201/bang-ve-dien-tu-wacom-intuos-small-bluetooth-ctl-4100wl-k0-c-thumb-638989920208089234-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/359203/bang-ve-dien-tu-wacom-intuos-small-bluetooth-ctl-4100wl-p0-c-thumb-638989923428408934-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/359206/bang-ve-dien-tu-wacom-intuos-m-bluetooth-ctl-6100wl-p0-c-thumb-638989927174334904-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13918/359209/but-wacom-4k-lp-1100-0k-01-zx-thumb-638989914402768489-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/344776/tai-nghe-bluetooth-apple-airpods-pro-3-trang-mfhp4-thumb-639177367044323389-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/329154/airpods-4-mxp63-thumb-639177367995705780-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/363188/tai-nghe-bluetooth-true-wireless-samsung-galaxy-buds4-pro-r640n-thumb-639076639855476853-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-jbl": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367629/tai-nghe-bluetooth-chup-tai-jbl-tune-530bt-thumb-639161908701235705-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/368034/tai-nghe-bluetooth-chup-tai-jbl-live-780nc-xanh-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367628/tai-nghe-bluetooth-chup-tai-jbl-live-680nc-thumb-639162477845739976-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368268/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-950-thumb-639173170734178840-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367874/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-650-thumb2-639186261987555736-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367872/tai-nghe-bluetooth-chup-tai-jbl-tune-780nc-thumb2-639186230337376950-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/339853/tai-nghe-bluetooth-chup-tai-jbl-tour-one-m3-020725-023831-252-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-shokz": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367816/tai-nghe-bluetooth-open-ear-ows-shokz-openfit-pro-thumb-639155736090971137-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/361413/tai-nghe-bluetooth-true-wireless-xiaomi-redmi-buds-8-lite-thumb-639026859261009459-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367481/tai-nghe-bluetooth-true-wireless-xiaomi-buds-6-thumb-639150605876905776-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-oppo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368304/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5-thumb-639186058321358184-600x600.jpeg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367875/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5s-thumb-639186057037885242-600x600.jpeg"
+  ],
+  "cat-av-bt-earphone|br-anker": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368227/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-d1203-thumb-639172295309116002-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368228/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-max-d1204-thumb-639172876649382968-600x600.jpg"
+  ],
+  "cat-av-bt-earphone|br-sony": [
+    "https://cdn.tgdd.vn/2026/08/timerseo/367787.jpg",
+    "https://cdn.tgdd.vn/2026/08/timerseo/367818.jpg"
+  ],
+  "cat-av-bt-earphone|br-machenike": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368253/tai-nghe-bluetooth-true-wireless-machenike-th60-thumb-639172943625827875-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/344776/tai-nghe-bluetooth-apple-airpods-pro-3-trang-mfhp4-thumb-639177367044323389-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/329154/airpods-4-mxp63-thumb-639177367995705780-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/363188/tai-nghe-bluetooth-true-wireless-samsung-galaxy-buds4-pro-r640n-thumb-639076639855476853-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-jbl": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367629/tai-nghe-bluetooth-chup-tai-jbl-tune-530bt-thumb-639161908701235705-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/368034/tai-nghe-bluetooth-chup-tai-jbl-live-780nc-xanh-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367628/tai-nghe-bluetooth-chup-tai-jbl-live-680nc-thumb-639162477845739976-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368268/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-950-thumb-639173170734178840-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367874/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-650-thumb2-639186261987555736-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367872/tai-nghe-bluetooth-chup-tai-jbl-tune-780nc-thumb2-639186230337376950-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/339853/tai-nghe-bluetooth-chup-tai-jbl-tour-one-m3-020725-023831-252-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-shokz": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367816/tai-nghe-bluetooth-open-ear-ows-shokz-openfit-pro-thumb-639155736090971137-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/361413/tai-nghe-bluetooth-true-wireless-xiaomi-redmi-buds-8-lite-thumb-639026859261009459-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367481/tai-nghe-bluetooth-true-wireless-xiaomi-buds-6-thumb-639150605876905776-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-oppo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368304/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5-thumb-639186058321358184-600x600.jpeg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367875/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5s-thumb-639186057037885242-600x600.jpeg"
+  ],
+  "cat-av-wire-earphone|br-anker": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368227/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-d1203-thumb-639172295309116002-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368228/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-max-d1204-thumb-639172876649382968-600x600.jpg"
+  ],
+  "cat-av-wire-earphone|br-sony": [
+    "https://cdn.tgdd.vn/2026/08/timerseo/367787.jpg",
+    "https://cdn.tgdd.vn/2026/08/timerseo/367818.jpg"
+  ],
+  "cat-av-wire-earphone|br-machenike": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368253/tai-nghe-bluetooth-true-wireless-machenike-th60-thumb-639172943625827875-600x600.jpg"
+  ],
+  "cat-av-headphone|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/344776/tai-nghe-bluetooth-apple-airpods-pro-3-trang-mfhp4-thumb-639177367044323389-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/329154/airpods-4-mxp63-thumb-639177367995705780-600x600.jpg"
+  ],
+  "cat-av-headphone|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/363188/tai-nghe-bluetooth-true-wireless-samsung-galaxy-buds4-pro-r640n-thumb-639076639855476853-600x600.jpg"
+  ],
+  "cat-av-headphone|br-jbl": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367629/tai-nghe-bluetooth-chup-tai-jbl-tune-530bt-thumb-639161908701235705-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/368034/tai-nghe-bluetooth-chup-tai-jbl-live-780nc-xanh-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367628/tai-nghe-bluetooth-chup-tai-jbl-live-680nc-thumb-639162477845739976-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368268/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-950-thumb-639173170734178840-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367874/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-650-thumb2-639186261987555736-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367872/tai-nghe-bluetooth-chup-tai-jbl-tune-780nc-thumb2-639186230337376950-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/339853/tai-nghe-bluetooth-chup-tai-jbl-tour-one-m3-020725-023831-252-600x600.jpg"
+  ],
+  "cat-av-headphone|br-shokz": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367816/tai-nghe-bluetooth-open-ear-ows-shokz-openfit-pro-thumb-639155736090971137-600x600.jpg"
+  ],
+  "cat-av-headphone|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/361413/tai-nghe-bluetooth-true-wireless-xiaomi-redmi-buds-8-lite-thumb-639026859261009459-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367481/tai-nghe-bluetooth-true-wireless-xiaomi-buds-6-thumb-639150605876905776-600x600.jpg"
+  ],
+  "cat-av-headphone|br-oppo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368304/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5-thumb-639186058321358184-600x600.jpeg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367875/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5s-thumb-639186057037885242-600x600.jpeg"
+  ],
+  "cat-av-headphone|br-anker": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368227/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-d1203-thumb-639172295309116002-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368228/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-max-d1204-thumb-639172876649382968-600x600.jpg"
+  ],
+  "cat-av-headphone|br-sony": [
+    "https://cdn.tgdd.vn/2026/08/timerseo/367787.jpg",
+    "https://cdn.tgdd.vn/2026/08/timerseo/367818.jpg"
+  ],
+  "cat-av-headphone|br-machenike": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368253/tai-nghe-bluetooth-true-wireless-machenike-th60-thumb-639172943625827875-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-apple": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/344776/tai-nghe-bluetooth-apple-airpods-pro-3-trang-mfhp4-thumb-639177367044323389-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/329154/airpods-4-mxp63-thumb-639177367995705780-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/363188/tai-nghe-bluetooth-true-wireless-samsung-galaxy-buds4-pro-r640n-thumb-639076639855476853-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-jbl": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367629/tai-nghe-bluetooth-chup-tai-jbl-tune-530bt-thumb-639161908701235705-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/54/368034/tai-nghe-bluetooth-chup-tai-jbl-live-780nc-xanh-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367628/tai-nghe-bluetooth-chup-tai-jbl-live-680nc-thumb-639162477845739976-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368268/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-950-thumb-639173170734178840-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367874/tai-nghe-bluetooth-chup-tai-gaming-jbl-quantum-650-thumb2-639186261987555736-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367872/tai-nghe-bluetooth-chup-tai-jbl-tune-780nc-thumb2-639186230337376950-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/339853/tai-nghe-bluetooth-chup-tai-jbl-tour-one-m3-020725-023831-252-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-shokz": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367816/tai-nghe-bluetooth-open-ear-ows-shokz-openfit-pro-thumb-639155736090971137-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/361413/tai-nghe-bluetooth-true-wireless-xiaomi-redmi-buds-8-lite-thumb-639026859261009459-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367481/tai-nghe-bluetooth-true-wireless-xiaomi-buds-6-thumb-639150605876905776-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-oppo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368304/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5-thumb-639186058321358184-600x600.jpeg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/367875/tai-nghe-bluetooth-true-wireless-oppo-enco-air-5s-thumb-639186057037885242-600x600.jpeg"
+  ],
+  "cat-av-sport-earphone|br-anker": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368227/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-d1203-thumb-639172295309116002-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368228/tai-nghe-bluetooth-true-wireless-soundcore-liberty-5-pro-max-d1204-thumb-639172876649382968-600x600.jpg"
+  ],
+  "cat-av-sport-earphone|br-sony": [
+    "https://cdn.tgdd.vn/2026/08/timerseo/367787.jpg",
+    "https://cdn.tgdd.vn/2026/08/timerseo/367818.jpg"
+  ],
+  "cat-av-sport-earphone|br-machenike": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/54/368253/tai-nghe-bluetooth-true-wireless-machenike-th60-thumb-639172943625827875-600x600.jpg"
+  ],
+  "cat-av-speaker|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/344795/loa-bluetooth-alpha-works-aw-ikon12-thumb-2-638936187417369115-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/369835/loa-bluetooth-alpha-works-aw-w99-cam-thumb-639207575010159663-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/356866/loa-bluetooth-alpha-works-aw-ikon20-thumb01-638957089370891311-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/359804/loa-bluetooth-alpha-works-aw-genbeatx-thumb-2-639025989583661136-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/355726/loa-bluetooth-alpha-works-aw-ikon10-thumb-638943946777409587-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/362276/loa-karaoke-xach-tay-hyundai-hd18-200w-thumbksp-639058864294553977-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/359805/loa-bluetooth-alpha-works-aw-genbeat-510-thumb-639000059826330040-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/362662/loa-vi-tinh-bluetooth-thonet-vander-kurbis-cinema-thumb-3-639095385969367148-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/359806/loa-bluetooth-alpha-works-aw-genbeat-520-thumb-639000063058109518-600x600.jpg"
+  ],
+  "cat-av-speaker|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/367810/loa-bluetooth-xiaomi-sound-play-thumb-639156457293475267-600x600.jpg"
+  ],
+  "cat-av-speaker|br-jbl": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/368778/loa-bluetooth-jbl-partybox-encore-2-mic-2-plus-thumb-639190323213786295-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/368781/loa-bluetooth-jbl-partybox-130-thumb-639204164804930293-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/368779/loa-bluetooth-jbl-partybox-on-the-go-2-plus-thumb-639190342773215843-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/368780/loa-bluetooth-jbl-partybox-330-thumb-639204191768379049-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/367582/loa-bluetooth-jbl-xtreme-5-thumb-639156645548611427-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/364608/loa-bluetooth-jbl-bandbox-solo-thumb-639102893704855877-600x600.jpg"
+  ],
+  "cat-av-speaker|br-marshall": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/369840/loa-bluetooth-marshall-stockwell-iii-thumb-639207420436474892-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/370819/loa-bluetooth-marshall-acton-iv-thumb-639229868643522492-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/341469/loa-bluetooth-marshall-middleton-ii-thumb-3-638911988038140278-600x600.jpg"
+  ],
+  "cat-av-speaker|br-anker": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/2162/364770/loa-bluetooth-anker-soundcore-boom-go-3i-thumb-639105484588552306-600x600.jpg"
+  ],
+  "cat-av-mic|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/366831/thiet-bi-thu-am-khong-day-dji-mic-mini-2-1-tx-1-rx-dmmt02-dmmr01-thumb-639137458246897042-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/366832/thiet-bi-thu-am-khong-day-dji-mic-mini-2-2-tx-1-rx-1-hop-sac-mic-thumb-2-639137479334111831-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/366833/dji-mic-mini-2-1-tx-1-mobile-rx-1-hop-sac-mic-dmmt02-dmmr02-dmmcs2-1tx-thumb-639140957218057597-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/366834/thiet-bi-thu-am-khong-day-dji-mic-mini-2-2-tx-1-mobile-rx-1-hop-sac-mic-thumb-639141055800763643-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/332522/thiet-bi-thu-am-khong-day-dji-mic-2-1tx-1rx-dmt02-dmr02-thumb-638694482323029938-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/339100/thiet-bi-thu-am-khong-day-dji-mic-mini-2tx-1rx-1-hop-sac-mic-dmmt01-dmmr01-thumb-638848026058106717-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/354284/thiet-bi-thu-am-khong-day-dji-mic-3-1-tx-1-rx-dmt03-dmr03-thumb-638939615430496660-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/354285/thiet-bi-thu-am-khong-day-dji-2-tx-1-rx-1-hop-sac-mic-dmt03-dmr03-dmc03-thumb-638939617933324972-600x600.jpg"
+  ],
+  "cat-av-mic|br-boya": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336324/micro-khong-day-boya-by-v1-v2-0-020425-112956-233-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336323/micro-khong-day-boya-link-020425-111922-184-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336325/micro-khong-day-boya-by-v10-v2-0-020425-114123-991-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336336/micro-khong-day-boya-by-v2-v2-0-020425-015121-337-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336338/micro-khong-day-boya-by-v20-v2-0-020425-020141-433-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336347/micro-khong-day-boya-mini-020425-023910-949-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/362150/micro-khong-day-boya-mini-2-01-thumb-639045055753267599-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/12498/336340/micro-khong-day-podcast-livestream-boya-k3-020425-022135-394-600x600.jpg"
+  ],
+  "cat-av-mic|br-jbl": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/370453/micro-thu-am-bluetooth-jbl-easysing-mic-mini-thumb1-639230043660537563-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/11998/370454/micro-thu-am-bluetooth-jbl-easysing-mic-mini-duo-thumb2-639230100832933117-600x600.jpg"
+  ],
+  "cat-av-mic|br-razer": [
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/11998/361751/micro-thu-am-razer-seiren-v3-mini-den-thumb-639035421905123259-300x300.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/dmx/Products/Images/11998/361758/micro-thu-am-razer-seiren-v3-mini-trang-thumb-639035422126358255-300x300.jpg"
+  ],
+  "cat-av-projector|br-wanbo": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/359236/may-chieu-wanbo-full-hd-t2-ultra-thumb-638989947423963951-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/360731/may-chieu-wanbo-full-hd-cube-2-pro-thumb-2-639098812962554623-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/359237/may-chieu-wanbo-full-hd-x5-pro-thumb-638989937576502285-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/359235/may-chieu-wanbo-hd-dali-thumb-638989943600753452-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/360730/may-chieu-wanbo-full-hd-mozart-1-pro-thumb-639023581668042297-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/365857/may-chieu-wanbo-full-hd-vali-1-pro-thumb-639123894415455854-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/359238/may-chieu-wanbo-full-hd-vali-1-thumb-638989944314023922-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/365858/may-chieu-wanbo-hd-cube-1-thumb-639123801125641168-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/365939/chan-de-may-chieu-wanbo-small-thumb-639123821659671723-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/368645/may-chieu-wanbo-full-hd-togo-pro-thumb-639190368022483324-600x600.jpg"
+  ],
+  "cat-av-projector|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/334565/may-chieu-xiaomi-smart-projector-l1-pro-thumb-638750564212538722-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/364384/may-chieu-xgimi-elifn-flip-plus-full-hd-thumb-639101414898527046-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/364385/may-chieu-xgimi-mogo-4-full-hd-thumb-639101425925419070-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/364386/may-chieu-xgimi-mogo-4-laser-full-hd-thumb-639101715172270402-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/364388/may-chieu-xgimi-horizon-20-max-4k-uhd-thumb-639101737496886638-600x600.jpg"
+  ],
+  "cat-av-projector|br-eroc": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/369354/may-chieu-full-hd-eroc-flip-plus-thumb-639196410777213161-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/369352/may-chieu-hd-eroc-magic-ultra-thumb-639196220900731486-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/862/369353/may-chieu-full-hd-eroc-master-thumb-639196406441315940-600x600.jpg"
+  ],
+  "cat-av-hdd|br-sandisk": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/366929/o-cung-ssd-1tb-sandisk-portable-sdssde30f-fifa-world-cup-2026-edition-thumb-639141324997789800-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/337019/o-cung-ssd-1tb-sandisk-portable-sdssde30-160425-030102-524-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1902/328432/o-cung-ssd-1tb-sandisk-extreme-portable-sdssde61-thumb-1-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1902/328433/o-cung-ssd-2tb-sandisk-extreme-portable-sdssde61-thumb-1-600x600.jpg"
+  ],
+  "cat-av-hdd|br-adata": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/343040/o-cung-ssd-500gb-adata-portable-sd810-thumb-638924918640217646-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/343038/o-cung-ssd-500gb-adata-portable-sc750-thumb-638924905271083355-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/343039/o-cung-ssd-1tb-adata-portable-sc750-thumb-638924913667872068-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/343041/o-cung-ssd-1tb-adata-portable-sd810-thumb-638924924157385716-600x600.jpg"
+  ],
+  "cat-av-hdd|br-kingston": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/339956/o-cung-ssd-1tb-kingston-portable-030725-044027-871-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/339957/o-cung-ssd-2tb-kingston-portable-030725-043947-898-600x600.jpg"
+  ],
+  "cat-av-hdd|br-seagate": [
+    "https://cdn.tgdd.vn/Products/Images/1902/253405/1tb-seagate-one-touch-stky1000-thumb-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1902/253406/hdd-2tb-seagate-one-touch-stky2000404-xam-thumb-1-600x600.jpg"
+  ],
+  "cat-av-hdd|br-samsung": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/329139/o-cung-ssd-1tb-samsung-portable-t7-mu-pc1t0h-ww-thumb2-639136863217590290-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1902/329142/o-cung-ssd-1tb-samsung-portable-t9-mu-pg1t0b-ww-thumb-1-600x600.jpg"
+  ],
+  "cat-av-hdd|br-kioxia": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/354280/o-cung-ssd-500gb-kioxia-exceria-plus-g2-portable-lxd20k500gg8-thumb01.jp-638941362924149468-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/341527/o-cung-ssd-1tb-kioxia-exceria-plus-g2-portable-lxd20k001tg8-thumb-638899246863297239-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/341528/o-cung-ssd-2tb-kioxia-exceria-plus-g2-portable-lxd20k002tg8-thumb-638899247590410711-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/1902/325343/o-cung-ssd-500gb-kioxia-exceria-plus-portable-lxd10s500gg8-thumb-1-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/325344/o-cung-ssd-1tb-kioxia-exceria-plus-portable-lxd10s001tg8-thumb-1-600x600-639086525013746970-600x600.jpg"
+  ],
+  "cat-av-hdd|br-msi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/1902/341857/o-cung-ssd-1tb-sandisk-creator-phone-magsafe-portable-sdssde62c-thumb-638902595441748487-600x600.jpg"
+  ],
+  "cat-av-sdcard|br-kioxia": [
+    "https://cdn.tgdd.vn/Products/Images/55/314497/the-nho-kioxia-microsd-64gb-class-10-u1-thumb-2-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/314499/the-nho-kioxia-microsd-64gb-class-10-u3-thumb-2-600x600-638633613181279988-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/322389/the-nho-chuyen-camera-kioxia-microsd-128gb-class-10-u3-thumb-new-600x600-638633613918836488-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/361466/the-nho-kioxia-microsd-g3-128gb-class-10-u3-thumb-639027884121753923-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/325328/the-nho-chuyen-camera-kioxia-microsd-256gb-class-10-u3-thumb-new-600x600-638633614506395995-600x600.jpg"
+  ],
+  "cat-av-sdcard|br-sandisk": [
+    "https://cdn.tgdd.vn/Products/Images/55/298425/the-nho-sandisk-microsd-64gb-class-10-u1-thumb-2-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/312992/the-nho-chuyen-camera-sandisk-microsd-64gb-class-10-u3-thumb3-638988022013555911-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/55/328494/the-nho-sandisk-microsd-128gb-class-10-u1-thumb1.-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/316623/the-nho-chuyen-camera-sandisk-microsd-128gb-class-10-u3-thumb3-638988024086535320-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/316626/the-nho-chuyen-camera-sandisk-microsd-256gb-class-10-u3-thumb3-638988025455518658-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/55/328495/the-nho-sandisk-microsd-256gb-class-10-u1-thumb1.-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/336378/the-nho-sandisk-microsd-64gb-extreme-pro-class-10-u3-thumb-638797284462308090-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/336766/the-nho-sandisk-microsd-128gb-extreme-pro-class-10-u3-thumb-638797968454894512-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/336767/the-nho-sandisk-microsd-256gb-extreme-pro-class-10-u3-thumb-638797977223787807-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/336768/the-nho-sandisk-microsd-512gb-extreme-pro-class-10-u3-thumb-638797991756879162-600x600.jpg"
+  ],
+  "cat-av-sdcard|br-xiaomi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/364779/the-nho-hiksemi-microsd-64gb-class-10-u1-thumb-639102068796353697-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/365679/the-nho-hiksemi-microsd-32gb-neo-lux-class-10-u3-thumb-2-639122740960802508-600x600.jpg"
+  ],
+  "cat-av-sdcard|br-kingston": [
+    "https://cdn.tgdd.vn/Products/Images/55/328931/the-nho-kingston-microsd-64gb-class-10-u1-thumb-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/55/328932/the-nho-kingston-microsd-128gb-class-10-u1-240824-035518-600x600.jpg"
+  ],
+  "cat-av-sdcard|br-msi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/55/341856/the-nho-sandisk-creator-microsd-128gb-extreme-class-10-u3-thumb-638900230690192504-600x600.jpg"
+  ],
+  "cat-av-usb|br-sandisk": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/369924/usb-type-c-3-2-64gb-sandisk-sdczb-thumb-639210260426858186-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/358470/usb-phone-drive-3-2-512gb-type-c-sandisk-sdixs0n-thumb-638980209507783639-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/366930/usb-3-2-64gb-sandisk-sdczia-fifa-world-cup-2026-edition-thumb-639141329239920523-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/366931/usb-3-2-128gb-sandisk-sdczia-fifa-world-cup-2026-edition-thumb-639141329538041790-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/339960/usb-phone-drive-3-2-64gb-sandisk-sdddc6-040725-015656-848-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/75/328504/usb-3-2-32gb-sandisk-cz410-thumb-1-600x600.jpg",
+    "https://cdn.tgdd.vn/Products/Images/75/328505/usb-3-2-64gb-sandisk-cz410-thumb-1-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/218169/usb-otg-31-64gb-sandisk-sdddc3-den-060625-105840-487-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/230349/usb-otg-31-128gb-type-c-sandisk-sdddc3-den-thumb-638848013193850136-600x600.jpg"
+  ],
+  "cat-av-usb|br-kingston": [
+    "https://cdn.tgdd.vn/Products/Images/75/328888/usb-3-2-64gb-kingston-datatraveler-exodia-dtxm-thumb-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/360326/usb-3-2-64gb-kingston-datatraveler-exodia-dtx-thumb-639011580875622181-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/341530/usb-3-2-64gb-kingston-datatraveler-exodia-dtxs-thumb-638899213517606681-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/341532/usb-3-2-128gb-kingston-datatraveler-exodia-dtxs-thumb-638899214814552335-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/360327/usb-3-2-128gb-kingston-datatraveler-exodia-dtx-thumb-639011581368653136-600x600.jpg"
+  ],
+  "cat-av-usb|br-adata": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/354283/usb-3-2-32gb-adata-auv150-den-thumb-638942248067842994-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/364806/usb-3-2-64gb-adata-auv150-thumb-639106218221813320-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/354281/usb-3-2-64gb-adata-uc310-thumb-2-638974205524065815-600x600.jpg"
+  ],
+  "cat-av-usb|br-kioxia": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/307985/usb-3-2-64gb-kioxia-u366-060625-101410-186-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/307986/usb-3-2-64gb-kioxia-u365-thumb-638848010324025544-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/75/333914/usb-3-2-64gb-kioxia-u301-gen-1-thumb-639044636693784306-600x600.jpg"
+  ],
+  "cat-cam-security|br-ezviz": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/329241/camera-ip-360-do-3mp-ezviz-ty1-thumb-1-638665876017214332-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/332411/camera-ip-ngoai-troi-360-do-3mp-ezviz-h8c-pro-thumb-1-638682120388403678-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/340975/camera-ip-360-do-4mp-ezviz-s10-thumb2-639053798040960040-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/339750/camera-ip-360-do-8mp-ezviz-h6c-g1-thumb-1-638865360524453226-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/333276/camera-ip-360-do-5mp-ezviz-ty1-thumb-1-638704839969131405-600x600.jpg"
+  ],
+  "cat-cam-security|br-imou": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/325086/camera-ip-360-do-3mp-imou-ta32cp-l-trang-thumb-639038219581697549-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/369598/camera-ip-360-do-imou-ranger-2-a32ep-l-thumb-639198911101360699-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/369599/camera-ip-360-do-imou-ranger-2-a32p-pro-thumb-639199004635888453-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/369288/camera-ip-ngoai-troi-360-do-imou-cruiser-sc-4g-free-data-ipc-k7f-3m1t-x-thumb-639198844921651974-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/361711/camera-ip-360-do-3mp-imou-ta32p-pro-thumb2-639138552617193194-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/328117/camera-ip-ngoai-troi-360-do-3mp-imou-cruiser-2c-s7cp-3m0we-thumb-1-638665875659181690-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/369600/camera-ip-360-do-imou-ranger-2-a52p-thumb-639199973934400755-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/339678/camera-ip-ngoai-troi-360-5mp-imou-4g-nlmt-b7ed-5m0tea-eufsp14-thumb-638864487177113242-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/321919/camera-ip-360-do-3mp-imou-ranger-rc-gk2cp-3c0wr-thumb-1-638665865193351636-600x600.jpg"
+  ],
+  "cat-cam-security|br-tplink": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/327948/camera-ip-360-do-2mp-tp-link-tapo-c200c-thumb-1-638665875350282813-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/309381/camera-ip-ngoai-troi-360-do-2mp-tp-link-tapo-c500-thumb-1-638665770814829157-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/330300/camera-ip-360-do-4mp-tp-link-tapo-c220-trang-thumb-1-638665880781342867-600x600.jpg"
+  ],
+  "cat-cam-security|br-dahua": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/359061/camera-ip-360-do-3mp-dahua-dh-h3i-thumb-3-639001978868737915-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/341099/camera-ip-ngoai-troi-360-do-3mp-dahua-dh-p3as-pv-thumb-1-638887178041171149-600x600.jpg"
+  ],
+  "cat-cam-security|br-tiandy": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/319642/camera-ip-360-do-2mp-tiandy-tc-h322n-thumb-2-638990554624255597-600x600.jpg"
+  ],
+  "cat-cam-indoor|br-ulanzi": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369148/chan-tripod-kiem-gay-selfie-tu-bung-chan-nhanh-2-13m-ulanzi-mt-80-thumb-639195288734841056-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369149/chan-tripod-magnetic-tu-bung-chan-nhanh-1-8m-ulanzi-sk-21-thumb-639195289818205965-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369150/chan-tripod-kiem-gay-selfie-magnetic-ai-auto-tracking-360-1-61m-ulanzi-tt23m-thumb-639191368700021724-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369153/chan-tripod-mini-kiem-gay-selfie-31cm-ulanzi-snapgo-mt55-thumb-639191444898724492-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369145/chan-tripod-kiem-gay-selfie-1-5m-ulanzi-mt-44b-den-kem-remote-bluetooth-thumb-639191148916436788-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369147/chan-tripod-kiem-gay-selfie-magnetic-tu-bung-chan-nhanh-1-5m-ulanzi-mt-85-den-kem-remote-bluetooth-thumb-639195286665871347-600x600.jpg"
+  ],
+  "cat-cam-indoor|br-insta360": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13438/369978/camera-hanh-trinh-insta360-x6-standard-bundle-120826-071104-542-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13438/369977/camera-hanh-trinh-insta360-x6-essentials-bundle-120826-070902-714-600x600.jpg"
+  ],
+  "cat-cam-indoor|br-khac": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/13438/368171/op-4p-cb-thumb-639184280534523170-600x600.jpg"
+  ],
+  "cat-cam-doorbell|br-tplink": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/14239/366051/chuong-cua-camera-thong-minh-3mp-tp-link-tapo-d210-thumb-639122965676689029-600x600.jpg",
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/14239/366050/chuong-cua-camera-thong-minh-3mp-tp-link-tapo-d205-thumb-639124651414904865-600x600.jpg"
+  ],
+  "cat-cam-doorbell|br-ezviz": [
+    "https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/14239/368318/chuong-cua-camera-thong-minh-3mp-ezviz-cp3-thumb-639180902250835116-600x600.jpg"
+  ]
+}

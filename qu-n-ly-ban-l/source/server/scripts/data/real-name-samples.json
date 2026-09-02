@@ -1,0 +1,6668 @@
+{
+  "cat-phone": [
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 Pro 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy S26 FE 5G 8GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại iPhone 17 Pro Max 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại iPhone 16 Plus 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 Pro Max 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Nothing Phone (4a) 5G 8GB/128GB",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy Z Fold8 12GB/256GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy Z Fold8 Ultra 12GB/256GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại OPPO Reno16F 5G 8GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Điện thoại realme 16T 5G 8GB/128GB",
+      "brand": "br-realme"
+    },
+    {
+      "name": "Điện thoại Vivo X300 Ultra 16GB/512GB",
+      "brand": "br-vivo"
+    },
+    {
+      "name": "Điện thoại Honor 600 Lite 8GB/256GB",
+      "brand": "br-honor"
+    },
+    {
+      "name": "Điện thoại Motorola Razr Fold 5G 12GB/256GB",
+      "brand": "br-motorola"
+    },
+    {
+      "name": "Điện thoại iPhone 17 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại iPhone 17 Pro 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy A37 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại Xiaomi 17T 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại OPPO A6 6GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Điện thoại Vivo V70 FE 5G 8GB/256GB",
+      "brand": "br-vivo"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 Pro 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy S26 FE 5G 8GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại iPhone 17 Pro Max 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại iPhone 16 Plus 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 Pro Max 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Nothing Phone (4a) 5G 8GB/128GB",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy Z Fold8 12GB/256GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy Z Fold8 Ultra 12GB/256GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại OPPO Reno16F 5G 8GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Điện thoại realme 16T 5G 8GB/128GB",
+      "brand": "br-realme"
+    },
+    {
+      "name": "Điện thoại Vivo X300 Ultra 16GB/512GB",
+      "brand": "br-vivo"
+    },
+    {
+      "name": "Điện thoại Honor 600 Lite 8GB/256GB",
+      "brand": "br-honor"
+    },
+    {
+      "name": "Điện thoại Motorola Razr Fold 5G 12GB/256GB",
+      "brand": "br-motorola"
+    },
+    {
+      "name": "Điện thoại iPhone 17 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại iPhone 17 Pro 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy A37 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại Xiaomi 17T 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại OPPO A6 6GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Điện thoại Vivo V70 FE 5G 8GB/256GB",
+      "brand": "br-vivo"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 Pro 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy S26 FE 5G 8GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại iPhone 17 Pro Max 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại iPhone 16 Plus 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Điện thoại Xiaomi Redmi Note 17 Pro Max 5G 12GB/256GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Điện thoại Nothing Phone (4a) 5G 8GB/128GB",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy Z Fold8 12GB/256GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại Samsung Galaxy Z Fold8 Ultra 12GB/256GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Điện thoại OPPO Reno16F 5G 8GB/128GB",
+      "brand": "br-oppo"
+    }
+  ],
+  "cat-laptop": [
+    {
+      "name": "Laptop HP 15 fc0023AU - D0BH1PA (R5 7520U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop MacBook Neo 13 inch A18 Pro 8GB/256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop Asus Vivobook S14 S3407VA - LY146W (Core 5 210H, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop Dell 15 DC15255 - DC5R5973W1-2Y (R5 7530U, 16GB, 512GB, Full HD 120Hz, OfficeHS24+365, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop HP 240R G10 - C3RU7AT (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop Lenovo IdeaPad Slim 3 15IPH11 - 83UR00A4VN (Ultra 5 322, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Laptop Dell 15 DC15250 - DC5I5897W1 (i5 1334U, 16GB, 512GB, Full HD+ 120Hz, OfficeH24+365, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop MacBook Air 13 inch M5 16GB/512GB/8GPU 70W",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop Asus Vivobook 16 A1607QA - MB067W (X1 26 100, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop MSI Modern 15 F1MG-1264VN (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Laptop Acer Aspire Lite 14 AL14-44P-R0SP - NX.DMCSV.003 (R7 7730U, 8GB, 512GB, Full HD+, Win11)",
+      "brand": "br-acer"
+    },
+    {
+      "name": "Laptop HP 245 G10 - B8PF9AT (R5 7530U, 8GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop Dell 15 DC15250 - 71092479 (i5 1334U, 16GB, 512GB, Full HD 120Hz, OfficeHS24+365B, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop Lenovo IdeaPad Slim 3 15ARP10 - 83K700YUVN (R5 7535HS, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Laptop SingPC M16-i382 (i3 1215U, 8GB, 256GB, WUXGA, Win11 Pro)",
+      "brand": "br-singpc"
+    },
+    {
+      "name": "Laptop Asus Vivobook 15 X1504VA - BQ185WS (Core 5 120U, 16GB, 512GB, Full HD, OfficeH24+365, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop Acer Aspire Go 15 AG15-72P-500W - NX.JRRSV.007 (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-acer"
+    },
+    {
+      "name": "Laptop MSI Modern 15 F13MG - 667VN_16GB (i5 1334U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Laptop Acer Aspire Lite 15 AL15 72P 581V - NX.D4CSV.001 (i5 13500H, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-acer"
+    },
+    {
+      "name": "Laptop MacBook Air 15 inch M5 16GB/512GB 70W",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop HP 15 fc0023AU - D0BH1PA (R5 7520U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop MacBook Neo 13 inch A18 Pro 8GB/256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop Asus Vivobook S14 S3407VA - LY146W (Core 5 210H, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop Dell 15 DC15255 - DC5R5973W1-2Y (R5 7530U, 16GB, 512GB, Full HD 120Hz, OfficeHS24+365, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop HP 240R G10 - C3RU7AT (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop Lenovo IdeaPad Slim 3 15IPH11 - 83UR00A4VN (Ultra 5 322, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Laptop Dell 15 DC15250 - DC5I5897W1 (i5 1334U, 16GB, 512GB, Full HD+ 120Hz, OfficeH24+365, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop MacBook Air 13 inch M5 16GB/512GB/8GPU 70W",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop Asus Vivobook 16 A1607QA - MB067W (X1 26 100, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop MSI Modern 15 F1MG-1264VN (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Laptop Acer Aspire Lite 14 AL14-44P-R0SP - NX.DMCSV.003 (R7 7730U, 8GB, 512GB, Full HD+, Win11)",
+      "brand": "br-acer"
+    },
+    {
+      "name": "Laptop HP 245 G10 - B8PF9AT (R5 7530U, 8GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop Dell 15 DC15250 - 71092479 (i5 1334U, 16GB, 512GB, Full HD 120Hz, OfficeHS24+365B, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop Lenovo IdeaPad Slim 3 15ARP10 - 83K700YUVN (R5 7535HS, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Laptop SingPC M16-i382 (i3 1215U, 8GB, 256GB, WUXGA, Win11 Pro)",
+      "brand": "br-singpc"
+    },
+    {
+      "name": "Laptop Asus Vivobook 15 X1504VA - BQ185WS (Core 5 120U, 16GB, 512GB, Full HD, OfficeH24+365, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop Acer Aspire Go 15 AG15-72P-500W - NX.JRRSV.007 (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-acer"
+    },
+    {
+      "name": "Laptop MSI Modern 15 F13MG - 667VN_16GB (i5 1334U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Laptop Acer Aspire Lite 15 AL15 72P 581V - NX.D4CSV.001 (i5 13500H, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-acer"
+    },
+    {
+      "name": "Laptop MacBook Air 15 inch M5 16GB/512GB 70W",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop HP 15 fc0023AU - D0BH1PA (R5 7520U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop MacBook Neo 13 inch A18 Pro 8GB/256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop Asus Vivobook S14 S3407VA - LY146W (Core 5 210H, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop Dell 15 DC15255 - DC5R5973W1-2Y (R5 7530U, 16GB, 512GB, Full HD 120Hz, OfficeHS24+365, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop HP 240R G10 - C3RU7AT (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-hp"
+    },
+    {
+      "name": "Laptop Lenovo IdeaPad Slim 3 15IPH11 - 83UR00A4VN (Ultra 5 322, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Laptop Dell 15 DC15250 - DC5I5897W1 (i5 1334U, 16GB, 512GB, Full HD+ 120Hz, OfficeH24+365, Win11)",
+      "brand": "br-dell"
+    },
+    {
+      "name": "Laptop MacBook Air 13 inch M5 16GB/512GB/8GPU 70W",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Laptop Asus Vivobook 16 A1607QA - MB067W (X1 26 100, 16GB, 512GB, WUXGA, Win11)",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Laptop MSI Modern 15 F1MG-1264VN (Core 5 120U, 16GB, 512GB, Full HD, Win11)",
+      "brand": "br-msi"
+    }
+  ],
+  "cat-tablet": [
+    {
+      "name": "Máy tính bảng iPad A16 WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng iPad Air M4 11 inch WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad 5 8GB/256GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Pad 8 8GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11+ 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11+ WiFi 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Pad 8 Pro 8GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad SE WiFi màn hình nhám 4GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng iPad mini 7 WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng iPad Pro M5 11 inch WiFi 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad Neo WiFi 6GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11 4G 4GB/64GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab S10 Lite 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng HONOR Pad X7 WiFi 4GB/64GB",
+      "brand": "br-honor"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab S11 5G 12GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Lenovo Idea Tab 5G 8GB/128GB",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Redmi Pad 2 WiFi 4GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng iPad A16 5G 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Redmi Pad 2 Pro WiFi 6GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad 3 8GB/256GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng iPad A16 WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng iPad Air M4 11 inch WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad 5 8GB/256GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Pad 8 8GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11+ 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11+ WiFi 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Pad 8 Pro 8GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad SE WiFi màn hình nhám 4GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng iPad mini 7 WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng iPad Pro M5 11 inch WiFi 256GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad Neo WiFi 6GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11 4G 4GB/64GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab S10 Lite 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng HONOR Pad X7 WiFi 4GB/64GB",
+      "brand": "br-honor"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab S11 5G 12GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Lenovo Idea Tab 5G 8GB/128GB",
+      "brand": "br-lenovo"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Redmi Pad 2 WiFi 4GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng iPad A16 5G 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Redmi Pad 2 Pro WiFi 6GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad 3 8GB/256GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng iPad A16 WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng iPad Air M4 11 inch WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad 5 8GB/256GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Pad 8 8GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11+ 5G 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Samsung Galaxy Tab A11+ WiFi 6GB/128GB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Máy tính bảng Xiaomi Pad 8 Pro 8GB/128GB",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy tính bảng OPPO Pad SE WiFi màn hình nhám 4GB/128GB",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Máy tính bảng iPad mini 7 WiFi 128GB",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Máy tính bảng iPad Pro M5 11 inch WiFi 256GB",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-watch": [
+    {
+      "name": "Đồng hồ định vị trẻ em Kidcare Sight S25",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Huawei Watch Fit 5 42.9mm dây nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Đồng hồ định vị trẻ em Kidcare K25 4G",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Huawei Watch Fit 5 Pro 44.5mm dây nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Huawei Watch GT Runner 2 43.5mm dây Nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Amazfit Bip Max 49.5mm dây silicone",
+      "brand": "br-amazfit"
+    },
+    {
+      "name": "Apple Watch SE 3 GPS 40mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 viền nhôm dây Fluor",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Apple Watch Series 11 GPS 42mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Huawei Watch Fit 4 43mm dây silicone",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Mi Band 10 Pro viền gốm",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 dây Fluor",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Apple Watch Ultra 3 GPS + Cellular 49mm viền Titanium dây Ocean",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Watch SE 3 GPS + Cellular 40mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 Pro dây nylon dệt",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Samsung Galaxy Watch9 Bluetooth 40mm dây silicone",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Amazfit Active 3 Premium 46mm dây silicone",
+      "brand": "br-amazfit"
+    },
+    {
+      "name": "Huawei Watch 5 46mm viền thép dây cao su",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Samsung Galaxy Watch Ultra 2 LTE 47mm dây silicone",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Huawei Watch 5 46mm viền Titanium dây composite",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Đồng hồ định vị trẻ em Kidcare Sight S25",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Huawei Watch Fit 5 42.9mm dây nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Đồng hồ định vị trẻ em Kidcare K25 4G",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Huawei Watch Fit 5 Pro 44.5mm dây nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Huawei Watch GT Runner 2 43.5mm dây Nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Amazfit Bip Max 49.5mm dây silicone",
+      "brand": "br-amazfit"
+    },
+    {
+      "name": "Apple Watch SE 3 GPS 40mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 viền nhôm dây Fluor",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Apple Watch Series 11 GPS 42mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Huawei Watch Fit 4 43mm dây silicone",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Mi Band 10 Pro viền gốm",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 dây Fluor",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Apple Watch Ultra 3 GPS + Cellular 49mm viền Titanium dây Ocean",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Watch SE 3 GPS + Cellular 40mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 Pro dây nylon dệt",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Samsung Galaxy Watch9 Bluetooth 40mm dây silicone",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Amazfit Active 3 Premium 46mm dây silicone",
+      "brand": "br-amazfit"
+    },
+    {
+      "name": "Huawei Watch 5 46mm viền thép dây cao su",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Samsung Galaxy Watch Ultra 2 LTE 47mm dây silicone",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Huawei Watch 5 46mm viền Titanium dây composite",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Đồng hồ định vị trẻ em Kidcare Sight S25",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Huawei Watch Fit 5 42.9mm dây nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Đồng hồ định vị trẻ em Kidcare K25 4G",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Huawei Watch Fit 5 Pro 44.5mm dây nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Huawei Watch GT Runner 2 43.5mm dây Nylon",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Amazfit Bip Max 49.5mm dây silicone",
+      "brand": "br-amazfit"
+    },
+    {
+      "name": "Apple Watch SE 3 GPS 40mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Vòng đeo tay thông minh Huawei Band 11 viền nhôm dây Fluor",
+      "brand": "br-huawei"
+    },
+    {
+      "name": "Apple Watch Series 11 GPS 42mm viền nhôm dây thể thao",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Huawei Watch Fit 4 43mm dây silicone",
+      "brand": "br-huawei"
+    }
+  ],
+  "cat-mobile-acc-charger": [
+    {
+      "name": "Sạc nhanh Type-C IQ3 45W Anker Nano A121D",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh 2 cổng Type-C PD 35W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 30W Xmobile Bling DS051AL",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Sạc nhanh Type-C 30W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bộ sạc nhanh 4 cổng USB Type-C 140W Anker Zolo B2697 kèm Cáp Type C - Type C",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 25W Samsung EP-T2510N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 20W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C QC4.0+ PD 30W Ugreen Nexode CD319",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Bộ sạc nhanh 2 cổng USB Type-C QC3.0 PD 100W Baseus CCGAN100E5 kèm Cáp Type C - Type C",
+      "brand": "br-baseus"
+    },
+    {
+      "name": "Sạc nhanh 4 cổng USB Type-C PD 100W Ugreen Robot Uno X688 45515B",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Bộ  sạc nhanh Type-C PD 45W Samsung EP-T4511 kèm cáp Type C - Type C",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Sạc nhanh 3 cổng USB Type C PD 100W Ugreen Nexode Pro X757 25874 kèm Cáp Type C - Type C",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Sạc nhanh 4 cổng USB Type C PD GaN 65W Xmobile CS-65W-AW kèm cáp dây rút Type C và sạc Apple Watch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 45W Samsung EP-T4511NB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bộ sạc nhanh 3 cổng USB Type C IQ4 GaN 100W Anker B121B kèm Cáp Type C - Type C",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Cáp sạc nhanh Type-C - Lightning 20W 1m Baseus Titanium Alloy CB000135",
+      "brand": "br-baseus"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 20W Xmobile DS602A",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Sạc nhanh 2 cổng USB Type-C QC3.0 PD 20W Xmobile DC02",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Cáp sạc nhanh lò xo đa năng 4 in 1 Lightning Type C 60W 1.5m Xmobile CS312",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Cáp sạc nhanh và truyền dữ liệu Type-C - Type-C 240W 1.8m Anker Zolo A8060",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh Type-C IQ3 45W Anker Nano A121D",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh 2 cổng Type-C PD 35W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 30W Xmobile Bling DS051AL",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Sạc nhanh Type-C 30W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bộ sạc nhanh 4 cổng USB Type-C 140W Anker Zolo B2697 kèm Cáp Type C - Type C",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 25W Samsung EP-T2510N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 20W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C QC4.0+ PD 30W Ugreen Nexode CD319",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Bộ sạc nhanh 2 cổng USB Type-C QC3.0 PD 100W Baseus CCGAN100E5 kèm Cáp Type C - Type C",
+      "brand": "br-baseus"
+    },
+    {
+      "name": "Sạc nhanh 4 cổng USB Type-C PD 100W Ugreen Robot Uno X688 45515B",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Bộ  sạc nhanh Type-C PD 45W Samsung EP-T4511 kèm cáp Type C - Type C",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Sạc nhanh 3 cổng USB Type C PD 100W Ugreen Nexode Pro X757 25874 kèm Cáp Type C - Type C",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Sạc nhanh 4 cổng USB Type C PD GaN 65W Xmobile CS-65W-AW kèm cáp dây rút Type C và sạc Apple Watch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 45W Samsung EP-T4511NB",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bộ sạc nhanh 3 cổng USB Type C IQ4 GaN 100W Anker B121B kèm Cáp Type C - Type C",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Cáp sạc nhanh Type-C - Lightning 20W 1m Baseus Titanium Alloy CB000135",
+      "brand": "br-baseus"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 20W Xmobile DS602A",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Sạc nhanh 2 cổng USB Type-C QC3.0 PD 20W Xmobile DC02",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Cáp sạc nhanh lò xo đa năng 4 in 1 Lightning Type C 60W 1.5m Xmobile CS312",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Cáp sạc nhanh và truyền dữ liệu Type-C - Type-C 240W 1.8m Anker Zolo A8060",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh Type-C IQ3 45W Anker Nano A121D",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh 2 cổng Type-C PD 35W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 30W Xmobile Bling DS051AL",
+      "brand": "br-xmobile"
+    },
+    {
+      "name": "Sạc nhanh Type-C 30W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bộ sạc nhanh 4 cổng USB Type-C 140W Anker Zolo B2697 kèm Cáp Type C - Type C",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 25W Samsung EP-T2510N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Sạc nhanh Type-C PD 20W Apple",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Sạc nhanh Type-C QC4.0+ PD 30W Ugreen Nexode CD319",
+      "brand": "br-ugreen"
+    },
+    {
+      "name": "Bộ sạc nhanh 2 cổng USB Type-C QC3.0 PD 100W Baseus CCGAN100E5 kèm Cáp Type C - Type C",
+      "brand": "br-baseus"
+    },
+    {
+      "name": "Sạc nhanh 4 cổng USB Type-C PD 100W Ugreen Robot Uno X688 45515B",
+      "brand": "br-ugreen"
+    }
+  ],
+  "cat-mobile-acc-case-phone": [
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Navy (WV7744)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (XV7745)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Black (YV7746)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (ZV7747)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (AV7748)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (BV7749)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro White (CV7750)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Gray (DV7751)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Rose Gold (EV7752)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Rose Gold (FV7753)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max White (GV7754)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Silver (HV7755)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Black (IV7756)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Gray (JV7757)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro White (KV7758)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (LV7759)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Rose Gold (MV7760)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (NV7761)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Purple (OV7762)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (PV7763)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Pink (QV7764)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Navy (RV7765)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (SV7766)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (TV7767)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Navy (UV7768)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (VV7769)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (WV7770)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Silver (XV7771)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (YV7772)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max White (ZV7773)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Black (AV7774)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Green (BV7775)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Purple (CW7776)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (DW7777)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (EW7778)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Silver (FW7779)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Pink (GW7780)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Red (HW7781)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (IW7782)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Pink (JW7783)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (KW7784)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (LW7785)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Clear Case iPhone 16 with MagSafe (MW7786)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Black (NW7787)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Blue (OW7788)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Purple (PW7789)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Gray (QW7790)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple FineWoven Case iPhone 16 Pro Max Red (RW7791)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro White (SW7792)",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Apple Silicone Case iPhone 16 Pro Rose Gold (TW7793)",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-mobile-acc-screen": [
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Mipow BJ702-BK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực chống nhìn trộm iPhone 17 Pro AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán Macbook Neo 13 inch JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z Fold8 Ultra AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro Max AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z Fold8 AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z FLip8 AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy A06 Jincase",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy S24 FE Jincase",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro Jcpal",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực chống nhìn trộm iPhone 17 Pro Mipow BJ711-BK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone Air AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính iPhone 16 Plus cường lực Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Jcpal",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone Air UniQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Mipow BJ702-BK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực chống nhìn trộm iPhone 17 Pro AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán Macbook Neo 13 inch JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z Fold8 Ultra AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro Max AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z Fold8 AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z FLip8 AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy A06 Jincase",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy S24 FE Jincase",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro Jcpal",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực chống nhìn trộm iPhone 17 Pro Mipow BJ711-BK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone Air AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính iPhone 16 Plus cường lực Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Jcpal",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone Air UniQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Mipow BJ702-BK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực chống nhìn trộm iPhone 17 Pro AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán Macbook Neo 13 inch JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z Fold8 Ultra AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 17 Pro Max AVA+",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z Fold8 AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy Z FLip8 AVA+ JC",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực Samsung Galaxy A06 Jincase",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Pro Max Premium Jincase",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán kính cường lực iPhone 16 Premium Jincase",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-mobile-acc-case-tablet": [
+    {
+      "name": "Bao da Smart Folio cho iPad Pro M4/M5 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Smart Folio cho iPad Air M2/M4 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da iPad A16/iPad 10 PU PC AVA+ OC MESA CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 2 PU PC AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da Galaxy Tab A11+ Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ốp lưng iPad A16/iPad 10 PU PC TPU AVA+ OC LOGI STAND",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung Thông minh Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Galaxy Tab A11 Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da nắp gập Galaxy Tab S10 FE+ Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 2 Pro PU PC AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da iPad Air M4/M3/M2 11 inch PU PC AVA+ OC MESA CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S11 kèm bàn phím Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da nắp gập iPad A16/ iPad 10 TPU PU ESR Rebound Magnetic",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 7/Pad 7 Pro/Pad 8/Pad 8 Pro AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung kèm bàn phím AI (Pad chuột) Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da OPPO Pad SE PU PC AVA+ OC CLOUD",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Bao da nắp gập iPad Mini 7/Mini 6 PROUD JM",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da nắp gập iPad Air M4/M3/M2 13 inch UNIQ CAMDEN CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S10+/ Tab S9+/Tab S9 FE+ Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Smart Folio cho iPad Pro M4/M5 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Smart Folio cho iPad Air M2/M4 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da iPad A16/iPad 10 PU PC AVA+ OC MESA CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 2 PU PC AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da Galaxy Tab A11+ Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ốp lưng iPad A16/iPad 10 PU PC TPU AVA+ OC LOGI STAND",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung Thông minh Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Galaxy Tab A11 Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da nắp gập Galaxy Tab S10 FE+ Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 2 Pro PU PC AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da iPad Air M4/M3/M2 11 inch PU PC AVA+ OC MESA CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S11 kèm bàn phím Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da nắp gập iPad A16/ iPad 10 TPU PU ESR Rebound Magnetic",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 7/Pad 7 Pro/Pad 8/Pad 8 Pro AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung kèm bàn phím AI (Pad chuột) Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da OPPO Pad SE PU PC AVA+ OC CLOUD",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Bao da nắp gập iPad Mini 7/Mini 6 PROUD JM",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da nắp gập iPad Air M4/M3/M2 13 inch UNIQ CAMDEN CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S10+/ Tab S9+/Tab S9 FE+ Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Smart Folio cho iPad Pro M4/M5 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Smart Folio cho iPad Air M2/M4 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da iPad A16/iPad 10 PU PC AVA+ OC MESA CLICK",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Xiaomi Pad 2 PU PC AVA+ OC CLOUD",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Bao da Galaxy Tab A11+ Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ốp lưng iPad A16/iPad 10 PU PC TPU AVA+ OC LOGI STAND",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bao da Galaxy Tab S9/ Tab S9 FE/ Tab S10 FE/ Tab S10 Lite Samsung Thông minh Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da Galaxy Tab A11 Samsung Chính hãng",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Bao da nắp gập Galaxy Tab S10 FE+ Samsung kèm bàn phím AI Chính hãng",
+      "brand": "br-samsung"
+    }
+  ],
+  "cat-mobile-acc-powerbank": [
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 22.5W (SN6706)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (TN6707)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (UN6708)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (VN6709)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (WN6710)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 140W (XN6711)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (YN6712)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 30W (ZN6713)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (AN6714)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (BN6715)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (CN6716)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (DN6717)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (EN6718)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (FN6719)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (GO6720)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (HO6721)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (IO6722)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 22.5W (JO6723)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (KO6724)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (LO6725)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (MO6726)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (NO6727)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (OO6728)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (PO6729)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 45W (QO6730)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 30W (RO6731)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 65W (SO6732)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (TO6733)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 45W (UO6734)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (VO6735)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (WO6736)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (XO6737)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (YO6738)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 100W (ZO6739)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 100W (AO6740)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (BO6741)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 33W (CO6742)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 33W (DO6743)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (EO6744)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (FO6745)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (GO6746)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (HO6747)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 3 Ultra Compact 10000mAh 18W (IO6748)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (JO6749)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (KO6750)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (LO6751)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (MP6752)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (NP6753)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Power Bank 50W 20000mAh (OP6754)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi 33W Power Bank 10000mAh (PP6755)",
+      "brand": "br-xiaomi"
+    }
+  ],
+  "cat-mobile-acc-stand": [
+    {
+      "name": "Giá Đỡ Điện Thoại Kiêm Tripod Mini Magnetic 24cm Ulanzi MA60",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Magnetic Kết Hợp Đế Hít Silicone Ulanzi MA39",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP003 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP007 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Orico PFB-A24",
+      "brand": "br-orico"
+    },
+    {
+      "name": "Đế Laptop Havit ST7304",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP011 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Havit ST7400",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Laptop Xoay 360 JC L98A AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC N9 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Xoay 360 Havit ST7411",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC D68 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Kẹp Cửa Gió Xe Hơi Havit ST7211",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Hút Chân Không Từ Tính Xe Hơi Havit ST7204",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC D158 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Giá đỡ điện thoại đeo cổ AVA+ JCS1132",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Magnetic Gấp Gọn Ulanzi MA02",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Đế Laptop JCPAL JCP6257",
+      "brand": "br-jcpal"
+    },
+    {
+      "name": "Đế Laptop Hyperspace HS1110WHGL",
+      "brand": "br-hyperspace"
+    },
+    {
+      "name": "Đế Laptop HyperStand HTU6-GR",
+      "brand": "br-hyperspace"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Kiêm Tripod Mini Magnetic 24cm Ulanzi MA60",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Magnetic Kết Hợp Đế Hít Silicone Ulanzi MA39",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP003 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP007 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Orico PFB-A24",
+      "brand": "br-orico"
+    },
+    {
+      "name": "Đế Laptop Havit ST7304",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP011 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Havit ST7400",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Laptop Xoay 360 JC L98A AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC N9 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Xoay 360 Havit ST7411",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC D68 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Kẹp Cửa Gió Xe Hơi Havit ST7211",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Hút Chân Không Từ Tính Xe Hơi Havit ST7204",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC D158 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Giá đỡ điện thoại đeo cổ AVA+ JCS1132",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Magnetic Gấp Gọn Ulanzi MA02",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Đế Laptop JCPAL JCP6257",
+      "brand": "br-jcpal"
+    },
+    {
+      "name": "Đế Laptop Hyperspace HS1110WHGL",
+      "brand": "br-hyperspace"
+    },
+    {
+      "name": "Đế Laptop HyperStand HTU6-GR",
+      "brand": "br-hyperspace"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Kiêm Tripod Mini Magnetic 24cm Ulanzi MA60",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Giá Đỡ Điện Thoại Magnetic Kết Hợp Đế Hít Silicone Ulanzi MA39",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP003 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP007 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Orico PFB-A24",
+      "brand": "br-orico"
+    },
+    {
+      "name": "Đế Laptop Havit ST7304",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Điện Thoại Xoay 360 CS SP011 AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Laptop Havit ST7400",
+      "brand": "br-havit"
+    },
+    {
+      "name": "Đế Laptop Xoay 360 JC L98A AVA+",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Đế Máy Tính Bảng Xoay 360 JC N9 AVA+",
+      "brand": "br-khac"
+    }
+  ],
+  "cat-mobile-acc-fan": [
+    {
+      "name": "Quạt cầm tay AVA+ JF-402",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-312",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-203",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-412",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ Mini JF329",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn xoay 160 Độ AVA+ JF418",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn AVA+ JF83",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay mini Hydrus JF-95",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn mini Hydrus JF-96",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn AVA+ JF340",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn mini Hydrus JF-83",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt cầm tay mini Hydrus JF-91",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn mini Lock&Lock ENF336IVY",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn mini Totolink FAN03",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt sạc kẹp mini Totolink FAN01",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt để bàn mini Totolink FAN02",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-402",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-312",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-203",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-412",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ Mini JF329",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn xoay 160 Độ AVA+ JF418",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn AVA+ JF83",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay mini Hydrus JF-95",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn mini Hydrus JF-96",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn AVA+ JF340",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn mini Hydrus JF-83",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt cầm tay mini Hydrus JF-91",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn mini Lock&Lock ENF336IVY",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn mini Totolink FAN03",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt sạc kẹp mini Totolink FAN01",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt để bàn mini Totolink FAN02",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-402",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-312",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-203",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-412",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ Mini JF329",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn xoay 160 Độ AVA+ JF418",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn AVA+ JF83",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay mini Hydrus JF-95",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn mini Hydrus JF-96",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn AVA+ JF340",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn mini Hydrus JF-83",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt cầm tay mini Hydrus JF-91",
+      "brand": "br-hydrus"
+    },
+    {
+      "name": "Quạt để bàn mini Lock&Lock ENF336IVY",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt để bàn mini Totolink FAN03",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt sạc kẹp mini Totolink FAN01",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt để bàn mini Totolink FAN02",
+      "brand": "br-totolink"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-402",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Quạt cầm tay AVA+ JF-312",
+      "brand": "br-khac"
+    }
+  ],
+  "cat-mobile-acc-cam-cover": [
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone Air OPTIX PC Thuỷ Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 OPTIX PC Thuỷ Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone Air OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max Kính Thủy Tinh JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/16 Pro Max OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16/16 Plus OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/16 Pro Max JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16/16 Plus OPTIX JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max Thủy Tinh Nhôm Silicat MIPOW",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15 Pro OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/iPhone 16 Pro Max Thủy Tinh Nhôm Silicat MIPOW",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/Pro Max DEKEY 3D Camera Lens - Bạc",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15/15 Plus OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/Pro Max DEKEY 3D Camera Lens - Bạc",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15 Pro Max OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 14 Pro Max DEKEY 3D Camera Lens - Đen",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 14 Pro Max DEKEY 3D Camera Lens - Tím",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15/15 Plus Master Glass 3D Camera Lens DEKEY - Đen",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone Air OPTIX PC Thuỷ Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 OPTIX PC Thuỷ Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone Air OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max Kính Thủy Tinh JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/16 Pro Max OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16/16 Plus OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/16 Pro Max JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16/16 Plus OPTIX JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max Thủy Tinh Nhôm Silicat MIPOW",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15 Pro OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/iPhone 16 Pro Max Thủy Tinh Nhôm Silicat MIPOW",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/Pro Max DEKEY 3D Camera Lens - Bạc",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15/15 Plus OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/Pro Max DEKEY 3D Camera Lens - Bạc",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15 Pro Max OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 14 Pro Max DEKEY 3D Camera Lens - Đen",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 14 Pro Max DEKEY 3D Camera Lens - Tím",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 15/15 Plus Master Glass 3D Camera Lens DEKEY - Đen",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone Air OPTIX PC Thuỷ Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 OPTIX PC Thuỷ Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone Air OPTIX Viền Nhôm Thủy Tinh UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 17 Pro/iPhone 17 Pro Max Kính Thủy Tinh JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/16 Pro Max OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16/16 Plus OPTIX ALUMINIUM UNIQ",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16 Pro/16 Pro Max JCPAL",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Miếng dán camera iPhone 16/16 Plus OPTIX JCPAL",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-mobile-acc-airpods-case": [
+    {
+      "name": "Túi đựng AirPods 4 Silicone PC UNIQ Lino Hybrid Liquid",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 TPU UNIQ GLASE",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Silicone PC kèm móc UNIQ Nexo Active Hybrid",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 SILICONE PC UNIQ LINO LIQUID",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ GLASE PRO",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro Nhựa dẻo TPU kèm móc JM SN12",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ CLYDE",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Nhựa PC TPU LAUT Aero Protect",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PU PC UNIQ LYDEN VEX",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ VEREN",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 TPU UNIQ IRIDESCIA",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng Airpods Pro Nhựa dẻo TPU kèm móc JM NAP18",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng Airpods 1 & 2 Nhựa dẻo OSMIA CK-AP002",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng Airpods 1 & 2 nhựa dẻo TPU OSMIA CK-F048",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 1 & 2 POD Silicone Laut Hồng",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 3 Nhựa cứng viền dẻo LAUT CAPSULE IMPKT",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 2 nhựa PC TPU UniQ Clyde Lock Case",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 2 da PU nhựa PC UNIQ Coehl Haven",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 1 & 2 Silicone kèm móc JM FR03",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 1 & 2 Nhựa cứng JM PD03",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Silicone PC UNIQ Lino Hybrid Liquid",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 TPU UNIQ GLASE",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Silicone PC kèm móc UNIQ Nexo Active Hybrid",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 SILICONE PC UNIQ LINO LIQUID",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ GLASE PRO",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro Nhựa dẻo TPU kèm móc JM SN12",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ CLYDE",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Nhựa PC TPU LAUT Aero Protect",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PU PC UNIQ LYDEN VEX",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ VEREN",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 TPU UNIQ IRIDESCIA",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng Airpods Pro Nhựa dẻo TPU kèm móc JM NAP18",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng Airpods 1 & 2 Nhựa dẻo OSMIA CK-AP002",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng Airpods 1 & 2 nhựa dẻo TPU OSMIA CK-F048",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 1 & 2 POD Silicone Laut Hồng",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 3 Nhựa cứng viền dẻo LAUT CAPSULE IMPKT",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 2 nhựa PC TPU UniQ Clyde Lock Case",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 2 da PU nhựa PC UNIQ Coehl Haven",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 1 & 2 Silicone kèm móc JM FR03",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 1 & 2 Nhựa cứng JM PD03",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Silicone PC UNIQ Lino Hybrid Liquid",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 TPU UNIQ GLASE",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Silicone PC kèm móc UNIQ Nexo Active Hybrid",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 SILICONE PC UNIQ LINO LIQUID",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ GLASE PRO",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro Nhựa dẻo TPU kèm móc JM SN12",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ CLYDE",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods 4 Nhựa PC TPU LAUT Aero Protect",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PU PC UNIQ LYDEN VEX",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Túi đựng AirPods Pro 3 PC TPU UNIQ VEREN",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-laptop-acc-mouse": [
+    {
+      "name": "Chuột Bluetooth Silent Logitech Signature M650",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Apple Magic Mouse USB C",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Rapoo M590",
+      "brand": "br-rapoo"
+    },
+    {
+      "name": "Chuột Bluetooth Akko Cat Theme Mouse Pink ANGIE",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Chuột Bluetooth Logitech MX Master 4",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Có dây Gaming Razer Basilisk V3",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Có dây Gaming Razer DeathAdder V3",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Gaming Razer Cobra Pro",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Không dây Gaming Logitech Pro X2 Superstrike",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Gaming Razer Basilisk V3 Pro 35K",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Bluetooth Philips SPK7438",
+      "brand": "br-philips"
+    },
+    {
+      "name": "Chuột Không dây Gaming Logitech G304",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Akko Cat Theme Mouse Orange KATE",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Chuột Có dây Gaming Asus TUF M3 Gen II",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Chuột Có dây Gaming Corsair Katar PRO",
+      "brand": "br-corsair"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Silent Logitech MX Anywhere 3s",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Gaming Asus ROG Strix Impact III",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Chuột Có dây Gaming Logitech G502 Hero",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Logitech M240",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Rapoo B2W",
+      "brand": "br-rapoo"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Logitech Signature M650",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Apple Magic Mouse USB C",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Rapoo M590",
+      "brand": "br-rapoo"
+    },
+    {
+      "name": "Chuột Bluetooth Akko Cat Theme Mouse Pink ANGIE",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Chuột Bluetooth Logitech MX Master 4",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Có dây Gaming Razer Basilisk V3",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Có dây Gaming Razer DeathAdder V3",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Gaming Razer Cobra Pro",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Không dây Gaming Logitech Pro X2 Superstrike",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Gaming Razer Basilisk V3 Pro 35K",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Bluetooth Philips SPK7438",
+      "brand": "br-philips"
+    },
+    {
+      "name": "Chuột Không dây Gaming Logitech G304",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Akko Cat Theme Mouse Orange KATE",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Chuột Có dây Gaming Asus TUF M3 Gen II",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Chuột Có dây Gaming Corsair Katar PRO",
+      "brand": "br-corsair"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Silent Logitech MX Anywhere 3s",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Gaming Asus ROG Strix Impact III",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Chuột Có dây Gaming Logitech G502 Hero",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Logitech M240",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Rapoo B2W",
+      "brand": "br-rapoo"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Logitech Signature M650",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Apple Magic Mouse USB C",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Chuột Bluetooth Silent Rapoo M590",
+      "brand": "br-rapoo"
+    },
+    {
+      "name": "Chuột Bluetooth Akko Cat Theme Mouse Pink ANGIE",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Chuột Bluetooth Logitech MX Master 4",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột Có dây Gaming Razer Basilisk V3",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Có dây Gaming Razer DeathAdder V3",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Gaming Razer Cobra Pro",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Chuột Không dây Gaming Logitech Pro X2 Superstrike",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Chuột sạc Bluetooth Gaming Razer Basilisk V3 Pro 35K",
+      "brand": "br-razer"
+    }
+  ],
+  "cat-laptop-acc-keyboard": [
+    {
+      "name": "Bộ Bàn Phím Chuột Bluetooth Logitech MK250",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Có Dây Gaming Dareu LK145",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Bàn Phím Bluetooth HyperWork SilentKey Mini",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Bàn Phím Apple Magic Keyboard USB C MXCL3",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Magic Keyboard cho iPad Pro M4/M5 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Machenike KG98 RGB Purple-Gold Switch",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Akko FUN60 Pro SP White Akko Glare Magnetic Switches 5936",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn phím Apple Magic Keyboard USB C Touch ID MXCK3",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech Slim Solar K980",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 X Green Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 75% White Edition",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech K380s",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Có Dây Gaming Asus TUF K1",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Akko FUN60 Max SP Glare Magnetic Switches",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Akko FUN60 Pro SP Black Akko Glare Magnetic Switches 5943",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Razer BlackWidow V4 Tenkeyless HyperSpeed Orange Tactile Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 Pro Green Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 Pro Yellow Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech Signature K650",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Akko TAC87 Matcha Red Bean Stellar Rose",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bộ Bàn Phím Chuột Bluetooth Logitech MK250",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Có Dây Gaming Dareu LK145",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Bàn Phím Bluetooth HyperWork SilentKey Mini",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Bàn Phím Apple Magic Keyboard USB C MXCL3",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Magic Keyboard cho iPad Pro M4/M5 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Machenike KG98 RGB Purple-Gold Switch",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Akko FUN60 Pro SP White Akko Glare Magnetic Switches 5936",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn phím Apple Magic Keyboard USB C Touch ID MXCK3",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech Slim Solar K980",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 X Green Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 75% White Edition",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech K380s",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Có Dây Gaming Asus TUF K1",
+      "brand": "br-asus"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Akko FUN60 Max SP Glare Magnetic Switches",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Akko FUN60 Pro SP Black Akko Glare Magnetic Switches 5943",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Razer BlackWidow V4 Tenkeyless HyperSpeed Orange Tactile Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 Pro Green Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 Pro Yellow Switch",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech Signature K650",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Akko TAC87 Matcha Red Bean Stellar Rose",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bộ Bàn Phím Chuột Bluetooth Logitech MK250",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Có Dây Gaming Dareu LK145",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Bàn Phím Bluetooth HyperWork SilentKey Mini",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Bàn Phím Apple Magic Keyboard USB C MXCL3",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Magic Keyboard cho iPad Pro M4/M5 11 inch",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bàn Phím Cơ Bluetooth Machenike KG98 RGB Purple-Gold Switch",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Akko FUN60 Pro SP White Akko Glare Magnetic Switches 5936",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Bàn phím Apple Magic Keyboard USB C Touch ID MXCK3",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Bàn Phím Bluetooth Logitech Slim Solar K980",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Bàn Phím Cơ Có Dây Gaming Razer BlackWidow V4 X Green Switch",
+      "brand": "br-razer"
+    }
+  ],
+  "cat-laptop-acc-bag": [
+    {
+      "name": "Túi chống sốc Laptop 16 inch Togo TCS16-TD",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 16 inch Togo TGB06",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 16 inch Togo TGB07",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Togo TGB08",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Macbook Pro 14 inch Tomtoc A14D2B1",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB653GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tomtoc Briefcase Premium A11D3P1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus Geolite Essential TSB960GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tucano Smilza Superslim",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 16 inch Tomtoc Flap",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tomtoc A45",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB595GL Urban Convertible",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 13 inch Tomtoc Spill-Resistant A22",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi chống sốc Macbook Pro 16 inch Tucano Velluto",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Tucano Gommo",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Tucano Rollo",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tucano Gommo Superslim",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB63602GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus Transpire Compact TBB632GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 16 inch Tomtoc A42",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi chống sốc Laptop 16 inch Togo TCS16-TD",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 16 inch Togo TGB06",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 16 inch Togo TGB07",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Togo TGB08",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Macbook Pro 14 inch Tomtoc A14D2B1",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB653GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tomtoc Briefcase Premium A11D3P1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus Geolite Essential TSB960GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tucano Smilza Superslim",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 16 inch Tomtoc Flap",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tomtoc A45",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB595GL Urban Convertible",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 13 inch Tomtoc Spill-Resistant A22",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi chống sốc Macbook Pro 16 inch Tucano Velluto",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Tucano Gommo",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Tucano Rollo",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tucano Gommo Superslim",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB63602GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus Transpire Compact TBB632GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 16 inch Tomtoc A42",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi chống sốc Laptop 16 inch Togo TCS16-TD",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 16 inch Togo TGB06",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 16 inch Togo TGB07",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Togo TGB08",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Macbook Pro 14 inch Tomtoc A14D2B1",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus TBB653GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tomtoc Briefcase Premium A11D3P1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Balo Laptop 15.6 inch Targus Geolite Essential TSB960GL",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách chống sốc Laptop 14 inch Tucano Smilza Superslim",
+      "brand": "br-tucano"
+    },
+    {
+      "name": "Balo Laptop 16 inch Tomtoc Flap",
+      "brand": "br-tomtoc"
+    }
+  ],
+  "cat-laptop-acc-mousepad": [
+    {
+      "name": "Miếng lót chuột HyperWork Core Pad Size S",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Core Pad Size L",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Logitech Studio Series",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Miếng lót chuột Dareu ESP108",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Miếng lót chuột Dareu ESP119",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Miếng lót chuột Akko Cat Theme Mousepad Gary MIMO",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Miếng lót chuột Razer Goliathus Mobile Small",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Fable 45 cm",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Razer Gigantus V2 Soft Gaming Mouse Mat Large",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Gigantus V2 Soft Gaming Mouse Mat XXL",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Pro Glide XXL Soft Productivity Mouse Mat",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Fable 90 cm",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Razer Firefly V2 Hard Surface Mat",
+      "brand": "br-microsoft"
+    },
+    {
+      "name": "Miếng lót chuột Razer Firefly V2 Pro White Edition",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Gigantus V2 Soft Gaming Mouse Mat Medium",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Gigantus V2 Soft Gaming Mouse Mat XXXL",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Goliathus Chroma Extended Gaming Mouse Mat",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Pro Glide Soft Productivity Mouse Mat",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Strider Large",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Strider Large Quartz Edition",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Core Pad Size S",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Core Pad Size L",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Logitech Studio Series",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Miếng lót chuột Dareu ESP108",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Miếng lót chuột Dareu ESP119",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Miếng lót chuột Akko Cat Theme Mousepad Gary MIMO",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Miếng lót chuột Razer Goliathus Mobile Small",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Fable 45 cm",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Razer Gigantus V2 Soft Gaming Mouse Mat Large",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Gigantus V2 Soft Gaming Mouse Mat XXL",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Pro Glide XXL Soft Productivity Mouse Mat",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Fable 90 cm",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Razer Firefly V2 Hard Surface Mat",
+      "brand": "br-microsoft"
+    },
+    {
+      "name": "Miếng lót chuột Razer Firefly V2 Pro White Edition",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Gigantus V2 Soft Gaming Mouse Mat Medium",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Gigantus V2 Soft Gaming Mouse Mat XXXL",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Goliathus Chroma Extended Gaming Mouse Mat",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Pro Glide Soft Productivity Mouse Mat",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Strider Large",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột Razer Strider Large Quartz Edition",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Core Pad Size S",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Core Pad Size L",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Logitech Studio Series",
+      "brand": "br-logitech"
+    },
+    {
+      "name": "Miếng lót chuột Dareu ESP108",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Miếng lót chuột Dareu ESP119",
+      "brand": "br-dareu"
+    },
+    {
+      "name": "Miếng lót chuột Akko Cat Theme Mousepad Gary MIMO",
+      "brand": "br-akko"
+    },
+    {
+      "name": "Miếng lót chuột Razer Goliathus Mobile Small",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột HyperWork Fable 45 cm",
+      "brand": "br-hyperwork"
+    },
+    {
+      "name": "Miếng lót chuột Razer Gigantus V2 Soft Gaming Mouse Mat Large",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Miếng lót chuột và bàn phím Razer Gigantus V2 Soft Gaming Mouse Mat XXL",
+      "brand": "br-razer"
+    }
+  ],
+  "cat-laptop-acc-pouch": [
+    {
+      "name": "Túi đeo chéo Tomtoc Slash-T27 Shoulder Bag T27S1T1GC",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Crossbody EDC Sling Bag T24S1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi xách Tomtoc Electronic Organizer T11M1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Wander-T26 X-Pac Daily Sling T26S1K1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Monster Hunter EDC Sling Bag T21S1S1MH",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Monster Hunter EDC Sling Bag T21S1S2MH",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22BLK",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22DB",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22DD",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22GN",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle VersalSling Crossbody Bag S2101BBG",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle VersalSling Crossbody Bag S2101BRY",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Topo Designs Mountain Sling Bag 31738",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi đeo chéo Topo Designs Mountain Sling Bag 31752",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách Topo Designs Mini Quick Pack 29278",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi đeo chéo Topo Designs Mini Shoulder Bag 29377",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc X-Pac Aviator-T37 Travel Crossbody T37S1D2",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc X-Pac Aviator-T37 Travel Crossbody T37S1T1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc X-Pac Aviator-T37 Travel Crossbody T37S1Y1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Aviator-T37 Travel Crossbody T37S1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Slash-T27 Shoulder Bag T27S1T1GC",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Crossbody EDC Sling Bag T24S1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi xách Tomtoc Electronic Organizer T11M1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Wander-T26 X-Pac Daily Sling T26S1K1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Monster Hunter EDC Sling Bag T21S1S1MH",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Monster Hunter EDC Sling Bag T21S1S2MH",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22BLK",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22DB",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22DD",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22GN",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle VersalSling Crossbody Bag S2101BBG",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle VersalSling Crossbody Bag S2101BRY",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Topo Designs Mountain Sling Bag 31738",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi đeo chéo Topo Designs Mountain Sling Bag 31752",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi xách Topo Designs Mini Quick Pack 29278",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi đeo chéo Topo Designs Mini Shoulder Bag 29377",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc X-Pac Aviator-T37 Travel Crossbody T37S1D2",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc X-Pac Aviator-T37 Travel Crossbody T37S1T1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc X-Pac Aviator-T37 Travel Crossbody T37S1Y1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Aviator-T37 Travel Crossbody T37S1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Slash-T27 Shoulder Bag T27S1T1GC",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Crossbody EDC Sling Bag T24S1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi xách Tomtoc Electronic Organizer T11M1D1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Wander-T26 X-Pac Daily Sling T26S1K1",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Monster Hunter EDC Sling Bag T21S1S1MH",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Tomtoc Monster Hunter EDC Sling Bag T21S1S2MH",
+      "brand": "br-tomtoc"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22BLK",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22DB",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22DD",
+      "brand": "br-innostyle"
+    },
+    {
+      "name": "Túi đeo chéo Innostyle FlexiCarry Crossbody Sling FC22GN",
+      "brand": "br-innostyle"
+    }
+  ],
+  "cat-laptop-acc-drawing": [
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 12 inch H12M",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 8.5 inch H8M2",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/E0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom One S Pen Tablet CTC4110WLW0C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small CTL-4100/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos M Bluetooth CTL-6100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bút Wacom 4K LP-1100-0K-01-ZX",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 12 inch H12M",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 8.5 inch H8M2",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/E0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom One S Pen Tablet CTC4110WLW0C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small CTL-4100/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos M Bluetooth CTL-6100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bút Wacom 4K LP-1100-0K-01-ZX",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 12 inch H12M",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 8.5 inch H8M2",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/E0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom One S Pen Tablet CTC4110WLW0C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small CTL-4100/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos M Bluetooth CTL-6100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bút Wacom 4K LP-1100-0K-01-ZX",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 12 inch H12M",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 8.5 inch H8M2",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/E0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom One S Pen Tablet CTC4110WLW0C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small CTL-4100/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos M Bluetooth CTL-6100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bút Wacom 4K LP-1100-0K-01-ZX",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 12 inch H12M",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 8.5 inch H8M2",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/E0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom One S Pen Tablet CTC4110WLW0C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small CTL-4100/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/K0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos M Bluetooth CTL-6100WL/P0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bút Wacom 4K LP-1100-0K-01-ZX",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 12 inch H12M",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ tự xoá đa sắc KidCare màn hình LCD 8.5 inch H8M2",
+      "brand": "br-kidcare"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small Bluetooth CTL-4100WL/E0-C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom One S Pen Tablet CTC4110WLW0C",
+      "brand": "br-wacom"
+    },
+    {
+      "name": "Bảng vẽ điện tử Wacom Intuos Small CTL-4100/K0-C",
+      "brand": "br-wacom"
+    }
+  ],
+  "cat-laptop-acc-hub": [
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (PG2933)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (QG2934)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (RG2935)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (SG2936)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (TG2937)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (UG2938)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (VG2939)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (WG2940)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (XG2941)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (YG2942)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (ZG2943)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (AG2944)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (BG2945)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (CG2946)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (DG2947)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (EG2948)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (FG2949)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (GG2950)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (HG2951)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (IG2952)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (JG2953)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (KG2954)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (LG2955)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (MG2956)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (NG2957)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (OG2958)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (PG2959)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (QH2960)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (RH2961)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (SH2962)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (TH2963)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (UH2964)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (VH2965)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (WH2966)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (XH2967)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (YH2968)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (ZH2969)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (AH2970)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (BH2971)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (CH2972)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (DH2973)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (EH2974)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (FH2975)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (GH2976)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 512 USB-C Adapter 5-in-1 (HH2977)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (IH2978)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 563 USB-C Docking Station 10-in-1 (JH2979)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (KH2980)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 555 USB-C Hub 8-in-1 4K HDMI (LH2981)",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Anker 341 USB-C Hub 7-in-1 (MH2982)",
+      "brand": "br-anker"
+    }
+  ],
+  "cat-av-bt-earphone": [
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-av-headphone": [
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-av-wire-earphone": [
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-av-sport-earphone": [
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless OPPO Enco Air 5s",
+      "brand": "br-oppo"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro D1203",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Soundcore Liberty 5 Pro Max D1204",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Buds 6",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH1000XM6 - imei",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Machenike TH60",
+      "brand": "br-machenike"
+    },
+    {
+      "name": "Tai nghe Bluetooth chụp tai JBL Tour One M3",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Sony WH-1000XX",
+      "brand": "br-sony"
+    },
+    {
+      "name": "Tai nghe Bluetooth Apple AirPods Pro 3 Trắng MFHP4",
+      "brand": "br-apple"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Samsung Galaxy Buds4 Pro R640N",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Tune 530BT",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 780NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai JBL Live 680NC",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Open-Ear OWS Shokz OpenFit Pro",
+      "brand": "br-shokz"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 950",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth Chụp Tai Gaming JBL Quantum 650",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Tai nghe Bluetooth True Wireless Xiaomi Redmi Buds 8 Lite",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "AirPods 4 MXP63",
+      "brand": "br-apple"
+    }
+  ],
+  "cat-av-speaker": [
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON12",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Xiaomi Sound Play",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox Encore 2 mic 2 Plus",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox 130",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Stockwell III",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-W99",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox On The Go 2 Plus",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox 330",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Acton IV",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth JBL Xtreme 5",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON20",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth JBL BANDBOX SOLO",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-GENBEATX",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON10",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Anker Soundcore Boom Go 3i",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Loa Bluetooth karaoke Hyundai HD18 200W",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Middleton II",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-GENBEAT 510",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa vi tính Bluetooth kiểm âm Thonet & Vander Kurbis Cinema",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-GENBEAT 520",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON12",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Xiaomi Sound Play",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox Encore 2 mic 2 Plus",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox 130",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Stockwell III",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-W99",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox On The Go 2 Plus",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox 330",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Acton IV",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth JBL Xtreme 5",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON20",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth JBL BANDBOX SOLO",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-GENBEATX",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON10",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Anker Soundcore Boom Go 3i",
+      "brand": "br-anker"
+    },
+    {
+      "name": "Loa Bluetooth karaoke Hyundai HD18 200W",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Middleton II",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-GENBEAT 510",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa vi tính Bluetooth kiểm âm Thonet & Vander Kurbis Cinema",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-GENBEAT 520",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-IKON12",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth Xiaomi Sound Play",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox Encore 2 mic 2 Plus",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox 130",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Stockwell III",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth Alpha Works AW-W99",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox On The Go 2 Plus",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth JBL Partybox 330",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Loa Bluetooth Marshall Acton IV",
+      "brand": "br-marshall"
+    },
+    {
+      "name": "Loa Bluetooth JBL Xtreme 5",
+      "brand": "br-jbl"
+    }
+  ],
+  "cat-av-mic": [
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (1 TX + 1 RX)_DMMT02&DMMR01",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (2 TX + 1 RX + 1 Hộp sạc Mic)_DMMT02&DMMR01&DMMC02",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (1 TX + 1 Mobile RX + 1 Hộp sạc Mic)_DMMT02&DMMR02&DMMCS2_1TX",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (2 TX + 1 Mobile RX + 1 Hộp sạc Mic)",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 2 (1TX + 1RX) _ DMT02&DMR02",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini (2TX + 1RX + 1 Hộp sạc Mic)_DMMT01&DMMR01&DMMC01",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V1 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA LINK",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V10 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V2 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V20 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA MINI",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây Boya mini 2-01",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro thu âm Bluetooth JBL Easysing Mic Mini",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Micro thu âm Podcast/livestream Boya K3",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 3 (1 TX + 1 RX)_DMT03&DMR03",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 3 (2 TX + 1 RX + 1 Hộp sạc Mic)_DMT03&DMR03&DMC03",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Micro thu âm RAZER Seiren V3 Mini - Đen",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Micro thu âm RAZER Seiren V3 Mini - Trắng",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Micro thu âm JBL Easysing Mic Mini Duo",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (1 TX + 1 RX)_DMMT02&DMMR01",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (2 TX + 1 RX + 1 Hộp sạc Mic)_DMMT02&DMMR01&DMMC02",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (1 TX + 1 Mobile RX + 1 Hộp sạc Mic)_DMMT02&DMMR02&DMMCS2_1TX",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (2 TX + 1 Mobile RX + 1 Hộp sạc Mic)",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 2 (1TX + 1RX) _ DMT02&DMR02",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini (2TX + 1RX + 1 Hộp sạc Mic)_DMMT01&DMMR01&DMMC01",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V1 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA LINK",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V10 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V2 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V20 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA MINI",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây Boya mini 2-01",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro thu âm Bluetooth JBL Easysing Mic Mini",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Micro thu âm Podcast/livestream Boya K3",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 3 (1 TX + 1 RX)_DMT03&DMR03",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 3 (2 TX + 1 RX + 1 Hộp sạc Mic)_DMT03&DMR03&DMC03",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Micro thu âm RAZER Seiren V3 Mini - Đen",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Micro thu âm RAZER Seiren V3 Mini - Trắng",
+      "brand": "br-razer"
+    },
+    {
+      "name": "Micro thu âm JBL Easysing Mic Mini Duo",
+      "brand": "br-jbl"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (1 TX + 1 RX)_DMMT02&DMMR01",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (2 TX + 1 RX + 1 Hộp sạc Mic)_DMMT02&DMMR01&DMMC02",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (1 TX + 1 Mobile RX + 1 Hộp sạc Mic)_DMMT02&DMMR02&DMMCS2_1TX",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini 2 (2 TX + 1 Mobile RX + 1 Hộp sạc Mic)",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic 2 (1TX + 1RX) _ DMT02&DMR02",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Thiết bị thu âm không dây DJI Mic Mini (2TX + 1RX + 1 Hộp sạc Mic)_DMMT01&DMMR01&DMMC01",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V1 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA LINK",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V10 V2.0",
+      "brand": "br-boya"
+    },
+    {
+      "name": "Micro không dây BOYA BY-V2 V2.0",
+      "brand": "br-boya"
+    }
+  ],
+  "cat-av-hdd": [
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Portable SDSSDE30F FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Adata Portable SD810",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Portable SDSSDE30",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kingston Portable",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Extreme Portable SDSSDE61",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng di động HDD 1TB Seagate One Touch STKY1000401/ STKY1000400",
+      "brand": "br-seagate"
+    },
+    {
+      "name": "Ổ cứng di động HDD 2TB Seagate One Touch STKY2000404 Xám",
+      "brand": "br-seagate"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Samsung Portable T7 MU-PC1T0H/WW",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Samsung Portable T9 MU-PG1T0B/WW",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Kioxia Exceria Plus G2 Portable LXD20K500GG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kioxia Exceria Plus G2 Portable LXD20K001TG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Adata Portable SC750",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Adata Portable SC750",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Adata Portable SD810",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Creator Phone Magsafe Portable SDSSDE62C",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Ổ cứng SSD 2TB Sandisk Extreme Portable SDSSDE61",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 2TB Kioxia Exceria Plus G2 Portable LXD20K002TG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 2TB Kingston Portable",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Kioxia Exceria Plus Portable LXD10S500GG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kioxia Exceria Plus Portable LXD10S001TG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Portable SDSSDE30F FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Adata Portable SD810",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Portable SDSSDE30",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kingston Portable",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Extreme Portable SDSSDE61",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng di động HDD 1TB Seagate One Touch STKY1000401/ STKY1000400",
+      "brand": "br-seagate"
+    },
+    {
+      "name": "Ổ cứng di động HDD 2TB Seagate One Touch STKY2000404 Xám",
+      "brand": "br-seagate"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Samsung Portable T7 MU-PC1T0H/WW",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Samsung Portable T9 MU-PG1T0B/WW",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Kioxia Exceria Plus G2 Portable LXD20K500GG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kioxia Exceria Plus G2 Portable LXD20K001TG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Adata Portable SC750",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Adata Portable SC750",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Adata Portable SD810",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Creator Phone Magsafe Portable SDSSDE62C",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Ổ cứng SSD 2TB Sandisk Extreme Portable SDSSDE61",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 2TB Kioxia Exceria Plus G2 Portable LXD20K002TG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 2TB Kingston Portable",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Kioxia Exceria Plus Portable LXD10S500GG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kioxia Exceria Plus Portable LXD10S001TG8",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Portable SDSSDE30F FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Adata Portable SD810",
+      "brand": "br-adata"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Portable SDSSDE30",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Kingston Portable",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Sandisk Extreme Portable SDSSDE61",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Ổ cứng di động HDD 1TB Seagate One Touch STKY1000401/ STKY1000400",
+      "brand": "br-seagate"
+    },
+    {
+      "name": "Ổ cứng di động HDD 2TB Seagate One Touch STKY2000404 Xám",
+      "brand": "br-seagate"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Samsung Portable T7 MU-PC1T0H/WW",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ổ cứng SSD 1TB Samsung Portable T9 MU-PG1T0B/WW",
+      "brand": "br-samsung"
+    },
+    {
+      "name": "Ổ cứng SSD 500GB Kioxia Exceria Plus G2 Portable LXD20K500GG8",
+      "brand": "br-kioxia"
+    }
+  ],
+  "cat-av-sdcard": [
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD 64GB Class 10_U1",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 64GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ HIKSEMI MicroSD 64GB Class 10_U1",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD 64GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 64GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ HIKSEMI MicroSD 32GB Neo Lux Class 10_U3",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Thẻ nhớ Kingston MicroSD 64GB class 10_U1",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 128GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Kioxia MicroSD 128GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 128GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD G3 128GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Kingston MicroSD 128GB class 10_U1",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 256GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ SanDisk MicroSD 256GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Kioxia MicroSD 256GB class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 64GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 128GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk Creator MicroSD 128GB Extreme class 10_U3",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 256GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 512GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD 64GB Class 10_U1",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 64GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ HIKSEMI MicroSD 64GB Class 10_U1",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD 64GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 64GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ HIKSEMI MicroSD 32GB Neo Lux Class 10_U3",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Thẻ nhớ Kingston MicroSD 64GB class 10_U1",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 128GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Kioxia MicroSD 128GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 128GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD G3 128GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Kingston MicroSD 128GB class 10_U1",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 256GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ SanDisk MicroSD 256GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Kioxia MicroSD 256GB class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 64GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 128GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk Creator MicroSD 128GB Extreme class 10_U3",
+      "brand": "br-msi"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 256GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 512GB Extreme Pro class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD 64GB Class 10_U1",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 64GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ HIKSEMI MicroSD 64GB Class 10_U1",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Thẻ nhớ Kioxia MicroSD 64GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 64GB class 10_U3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ HIKSEMI MicroSD 32GB Neo Lux Class 10_U3",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Thẻ nhớ Kingston MicroSD 64GB class 10_U1",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "Thẻ nhớ Sandisk MicroSD 128GB class 10_U1",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Kioxia MicroSD 128GB Class 10_U3",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "Thẻ nhớ chuyên Camera Sandisk MicroSD 128GB class 10_U3",
+      "brand": "br-sandisk"
+    }
+  ],
+  "cat-av-usb": [
+    {
+      "name": "USB Type C 3.2 64GB Sandisk SDCZB",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTXM",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 32GB ADATA AUV150",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTX",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTXS",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB Phone Drive 3.2 512GB Type C Sandisk SDIXS0N",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Sandisk SDCZIA FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 128GB Sandisk SDCZIA FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB Phone Drive 3.2 64GB Sandisk SDDDC6",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 32GB Sandisk CZ410",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Sandisk CZ410",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 128GB Kingston DataTraveler Exodia DTXS",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 128GB Kingston DataTraveler Exodia DTX",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 64GB Kioxia U366",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "USB 3.2 64GB Kioxia U365",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "USB 3.2 64GB Kioxia U301 Gen 1",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "USB 3.2 64GB ADATA AUV150",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB 3.2 64GB ADATA UC310",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB OTG 3.1 64GB Type C Sandisk SDDDC3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB OTG 3.1 128GB Type C Sandisk SDDDC3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB Type C 3.2 64GB Sandisk SDCZB",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTXM",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 32GB ADATA AUV150",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTX",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTXS",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB Phone Drive 3.2 512GB Type C Sandisk SDIXS0N",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Sandisk SDCZIA FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 128GB Sandisk SDCZIA FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB Phone Drive 3.2 64GB Sandisk SDDDC6",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 32GB Sandisk CZ410",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Sandisk CZ410",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 128GB Kingston DataTraveler Exodia DTXS",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 128GB Kingston DataTraveler Exodia DTX",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 64GB Kioxia U366",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "USB 3.2 64GB Kioxia U365",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "USB 3.2 64GB Kioxia U301 Gen 1",
+      "brand": "br-kioxia"
+    },
+    {
+      "name": "USB 3.2 64GB ADATA AUV150",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB 3.2 64GB ADATA UC310",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB OTG 3.1 64GB Type C Sandisk SDDDC3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB OTG 3.1 128GB Type C Sandisk SDDDC3",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB Type C 3.2 64GB Sandisk SDCZB",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTXM",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 32GB ADATA AUV150",
+      "brand": "br-adata"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTX",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB 3.2 64GB Kingston DataTraveler Exodia DTXS",
+      "brand": "br-kingston"
+    },
+    {
+      "name": "USB Phone Drive 3.2 512GB Type C Sandisk SDIXS0N",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 64GB Sandisk SDCZIA FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 128GB Sandisk SDCZIA FIFA World Cup 2026 Edition",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB Phone Drive 3.2 64GB Sandisk SDDDC6",
+      "brand": "br-sandisk"
+    },
+    {
+      "name": "USB 3.2 32GB Sandisk CZ410",
+      "brand": "br-sandisk"
+    }
+  ],
+  "cat-av-projector": [
+    {
+      "name": "Máy chiếu Wanbo Full HD T2 Ultra",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Cube 2 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD X5 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo HD Dali",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Mozart 1 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Vali 1 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy Chiếu Xiaomi Smart Projector L1 Pro",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Vali 1",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo HD Cube 1",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Full HD Eroc Flip Plus",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu HD Eroc Magic Ultra",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Elfin Flip Plus",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Mogo 4",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Mogo 4 Laser",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Chân đế máy chiếu Wanbo Small",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Xgimi 4K UHD Horizon 20 Max",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Togo Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Full HD Eroc Master",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD T2 Ultra",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Cube 2 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD X5 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo HD Dali",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Mozart 1 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Vali 1 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy Chiếu Xiaomi Smart Projector L1 Pro",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Vali 1",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo HD Cube 1",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Full HD Eroc Flip Plus",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu HD Eroc Magic Ultra",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Elfin Flip Plus",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Mogo 4",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Mogo 4 Laser",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Chân đế máy chiếu Wanbo Small",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Xgimi 4K UHD Horizon 20 Max",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Togo Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Full HD Eroc Master",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD T2 Ultra",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Cube 2 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD X5 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo HD Dali",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Mozart 1 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Vali 1 Pro",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy Chiếu Xiaomi Smart Projector L1 Pro",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Wanbo Full HD Vali 1",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Wanbo HD Cube 1",
+      "brand": "br-wanbo"
+    },
+    {
+      "name": "Máy chiếu Full HD Eroc Flip Plus",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu HD Eroc Magic Ultra",
+      "brand": "br-eroc"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Elfin Flip Plus",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Mogo 4",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Máy chiếu Xgimi Full HD Mogo 4 Laser",
+      "brand": "br-xiaomi"
+    }
+  ],
+  "cat-cam-security": [
+    {
+      "name": "Camera IP 360 Độ EZVIZ TY1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU TA32CP-L",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A32EP-L",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A32P Pro",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ TP-Link Tapo C200C",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ IMOU Cruiser SC 4G Free Data IPC-K7F-3M1T-X",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU TA32P Pro",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ Ezviz H8C Pro",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ Dahua DH-H3I",
+      "brand": "br-dahua"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ IMOU Cruiser 2C S7CP-3M0WE",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A52P",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ EZVIZ S10",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ IMOU AOV PT Wifi 4G Năng Lượng Mặt Trời B7ED-5M0TEA",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ Dahua DH-P3AS-PV",
+      "brand": "br-dahua"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ TP-Link Tapo C500",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP 360 Độ TIANDY TC-H322N",
+      "brand": "br-tiandy"
+    },
+    {
+      "name": "Camera IP 360 Độ 8MP EZVIZ H6C G1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU RANGER RC GK2CP-3C0WR",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ EZVIZ TY1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ TP-Link Tapo C220",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP 360 Độ EZVIZ TY1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU TA32CP-L",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A32EP-L",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A32P Pro",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ TP-Link Tapo C200C",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ IMOU Cruiser SC 4G Free Data IPC-K7F-3M1T-X",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU TA32P Pro",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ Ezviz H8C Pro",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ Dahua DH-H3I",
+      "brand": "br-dahua"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ IMOU Cruiser 2C S7CP-3M0WE",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A52P",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ EZVIZ S10",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ IMOU AOV PT Wifi 4G Năng Lượng Mặt Trời B7ED-5M0TEA",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ Dahua DH-P3AS-PV",
+      "brand": "br-dahua"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ TP-Link Tapo C500",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP 360 Độ TIANDY TC-H322N",
+      "brand": "br-tiandy"
+    },
+    {
+      "name": "Camera IP 360 Độ 8MP EZVIZ H6C G1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU RANGER RC GK2CP-3C0WR",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ EZVIZ TY1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ TP-Link Tapo C220",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP 360 Độ EZVIZ TY1",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU TA32CP-L",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A32EP-L",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU Ranger 2 A32P Pro",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ TP-Link Tapo C200C",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ IMOU Cruiser SC 4G Free Data IPC-K7F-3M1T-X",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP 360 Độ IMOU TA32P Pro",
+      "brand": "br-imou"
+    },
+    {
+      "name": "Camera IP Ngoài Trời 360 Độ Ezviz H8C Pro",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Camera IP 360 Độ Dahua DH-H3I",
+      "brand": "br-dahua"
+    },
+    {
+      "name": "Camera IP Ngoài trời 360 Độ IMOU Cruiser 2C S7CP-3M0WE",
+      "brand": "br-imou"
+    }
+  ],
+  "cat-cam-indoor": [
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Tự Bung Chân Nhanh 2.13m Ulanzi MT-80",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Standard Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Essentials Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Chân Tripod Magnetic Tự Bung Chân Nhanh 1.8m Ulanzi SK-21",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic AI Auto Tracking 360 1.61m Ulanzi TT23M Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Mini Kiêm Gậy Selfie 31cm Ulanzi SnapGo MT55",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie 1.5m Ulanzi MT-44B Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic Tự Bung Chân Nhanh 1.5m Ulanzi MT-85 Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera kỹ thuật số DJI Osmo Pocket 4P Vlog Combo_PP-041VLC",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Tự Bung Chân Nhanh 2.13m Ulanzi MT-80",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Standard Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Essentials Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Chân Tripod Magnetic Tự Bung Chân Nhanh 1.8m Ulanzi SK-21",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic AI Auto Tracking 360 1.61m Ulanzi TT23M Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Mini Kiêm Gậy Selfie 31cm Ulanzi SnapGo MT55",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie 1.5m Ulanzi MT-44B Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic Tự Bung Chân Nhanh 1.5m Ulanzi MT-85 Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera kỹ thuật số DJI Osmo Pocket 4P Vlog Combo_PP-041VLC",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Tự Bung Chân Nhanh 2.13m Ulanzi MT-80",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Standard Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Essentials Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Chân Tripod Magnetic Tự Bung Chân Nhanh 1.8m Ulanzi SK-21",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic AI Auto Tracking 360 1.61m Ulanzi TT23M Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Mini Kiêm Gậy Selfie 31cm Ulanzi SnapGo MT55",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie 1.5m Ulanzi MT-44B Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic Tự Bung Chân Nhanh 1.5m Ulanzi MT-85 Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera kỹ thuật số DJI Osmo Pocket 4P Vlog Combo_PP-041VLC",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Tự Bung Chân Nhanh 2.13m Ulanzi MT-80",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Standard Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Camera hành trình Insta360 X6 Essentials Bundle",
+      "brand": "br-insta360"
+    },
+    {
+      "name": "Chân Tripod Magnetic Tự Bung Chân Nhanh 1.8m Ulanzi SK-21",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic AI Auto Tracking 360 1.61m Ulanzi TT23M Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Mini Kiêm Gậy Selfie 31cm Ulanzi SnapGo MT55",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie 1.5m Ulanzi MT-44B Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Chân Tripod Kiêm Gậy Selfie Magnetic Tự Bung Chân Nhanh 1.5m Ulanzi MT-85 Kèm Remote Bluetooth",
+      "brand": "br-ulanzi"
+    },
+    {
+      "name": "Camera kỹ thuật số DJI Osmo Pocket 4P Vlog Combo_PP-041VLC",
+      "brand": "br-khac"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (YF9316)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (ZF9317)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C300 2K WiFi (AF9318)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (BF9319)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Camera 2K Pro 360° AI (CF9320)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C300 2K WiFi (DF9321)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Camera 2K Pro 360° AI (EF9322)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C300 2K WiFi (FF9323)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C300 2K WiFi (GF9324)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Camera 2K Pro 360° AI (HF9325)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (IF9326)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (JF9327)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (KG9328)",
+      "brand": "br-xiaomi"
+    },
+    {
+      "name": "Xiaomi Smart Camera C400 4MP 360° (LG9329)",
+      "brand": "br-xiaomi"
+    }
+  ],
+  "cat-cam-doorbell": [
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D210",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D205",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP Ezviz CP3",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D210",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D205",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP Ezviz CP3",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D210",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D205",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP Ezviz CP3",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D210",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP TP-Link Tapo D205",
+      "brand": "br-tplink"
+    },
+    {
+      "name": "Chuông Cửa Camera Thông Minh 3MP Ezviz CP3",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (PU2265)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (QU2266)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (RU2267)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (SU2268)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (TU2269)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (UU2270)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (VU2271)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (WV2272)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (XV2273)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (YV2274)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (ZV2275)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (AV2276)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (BV2277)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (CV2278)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (DV2279)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (EV2280)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (FV2281)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (GV2282)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (HV2283)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (IV2284)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (JV2285)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (KV2286)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (LV2287)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (MV2288)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (NV2289)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (OV2290)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (PV2291)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (QV2292)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (RV2293)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (SV2294)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (TV2295)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (UV2296)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (VV2297)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (WV2298)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (XV2299)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB2 Pro 2K Video Doorbell WiFi (YV2300)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (ZV2301)",
+      "brand": "br-ezviz"
+    },
+    {
+      "name": "EZVIZ DB1C 1080P Video Doorbell (AV2302)",
+      "brand": "br-ezviz"
+    }
+  ]
+}

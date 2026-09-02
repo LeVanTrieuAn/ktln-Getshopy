@@ -1475,6 +1475,9 @@ export default function ProductDetail() {
     async function load() {
       try {
         const data = await api.b2c.getProductDetails(id);
+        if (data.variants && Array.isArray(data.variants)) {
+          data.variants = data.variants.map((v, i) => ({ ...v, id: v.id || `var-${i}` }));
+        }
         setProduct(data);
         if (data.image) setMainImage(data.image);
         else if (data.images && data.images.length > 0) setMainImage(data.images[0]);
