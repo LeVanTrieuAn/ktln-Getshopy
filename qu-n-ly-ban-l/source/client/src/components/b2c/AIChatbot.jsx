@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Rate, Spin } from 'antd';
 import {
   RobotOutlined, UserOutlined, SendOutlined, CloseOutlined,
-  MessageOutlined, CameraOutlined, ShoppingOutlined, PictureOutlined,
+  MessageOutlined, CameraOutlined, PictureOutlined,
 } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
@@ -47,7 +47,7 @@ function resizeAndEncode(file, maxPx = 800) {
       URL.revokeObjectURL(url);
       const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
       const canvas = document.createElement('canvas');
-      canvas.width  = Math.round(img.width  * ratio);
+      canvas.width = Math.round(img.width * ratio);
       canvas.height = Math.round(img.height * ratio);
       canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
       resolve(canvas.toDataURL('image/jpeg', 0.85));
@@ -103,8 +103,13 @@ function ProductCards({ products, isDark, onNavigate }) {
               {Number(p.price).toLocaleString('vi-VN')} ₫
             </div>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', color: '#10b981', fontSize: 14, flexShrink: 0 }}>
-            <ShoppingOutlined />
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
+            <span style={{
+              fontSize: 11, fontWeight: 600, color: '#10b981',
+              border: '1px solid #10b981',
+              borderRadius: 12, padding: '2px 8px',
+              whiteSpace: 'nowrap',
+            }}>Xem ngay</span>
           </div>
         </div>
       ))}
@@ -117,20 +122,20 @@ function ProductCards({ products, isDark, onNavigate }) {
 // ─────────────────────────────────────────────────────────────────────────────
 export default function AIChatbot() {
   const { isDark } = useApp();
-  const navigate   = useNavigate();
+  const navigate = useNavigate();
 
-  const [isOpen,      setIsOpen]      = useState(false);
-  const [messages,    setMessages]    = useState([
+  const [isOpen, setIsOpen] = useState(false);
+  const [messages, setMessages] = useState([
     { sender: 'ai', text: 'Xin chào! Tôi là Trợ lý ảo Getshopy\nBạn có thể **nhắn tin** hoặc **gửi ảnh sản phẩm** để tôi tìm sản phẩm tương tự trong cửa hàng nhé!' }
   ]);
-  const [inputValue,  setInputValue]  = useState('');
-  const [isTyping,    setIsTyping]    = useState(false);
+  const [inputValue, setInputValue] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isVisible,   setIsVisible]   = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
   const messagesEndRef = useRef(null);
-  const fileInputRef   = useRef(null);
-  const inputRef       = useRef(null);
+  const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   useEffect(() => { scrollToBottom(); }, [messages, isTyping, isAnalyzing]);
@@ -159,7 +164,12 @@ export default function AIChatbot() {
       });
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
-      setMessages(prev => [...prev, { sender: 'ai', text: data.text, link: data.link }]);
+      setMessages(prev => [...prev, {
+        sender: 'ai',
+        text: data.text,
+        link: data.link,
+        products: data.products || [],
+      }]);
     } catch {
       setMessages(prev => [...prev, {
         sender: 'ai',
@@ -214,11 +224,11 @@ export default function AIChatbot() {
   };
 
   // colours
-  const bg        = isDark ? '#0f172a' : '#ffffff';
+  const bg = isDark ? '#0f172a' : '#ffffff';
   const msgAreaBg = isDark ? '#0f172a' : '#f8fafc';
-  const aiBubble  = isDark ? '#1e293b' : '#f1f5f9';
-  const aiText    = isDark ? '#e2e8f0' : '#1e293b';
-  const border    = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
+  const aiBubble = isDark ? '#1e293b' : '#f1f5f9';
+  const aiText = isDark ? '#e2e8f0' : '#1e293b';
+  const border = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)';
 
   return (
     <>
@@ -411,7 +421,7 @@ export default function AIChatbot() {
                         e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.3)';
                       }}
                     >
-                      <ShoppingOutlined /> Xem ngay
+                      Xem ngay
                     </button>
                   )}
 
@@ -496,7 +506,7 @@ export default function AIChatbot() {
               padding: '4px 4px 4px 6px',
               transition: 'border-color 0.2s, box-shadow 0.2s',
             }}
-            onFocus={() => {}}
+              onFocus={() => { }}
             >
               {/* Camera upload button */}
               <input

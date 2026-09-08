@@ -26,20 +26,41 @@ const GOOGLE_AI_KEY   = process.env.GOOGLE_AI_KEY;
 const GEMINI_MODEL    = 'gemini-3.6-flash';
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
-/** Danh sách danh mục sản phẩm của cửa hàng */
+/** Danh sách danh mục sản phẩm THỰC TẾ của cửa hàng (8 cha + 41 con) */
 const STORE_CATEGORIES = [
-  'Điện thoại thông minh',
-  'Máy tính xách tay',
-  'Máy tính bảng',
-  'Phụ kiện công nghệ',
-  'Tivi & Thiết bị giải trí',
-  'Máy ảnh & Quay phim',
-  'Đồng hồ thông minh',
-  'Gaming',
-  'Thiết bị âm thanh',
-  'Thiết bị văn phòng',
-  'Linh kiện máy tính',
-  'Nhà thông minh',
+  // Cấp 1 (cha)
+  'Điện thoại', 'Laptop', 'Tablet', 'Smartwatch',
+  'Phụ kiện di động', 'Phụ kiện laptop, PC',
+  'Thiết bị nghe nhìn, lưu trữ, thu âm', 'Camera',
+  // Cấp 2 (con) — Phụ kiện di động
+  'Sạc dự phòng', 'Sạc, cáp', 'Ốp lưng điện thoại', 'Ốp lưng máy tính bảng',
+  'Miếng dán', 'Miếng dán Camera', 'Túi đựng AirPods', 'Quạt mini',
+  'Bút tablet', 'Giá đỡ điện thoại/laptop', 'Dây đeo điện thoại', 'Ống kính điện thoại',
+  // Cấp 2 (con) — Phụ kiện laptop, PC
+  'Hub, cáp chuyển đổi', 'Chuột máy tính', 'Bàn phím', 'Router & Thiết bị mạng',
+  'Balo, túi chống sốc', 'Túi đựng phụ kiện', 'Phủ phím laptop', 'Phần mềm',
+  'Giá treo màn hình', 'Miếng lót chuột', 'Bảng vẽ điện tử',
+  // Cấp 2 (con) — Thiết bị nghe nhìn
+  'Tai nghe Bluetooth', 'Tai nghe dây', 'Tai nghe chụp tai', 'Tai nghe thể thao',
+  'Loa', 'Micro', 'Máy chiếu', 'Kính thông minh',
+  'Ổ cứng', 'Thẻ nhớ', 'USB',
+  // Cấp 2 (con) — Camera
+  'Camera Giám Sát', 'Camera trong nhà', 'Camera ngoài trời',
+  'Camera Năng Lượng Mặt Trời', 'Camera 4G', 'Chuông cửa Camera', 'Webcam',
+];
+
+/** 67 thương hiệu thực tế */
+const STORE_BRANDS = [
+  'Apple', 'Samsung', 'OPPO', 'Xiaomi', 'vivo', 'realme', 'HONOR', 'Motorola', 'Huawei',
+  'Acer', 'Asus', 'Dell', 'HP', 'Lenovo', 'MSI', 'Microsoft', 'Machenike', 'SingPC',
+  'Amazfit', 'Sony', 'JBL', 'Marshall', 'Shokz', 'Havit', 'Boya', 'Hyundai Audio',
+  'Anker', 'Baseus', 'Ugreen', 'Xmobile', 'Innostyle', 'Orico', 'Tomtoc', 'Tucano',
+  'Razer', 'Corsair', 'Logitech', 'Akko', 'Dareu', 'Rapoo', 'HyperWork',
+  'Dahua', 'EZVIZ', 'Imou', 'Tiandy', 'Insta360',
+  'Kingston', 'SanDisk', 'Seagate', 'Kioxia', 'ADATA',
+  'TP-Link', 'TOTOLINK',
+  'Philips', 'Wacom', 'Wanbo', 'Ulanzi', 'JCPAL', 'Kidcare',
+  'AVA+', 'Alpha Works', 'Eroc', 'Hydrus', 'Hyperspace', 'Thonet & Vander', 'Topo Designs',
 ];
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
@@ -59,7 +80,7 @@ function parseDataUrl(dataUrl) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN: Phân tích ảnh bằng Gemini 2.5 Flash Vision
+// MAIN: Phân tích ảnh bằng Gemini Vision
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -72,7 +93,7 @@ function parseDataUrl(dataUrl) {
  */
 
 /**
- * Phân tích ảnh sản phẩm bằng Gemini 2.5 Flash.
+ * Phân tích ảnh sản phẩm bằng Gemini Vision.
  *
  * @param {string} imageBase64 - Data URL "data:image/jpeg;base64,..."
  * @returns {Promise<{ caption: string|null, analysis: VisualAnalysis|null }>}
@@ -83,21 +104,25 @@ async function analyzeProductImage(imageBase64) {
     return { caption: null, analysis: null };
   }
 
-  const prompt = `Bạn là AI phân tích sản phẩm điện tử cho cửa hàng Getshopy Việt Nam.
+  const prompt = `Bạn là AI phân tích sản phẩm cho cửa hàng điện tử Getshopy Việt Nam (600.000+ sản phẩm, 67 thương hiệu).
 Nhìn vào ảnh và xác định thông tin sản phẩm điện tử.
 
-Danh mục hợp lệ:
-${STORE_CATEGORIES.map(c => `- ${c}`).join('\n')}
+DANH MỤC HỢP LỆ (chọn chính xác 1):
+Cấp 1: ${STORE_CATEGORIES.slice(0, 8).join(' | ')}
+Cấp 2: ${STORE_CATEGORIES.slice(8).join(', ')}
 
-Xác định:
-- caption: mô tả ngắn bằng tiếng Anh
-- category: chọn từ danh mục trên hoặc null
-- brand: Apple/Samsung/Sony/... hoặc null
+THƯƠNG HIỆU HỢP LỆ: ${STORE_BRANDS.join(', ')}
+
+Trả về JSON:
+- caption: mô tả ngắn tiếng Anh
+- category: chọn danh mục cụ thể nhất (ưu tiên cấp 2) hoặc null
+- brand: chọn từ danh sách trên hoặc null
 - color: màu sắc chính hoặc null
-- keywords: 3-5 từ khóa tiếng Anh/Việt để tìm trong DB
-- description_vi: mô tả 1 câu tiếng Việt thân thiện
+- keywords: 3-5 từ khóa tiếng Việt/Anh để tìm trong DB sản phẩm
+- description_vi: mô tả 1 câu tiếng Việt
 
-Nếu không phải sản phẩm điện tử: category=null, keywords=[].`;
+Nếu không phải sản phẩm điện tử/công nghệ: category=null, keywords=[].
+Chỉ trả về JSON.`;
 
   const { mimeType, base64Data } = parseDataUrl(imageBase64);
 

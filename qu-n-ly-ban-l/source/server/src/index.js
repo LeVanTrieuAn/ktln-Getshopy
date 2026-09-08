@@ -11,6 +11,11 @@ const jwt = require('jsonwebtoken');
 const { prisma } = require('./db');
 const { redis, isConnected: redisIsConnected, cached: redisCached } = require('./redis');
 
+// ─── GLOBAL BIGINT SERIALIZER ────────────────────────────────────────────
+BigInt.prototype.toJSON = function() {
+  return Number(this);
+};
+
 // ─── GLOBAL ERROR HANDLERS (prevent nodemon/process crash from unhandled rejections) ───
 process.on('unhandledRejection', (reason) => {
   console.error('🔥 [UnhandledRejection] Server caught unhandled promise rejection — keeping alive:', reason?.message || reason);
@@ -822,9 +827,14 @@ app.post('/api/b2c/checkout', async (req, res) => {
   }
 });
 
-// ─── AI ROUTES (đăng ký TRƯỚC b2c/b2b để /api/b2c/chat, /api/b2c/visual-search không bị 404) ──
-const aiRouter = require('./routes/ai');
-app.use('/api', aiRouter);
+// ─── AI SERVICES (tách thành 3 modules: Search, Chatbot, Recommendation) ──
+const searchRouter         = require('./routes/search');
+const chatbotRouter        = require('./routes/chatbot');
+const recommendationRouter = require('./routes/recommendation');
+app.use('/api', searchRouter);
+app.use('/api', chatbotRouter);
+app.use('/api', recommendationRouter);
+
 
 const b2cRouter = require('./routes/b2c');
 app.use('/api/b2c', b2cRouter);

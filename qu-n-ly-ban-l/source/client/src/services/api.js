@@ -64,7 +64,24 @@ export const api = {
 
   simulateSale: (data) => request('/admin/simulate-sale', { method: 'POST', body: JSON.stringify(data) }),
 
-  // ─── AI APIs ─────────────────────────────────────────────────
+  // ─── Search Bot ──────────────────────────────────────────────
+  search: {
+    smartSearch: (query) => request('/ai/smart-search', { method: 'POST', body: JSON.stringify({ query }) }),
+    visualSearch: (imageBase64) => request('/b2c/visual-search', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
+    smartSearchWithImage: (query, imageBase64) => request('/ai/smart-search-image', { method: 'POST', body: JSON.stringify({ query, imageBase64 }) }),
+  },
+
+  // ─── Chatbot ────────────────────────────────────────────────
+  chatbot: {
+    send: (message, history) => request('/b2c/chat', { method: 'POST', body: JSON.stringify({ message, history }) }),
+  },
+
+  // ─── AI Recommendation ─────────────────────────────────────
+  recommendation: {
+    get: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
+  },
+
+  // ─── AI APIs (backward compat aliases) ──────────────────────
   ai: {
     getRecommendations: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
     getCampaignSuggestions: () => request('/b2b/campaign-suggestions'),

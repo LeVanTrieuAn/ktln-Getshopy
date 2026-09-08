@@ -559,33 +559,8 @@ router.post('/auth/social', async (req, res) => {
   }
 });
 
-// AI Recommendations — trả về top sản phẩm bán chạy / mới nhất làm gợi ý
-// email có thể dùng cho personalization sau này (collaborative filtering, ClickHouse history, v.v.)
-router.get('/recommendations', async (req, res) => {
-  try {
-    const { email } = req.query;
-
-    // Lấy top 8 sản phẩm bán chạy nhất (chưa bị xoá)
-    const products = await prisma.product.findMany({
-      where: { is_deleted: false },
-      orderBy: { sold: 'desc' },
-      take: 8,
-      select: {
-        id: true, name: true, price: true, original_price: true,
-        image: true, rating: true, sold: true, category_id: true, brand_id: true,
-      },
-    });
-
-    // Áp giá flash sale nếu có
-    const fsItems = await getActiveFlashSaleItems();
-    const result = products.map(p =>
-      applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems)
-    );
-
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: /recommendations endpoint đã được chuyển sang routes/recommendation.js
+//       sử dụng services/RecommendationService.js
 
 module.exports = router;
+

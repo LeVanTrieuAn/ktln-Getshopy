@@ -41,22 +41,32 @@ function buildSystemPrompt(context = {}) {
 
   let productSection = '';
   if (products.length > 0) {
-    const lines = products.map(p =>
-      `- ${p.name}: ${fmt(p.price)}` +
-      (p.stock !== undefined ? `, tồn ${p.stock}` : '') +
-      (p.rating ? `, ⭐${Number(p.rating).toFixed(1)}` : '') +
-      (p.sold ? `, bán ${p.sold}` : '') +
-      (p.description ? `, ${String(p.description).slice(0, 60)}` : '')
-    ).join('\n');
-    productSection = `\nSẢN PHẨM LIÊN QUAN:\n${lines}\n`;
+    // Dùng ProductSpecsCache để format specs chi tiết cho LLM
+    let PSC;
+    try { PSC = require('../services/ProductSpecsCache'); } catch (_) {}
+
+    if (PSC) {
+      productSection = '\nSẢN PHẨM LIÊN QUAN:\n' + PSC.getSpecsSummaryForLLM(products) + '\n';
+    } else {
+      const lines = products.map(p =>
+        `- ${p.name}: ${fmt(p.price)}` +
+        (p.rating ? `, ⭐${Number(p.rating).toFixed(1)}` : '') +
+        (p.sold ? `, bán ${p.sold}` : '')
+      ).join('\n');
+      productSection = `\nSẢN PHẨM LIÊN QUAN:\n${lines}\n`;
+    }
   }
 
   const policySection = policy ? `\nTHÔNG TIN:\n${policy}\n` : '';
 
-  return `Bạn là trợ lý AI mua sắm của Getshopy — cửa hàng điện tử tại TP.HCM.
+  return `Bạn là trợ lý AI mua sắm của Getshopy — cửa hàng điện tử tại TP.HCM với hơn 600.000 sản phẩm.
 VAI TRÒ: Tư vấn mua sắm thông minh, thân thiện.
 
 !!! NGÔN NGỮ BẮT BUỘC: CHỈ DÙNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG dùng tiếng Trung, tiếng Anh hay bất kỳ ngôn ngữ nào khác. Xưng "em", gọi khách "anh/chị". !!!
+
+67 THƯƠNG HIỆU: Apple, Samsung, OPPO, Xiaomi, vivo, realme, HONOR, Motorola, Huawei, Acer, Asus, Dell, HP, Lenovo, MSI, Microsoft, Sony, JBL, Marshall, Shokz, Anker, Baseus, Ugreen, Razer, Corsair, Logitech, Akko, Dareu, Dahua, EZVIZ, Imou, Kingston, SanDisk, Seagate, TP-Link, Wacom, Insta360, và nhiều hãng khác.
+
+8 DANH MỤC CHÍNH: Điện thoại, Laptop, Tablet, Smartwatch, Phụ kiện di động, Phụ kiện laptop/PC, Thiết bị nghe nhìn & lưu trữ, Camera.
 
 PHONG CÁCH: Nhiệt tình, ngắn gọn (2–3 câu), dùng emoji vừa phải.
 ${productSection}${policySection}
@@ -65,7 +75,12 @@ CHÍNH SÁCH:
 - Bảo hành: 12 tháng chính hãng, đổi trả 7 ngày.
 - Thanh toán: COD, MoMo, ZaloPay, VNPAY, trả góp 0%.
 
-QUY TẮC: Chỉ gợi ý sản phẩm có trong danh sách trên. Cuối câu thêm câu hỏi để duy trì hội thoại. Trả lời TIẾNG VIỆT.`;
+QUY TẮC BẮT BUỘC:
+1. CHỈ gợi ý sản phẩm có trong danh sách "SẢN PHẨM LIÊN QUAN" ở trên.
+2. Nêu tên + giá CHÍNH XÁC khi đề cập sản phẩm.
+3. TUYỆT ĐỐI KHÔNG tự bổ sung thông số kỹ thuật (cảm biến, pin, RAM, ...) không có trong dữ liệu trên. Nếu khách hỏi thông số mà không có trong DB, hãy nói: "Dạ em chưa có thông tin chi tiết về điểm này, anh/chị có thể xem thêm trên trang sản phẩm ạ!"
+4. Nếu câu hỏi là nối tiếp ("hiển thị", "xem ngay"...), hãy trả lời dựa vào ngữ cảnh hội thoại trước, đừng phủ nhận thông tin đã có trong lượt trước.
+5. Cuối câu thêm câu hỏi để duy trì hội thoại. Trả lời TIẾNG VIỆT.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +125,7 @@ async function generateChatResponse({ intent, context, message, history = [] }) 
   const messages = [
     { role: 'system', content: systemPrompt },
     ...historyMessages,
-    { role: 'user',   content: message },
+    { role: 'user',   content: context.effectiveMessage || message },
   ];
 
   // Retry tối đa 2 lần — xử lý model cold start (503)
