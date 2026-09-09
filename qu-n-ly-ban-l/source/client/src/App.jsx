@@ -105,6 +105,7 @@ export default function App() {
                   <Route path="/" element={<StoreLayout />}>
                     <Route index           element={<Home />} />
                     <Route path="shop"     element={<ProductList />} />
+                    <Route path="products" element={<ProductList />} />
                     <Route path="product/:id" element={<ProductDetail />} />
                     <Route path="compare"  element={<Compare />} />
                     <Route path="checkout" element={<Checkout />} />

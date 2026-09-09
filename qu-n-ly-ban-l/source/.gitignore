@@ -48,3 +48,11 @@ data/clickhouse/
 # ── Misc ─────────────────────────────────────────────────────────
 *.local
 .cache/
+
+# ── AI / ML Models & Datasets ────────────────────────────────────
+ai-rec/data/
+ai-rec/output/
+*.joblib
+*.pkl
+*.parquet
+

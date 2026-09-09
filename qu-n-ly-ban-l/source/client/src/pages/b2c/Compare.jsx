@@ -47,7 +47,17 @@ export default function Compare() {
           <Button 
             type="primary" 
             icon={<ShoppingCartOutlined />} 
-            onClick={() => { const pToAdd = { ...product }; if (product.variants?.[0]) { pToAdd.selectedVariant = product.variants[0]; pToAdd.price = product.variants[0].price; } addToCart(pToAdd, 1); }}
+            onClick={() => {
+              const pToAdd = { ...product };
+              if (product.variants?.[0]) {
+                pToAdd.selectedVariant = product.variants[0];
+                const vP = Number(product.variants[0].price);
+                pToAdd.price = !isNaN(vP) && vP > 0 ? vP : Number(product.price || 0);
+              } else {
+                pToAdd.price = Number(product.price || 0);
+              }
+              addToCart(pToAdd, 1, true);
+            }}
             style={{ background: '#10b981', border: 'none', marginTop: 12, borderRadius: 8 }}
           >
             {t('compare.add_to_cart')}

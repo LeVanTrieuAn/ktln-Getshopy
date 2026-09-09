@@ -370,7 +370,7 @@ export default function Checkout() {
                     <div style={{ color: '#888', fontSize: 12 }}>SL: {item.quantity}</div>
                   </div>
                   <div style={{ fontWeight: 700, color: isDark ? '#ccc' : '#333' }}>
-                    {(item.price * item.quantity).toLocaleString('vi-VN')} đ
+                    {(Number((item.price || 0) * (item.quantity || 1)) || 0).toLocaleString('vi-VN')} đ
                   </div>
                 </div>
               ))

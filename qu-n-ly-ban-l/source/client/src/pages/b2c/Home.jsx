@@ -1,561 +1,927 @@
-import { useState, useEffect, useRef } from 'react';
-import { Row, Col, Card, Typography, Spin, Tag, Rate, Statistic, Pagination } from 'antd';
-import {
-  AppstoreOutlined,
-  AudioOutlined,
-  CameraOutlined,
-  ClockCircleOutlined,
-  CrownOutlined,
-  CustomerServiceOutlined,
-  DesktopOutlined,
-  FireOutlined,
-  HddOutlined,
-  HomeOutlined,
-  LaptopOutlined,
-  LeftOutlined,
-  MobileOutlined,
-  PrinterOutlined,
-  PlayCircleOutlined,
-  RightOutlined,
-  ShoppingCartOutlined,
-  TabletOutlined,
-  ThunderboltOutlined,
-  TrophyOutlined,
-} from '@ant-design/icons';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { message, Spin, Modal, Input } from 'antd';
+import {
+  SearchOutlined,
+  ShoppingOutlined,
+  CheckOutlined,
+  AppstoreOutlined,
+  RightOutlined,
+  ArrowRightOutlined,
+  MobileOutlined,
+  LaptopOutlined,
+  CustomerServiceOutlined,
+  ClockCircleOutlined,
+  SkinOutlined,
+  CameraOutlined,
+  TabletOutlined,
+  ThunderboltOutlined
+} from '@ant-design/icons';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
-import HeroBanner from '../../components/b2c/HeroBanner';
 
-const { Title, Text } = Typography;
-const { Timer } = Statistic;
-
-const iconMap = {
-  'MobileOutlined': <MobileOutlined />,
-  'LaptopOutlined': <LaptopOutlined />,
-  'TabletOutlined': <TabletOutlined />,
-  'AudioOutlined': <AudioOutlined />,
-  'DesktopOutlined': <DesktopOutlined />,
-  'CameraOutlined': <CameraOutlined />,
-  'ClockCircleOutlined': <ClockCircleOutlined />,
-  'CustomerServiceOutlined': <CustomerServiceOutlined />,
-  'PlayCircleOutlined': <PlayCircleOutlined />,
-  'HomeOutlined': <HomeOutlined />,
-  'PrinterOutlined': <PrinterOutlined />,
-  'HddOutlined': <HddOutlined />,
-};
+// 6 Category Cards Data
+const CATEGORY_CARDS = [
+  {
+    id: 'cat-phone',
+    title: 'Điện thoại',
+    description: 'Smartphone cao cấp, camera đỉnh cao, hiệu năng vượt trội và thiết kế thời thượng.',
+    linkText: 'Khám phá danh mục →',
+    image: '/images/commerce/cat_phone.jpg',
+    type: 'category',
+    categoryKey: 'cat-phone'
+  },
+  {
+    id: 'cat-laptop',
+    title: 'Laptop',
+    description: 'Máy tính xách tay mỏng nhẹ, pin trâu và hiệu năng tối ưu cho mọi tác vụ sáng tạo.',
+    linkText: 'Khám phá danh mục →',
+    image: '/images/commerce/cat_laptop.jpg',
+    type: 'category',
+    categoryKey: 'cat-laptop'
+  },
+  {
+    id: 'cat-tablet',
+    title: 'iPad & Tablet',
+    description: 'Màn hình Liquid Retina sắc nét, hỗ trợ bút stylus và bàn phím, đa nhiệm mạnh mẽ mọi lúc mọi nơi.',
+    linkText: 'Khám phá danh mục →',
+    image: '/images/commerce/cat_tablet.jpg',
+    type: 'category',
+    categoryKey: 'cat-tablet'
+  },
+  {
+    id: 'cat-mobile-acc',
+    title: 'Phụ kiện',
+    description: 'Ốp lưng sang trọng, củ sạc siêu nhanh, cáp chống đứt và các phụ kiện công nghệ thiết yếu.',
+    linkText: 'Khám phá danh mục →',
+    image: '/images/commerce/cat_phone_case.jpg',
+    type: 'category',
+    categoryKey: 'cat-mobile-acc'
+  },
+  {
+    id: 'cat-watch',
+    title: 'Đồng hồ thông minh',
+    description: 'Theo dõi sức khoẻ chuyên sâu, đo nhịp tim, giấc ngủ và đồng hành cùng lối sống năng động.',
+    linkText: 'Khám phá danh mục →',
+    image: '/images/commerce/cat_smartwatch.jpg',
+    type: 'category',
+    categoryKey: 'cat-watch'
+  },
+  {
+    id: 'all-categories',
+    title: 'Tất cả danh mục',
+    description: 'Khám phá toàn bộ 49+ danh mục thiết bị và phụ kiện công nghệ đa dạng tại GetShopy.',
+    linkText: 'Xem tất cả danh mục ↗',
+    image: '/images/commerce/cat_all.jpg',
+    type: 'modal',
+    categoryKey: 'ALL'
+  }
+];
 
 export default function Home() {
-  const [products, setProducts] = useState([]);
-  const [totalProducts, setTotalProducts] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [selectedCategory, setSelectedCategory] = useState('ALL');
-  const [categories, setCategories] = useState([]);
-  const [flashSale, setFlashSale] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadingProducts, setLoadingProducts] = useState(false);
-  const [topSellingProducts, setTopSellingProducts] = useState([]);
-  const [activeCategories, setActiveCategories] = useState([]);
-  const scrollContainerRef = useRef(null);
+  const { isDark, selectedBranch, b2cUser } = useApp();
   const { addToCart } = useCart();
-  const { isDark, t, selectedBranch, b2cUser } = useApp();
   const navigate = useNavigate();
-  const featuredCategories = categories.filter(c => !c.parent_id).slice(0, 5);
-  const rootCategories = activeCategories;
 
-  const handleScrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -300, behavior: 'smooth' });
-    }
-  };
+  // State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState([]);
+  const [recommendedProducts, setRecommendedProducts] = useState([]);
+  const [newestProducts, setNewestProducts] = useState([]);
+  const [loadingRec, setLoadingRec] = useState(true);
+  const [loadingNew, setLoadingNew] = useState(true);
+  const [addedItemMap, setAddedItemMap] = useState({});
 
-  const handleScrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
-    }
-  };
+  // All Categories Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalSearch, setModalSearch] = useState('');
 
-
-
-  // Load initial data (categories, flash sale, top selling)
+  // 1. Fetch Categories
   useEffect(() => {
-    async function load() {
+    api.b2c.getCategories()
+      .then(data => setCategories(data || []))
+      .catch(() => setCategories([]));
+  }, []);
+
+  // 2. Fetch "Dành riêng cho bạn" (Exactly 8 products from AI recommendation or personalized top picks)
+  useEffect(() => {
+    async function loadRecommendations() {
       try {
-        setLoading(true);
-        const [catData, flashData, topSellingData, activeCatData] = await Promise.all([
-          api.b2c.getCategories(),
-          api.b2c.getFlashSales(),
-          api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 10),
-          api.b2c.getActiveCategories(selectedBranch?.id || '')
-        ]);
-        setCategories(catData);
-        setFlashSale(flashData);
-        setTopSellingProducts(topSellingData.data || []);
-        setActiveCategories(activeCatData || []);
+        setLoadingRec(true);
+        const recData = await api.recommendation.get(b2cUser?.email || '');
+        if (Array.isArray(recData) && recData.length > 0) {
+          setRecommendedProducts(recData.slice(0, 8));
+        } else {
+          // Fallback to top rated/bestselling items
+          const res = await api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 8);
+          setRecommendedProducts(res?.data?.slice(0, 8) || []);
+        }
       } catch (err) {
-        console.error(err);
+        console.warn('Rec error:', err);
+        try {
+          const res = await api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 8);
+          setRecommendedProducts(res?.data?.slice(0, 8) || []);
+        } catch {
+          setRecommendedProducts([]);
+        }
       } finally {
-        setLoading(false);
+        setLoadingRec(false);
       }
     }
-    load();
+    loadRecommendations();
+  }, [selectedBranch, b2cUser]);
+
+  // 3. Fetch "Sản phẩm mới" (Exactly 8 newest products)
+  useEffect(() => {
+    async function loadNewest() {
+      try {
+        setLoadingNew(true);
+        const res = await api.b2c.getProducts('ALL', '', 'newest', selectedBranch?.id, 1, 8);
+        setNewestProducts(res?.data?.slice(0, 8) || []);
+      } catch (err) {
+        console.warn('Newest error:', err);
+        setNewestProducts([]);
+      } finally {
+        setLoadingNew(false);
+      }
+    }
+    loadNewest();
   }, [selectedBranch]);
 
-  // Load products by category & page
-  useEffect(() => {
-    async function loadProducts() {
-      try {
-        setLoadingProducts(true);
-        const prodData = await api.b2c.getProducts(selectedCategory, '', 'newest', selectedBranch?.id, currentPage, 15);
-        setProducts(prodData.data || []);
-        setTotalProducts(prodData.total || 0);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoadingProducts(false);
-      }
+  // Handle clicking a category card
+  const handleCategoryClick = (cat) => {
+    if (cat.type === 'modal' || cat.id === 'all-categories') {
+      setIsModalOpen(true);
+    } else {
+      navigate(`/shop?category=${cat.categoryKey || cat.id}`);
     }
-    loadProducts();
-  }, [selectedBranch, selectedCategory, currentPage]);
-
-  const handleCategoryTab = (catId) => {
-    setSelectedCategory(catId);
-    setCurrentPage(1);
   };
 
+  // Handle smooth scroll to catalog section
+  const scrollToCatalog = () => {
+    const el = document.getElementById('catalog');
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
+  // Add to cart handler with visual feedback
+  const handleAddToCart = (item, e) => {
+    e?.stopPropagation();
+    addToCart({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      image: item.image,
+      stock: item.stock || 99
+    });
+    setAddedItemMap(prev => ({ ...prev, [item.id]: true }));
+    setTimeout(() => {
+      setAddedItemMap(prev => ({ ...prev, [item.id]: false }));
+    }, 2000);
+  };
+
+  // Grouped categories for the "All Categories" popup modal
+  const hierarchicalCategories = useMemo(() => {
+    const parents = categories.filter(c => !c.parent_id);
+    const result = parents.map(parent => ({
+      ...parent,
+      children: categories.filter(c => c.parent_id === parent.id)
+    }));
+
+    if (!modalSearch.trim()) return result;
+    const q = modalSearch.trim().toLowerCase();
+
+    return result
+      .map(parent => {
+        const parentMatch = parent.name.toLowerCase().includes(q);
+        const matchedChildren = parent.children.filter(ch => ch.name.toLowerCase().includes(q));
+        if (parentMatch) return parent;
+        if (matchedChildren.length > 0) return { ...parent, children: matchedChildren };
+        return null;
+      })
+      .filter(Boolean);
+  }, [categories, modalSearch]);
+
+  // Map category to icon
+  const getCategoryIcon = (catId) => {
+    if (catId.includes('phone')) return <MobileOutlined />;
+    if (catId.includes('laptop')) return <LaptopOutlined />;
+    if (catId.includes('tablet')) return <TabletOutlined />;
+    if (catId.includes('watch')) return <ClockCircleOutlined />;
+    if (catId.includes('av')) return <CustomerServiceOutlined />;
+    if (catId.includes('cam')) return <CameraOutlined />;
+    return <SkinOutlined />;
+  };
+
+  // Filter newest products by search query if typed
+  const filteredNewestProducts = useMemo(() => {
+    if (!searchQuery.trim()) return newestProducts;
+    const q = searchQuery.trim().toLowerCase();
+    return newestProducts.filter(p =>
+      p.name.toLowerCase().includes(q) ||
+      (p.category_name && p.category_name.toLowerCase().includes(q))
+    );
+  }, [newestProducts, searchQuery]);
+
+  // Helper renderer for product card matching reference template
+  const renderProductCard = (product) => {
+    const catName = (product.category_name || product.Category?.name || 'TECHNOLOGY').toUpperCase();
+    const formattedPrice = `${Math.round(product.price).toLocaleString('vi-VN')} đ`;
+
+    return (
+      <div
+        key={product.id}
+        onClick={() => navigate(`/product/${product.id}`)}
+        className="commerce-product-card"
+        style={{
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          transition: 'transform 0.25s ease',
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+      >
+        {/* Rounded Top Image Container */}
+        <div
+          style={{
+            background: isDark ? '#121722' : '#f5f5f7',
+            borderRadius: 24,
+            height: 320,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'relative',
+            overflow: 'hidden',
+            padding: 24,
+            border: isDark ? '1px solid rgba(255,255,255,0.04)' : 'none',
+          }}
+        >
+          <img
+            src={product.image || (product.images && product.images[0]) || '/images/commerce/prod_mouse.jpg'}
+            alt={product.name}
+            loading="lazy"
+            style={{
+              maxWidth: '85%',
+              maxHeight: '85%',
+              objectFit: 'contain',
+              mixBlendMode: isDark ? 'normal' : 'multiply',
+              transition: 'transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)',
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            onError={(e) => {
+              e.target.onerror = null;
+              e.target.src = '/images/commerce/prod_mouse.jpg';
+            }}
+          />
+
+          {/* Quick Add To Bag Button */}
+          <div
+            onClick={(e) => handleAddToCart(product, e)}
+            title="Thêm vào giỏ"
+            style={{
+              position: 'absolute',
+              bottom: 16,
+              right: 16,
+              width: 38,
+              height: 38,
+              borderRadius: 19,
+              background: addedItemMap[product.id]
+                ? '#10b981'
+                : (isDark ? 'rgba(255,255,255,0.15)' : '#18181b'),
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+              zIndex: 3,
+            }}
+            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08)'}
+            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            {addedItemMap[product.id] ? (
+              <CheckOutlined style={{ fontSize: 15 }} />
+            ) : (
+              <ShoppingOutlined style={{ fontSize: 15 }} />
+            )}
+          </div>
+        </div>
+
+        {/* Details below image */}
+        <div style={{ marginTop: 12 }}>
+          {/* Category */}
+          <div style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+            color: isDark ? 'rgba(255,255,255,0.45)' : '#a1a1aa',
+            marginBottom: 4,
+          }}>
+            {catName}
+          </div>
+
+          {/* Product Name */}
+          <h4 style={{
+            fontSize: 15,
+            fontWeight: 600,
+            margin: 0,
+            color: isDark ? '#ffffff' : '#18181b',
+            letterSpacing: '-0.01em',
+            lineHeight: 1.4,
+            height: 42,
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}>
+            {product.name}
+          </h4>
+
+          {/* Price */}
+          <div style={{
+            fontSize: 14,
+            fontWeight: 500,
+            color: isDark ? 'rgba(255,255,255,0.65)' : '#52525b',
+            marginTop: 4,
+          }}>
+            {formattedPrice}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div>
+    <div style={{
+      background: isDark ? '#090d16' : '#ffffff',
+      color: isDark ? '#ffffff' : '#18181b',
+      minHeight: '100vh',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      overflowX: 'hidden',
+    }}>
+
       {/* ══════════════════════════════════════════════════════════════════
-           HERO BANNER — Professional GSAP (HeroBanner component)
-           Nằm ngoài điều kiện loading để render ngay, triệt tiêu CLS = 1.0
+           1. HERO SECTION: Minimalist 2-column layout
          ══════════════════════════════════════════════════════════════════ */}
-      <HeroBanner />
+      <section style={{
+        maxWidth: 1320,
+        margin: '0 auto',
+        padding: '60px 24px 70px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 40,
+      }}>
+        {/* Left Column: Heading + Description + Buttons */}
+        <div style={{ flex: '1 1 480px', maxWidth: 580 }}>
+          <h1 style={{
+            fontSize: 'clamp(38px, 4.4vw, 56px)',
+            fontWeight: 600,
+            lineHeight: 1.15,
+            letterSpacing: '-0.025em',
+            color: isDark ? '#ffffff' : '#111111',
+            margin: '0 0 20px 0',
+          }}>
+            High-quality tech<br />gadgets & accessories
+          </h1>
 
-      {/* Content sections below banner */}
-      <div style={{ padding: '48px 48px 0', maxWidth: 1400, margin: '0 auto' }}>
-        
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: '100px 0' }}><Spin size="large" /></div>
-        ) : (
-          <>
+          <p style={{
+            fontSize: 'clamp(14px, 1.15vw, 15px)',
+            lineHeight: 1.65,
+            color: isDark ? 'rgba(255, 255, 255, 0.62)' : '#71717a',
+            maxWidth: 440,
+            margin: '0 0 34px 0',
+          }}>
+            Sem sit amet adipiscing ullamcorper adipiscing adipiscing duis convallis tincidunt senectus enim blandit elit egestas.
+          </p>
 
-      {/* Flash Sale */}
-      {flashSale && flashSale.items && flashSale.items.length > 0 && new Date(flashSale.end_time).getTime() > Date.now() && (
-        <div style={{ background: 'linear-gradient(135deg, #ef4444, #991b1b)', borderRadius: 24, padding: 32, marginBottom: 48 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <ThunderboltOutlined style={{ fontSize: 40, color: '#fef08a' }} />
-              <div>
-                <Title level={2} style={{ color: '#fff', margin: 0, fontWeight: 800 }}>{flashSale.title}</Title>
-                <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: 16 }}>{t('home.flash_sale_subtitle')}</div>
-              </div>
-            </div>
-            <Timer type="countdown"
-              value={new Date(flashSale.end_time).getTime()} 
-              format="D [ngày] HH:mm:ss" 
-              onFinish={() => setFlashSale(null)}
-              valueStyle={{ color: '#fff', fontSize: 32, fontWeight: 700, fontFamily: 'monospace', background: 'rgba(0,0,0,0.3)', padding: '8px 16px', borderRadius: 12 }} 
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+            {/* Primary Dark Pill Button */}
+            <button
+              onClick={scrollToCatalog}
+              style={{
+                background: isDark ? '#ffffff' : '#000000',
+                color: isDark ? '#000000' : '#ffffff',
+                border: 'none',
+                borderRadius: 9999,
+                padding: '13px 28px',
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              }}
+              onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+              onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+            >
+              Browse products
+            </button>
+
+            {/* Secondary Outline Pill Button */}
+            <button
+              onClick={() => {
+                const el = document.getElementById('footer-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+                else navigate('/shop');
+              }}
+              style={{
+                background: 'transparent',
+                color: isDark ? '#ffffff' : '#18181b',
+                border: `1px solid ${isDark ? 'rgba(255,255,255,0.2)' : '#e4e4e7'}`,
+                borderRadius: 9999,
+                padding: '13px 28px',
+                fontSize: 14,
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f4f4f5'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              About us
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column: Hero Smartphone with Fluted Glass */}
+        <div style={{
+          flex: '1 1 480px',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          position: 'relative',
+        }}>
+          <div style={{
+            position: 'relative',
+            width: '100%',
+            maxWidth: 540,
+            borderRadius: 24,
+            overflow: 'hidden',
+            boxShadow: isDark ? '0 20px 50px rgba(0,0,0,0.5)' : '0 20px 50px rgba(0,0,0,0.04)',
+            background: isDark ? '#111827' : '#f9f9fb',
+          }}>
+            <img
+              src="/images/commerce/hero_tech_phone.jpg"
+              alt="High-quality tech gadgets"
+              style={{
+                width: '100%',
+                height: 'auto',
+                display: 'block',
+                objectFit: 'cover',
+              }}
             />
           </div>
-          <Row gutter={[24, 24]}>
-            {flashSale.items?.map(p => (
-              <Col xs={24} sm={12} md={8} lg={6} key={p.id}>
-                <Card
-                  hoverable onClick={() => navigate(`/product/${p.id}`)}
-                  style={{ borderRadius: 16, overflow: 'hidden', border: 'none' }}
-                  cover={
-                    <div style={{ padding: 24, background: isDark ? 'rgba(0,0,0,0.3)' : '#f9f9f9', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-                      <img 
-                        alt={p.name} 
-                        src={p.image} 
-                        width={160}
-                        height={160}
-                        style={{ height: 160, objectFit: 'contain' }} 
-                        onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
-                      />
-                      <Tag color="red" style={{ position: 'absolute', top: 12, left: 12, fontSize: 14, padding: '4px 8px', borderRadius: 8, fontWeight: 700 }}>
-                        -{Math.round((1 - p.discount_price/p.original_price)*100)}%
-                      </Tag>
-                    </div>
-                  }
-                >
-                  <Title level={5} style={{ margin: 0, fontSize: 16, height: 44, overflow: 'hidden' }}>{p.name}</Title>
-                  <div style={{ marginTop: 12 }}>
-                    <div style={{ fontSize: 24, fontWeight: 800, color: '#ef4444' }}>{p.discount_price.toLocaleString('vi-VN')} đ</div>
-                    <div style={{ fontSize: 14, color: '#888', textDecoration: 'line-through' }}>{p.original_price.toLocaleString('vi-VN')} đ</div>
-                  </div>
-                  <div style={{ background: '#fee2e2', borderRadius: 8, height: 8, marginTop: 12, overflow: 'hidden' }}>
-                    <div style={{ background: '#ef4444', height: '100%', width: `${(p.sold/p.limit)*100}%` }} />
-                  </div>
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>{t('home.sold')} {p.sold}/{p.limit}</div>
-                </Card>
-              </Col>
-            ))}
-          </Row>
         </div>
-      )}
+      </section>
 
-
-      {/* Top 10 Best Selling Products Section */}
-      {topSellingProducts && topSellingProducts.length > 0 && (
-        <div style={{
-          marginBottom: 48,
-          background: isDark 
-            ? 'linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, rgba(16, 185, 129, 0.05) 100%)' 
-            : 'linear-gradient(135deg, #fffbeb 0%, #f0fdf4 100%)',
-          borderRadius: 24,
-          padding: '28px 24px',
-          border: isDark ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid #fde68a',
-          boxShadow: isDark ? '0 10px 30px rgba(0,0,0,0.3)' : '0 10px 30px rgba(245, 158, 11, 0.08)'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-            <div>
-              <Title level={2} style={{ 
-                color: isDark ? '#fff' : '#111', 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 12, 
-                margin: 0,
-                fontSize: 24 
-              }}>
-                <TrophyOutlined style={{ color: '#f59e0b', fontSize: 28 }} />
-                <span style={{
-                  background: 'linear-gradient(135deg, #f59e0b, #10b981)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: 800
+      {/* ══════════════════════════════════════════════════════════════════
+           2. 6 CATEGORY CARDS SECTION: 3 Columns x 2 Rows
+         ══════════════════════════════════════════════════════════════════ */}
+      <section style={{ maxWidth: 1320, margin: '0 auto 80px', padding: '0 24px' }}>
+        <div className="commerce-categories-grid">
+          {CATEGORY_CARDS.map(cat => (
+            <div
+              key={cat.id}
+              onClick={() => handleCategoryClick(cat)}
+              className="commerce-category-card"
+              style={{
+                background: isDark ? '#121722' : '#f5f5f7',
+                borderRadius: 28,
+                padding: '40px 36px',
+                height: 380,
+                position: 'relative',
+                overflow: 'hidden',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.02)',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-5px)';
+                e.currentTarget.style.boxShadow = isDark ? '0 16px 40px rgba(0,0,0,0.5)' : '0 16px 36px rgba(0,0,0,0.06)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            >
+              {/* Card Header Content */}
+              <div style={{ zIndex: 2, maxWidth: '62%' }}>
+                <h3 style={{
+                  fontSize: 24,
+                  fontWeight: 600,
+                  margin: '0 0 10px 0',
+                  color: isDark ? '#ffffff' : '#111111',
+                  letterSpacing: '-0.02em',
                 }}>
-                  {t('home.top_selling')}
-                </span>
-                <Tag color="gold" style={{ borderRadius: 12, border: 'none', fontWeight: 700, padding: '2px 10px' }}>
-                  🔥 HOT
-                </Tag>
-              </Title>
-              <Text style={{ color: isDark ? 'rgba(255,255,255,0.6)' : '#666', fontSize: 14 }}>
-                {t('home.top_selling_subtitle')}
-              </Text>
-            </div>
+                  {cat.title}
+                </h3>
+                <p style={{
+                  fontSize: 13,
+                  lineHeight: 1.5,
+                  color: isDark ? 'rgba(255, 255, 255, 0.62)' : '#71717a',
+                  margin: 0,
+                }}>
+                  {cat.description}
+                </p>
+              </div>
 
-            {/* Navigation Arrows */}
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button
-                onClick={handleScrollLeft}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '50%',
-                  border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e5e7eb',
-                  background: isDark ? 'rgba(255,255,255,0.1)' : '#fff',
-                  color: isDark ? '#fff' : '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#f59e0b'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : '#fff'; e.currentTarget.style.color = isDark ? '#fff' : '#333'; }}
-              >
-                <LeftOutlined />
-              </button>
-              <button
-                onClick={handleScrollRight}
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: '50%',
-                  border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid #e5e7eb',
-                  background: isDark ? 'rgba(255,255,255,0.1)' : '#fff',
-                  color: isDark ? '#fff' : '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#f59e0b'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : '#fff'; e.currentTarget.style.color = isDark ? '#fff' : '#333'; }}
-              >
-                <RightOutlined />
-              </button>
-            </div>
-          </div>
-
-          {/* Horizontal Scrollable Container ("1 Dòng") */}
-          <div 
-            ref={scrollContainerRef}
-            style={{
-              display: 'flex',
-              gap: 16,
-              overflowX: 'auto',
-              scrollBehavior: 'smooth',
-              padding: '8px 4px 12px 4px',
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
-            }}
-          >
-            {topSellingProducts.map((p, index) => {
-              const rank = index + 1;
-              let rankBadgeStyle = {
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                color: '#fff',
-                boxShadow: '0 4px 10px rgba(16,185,129,0.3)'
-              };
-              if (rank === 1) {
-                rankBadgeStyle = {
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                  color: '#fff',
-                  boxShadow: '0 4px 14px rgba(245,158,11,0.5)'
-                };
-              } else if (rank === 2) {
-                rankBadgeStyle = {
-                  background: 'linear-gradient(135deg, #9ca3af, #4b5563)',
-                  color: '#fff',
-                  boxShadow: '0 4px 12px rgba(156,163,175,0.4)'
-                };
-              } else if (rank === 3) {
-                rankBadgeStyle = {
-                  background: 'linear-gradient(135deg, #b45309, #78350f)',
-                  color: '#fff',
-                  boxShadow: '0 4px 12px rgba(180,83,9,0.4)'
-                };
-              }
-
-              return (
-                <div 
-                  key={p.id}
+              {/* Category Image with multiply blend mode to eliminate white border box */}
+              <div style={{
+                position: 'absolute',
+                right: 12,
+                bottom: 12,
+                width: '58%',
+                height: '220px',
+                display: 'flex',
+                alignItems: 'flex-end',
+                justifyContent: 'flex-end',
+                pointerEvents: 'none',
+              }}>
+                <img
+                  src={cat.image}
+                  alt={cat.title}
+                  loading="lazy"
                   style={{
-                    width: 240,
-                    flexShrink: 0,
+                    maxWidth: '100%',
+                    maxHeight: '100%',
+                    objectFit: 'contain',
+                    mixBlendMode: isDark ? 'normal' : 'multiply',
+                    transition: 'transform 0.35s ease',
+                    filter: isDark ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))' : 'drop-shadow(0 10px 20px rgba(0,0,0,0.04))',
+                  }}
+                />
+              </div>
+
+              {/* Link at bottom left */}
+              <div style={{ zIndex: 3 }}>
+                <span
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: isDark ? '#ffffff' : '#111111',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                    padding: '6px 0',
+                    transition: 'gap 0.2s',
                   }}
                 >
-                  <Card
-                    hoverable
-                    onClick={() => navigate(`/product/${p.id}`)}
-                    style={{
-                      borderRadius: 16,
-                      background: isDark ? 'rgba(255,255,255,0.04)' : '#fff',
-                      border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #eee',
-                      overflow: 'hidden',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      height: '100%',
-                      transition: 'all 0.3s ease'
-                    }}
-                    styles={{ body: { padding: 16, flex: 1, display: 'flex', flexDirection: 'column' } }}
-                    cover={
-                      <div style={{ padding: 16, background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-                        {/* Rank Badge */}
-                        <div style={{
-                          position: 'absolute',
-                          top: 10,
-                          left: 10,
-                          borderRadius: 12,
-                          padding: '3px 10px',
-                          fontSize: 12,
-                          fontWeight: 800,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 4,
-                          zIndex: 2,
-                          ...rankBadgeStyle
-                        }}>
-                          {rank === 1 ? <CrownOutlined /> : `#${rank}`}
-                        </div>
-
-                        <img 
-                          alt={p.name} 
-                          src={p.image} 
-                          width={160}
-                          height={160}
-                          style={{ height: 160, objectFit: 'contain' }} 
-                          onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
-                        />
-
-                        {p.original_price > p.price && (
-                          <Tag color="#ef4444" style={{ position: 'absolute', top: 10, right: 10, borderRadius: 8, fontWeight: 700, margin: 0 }}>
-                            -{((1 - p.price / p.original_price) * 100).toFixed(0)}%
-                          </Tag>
-                        )}
-                      </div>
-                    }
-                  >
-                    <div style={{ flex: 1 }}>
-                      <Title level={5} style={{ color: isDark ? '#fff' : '#000', margin: 0, fontSize: 14, height: 40, overflow: 'hidden', lineHeight: '1.4' }}>
-                        {p.name}
-                      </Title>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                        <Rate disabled defaultValue={p.rating} style={{ fontSize: 12, color: '#facc15' }} />
-                        <span style={{ color: isDark ? 'rgba(255,255,255,0.4)' : '#888', fontSize: 11 }}>
-                          ({p.sold} {t('home.sold').toLowerCase()})
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 12 }}>
-                      <div>
-                        <div style={{ fontSize: 17, fontWeight: 800, color: '#f59e0b' }}>
-                          {p.price.toLocaleString('vi-VN')} đ
-                        </div>
-                        {p.original_price > p.price && (
-                          <div style={{ fontSize: 12, color: isDark ? 'rgba(255,255,255,0.4)' : '#999', textDecoration: 'line-through' }}>
-                            {p.original_price.toLocaleString('vi-VN')} đ
-                          </div>
-                        )}
-                      </div>
-                      <div 
-                        onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                        style={{ 
-                          width: 36, 
-                          height: 36, 
-                          borderRadius: 18, 
-                          background: 'rgba(245, 158, 11, 0.12)', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          color: '#f59e0b', 
-                          cursor: 'pointer', 
-                          transition: 'all 0.3s' 
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#f59e0b'; e.currentTarget.style.color = '#fff'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(245, 158, 11, 0.12)'; e.currentTarget.style.color = '#f59e0b'; }}
-                      >
-                        <ShoppingCartOutlined style={{ fontSize: 16 }} />
-                      </div>
-                    </div>
-                  </Card>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Daily Discover — phân theo category */}
-      <div id="product-section" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 24 }}>
-        <Title level={2} style={{ color: isDark ? '#fff' : '#111', display: 'flex', alignItems: 'center', gap: 12, margin: 0 }}>
-          <FireOutlined style={{ color: '#10b981' }} /> {t('home.daily_discover')}
-        </Title>
-        {/* Category tabs */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <button
-            onClick={() => handleCategoryTab('ALL')}
-            style={{
-              padding: '8px 18px', borderRadius: 20, border: 'none', cursor: 'pointer',
-              fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
-              background: selectedCategory === 'ALL' ? '#10b981' : (isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6'),
-              color: selectedCategory === 'ALL' ? '#fff' : (isDark ? 'rgba(255,255,255,0.7)' : '#555'),
-              boxShadow: selectedCategory === 'ALL' ? '0 4px 12px rgba(16,185,129,0.35)' : 'none',
-            }}
-          >Tất cả</button>
-          {rootCategories.map(c => (
-            <button
-              key={c.id}
-              onClick={() => handleCategoryTab(c.id)}
-              style={{
-                padding: '8px 18px', borderRadius: 20, border: 'none', cursor: 'pointer',
-                fontWeight: 600, fontSize: 13, transition: 'all 0.2s',
-                background: selectedCategory === c.id ? '#10b981' : (isDark ? 'rgba(255,255,255,0.08)' : '#f3f4f6'),
-                color: selectedCategory === c.id ? '#fff' : (isDark ? 'rgba(255,255,255,0.7)' : '#555'),
-                boxShadow: selectedCategory === c.id ? '0 4px 12px rgba(16,185,129,0.35)' : 'none',
-                display: 'flex', alignItems: 'center', gap: 6,
-              }}
-            >
-              {c.name}
-              {c.product_count != null && (
-                <span style={{
-                  fontSize: 11, fontWeight: 700,
-                  background: selectedCategory === c.id ? 'rgba(255,255,255,0.3)' : (isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'),
-                  borderRadius: 10, padding: '1px 7px',
-                  color: selectedCategory === c.id ? '#fff' : (isDark ? 'rgba(255,255,255,0.6)' : '#666'),
-                }}>{c.product_count}</span>
-              )}
-            </button>
+                  {cat.linkText}
+                </span>
+              </div>
+            </div>
           ))}
         </div>
-      </div>
+      </section>
 
-      {loadingProducts ? (
-        <div style={{ textAlign: 'center', padding: '60px 0' }}><Spin size="large" /></div>
-      ) : null}
-      <Row gutter={[20, 20]} style={{ opacity: loadingProducts ? 0.4 : 1, transition: 'opacity 0.3s' }}>
-        {products.map(p => (
-          <Col className="daily-product-col" key={p.id}>
-            <Card
-              hoverable
-              onClick={() => navigate(`/product/${p.id}`)}
-              style={{
-                borderRadius: 16, background: isDark ? 'rgba(255,255,255,0.03)' : '#fff',
-                border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #eee',
-                overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%'
-              }}
-              styles={{ body: { padding: 20, flex: 1, display: 'flex', flexDirection: 'column' } }}
-              cover={
-                <div style={{ padding: 24, background: isDark ? 'rgba(0,0,0,0.2)' : '#f9f9f9', display: 'flex', justifyContent: 'center', position: 'relative' }}>
-                  <img 
-                    alt={p.name} 
-                    src={p.image} 
-                    width={200}
-                    height={200}
-                    style={{ height: 200, objectFit: 'contain' }} 
-                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format'; }}
-                  />
-                  {p.original_price > p.price && (
-                    <Tag color="#10b981" style={{ position: 'absolute', top: 12, left: 12, borderRadius: 8, fontWeight: 700 }}>
-                    {t('home.discount')} {(100 - (p.price/p.original_price)*100).toFixed(0)}%
-                    </Tag>
-                  )}
-                </div>
-              }
-            >
-              <div style={{ flex: 1 }}>
-                <Title level={4} style={{ color: isDark ? '#fff' : '#000', margin: 0, fontSize: 16, height: 44, overflow: 'hidden' }}>{p.name}</Title>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                  <Rate disabled defaultValue={p.rating} style={{ fontSize: 14, color: '#facc15' }} />
-                  <span style={{ color: isDark ? 'rgba(255,255,255,0.4)' : '#888', fontSize: 12 }}>({p.sold} {t('home.sold').toLowerCase()})</span>
-                </div>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 16 }}>
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 700, color: '#10b981' }}>{p.price.toLocaleString('vi-VN')} đ</div>
-                  {p.original_price > p.price && (
-                    <div style={{ fontSize: 13, color: isDark ? 'rgba(255,255,255,0.4)' : '#999', textDecoration: 'line-through' }}>
-                      {p.original_price.toLocaleString('vi-VN')} đ
-                    </div>
-                  )}
-                </div>
-                <div 
-                  onClick={(e) => { e.stopPropagation(); addToCart(p); }}
-                  style={{ width: 40, height: 40, borderRadius: 20, background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10b981', cursor: 'pointer', transition: 'all 0.3s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = '#10b981'; e.currentTarget.style.color = '#fff'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16, 185, 129, 0.1)'; e.currentTarget.style.color = '#10b981'; }}
-                >
-                  <ShoppingCartOutlined style={{ fontSize: 18 }} />
-                </div>
-              </div>
-            </Card>
-          </Col>
-        ))}
-      </Row>
-      
-      {totalProducts > 15 && (
-        <div style={{ textAlign: 'center', marginTop: 40, paddingBottom: 40 }}>
-          <Pagination 
-            current={currentPage} 
-            total={totalProducts} 
-            pageSize={15} 
-            onChange={(page) => setCurrentPage(page)}
-            showSizeChanger={false}
-          />
+      {/* ══════════════════════════════════════════════════════════════════
+           3. PHẦN "DÀNH RIÊNG CHO BẠN" (Đặt trước, nổi bật hơn Sản phẩm mới)
+              Load đúng 8 sản phẩm theo đúng mẫu reference
+         ══════════════════════════════════════════════════════════════════ */}
+      <section style={{
+        maxWidth: 1320,
+        margin: '0 auto 70px',
+        padding: '0 24px',
+      }}>
+        {/* Header Bar matching reference template line */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingBottom: 14,
+          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'}`,
+          marginBottom: 36,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: isDark ? '#ffffff' : '#111111',
+              letterSpacing: '-0.01em',
+              paddingBottom: 14,
+              marginBottom: -15,
+              borderBottom: `2px solid ${isDark ? '#ffffff' : '#111111'}`,
+              display: 'inline-block',
+            }}>
+              Dành riêng cho bạn
+            </span>
+          </div>
         </div>
-      )}
-          </>
+
+        {/* Grid of 8 Recommended Products */}
+        {loadingRec ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <Spin size="large" />
+          </div>
+        ) : recommendedProducts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>
+            Chưa có dữ liệu gợi ý cho tài khoản này.
+          </div>
+        ) : (
+          <div className="commerce-products-grid">
+            {recommendedProducts.slice(0, 8).map(product => renderProductCard(product))}
+          </div>
         )}
-      </div>
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+           4. PHẦN "SẢN PHẨM MỚI" (Load đúng 8 sản phẩm, theo mẫu reference)
+         ══════════════════════════════════════════════════════════════════ */}
+      <section id="catalog" style={{
+        maxWidth: 1320,
+        margin: '0 auto 80px',
+        padding: '0 24px',
+      }}>
+        {/* Header Bar matching reference template */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 16,
+          paddingBottom: 14,
+          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'}`,
+          marginBottom: 36,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <span style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: isDark ? '#ffffff' : '#111111',
+              letterSpacing: '-0.01em',
+              paddingBottom: 14,
+              marginBottom: -15,
+              borderBottom: `2px solid ${isDark ? '#ffffff' : '#111111'}`,
+              display: 'inline-block',
+            }}>
+              Sản phẩm mới
+            </span>
+          </div>
+
+          {/* Right: Search Input matching template */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: 240,
+            maxWidth: '100%',
+          }}>
+            <input
+              type="text"
+              placeholder="Search for products"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              style={{
+                flex: 1,
+                border: 'none',
+                outline: 'none',
+                background: 'transparent',
+                fontSize: 13.5,
+                color: isDark ? '#ffffff' : '#111111',
+                padding: '4px 0',
+              }}
+            />
+            <SearchOutlined style={{
+              fontSize: 15,
+              color: isDark ? 'rgba(255,255,255,0.45)' : '#9ca3af',
+              cursor: 'pointer',
+            }} />
+          </div>
+        </div>
+
+        {/* Grid of 8 Newest Products */}
+        {loadingNew ? (
+          <div style={{ textAlign: 'center', padding: '60px 0' }}>
+            <Spin size="large" />
+          </div>
+        ) : filteredNewestProducts.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '60px 0', color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>
+            Không tìm thấy sản phẩm mới nào phù hợp với tìm kiếm của bạn.
+          </div>
+        ) : (
+          <div className="commerce-products-grid">
+            {filteredNewestProducts.slice(0, 8).map(product => renderProductCard(product))}
+          </div>
+        )}
+      </section>
+
+      {/* ══════════════════════════════════════════════════════════════════
+           5. ALL CATEGORIES POPUP MODAL
+         ══════════════════════════════════════════════════════════════════ */}
+      <Modal
+        open={isModalOpen}
+        onCancel={() => { setIsModalOpen(false); setModalSearch(''); }}
+        footer={null}
+        width={920}
+        centered
+        styles={{
+          content: {
+            borderRadius: 24,
+            padding: '32px 36px',
+            background: isDark ? '#0f172a' : '#ffffff',
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : 'none',
+          }
+        }}
+      >
+        <div>
+          {/* Modal Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+            <div>
+              <h2 style={{
+                fontSize: 24,
+                fontWeight: 700,
+                margin: '0 0 6px 0',
+                color: isDark ? '#ffffff' : '#111111',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10
+              }}>
+                <AppstoreOutlined style={{ color: '#10b981' }} /> Tất cả danh mục
+              </h2>
+              <p style={{ margin: 0, color: isDark ? 'rgba(255,255,255,0.6)' : '#71717a', fontSize: 13.5 }}>
+                Chọn danh mục bạn quan tâm để khám phá ngay các sản phẩm tương ứng
+              </p>
+            </div>
+          </div>
+
+          {/* Modal Search Bar */}
+          <div style={{ marginBottom: 24 }}>
+            <Input
+              prefix={<SearchOutlined style={{ color: '#9ca3af', marginRight: 6 }} />}
+              placeholder="Tìm nhanh danh mục (ví dụ: Điện thoại, Cáp sạc, Tablet...)"
+              value={modalSearch}
+              onChange={e => setModalSearch(e.target.value)}
+              allowClear
+              style={{
+                height: 44,
+                borderRadius: 12,
+                background: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+                color: isDark ? '#ffffff' : '#111111',
+                fontSize: 14,
+              }}
+            />
+          </div>
+
+          {/* Categories Hierarchical List */}
+          <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8 }}>
+            {hierarchicalCategories.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#888' }}>
+                Không tìm thấy danh mục phù hợp.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {hierarchicalCategories.map(parent => (
+                  <div
+                    key={parent.id}
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.03)' : '#f9fafb',
+                      borderRadius: 16,
+                      padding: '18px 22px',
+                      border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f2',
+                    }}
+                  >
+                    {/* Parent Category Row */}
+                    <div
+                      onClick={() => {
+                        setIsModalOpen(false);
+                        navigate(`/shop?category=${parent.id}`);
+                      }}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        paddingBottom: parent.children?.length > 0 ? 14 : 0,
+                        borderBottom: parent.children?.length > 0
+                          ? (isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #e5e7eb')
+                          : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <span style={{ fontSize: 18, color: '#10b981' }}>{getCategoryIcon(parent.id)}</span>
+                        <span style={{
+                          fontSize: 16,
+                          fontWeight: 700,
+                          color: isDark ? '#ffffff' : '#111111',
+                        }}>
+                          {parent.name}
+                        </span>
+                      </div>
+                      <span style={{
+                        fontSize: 12.5,
+                        fontWeight: 600,
+                        color: '#10b981',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}>
+                        Xem tất cả <RightOutlined style={{ fontSize: 10 }} />
+                      </span>
+                    </div>
+
+                    {/* Subcategories Chips */}
+                    {parent.children && parent.children.length > 0 && (
+                      <div style={{
+                        display: 'flex',
+                        flexWrap: 'wrap',
+                        gap: 8,
+                        marginTop: 14,
+                      }}>
+                        {parent.children.map(child => (
+                          <div
+                            key={child.id}
+                            onClick={() => {
+                              setIsModalOpen(false);
+                              navigate(`/shop?category=${child.id}`);
+                            }}
+                            style={{
+                              background: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e5e7eb',
+                              borderRadius: 20,
+                              padding: '6px 14px',
+                              fontSize: 12.5,
+                              fontWeight: 500,
+                              color: isDark ? 'rgba(255,255,255,0.85)' : '#374151',
+                              cursor: 'pointer',
+                              transition: 'all 0.2s',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 6,
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.borderColor = '#10b981';
+                              e.currentTarget.style.color = '#10b981';
+                              e.currentTarget.style.transform = 'translateY(-1px)';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb';
+                              e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.85)' : '#374151';
+                              e.currentTarget.style.transform = 'translateY(0)';
+                            }}
+                          >
+                            <span>{child.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Responsive Styles */}
+      <style>{`
+        .commerce-categories-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 24px;
+        }
+        @media (max-width: 1080px) {
+          .commerce-categories-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (max-width: 640px) {
+          .commerce-categories-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+
+        .commerce-products-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 28px 22px;
+        }
+        @media (max-width: 1120px) {
+          .commerce-products-grid {
+            grid-template-columns: repeat(3, 1fr);
+          }
+        }
+        @media (max-width: 780px) {
+          .commerce-products-grid {
+            grid-template-columns: repeat(2, 1fr);
+          }
+        }
+        @media (max-width: 480px) {
+          .commerce-products-grid {
+            grid-template-columns: 1fr;
+          }
+        }
+      `}</style>
     </div>
   );
 }

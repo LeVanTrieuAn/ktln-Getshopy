@@ -1,8 +1,16 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import { Typography, Spin, Tag, Rate, Select, Empty, InputNumber, Button, Slider, Pagination, Input } from 'antd';
+import { useState, useEffect, useMemo } from 'react';
+import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select } from 'antd';
 import {
-  ShoppingCartOutlined, FilterOutlined, RobotOutlined, BulbOutlined,
-  AppstoreOutlined, BarsOutlined, SearchOutlined, CloseOutlined,
+  ShoppingOutlined,
+  RobotOutlined,
+  BulbOutlined,
+  AppstoreOutlined,
+  BarsOutlined,
+  SearchOutlined,
+  CloseOutlined,
+  CheckOutlined,
+  HeartOutlined,
+  HeartFilled
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -33,39 +41,45 @@ function getFallback(categoryId) {
 
 const { Title, Text } = Typography;
 
-function useBenchmarkMode() {
-  return useMemo(
-    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('benchmark'),
-    []
-  );
-}
-
 // ── Skeleton Card ────────────────────────────────────────────────
 function SkeletonCard({ isDark }) {
-  const base = isDark ? 'rgba(255,255,255,0.06)' : '#e5e7eb';
-  const shine = isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6';
+  const base = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6';
+  const shine = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
   return (
     <div style={{
-      borderRadius: 20, overflow: 'hidden',
+      borderRadius: 24, overflow: 'hidden', padding: 16,
       background: isDark ? 'rgba(255,255,255,0.03)' : '#fff',
-      border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #e5e7eb',
+      border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #f0f0f2',
     }}>
-      <div style={{ height: 200, background: `linear-gradient(90deg,${base} 25%,${shine} 50%,${base} 75%)`, backgroundSize: '400% 100%', animation: 'shimmer 1.5s infinite' }} />
-      <div style={{ padding: 20 }}>
-        {[1,0.7,0.5].map((w, i) => (
-          <div key={i} style={{ height: 14, borderRadius: 7, background: base, marginBottom: 10, width: `${w * 100}%` }} />
-        ))}
-      </div>
+      <div style={{ height: 220, borderRadius: 20, background: `linear-gradient(90deg,${base} 25%,${shine} 50%,${base} 75%)`, backgroundSize: '400% 100%', animation: 'shimmer 1.5s infinite', marginBottom: 16 }} />
+      <div style={{ height: 12, borderRadius: 6, background: base, marginBottom: 10, width: '40%' }} />
+      <div style={{ height: 16, borderRadius: 8, background: base, marginBottom: 8, width: '85%' }} />
+      <div style={{ height: 16, borderRadius: 8, background: base, marginBottom: 16, width: '60%' }} />
+      <div style={{ height: 36, borderRadius: 9999, background: base, width: '65%', margin: '0 auto' }} />
     </div>
   );
 }
 
-// ── Product Card ────────────────────────────────────────────────
-function ProductCard({ p, isDark, navigate, addToCart, t }) {
+// ── Product Card (No Rating, Pill Price Button, Heart Wishlist) ─────
+function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite }) {
   const [hovered, setHovered] = useState(false);
+  const [added, setAdded] = useState(false);
   const discount = p.original_price > p.price
     ? Math.round((1 - p.price / p.original_price) * 100)
     : 0;
+  const isTopItem = (p.sold && p.sold > 40) || p.is_featured;
+
+  const handleQuickAdd = (e) => {
+    e.stopPropagation();
+    const pToAdd = {
+      ...p,
+      price: Number(p.price || 0),
+      selectedVariant: null
+    };
+    addToCart(pToAdd, 1, false);
+    setAdded(true);
+    setTimeout(() => setAdded(false), 1800);
+  };
 
   return (
     <div
@@ -73,116 +87,221 @@ function ProductCard({ p, isDark, navigate, addToCart, t }) {
       onMouseLeave={() => setHovered(false)}
       onClick={() => navigate(`/product/${p.id}`)}
       style={{
-        borderRadius: 20, overflow: 'hidden', cursor: 'pointer',
-        background: isDark ? 'rgba(255,255,255,0.04)' : '#fff',
+        borderRadius: 24,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        background: isDark ? '#121722' : '#ffffff',
         border: isDark
-          ? `1px solid ${hovered ? 'rgba(16,185,129,0.5)' : 'rgba(255,255,255,0.08)'}`
-          : `1px solid ${hovered ? '#10b981' : '#e5e7eb'}`,
+          ? `1px solid ${hovered ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.06)'}`
+          : `1px solid ${hovered ? '#e4e4e7' : '#f0f0f2'}`,
         boxShadow: hovered
-          ? '0 20px 40px rgba(16,185,129,0.15)'
-          : '0 2px 12px rgba(0,0,0,0.06)',
-        transform: hovered ? 'translateY(-6px)' : 'none',
-        transition: 'all 0.3s cubic-bezier(.4,0,.2,1)',
-        display: 'flex', flexDirection: 'column', height: '100%',
+          ? (isDark ? '0 16px 36px rgba(0,0,0,0.5)' : '0 16px 36px rgba(0,0,0,0.06)')
+          : (isDark ? '0 4px 16px rgba(0,0,0,0.2)' : '0 2px 10px rgba(0,0,0,0.02)'),
+        transform: hovered ? 'translateY(-4px)' : 'none',
+        transition: 'all 0.25s cubic-bezier(.16,1,.3,1)',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        position: 'relative',
+        padding: '16px 16px 20px',
       }}
     >
-      {/* Image area */}
+      {/* Top Bar on Card: Wishlist Heart */}
       <div style={{
-        position: 'relative',
-        padding: '24px 24px 16px',
-        background: isDark ? 'rgba(0,0,0,0.2)' : (hovered ? '#f0fdf4' : '#f9fafb'),
-        transition: 'background 0.3s',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        minHeight: 200,
+        position: 'absolute',
+        top: 16,
+        right: 16,
+        zIndex: 3,
       }}>
-        <img
-          alt={p.name}
-          src={p.image}
-          width={180} height={180}
-          style={{
-            objectFit: 'contain', height: 180,
-            transform: hovered ? 'scale(1.06)' : 'scale(1)',
-            transition: 'transform 0.4s cubic-bezier(.4,0,.2,1)',
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleFavorite(p.id);
           }}
-          onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }}
-        />
+          title={isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: isDark ? 'rgba(255,255,255,0.1)' : '#ffffff',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'transform 0.2s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.12)'}
+          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          {isFavorited ? (
+            <HeartFilled style={{ fontSize: 16, color: '#ef4444' }} />
+          ) : (
+            <HeartOutlined style={{ fontSize: 16, color: isDark ? '#ffffff' : '#6b7280' }} />
+          )}
+        </div>
+      </div>
 
-        {/* Discount badge */}
-        {discount > 0 && (
+      {/* Image Area */}
+      <div style={{
+        background: isDark ? '#0d131f' : '#f5f5f7',
+        borderRadius: 20,
+        height: 220,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        overflow: 'hidden',
+        padding: 16,
+        marginBottom: 16,
+      }}>
+        {/* Badges */}
+        {discount > 0 ? (
           <div style={{
-            position: 'absolute', top: 12, left: 12,
-            background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-            color: '#fff', fontWeight: 800, fontSize: 12,
-            padding: '4px 10px', borderRadius: 20,
-            boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
+            position: 'absolute',
+            bottom: 12,
+            left: 12,
+            background: '#ef4444',
+            color: '#fff',
+            fontWeight: 700,
+            fontSize: 11,
+            padding: '3px 8px',
+            borderRadius: 12,
+            letterSpacing: '0.02em',
           }}>
             -{discount}%
           </div>
-        )}
+        ) : isTopItem ? (
+          <div style={{
+            position: 'absolute',
+            bottom: 12,
+            left: 12,
+            background: '#fbbf24',
+            color: '#78350f',
+            fontWeight: 700,
+            fontSize: 11,
+            padding: '3px 10px',
+            borderRadius: 12,
+            letterSpacing: '0.02em',
+          }}>
+            Top item
+          </div>
+        ) : null}
 
-        {/* Quick add */}
-        <button
-          onClick={(e) => { e.stopPropagation(); addToCart(p); }}
+        <img
+          alt={p.name}
+          src={p.image}
+          loading="lazy"
           style={{
-            position: 'absolute', bottom: 12, right: 12,
-            width: 40, height: 40, borderRadius: '50%', border: 'none',
-            background: hovered ? '#10b981' : 'rgba(16,185,129,0.15)',
-            color: hovered ? '#fff' : '#10b981',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            cursor: 'pointer', fontSize: 18,
-            transform: hovered ? 'scale(1) rotate(0deg)' : 'scale(0.85) rotate(-10deg)',
-            opacity: hovered ? 1 : 0,
-            transition: 'all 0.25s cubic-bezier(.4,0,.2,1)',
-            boxShadow: '0 4px 12px rgba(16,185,129,0.4)',
+            maxWidth: '85%',
+            maxHeight: '85%',
+            objectFit: 'contain',
+            mixBlendMode: isDark ? 'normal' : 'multiply',
+            transform: hovered ? 'scale(1.06)' : 'scale(1)',
+            transition: 'transform 0.35s ease',
           }}
-        >
-          <ShoppingCartOutlined />
-        </button>
+          onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }}
+        />
       </div>
 
-      {/* Info area */}
-      <div style={{ padding: '16px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{
-          fontWeight: 700, fontSize: 14, lineHeight: 1.4,
-          color: isDark ? '#f3f4f6' : '#111827',
-          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-          flex: 1,
-        }}>
-          {p.name}
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Rate disabled defaultValue={Math.round(p.rating || 0)} style={{ fontSize: 11, color: '#f59e0b' }} />
-          <span style={{ fontSize: 11, color: isDark ? 'rgba(255,255,255,0.4)' : '#9ca3af' }}>
-            ({(p.sold || 0).toLocaleString()})
-          </span>
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 4 }}>
-          <div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: '#10b981', lineHeight: 1 }}>
-              {p.price.toLocaleString('vi-VN')}<span style={{ fontSize: 12, fontWeight: 600 }}> đ</span>
-            </div>
-            {discount > 0 && (
-              <div style={{ fontSize: 12, color: isDark ? 'rgba(255,255,255,0.35)' : '#9ca3af', textDecoration: 'line-through', marginTop: 2 }}>
-                {p.original_price.toLocaleString('vi-VN')} đ
-              </div>
-            )}
+      {/* Content Area */}
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, justifyContent: 'space-between' }}>
+        <div>
+          {/* Category Name */}
+          <div style={{
+            fontSize: 11,
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            color: isDark ? 'rgba(255,255,255,0.45)' : '#9ca3af',
+            marginBottom: 4,
+          }}>
+            {p.category_name || p.Category?.name || 'TECHNOLOGY'}
           </div>
 
-          {/* Cart button (visible always on mobile, hover on desktop) */}
+          {/* Product Title */}
+          <h4 style={{
+            fontSize: 15,
+            fontWeight: 600,
+            color: isDark ? '#ffffff' : '#18181b',
+            margin: '0 0 12px 0',
+            lineHeight: 1.4,
+            height: 42,
+            overflow: 'hidden',
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+          }}>
+            {p.name}
+          </h4>
+        </div>
+
+        {/* Price & Action Pill Button matching reference mockup */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          marginTop: 'auto',
+          paddingTop: 6,
+          flexWrap: 'wrap',
+        }}>
+          {p.original_price > p.price && (
+            <span style={{
+              fontSize: 13,
+              color: isDark ? 'rgba(255,255,255,0.35)' : '#9ca3af',
+              textDecoration: 'line-through',
+            }}>
+              {Math.round(p.original_price).toLocaleString('vi-VN')} đ
+            </span>
+          )}
+
+          {/* Pill Button with Cart Icon & Price */}
           <button
-            onClick={(e) => { e.stopPropagation(); addToCart(p); }}
+            onClick={handleQuickAdd}
             style={{
-              width: 36, height: 36, borderRadius: '50%', border: 'none',
-              background: 'rgba(16,185,129,0.12)', color: '#10b981',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              cursor: 'pointer', fontSize: 16, transition: 'all 0.2s',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 18px',
+              borderRadius: 9999,
+              border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#e4e4e7'}`,
+              background: added
+                ? '#10b981'
+                : (isDark ? 'rgba(255,255,255,0.06)' : '#ffffff'),
+              color: added
+                ? '#ffffff'
+                : (isDark ? '#ffffff' : '#18181b'),
+              fontWeight: 700,
+              fontSize: 14,
+              cursor: 'pointer',
+              transition: 'all 0.2s cubic-bezier(.16,1,.3,1)',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = '#10b981'; e.currentTarget.style.color = '#fff'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(16,185,129,0.12)'; e.currentTarget.style.color = '#10b981'; }}
+            onMouseEnter={e => {
+              if (!added) {
+                e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#000000';
+                e.currentTarget.style.background = isDark ? '#ffffff' : '#000000';
+                e.currentTarget.style.color = isDark ? '#000000' : '#ffffff';
+              }
+            }}
+            onMouseLeave={e => {
+              if (!added) {
+                e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.15)' : '#e4e4e7';
+                e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#ffffff';
+                e.currentTarget.style.color = isDark ? '#ffffff' : '#18181b';
+              }
+            }}
           >
-            <ShoppingCartOutlined />
+            {added ? (
+              <>
+                <CheckOutlined style={{ fontSize: 13 }} /> Đã thêm
+              </>
+            ) : (
+              <>
+                <ShoppingOutlined style={{ fontSize: 13 }} /> {Math.round(p.price).toLocaleString('vi-VN')} đ
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -202,16 +321,22 @@ export default function ProductList() {
   const [sort, setSort] = useState('newest');
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const isBenchmark = useBenchmarkMode();
 
   // Filters state
   const [brands, setBrands] = useState([]);
   const [brandSearch, setBrandSearch] = useState('');
-  const [minPrice, setMinPrice] = useState(null);
-  const [maxPrice, setMaxPrice] = useState(null);
+  const [minPrice, setMinPrice] = useState(0);
+  const [maxPrice, setMaxPrice] = useState(50000000);
   const [appliedMinPrice, setAppliedMinPrice] = useState(null);
   const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
-  const [minRating, setMinRating] = useState(0);
+
+  // Wishlist state (local + remote synced)
+  const [wishlistIds, setWishlistIds] = useState([]);
+
+  // Modals state
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryModalSearch, setCategoryModalSearch] = useState('');
+  const [isBrandModalOpen, setIsBrandModalOpen] = useState(false);
 
   // AI search
   const [aiResults, setAiResults] = useState([]);
@@ -220,7 +345,7 @@ export default function ProductList() {
   const [aiSearchDone, setAiSearchDone] = useState(false);
 
   const { addToCart } = useCart();
-  const { isDark, t, selectedBranch } = useApp();
+  const { isDark, t, selectedBranch, b2cUser } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const { trackCategoryView, trackSearchQuery } = useTracking();
@@ -240,12 +365,42 @@ export default function ProductList() {
     setAiResults([]); setAiHint(''); setAiSearchDone(false);
   }, [searchQuery]);
 
+  // Load wishlist
+  useEffect(() => {
+    if (b2cUser?.id) {
+      api.b2c.getWishlist(b2cUser.id)
+        .then(res => {
+          if (Array.isArray(res)) setWishlistIds(res.map(item => item.product_id || item.id));
+        })
+        .catch(() => {});
+    }
+  }, [b2cUser]);
+
+  const handleToggleFavorite = async (productId) => {
+    const isFav = wishlistIds.includes(productId);
+    if (isFav) {
+      setWishlistIds(prev => prev.filter(id => id !== productId));
+      message.info('Đã xoá khỏi danh sách yêu thích');
+    } else {
+      setWishlistIds(prev => [...prev, productId]);
+      message.success('Đã thêm vào danh sách yêu thích');
+    }
+
+    if (b2cUser?.id) {
+      try {
+        await api.b2c.toggleWishlist(b2cUser.id, productId);
+      } catch (err) {
+        console.warn('Wishlist sync err:', err);
+      }
+    }
+  };
+
+  // Main data loader
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
         let [prodData, catData, brandData, activeCatData] = await Promise.all([
-          // Truyền brands vào API để backend xử lý multi-brand filter (server-side)
           api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 16, brands),
           api.b2c.getCategories(),
           api.b2c.getBrands(),
@@ -255,16 +410,13 @@ export default function ProductList() {
         let allProds = prodData.data || [];
         if (appliedMinPrice !== null) allProds = allProds.filter(p => p.price >= appliedMinPrice);
         if (appliedMaxPrice !== null) allProds = allProds.filter(p => p.price <= appliedMaxPrice);
-        // brand filter đã xử lý server-side — không cần lọc lại client
-        if (minRating > 0) allProds = allProds.filter(p => p.rating >= minRating);
 
         setProducts(allProds);
         setTotalProducts(prodData.total || 0);
-        setCategories(catData);
+        setCategories(catData || []);
         setBrandList(brandData || []);
         setActiveCategories(activeCatData || []);
 
-        // Track search query with result count
         if (searchQuery.trim()) {
           trackSearchQuery(searchQuery, prodData.total || 0);
         }
@@ -288,315 +440,474 @@ export default function ProductList() {
       }
     }
     load();
-  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, minRating, currentPage]);
+  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, currentPage]);
 
-  const applyPriceFilter = () => { setAppliedMinPrice(minPrice); setAppliedMaxPrice(maxPrice); };
-  const clearAllFilters = () => {
-    setMinPrice(null); setMaxPrice(null);
-    setAppliedMinPrice(null); setAppliedMaxPrice(null);
-    setBrands([]); setMinRating(0);
+  const applyPriceFilter = () => {
+    setAppliedMinPrice(minPrice);
+    setAppliedMaxPrice(maxPrice);
+    setCurrentPage(1);
   };
-  const hasActiveFilters = appliedMinPrice !== null || appliedMaxPrice !== null || brands.length > 0 || minRating > 0;
 
-  // Root categories
+  const clearAllFilters = () => {
+    setMinPrice(0);
+    setMaxPrice(50000000);
+    setAppliedMinPrice(null);
+    setAppliedMaxPrice(null);
+    setBrands([]);
+    setCurrentPage(1);
+  };
+
+  const hasActiveFilters = appliedMinPrice !== null || appliedMaxPrice !== null || brands.length > 0;
+
+  // Toggle brand selection
+  const handleToggleBrand = (brandId) => {
+    setBrands(prev =>
+      prev.includes(brandId) ? prev.filter(id => id !== brandId) : [...prev, brandId]
+    );
+    setCurrentPage(1);
+  };
+
+  // Grouped hierarchical categories for Modal
+  const hierarchicalCategories = useMemo(() => {
+    const parents = categories.filter(c => !c.parent_id);
+    const result = parents.map(parent => ({
+      ...parent,
+      children: categories.filter(c => c.parent_id === parent.id)
+    }));
+
+    if (!categoryModalSearch.trim()) return result;
+    const q = categoryModalSearch.trim().toLowerCase();
+
+    return result
+      .map(parent => {
+        const parentMatch = parent.name.toLowerCase().includes(q);
+        const matchedChildren = parent.children.filter(ch => ch.name.toLowerCase().includes(q));
+        if (parentMatch) return parent;
+        if (matchedChildren.length > 0) return { ...parent, children: matchedChildren };
+        return null;
+      })
+      .filter(Boolean);
+  }, [categories, categoryModalSearch]);
+
+  const handleSelectCategory = (catId) => {
+    setIsCategoryModalOpen(false);
+    navigate(catId === 'ALL' ? '/shop' : `/shop?category=${catId}`);
+  };
+
+  // Active category display name
   const rootCategories = categories.filter(c => !c.parent_id);
-
-  // Active category name
   const activeCatName = categoryFilter === 'ALL'
     ? t('shop.all_products')
-    : (rootCategories.find(c => c.id === categoryFilter)?.name || t('shop.all_products'));
+    : (categories.find(c => c.id === categoryFilter)?.name || t('shop.all_products'));
 
-  const bg = isDark ? '#0f172a' : '#f8fafc';
-  const cardBg = isDark ? 'rgba(255,255,255,0.03)' : '#fff';
+  const bg = isDark ? '#090d16' : '#ffffff';
+  const cardBg = isDark ? '#121722' : '#ffffff';
   const borderCol = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb';
-  const textCol = isDark ? '#f1f5f9' : '#1e293b';
-  const subCol = isDark ? '#94a3b8' : '#64748b';
+  const textCol = isDark ? '#ffffff' : '#111111';
+  const subCol = isDark ? 'rgba(255,255,255,0.6)' : '#71717a';
 
   return (
-    <div style={{ paddingTop: 80, minHeight: '100vh', background: bg }}>
+    <div style={{
+      paddingTop: 72,
+      minHeight: '100vh',
+      background: bg,
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+    }}>
 
-      {/* ── Sticky Top Bar ── */}
+      {/* ── 1. Top Category Pill Tabs Bar (Matches mockup pill tag design) ── */}
       <div style={{
-        position: 'sticky', top: 64, zIndex: 90,
-        background: isDark ? 'rgba(15,23,42,0.95)' : 'rgba(248,250,252,0.95)',
-        backdropFilter: 'blur(12px)',
+        position: 'sticky',
+        top: 72,
+        zIndex: 90,
+        background: isDark ? 'rgba(9, 13, 22, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(16px)',
         borderBottom: `1px solid ${borderCol}`,
+        padding: '14px 0',
       }}>
-        <div style={{ maxWidth: 1440, margin: '0 auto', padding: '0 48px' }}>
-        {/* Category tabs */}
-        <div style={{
-          display: 'flex', gap: 4, overflowX: 'auto', padding: '12px 0 0',
-          scrollbarWidth: 'none', msOverflowStyle: 'none',
-        }}>
-          {/* Tất cả */}
-          <button
-            onClick={() => navigate('/shop')}
-            style={{
-              padding: '8px 20px', borderRadius: '12px 12px 0 0', border: 'none',
-              cursor: 'pointer', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap',
-              transition: 'all 0.2s',
-              background: categoryFilter === 'ALL'
-                ? (isDark ? '#10b981' : '#10b981')
-                : 'transparent',
-              color: categoryFilter === 'ALL' ? '#fff' : subCol,
-              borderBottom: categoryFilter === 'ALL' ? '2px solid #10b981' : '2px solid transparent',
-            }}
-          >
-            Tất cả
-          </button>
-
-          {activeCategories.map(c => (
+        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 32px' }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            overflowX: 'auto',
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            paddingBottom: 2,
+          }}>
+            {/* Pill 1: Tất cả */}
             <button
-              key={c.id}
-              onClick={() => navigate(`/shop?category=${c.id}`)}
+              onClick={() => handleSelectCategory('ALL')}
               style={{
-                padding: '8px 20px', borderRadius: '12px 12px 0 0', border: 'none',
-                cursor: 'pointer', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap',
-                transition: 'all 0.2s',
-                background: categoryFilter === c.id
-                  ? (isDark ? '#10b981' : '#10b981')
-                  : 'transparent',
-                color: categoryFilter === c.id ? '#fff' : subCol,
-                borderBottom: categoryFilter === c.id ? '2px solid #10b981' : '2px solid transparent',
+                padding: '9px 22px',
+                borderRadius: 9999,
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 13.5,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s cubic-bezier(.16,1,.3,1)',
+                background: categoryFilter === 'ALL'
+                  ? (isDark ? '#ffffff' : '#111111')
+                  : (isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6'),
+                color: categoryFilter === 'ALL'
+                  ? (isDark ? '#000000' : '#ffffff')
+                  : (isDark ? 'rgba(255,255,255,0.75)' : '#4b5563'),
+                boxShadow: categoryFilter === 'ALL' ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
               }}
             >
-              {c.name}
+              Tất cả
             </button>
-          ))}
-        </div>
+
+            {/* Pill 2: Tab đặc biệt "Tất cả danh mục" (mở popup phân cấp rõ ràng) */}
+            <button
+              onClick={() => setIsCategoryModalOpen(true)}
+              style={{
+                padding: '9px 20px',
+                borderRadius: 9999,
+                border: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid #d1d5db',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 13.5,
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                background: isDark ? 'rgba(255,255,255,0.04)' : '#ffffff',
+                color: isDark ? '#ffffff' : '#111111',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#000000';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.18)' : '#d1d5db';
+              }}
+            >
+              Tất cả danh mục
+            </button>
+
+            {/* Dynamic Active Category Pills */}
+            {activeCategories.map(c => {
+              const isActive = categoryFilter === c.id;
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => handleSelectCategory(c.id)}
+                  style={{
+                    padding: '9px 20px',
+                    borderRadius: 9999,
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: 13.5,
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.2s cubic-bezier(.16,1,.3,1)',
+                    background: isActive
+                      ? (isDark ? '#ffffff' : '#111111')
+                      : (isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6'),
+                    color: isActive
+                      ? (isDark ? '#000000' : '#ffffff')
+                      : (isDark ? 'rgba(255,255,255,0.75)' : '#4b5563'),
+                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6';
+                  }}
+                >
+                  {c.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* ── Main layout ── */}
-      <div style={{ display: 'flex', maxWidth: 1440, margin: '0 auto', padding: '32px 48px 64px', gap: 28 }}>
+      {/* ── 2. Main Layout (Sidebar + Products Grid) ── */}
+      <div style={{
+        display: 'flex',
+        maxWidth: 1400,
+        margin: '0 auto',
+        padding: '32px 32px 64px',
+        gap: 32,
+      }}>
 
         {/* ── Left Sidebar Filter ── */}
         {sidebarOpen && (
           <aside style={{
-            width: 280, flexShrink: 0,
-            background: cardBg,
-            border: `1px solid ${borderCol}`,
-            borderRadius: 20,
-            padding: 24,
+            width: 270,
+            flexShrink: 0,
             alignSelf: 'flex-start',
-            position: 'sticky', top: 130,
-            maxHeight: 'calc(100vh - 160px)',
+            position: 'sticky',
+            top: 150,
+            maxHeight: 'calc(100vh - 170px)',
             overflowY: 'auto',
+            paddingRight: 4,
           }}>
-            {/* Filter header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+
+            {/* Filter Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <span style={{ fontWeight: 800, fontSize: 16, color: textCol, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <FilterOutlined style={{ color: '#10b981' }} /> Bộ lọc
+                Bộ lọc
               </span>
               {hasActiveFilters && (
-                <button onClick={clearAllFilters} style={{
-                  background: 'none', border: 'none', color: '#ef4444',
-                  fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                }}>
-                  <CloseOutlined /> Xóa tất cả
+                <button
+                  onClick={clearAllFilters}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#ef4444',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  <CloseOutlined /> Xoá lọc
                 </button>
               )}
             </div>
 
-            {/* Price range */}
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: subCol, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 16 }}>
-                Khoảng giá (VNĐ)
-              </div>
-
-              {/* CSS: track transparent, chỉ thumb nhận pointer events */}
-              <style>{`
-                .price-range-wrap input[type='range'] {
-                  pointer-events: none;
-                  position: absolute;
-                  width: 100%;
-                  height: 0;
-                  top: 50%;
-                  transform: translateY(-50%);
-                  appearance: none;
-                  -webkit-appearance: none;
-                  background: transparent;
-                  margin: 0; padding: 0;
-                  outline: none;
-                }
-                .price-range-wrap input[type='range']::-webkit-slider-thumb {
-                  pointer-events: all;
-                  -webkit-appearance: none;
-                  width: 18px; height: 18px;
-                  border-radius: 50%;
-                  background: #fff;
-                  border: 2.5px solid #10b981;
-                  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
-                  cursor: grab;
-                  margin-top: 0;
-                }
-                .price-range-wrap input[type='range']::-moz-range-thumb {
-                  pointer-events: all;
-                  width: 18px; height: 18px;
-                  border-radius: 50%;
-                  background: #fff;
-                  border: 2.5px solid #10b981;
-                  box-shadow: 0 1px 6px rgba(0,0,0,0.18);
-                  cursor: grab;
-                }
-                .price-range-wrap input[type='range']::-webkit-slider-runnable-track {
-                  background: transparent;
-                }
-              `}</style>
-
-              <div className="price-range-wrap" style={{ position: 'relative', height: 28, marginBottom: 4 }}>
-                {/* Rail */}
-                <div style={{
-                  position: 'absolute', left: 0, right: 0, top: '50%',
-                  transform: 'translateY(-50%)', height: 4,
-                  background: isDark ? 'rgba(255,255,255,0.1)' : '#e2e8f0', borderRadius: 2,
-                  pointerEvents: 'none',
-                }} />
-                {/* Active track */}
-                <div style={{
-                  position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-                  height: 4, borderRadius: 2, background: '#10b981', pointerEvents: 'none',
-                  left: `${((minPrice || 0) / 100000000) * 100}%`,
-                  right: `${100 - ((maxPrice || 100000000) / 100000000) * 100}%`,
-                }} />
-                {/* Input min — z-index cao hơn khi giá trị gần max để vẫn kéo được */}
-                <input type="range" min={0} max={100000000} step={500000}
-                  value={minPrice || 0}
-                  onChange={e => { const v = Number(e.target.value); if (v <= (maxPrice || 100000000)) setMinPrice(v); }}
-                  style={{ zIndex: (minPrice || 0) > 90000000 ? 5 : 3 }}
-                />
-                {/* Input max */}
-                <input type="range" min={0} max={100000000} step={500000}
-                  value={maxPrice || 100000000}
-                  onChange={e => { const v = Number(e.target.value); if (v >= (minPrice || 0)) setMaxPrice(v); }}
-                  style={{ zIndex: 4 }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <InputNumber
-                  placeholder="Từ" value={minPrice} onChange={setMinPrice}
-                  style={{ flex: 1, borderRadius: 10 }} size="small"
-                  formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                />
-                <span style={{ color: subCol, alignSelf: 'center' }}>—</span>
-                <InputNumber
-                  placeholder="Đến" value={maxPrice} onChange={setMaxPrice}
-                  style={{ flex: 1, borderRadius: 10 }} size="small"
-                  formatter={v => `${v}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                />
-              </div>
-              <Button
-                type="primary" block onClick={applyPriceFilter}
-                style={{ marginTop: 12, borderRadius: 10, background: '#10b981', borderColor: '#10b981', fontWeight: 700 }}
-              >
-                Áp dụng
-              </Button>
-            </div>
-
-            <div style={{ height: 1, background: borderCol, marginBottom: 24 }} />
-
-            {/* Rating */}
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: subCol, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                Đánh giá tối thiểu
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {[0, 4, 3].map(v => (
+            {/* Card 1: Khoảng giá (Price Range — ĐÃ BỎ BIỂU ĐỒ theo yêu cầu) */}
+            <div style={{
+              background: cardBg,
+              border: `1px solid ${borderCol}`,
+              borderRadius: 20,
+              padding: '20px 20px',
+              marginBottom: 20,
+              boxShadow: isDark ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <span style={{ fontWeight: 700, fontSize: 14.5, color: textCol }}>
+                  Khoảng giá
+                </span>
+                {(appliedMinPrice !== null || appliedMaxPrice !== null) && (
                   <button
-                    key={v}
-                    onClick={() => setMinRating(v)}
+                    onClick={() => {
+                      setMinPrice(0);
+                      setMaxPrice(50000000);
+                      setAppliedMinPrice(null);
+                      setAppliedMaxPrice(null);
+                      setCurrentPage(1);
+                    }}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 8,
-                      padding: '8px 14px', borderRadius: 10, border: 'none',
-                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s',
-                      background: minRating === v
-                        ? (isDark ? 'rgba(16,185,129,0.15)' : '#ecfdf5')
-                        : 'transparent',
-                      color: minRating === v ? '#10b981' : textCol,
-                      fontWeight: minRating === v ? 700 : 500,
+                      background: 'none', border: 'none', color: isDark ? '#9ca3af' : '#71717a',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
                     }}
                   >
-                    {v === 0 ? (
-                      <span>Tất cả đánh giá</span>
-                    ) : (
-                      <>
-                        <Rate disabled defaultValue={v} style={{ fontSize: 13, color: '#f59e0b' }} />
-                        <span style={{ fontSize: 13 }}>trở lên</span>
-                      </>
-                    )}
+                    Reset
                   </button>
-                ))}
+                )}
               </div>
+
+              <div style={{ fontSize: 12, color: subCol, marginBottom: 18 }}>
+                {appliedMinPrice !== null || appliedMaxPrice !== null
+                  ? `${(appliedMinPrice || 0).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 50000000).toLocaleString('vi-VN')} đ`
+                  : 'Lọc theo ngân sách sản phẩm'}
+              </div>
+
+              {/* Clean Range Slider (No Histogram / Chart) */}
+              <Slider
+                range
+                min={0}
+                max={50000000}
+                step={500000}
+                value={[minPrice, maxPrice]}
+                onChange={([valMin, valMax]) => {
+                  setMinPrice(valMin);
+                  setMaxPrice(valMax);
+                }}
+                styles={{
+                  track: { background: isDark ? '#ffffff' : '#111111', height: 4 },
+                  rail: { background: isDark ? 'rgba(255,255,255,0.12)' : '#e5e7eb', height: 4 },
+                  handle: {
+                    borderColor: isDark ? '#ffffff' : '#111111',
+                    background: isDark ? '#111111' : '#ffffff',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                  }
+                }}
+              />
+
+              {/* Price Pill Values */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
+                <div style={{
+                  flex: 1,
+                  padding: '6px 8px',
+                  background: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6',
+                  borderRadius: 10,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: textCol,
+                  textAlign: 'center',
+                }}>
+                  {(minPrice || 0).toLocaleString('vi-VN')} đ
+                </div>
+                <span style={{ color: subCol, fontSize: 12 }}>—</span>
+                <div style={{
+                  flex: 1,
+                  padding: '6px 8px',
+                  background: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6',
+                  borderRadius: 10,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  color: textCol,
+                  textAlign: 'center',
+                }}>
+                  {(maxPrice || 50000000).toLocaleString('vi-VN')} đ
+                </div>
+              </div>
+
+              {/* Apply Price Button */}
+              <button
+                onClick={applyPriceFilter}
+                style={{
+                  width: '100%',
+                  marginTop: 14,
+                  padding: '9px 0',
+                  borderRadius: 12,
+                  background: isDark ? '#ffffff' : '#111111',
+                  color: isDark ? '#111111' : '#ffffff',
+                  border: 'none',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  transition: 'opacity 0.2s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
+                onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+              >
+                Áp dụng giá
+              </button>
             </div>
 
-            <div style={{ height: 1, background: borderCol, marginBottom: 24 }} />
-
-            {/* Brands */}
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: subCol, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 12 }}>
-                Thương hiệu
+            {/* Card 2: Thương hiệu (Brand — Tick màu đen + Show more popup) */}
+            <div style={{
+              background: cardBg,
+              border: `1px solid ${borderCol}`,
+              borderRadius: 20,
+              padding: '20px 20px',
+              boxShadow: isDark ? 'none' : '0 2px 10px rgba(0,0,0,0.02)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <span style={{ fontWeight: 700, fontSize: 14.5, color: textCol }}>
+                  Thương hiệu
+                </span>
+                {brands.length > 0 && (
+                  <button
+                    onClick={() => { setBrands([]); setCurrentPage(1); }}
+                    style={{
+                      background: 'none', border: 'none', color: isDark ? '#9ca3af' : '#71717a',
+                      fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    }}
+                  >
+                    Reset
+                  </button>
+                )}
               </div>
-              
-              <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
-                background: isDark ? 'rgba(255,255,255,0.04)' : '#f1f5f9',
-                borderRadius: 12, padding: '8px 12px',
-                marginBottom: 16,
-                border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'}`,
-                transition: 'all 0.2s',
-              }}>
-                <SearchOutlined style={{ color: subCol, fontSize: 15 }} />
-                <input
-                  onChange={(e) => setBrandSearch(e.target.value)}
-                  style={{
-                    background: 'transparent', border: 'none', outline: 'none',
-                    color: textCol, width: '100%', fontSize: 13,
-                  }}
-                />
-              </div>
 
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
-                {brandList
-                  .filter(b => b.name.toLowerCase().includes((brandSearch || '').toLowerCase()))
-                  .map(b => {
-                    const active = brands.includes(b.id);
-                    return (
-                      <button
-                        key={b.id}
-                        onClick={() => setBrands(active ? brands.filter(x => x !== b.id) : [...brands, b.id])}
-                        style={{
-                          padding: '5px 14px', borderRadius: 20, border: 'none',
-                          cursor: 'pointer', fontSize: 12, fontWeight: 600, transition: 'all 0.2s',
-                          background: active ? '#10b981' : (isDark ? 'rgba(255,255,255,0.07)' : '#f1f5f9'),
-                          color: active ? '#fff' : textCol,
-                          boxShadow: active ? '0 2px 8px rgba(16,185,129,0.35)' : 'none',
-                        }}
-                      >
+              {/* Brand list with custom BLACK checkboxes */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {brandList.slice(0, 7).map(b => {
+                  const isChecked = brands.includes(b.id);
+                  return (
+                    <div
+                      key={b.id}
+                      onClick={() => handleToggleBrand(b.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        padding: '4px 2px',
+                        userSelect: 'none',
+                      }}
+                    >
+                      <span style={{
+                        fontSize: 13.5,
+                        fontWeight: isChecked ? 600 : 400,
+                        color: isChecked ? textCol : subCol,
+                      }}>
                         {b.name}
-                      </button>
-                    );
+                      </span>
+
+                      {/* Custom Black Tick Checkbox */}
+                      <div style={{
+                        width: 19,
+                        height: 19,
+                        borderRadius: 5,
+                        border: isChecked
+                          ? `2px solid ${isDark ? '#ffffff' : '#000000'}`
+                          : `1.5px solid ${isDark ? 'rgba(255,255,255,0.3)' : '#d1d5db'}`,
+                        background: isChecked
+                          ? (isDark ? '#ffffff' : '#000000')
+                          : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.15s ease',
+                      }}>
+                        {isChecked && (
+                          <CheckOutlined style={{
+                            fontSize: 11,
+                            color: isDark ? '#000000' : '#ffffff',
+                          }} />
+                        )}
+                      </div>
+                    </div>
+                  );
                 })}
               </div>
+
+              {/* More Brands Button (Opens Popup) */}
+              {brandList.length > 7 && (
+                <button
+                  onClick={() => setIsBrandModalOpen(true)}
+                  style={{
+                    marginTop: 14,
+                    background: 'none',
+                    border: 'none',
+                    padding: '6px 0',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: isDark ? '#38bdf8' : '#2563eb',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                  }}
+                >
+                  Khác ({brandList.length - 7}+) →
+                </button>
+              )}
             </div>
+
           </aside>
         )}
 
-        {/* ── Right: Products ── */}
+        {/* ── Right Column: Products List ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
-          {/* Toolbar */}
+          {/* Toolbar Header */}
           <div style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            marginBottom: 24, flexWrap: 'wrap', gap: 12,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: 24,
+            flexWrap: 'wrap',
+            gap: 12,
           }}>
             <div>
-              <Title level={3} style={{ color: textCol, margin: 0, fontWeight: 800 }}>
+              <Title level={3} style={{ color: textCol, margin: 0, fontWeight: 700, fontSize: 22 }}>
                 {searchQuery ? `Kết quả: "${searchQuery}"` : activeCatName}
               </Title>
               {!loading && (
                 <Text style={{ color: subCol, fontSize: 13 }}>
-                  {totalProducts.toLocaleString()} sản phẩm
+                  {totalProducts.toLocaleString()} sản phẩm tìm thấy
                 </Text>
               )}
             </div>
@@ -604,49 +915,67 @@ export default function ProductList() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {/* Filter toggle */}
               <button
-                onClick={() => setSidebarOpen(v => !v)}
+                onClick={() => setSidebarOpen(!sidebarOpen)}
                 style={{
-                  padding: '8px 16px', borderRadius: 12, border: `1px solid ${borderCol}`,
-                  background: sidebarOpen ? (isDark ? 'rgba(16,185,129,0.15)' : '#ecfdf5') : cardBg,
-                  color: sidebarOpen ? '#10b981' : textCol,
-                  fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                  display: 'flex', alignItems: 'center', gap: 6, transition: 'all 0.2s',
+                  padding: '9px 18px',
+                  borderRadius: 14,
+                  border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+                  background: isDark ? 'rgba(255,255,255,0.06)' : '#f9fafb',
+                  color: textCol,
+                  fontWeight: 600,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  transition: 'all 0.2s',
                 }}
               >
-                <FilterOutlined /> {sidebarOpen ? 'Ẩn bộ lọc' : 'Bộ lọc'}
+                {sidebarOpen ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
                 {hasActiveFilters && (
                   <span style={{
-                    background: '#10b981', color: '#fff', borderRadius: '50%',
-                    width: 18, height: 18, fontSize: 10, fontWeight: 800,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    background: isDark ? '#ffffff' : '#000000',
+                    color: isDark ? '#000000' : '#ffffff',
+                    borderRadius: '50%',
+                    width: 18,
+                    height: 18,
+                    fontSize: 10,
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                   }}>
-                    {[appliedMinPrice, appliedMaxPrice, ...brands, minRating > 0 ? 1 : null].filter(Boolean).length}
+                    {[appliedMinPrice, appliedMaxPrice, ...brands].filter(Boolean).length}
                   </span>
                 )}
               </button>
 
-              {/* Sort */}
+              {/* Sort Select */}
               <Select
-                value={sort} onChange={val => { setSort(val); setCurrentPage(1); }}
+                value={sort}
+                onChange={val => { setSort(val); setCurrentPage(1); }}
                 style={{ width: 160, borderRadius: 12 }}
                 options={[
-                  { value: 'newest', label: '🕐 Mới nhất' },
-                  { value: 'best_selling', label: '🔥 Bán chạy' },
-                  { value: 'price_asc', label: '💰 Giá tăng dần' },
-                  { value: 'price_desc', label: '💎 Giá giảm dần' },
+                  { value: 'newest', label: 'Mới nhất' },
+                  { value: 'best_selling', label: 'Bán chạy' },
+                  { value: 'price_asc', label: 'Giá tăng dần' },
+                  { value: 'price_desc', label: 'Giá giảm dần' },
                 ]}
               />
 
               {/* View mode toggle */}
-              <div style={{ display: 'flex', borderRadius: 10, overflow: 'hidden', border: `1px solid ${borderCol}` }}>
+              <div style={{ display: 'flex', borderRadius: 9999, overflow: 'hidden', border: `1px solid ${borderCol}` }}>
                 {[['grid', <AppstoreOutlined />], ['list', <BarsOutlined />]].map(([mode, icon]) => (
                   <button
                     key={mode}
                     onClick={() => setViewMode(mode)}
                     style={{
-                      padding: '8px 12px', border: 'none', cursor: 'pointer', transition: 'all 0.2s',
-                      background: viewMode === mode ? '#10b981' : cardBg,
-                      color: viewMode === mode ? '#fff' : subCol,
+                      padding: '8px 12px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      background: viewMode === mode ? (isDark ? '#ffffff' : '#111111') : cardBg,
+                      color: viewMode === mode ? (isDark ? '#000000' : '#ffffff') : subCol,
                     }}
                   >
                     {icon}
@@ -656,52 +985,91 @@ export default function ProductList() {
             </div>
           </div>
 
-          {/* Active filter chips */}
+          {/* Active filter tags */}
           {hasActiveFilters && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
               {appliedMinPrice !== null && (
-                <Tag closable onClose={() => { setMinPrice(null); setAppliedMinPrice(null); }}
-                  color="green" style={{ borderRadius: 20, padding: '4px 12px', fontWeight: 600 }}>
+                <div style={{
+                  background: isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
+                  color: textCol,
+                  padding: '4px 12px',
+                  borderRadius: 9999,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}>
                   Từ {appliedMinPrice.toLocaleString('vi-VN')} đ
-                </Tag>
+                  <CloseOutlined
+                    style={{ cursor: 'pointer', fontSize: 10 }}
+                    onClick={() => { setMinPrice(0); setAppliedMinPrice(null); }}
+                  />
+                </div>
               )}
               {appliedMaxPrice !== null && (
-                <Tag closable onClose={() => { setMaxPrice(null); setAppliedMaxPrice(null); }}
-                  color="green" style={{ borderRadius: 20, padding: '4px 12px', fontWeight: 600 }}>
+                <div style={{
+                  background: isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6',
+                  color: textCol,
+                  padding: '4px 12px',
+                  borderRadius: 9999,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}>
                   Đến {appliedMaxPrice.toLocaleString('vi-VN')} đ
-                </Tag>
+                  <CloseOutlined
+                    style={{ cursor: 'pointer', fontSize: 10 }}
+                    onClick={() => { setMaxPrice(50000000); setAppliedMaxPrice(null); }}
+                  />
+                </div>
               )}
               {brands.map(bid => {
                 const b = brandList.find(x => x.id === bid);
                 return b ? (
-                  <Tag key={bid} closable onClose={() => setBrands(brands.filter(x => x !== bid))}
-                    color="green" style={{ borderRadius: 20, padding: '4px 12px', fontWeight: 600 }}>
+                  <div
+                    key={bid}
+                    style={{
+                      background: isDark ? '#ffffff' : '#111111',
+                      color: isDark ? '#000000' : '#ffffff',
+                      padding: '4px 12px',
+                      borderRadius: 9999,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
                     {b.name}
-                  </Tag>
+                    <CloseOutlined
+                      style={{ cursor: 'pointer', fontSize: 10 }}
+                      onClick={() => setBrands(brands.filter(x => x !== bid))}
+                    />
+                  </div>
                 ) : null;
               })}
-              {minRating > 0 && (
-                <Tag closable onClose={() => setMinRating(0)}
-                  color="green" style={{ borderRadius: 20, padding: '4px 12px', fontWeight: 600 }}>
-                  ⭐ {minRating}+ sao
-                </Tag>
-              )}
             </div>
           )}
 
-          {/* Product grid */}
+          {/* Product Grid / List */}
           {loading ? (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(220px, 1fr))' : '1fr',
-              gap: 20,
+              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(260px, 1fr))' : '1fr',
+              gap: 24,
             }}>
               {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} isDark={isDark} />)}
             </div>
           ) : products.length === 0 ? (
             <div style={{
-              background: cardBg, border: `1px solid ${borderCol}`,
-              borderRadius: 24, padding: 64, textAlign: 'center',
+              background: cardBg,
+              border: `1px solid ${borderCol}`,
+              borderRadius: 24,
+              padding: 64,
+              textAlign: 'center',
             }}>
               {isAiLoading && (
                 <div>
@@ -723,17 +1091,25 @@ export default function ProductList() {
                   </div>
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                    gap: 20, textAlign: 'left',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                    gap: 24, textAlign: 'left',
                   }}>
                     {aiResults.map(p => (
-                      <ProductCard key={p.id} p={p} isDark={isDark} navigate={navigate} addToCart={addToCart} t={t} />
+                      <ProductCard
+                        key={p.id}
+                        p={p}
+                        isDark={isDark}
+                        navigate={navigate}
+                        addToCart={addToCart}
+                        isFavorited={wishlistIds.includes(p.id)}
+                        onToggleFavorite={handleToggleFavorite}
+                      />
                     ))}
                   </div>
                 </>
               )}
               {!isAiLoading && aiSearchDone && aiResults.length === 0 && (
-                <Empty description={<span style={{ color: subCol }}>Không tìm thấy sản phẩm phù hợp</span>} />
+                <Empty description={<span style={{ color: subCol }}>Không tìm thấy sản phẩm phù hợp với bộ lọc</span>} />
               )}
               {!isAiLoading && !aiSearchDone && (
                 <Empty description={<span style={{ color: subCol }}>Không có sản phẩm nào</span>} />
@@ -743,51 +1119,90 @@ export default function ProductList() {
             <div style={{
               display: 'grid',
               gridTemplateColumns: viewMode === 'grid'
-                ? 'repeat(auto-fill, minmax(220px, 1fr))'
+                ? 'repeat(auto-fill, minmax(260px, 1fr))'
                 : '1fr',
-              gap: viewMode === 'grid' ? 20 : 14,
+              gap: viewMode === 'grid' ? 24 : 16,
             }}>
               {products.map(p => (
                 viewMode === 'grid' ? (
-                  <ProductCard key={p.id} p={p} isDark={isDark} navigate={navigate} addToCart={addToCart} t={t} />
+                  <ProductCard
+                    key={p.id}
+                    p={p}
+                    isDark={isDark}
+                    navigate={navigate}
+                    addToCart={addToCart}
+                    isFavorited={wishlistIds.includes(p.id)}
+                    onToggleFavorite={handleToggleFavorite}
+                  />
                 ) : (
-                  // List view
+                  // List View (No Rating, Pill Price Button)
                   <div
                     key={p.id}
                     onClick={() => navigate(`/product/${p.id}`)}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: 20, padding: '16px 20px',
-                      borderRadius: 16, cursor: 'pointer', transition: 'all 0.2s',
-                      background: cardBg, border: `1px solid ${borderCol}`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 20,
+                      padding: '16px 20px',
+                      borderRadius: 20,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      background: cardBg,
+                      border: `1px solid ${borderCol}`,
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(16,185,129,0.1)'; e.currentTarget.style.borderColor = '#10b981'; }}
-                    onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.borderColor = borderCol; }}
+                    onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.06)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none'; }}
                   >
-                    <img alt={p.name} src={p.image} width={80} height={80}
-                      style={{ objectFit: 'contain', borderRadius: 12, background: isDark ? 'rgba(0,0,0,0.2)' : '#f9fafb', padding: 8 }}
+                    <img
+                      alt={p.name}
+                      src={p.image}
+                      width={84}
+                      height={84}
+                      style={{
+                        objectFit: 'contain',
+                        borderRadius: 14,
+                        background: isDark ? 'rgba(0,0,0,0.2)' : '#f5f5f7',
+                        padding: 8,
+                        mixBlendMode: isDark ? 'normal' : 'multiply',
+                      }}
                       onError={e => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: textCol, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: subCol, marginBottom: 2 }}>
+                        {p.category_name || p.Category?.name || 'TECHNOLOGY'}
+                      </div>
+                      <div style={{ fontWeight: 600, fontSize: 15, color: textCol, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.name}
                       </div>
-                      <Rate disabled defaultValue={Math.round(p.rating || 0)} style={{ fontSize: 11, color: '#f59e0b' }} />
-                      <span style={{ fontSize: 11, color: subCol, marginLeft: 6 }}>({p.sold || 0})</span>
                     </div>
-                    <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#10b981' }}>{p.price.toLocaleString('vi-VN')} đ</div>
-                      {p.original_price > p.price && (
-                        <div style={{ fontSize: 12, color: subCol, textDecoration: 'line-through' }}>{p.original_price.toLocaleString('vi-VN')} đ</div>
-                      )}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const pToAdd = {
+                            ...p,
+                            price: Number(p.price || 0),
+                            selectedVariant: null
+                          };
+                          addToCart(pToAdd, 1, false);
+                        }}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          padding: '8px 18px',
+                          borderRadius: 9999,
+                          border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.2)' : '#e4e4e7'}`,
+                          background: isDark ? 'rgba(255,255,255,0.06)' : '#ffffff',
+                          color: textCol,
+                          fontWeight: 700,
+                          fontSize: 14,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        <ShoppingOutlined /> {Math.round(p.price).toLocaleString('vi-VN')} đ
+                      </button>
                     </div>
-                    <button
-                      onClick={e => { e.stopPropagation(); addToCart(p); }}
-                      style={{ width: 40, height: 40, borderRadius: '50%', border: 'none', background: 'rgba(16,185,129,0.12)', color: '#10b981', cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-                      onMouseEnter={e => { e.currentTarget.style.background = '#10b981'; e.currentTarget.style.color = '#fff'; }}
-                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(16,185,129,0.12)'; e.currentTarget.style.color = '#10b981'; }}
-                    >
-                      <ShoppingCartOutlined />
-                    </button>
                   </div>
                 )
               ))}
@@ -814,7 +1229,287 @@ export default function ProductList() {
         </div>
       </div>
 
-      {/* shimmer keyframe */}
+      {/* ── 3. Hierarchical Category Modal (Tab "Tất cả danh mục ↗") ── */}
+      <Modal
+        open={isCategoryModalOpen}
+        onCancel={() => { setIsCategoryModalOpen(false); setCategoryModalSearch(''); }}
+        footer={null}
+        width={920}
+        centered
+        styles={{
+          content: {
+            borderRadius: 24,
+            padding: '32px 36px',
+            background: isDark ? '#0f172a' : '#ffffff',
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : 'none',
+          }
+        }}
+      >
+        <div>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <div>
+              <h2 style={{
+                fontSize: 22,
+                fontWeight: 700,
+                margin: '0 0 4px 0',
+                color: textCol,
+              }}>
+                Toàn bộ danh mục sản phẩm
+              </h2>
+              <p style={{ margin: 0, color: subCol, fontSize: 13.5 }}>
+                Chọn bất kỳ danh mục nào bên dưới để lọc sản phẩm tức thì
+              </p>
+            </div>
+          </div>
+
+          {/* Category Search Input */}
+          <div style={{ marginBottom: 24 }}>
+            <Input
+              prefix={<SearchOutlined style={{ color: '#9ca3af', marginRight: 6 }} />}
+              placeholder="Tìm kiếm danh mục (ví dụ: Điện thoại, Cáp sạc, Tablet...)"
+              value={categoryModalSearch}
+              onChange={e => setCategoryModalSearch(e.target.value)}
+              allowClear
+              style={{
+                height: 44,
+                borderRadius: 12,
+                background: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+                color: textCol,
+                fontSize: 14,
+              }}
+            />
+          </div>
+
+          {/* Hierarchical Categories View */}
+          <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8 }}>
+            {hierarchicalCategories.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: subCol }}>
+                Không tìm thấy danh mục phù hợp.
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                {hierarchicalCategories.map(parent => (
+                  <div
+                    key={parent.id}
+                    style={{
+                      background: isDark ? 'rgba(255,255,255,0.03)' : '#f9fafb',
+                      borderRadius: 16,
+                      padding: 16,
+                      border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f2',
+                    }}
+                  >
+                    {/* Parent Category */}
+                    <div
+                      onClick={() => handleSelectCategory(parent.id)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        padding: '6px 8px',
+                        borderRadius: 10,
+                        transition: 'background 0.2s',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        {parent.icon && <span style={{ fontSize: 18 }}>{parent.icon}</span>}
+                        <span style={{ fontSize: 15, fontWeight: 700, color: textCol }}>
+                          {parent.name}
+                        </span>
+                      </div>
+                      <span style={{ fontSize: 12.5, fontWeight: 600, color: isDark ? '#38bdf8' : '#2563eb' }}>
+                        Xem tất cả nhóm này →
+                      </span>
+                    </div>
+
+                    {/* Subcategories Pills */}
+                    {parent.children && parent.children.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingLeft: 8 }}>
+                        {parent.children.map(child => (
+                          <button
+                            key={child.id}
+                            onClick={() => handleSelectCategory(child.id)}
+                            style={{
+                              padding: '6px 14px',
+                              borderRadius: 9999,
+                              border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+                              background: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                              color: isDark ? 'rgba(255,255,255,0.85)' : '#374151',
+                              fontSize: 13,
+                              fontWeight: 500,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s ease',
+                            }}
+                            onMouseEnter={e => {
+                              e.currentTarget.style.background = isDark ? '#ffffff' : '#111111';
+                              e.currentTarget.style.color = isDark ? '#000000' : '#ffffff';
+                              e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#111111';
+                            }}
+                            onMouseLeave={e => {
+                              e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+                              e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.85)' : '#374151';
+                              e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
+                            }}
+                          >
+                            {child.name}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── 4. Brand Selection Modal ("More Brand") ── */}
+      <Modal
+        open={isBrandModalOpen}
+        onCancel={() => { setIsBrandModalOpen(false); setBrandSearch(''); }}
+        footer={null}
+        width={700}
+        centered
+        styles={{
+          content: {
+            borderRadius: 24,
+            padding: '30px 34px',
+            background: isDark ? '#0f172a' : '#ffffff',
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : 'none',
+          }
+        }}
+      >
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+            <div>
+              <h3 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px 0', color: textCol }}>
+                Tất cả thương hiệu
+              </h3>
+              <p style={{ margin: 0, color: subCol, fontSize: 13 }}>
+                Chọn một hoặc nhiều thương hiệu để lọc sản phẩm
+              </p>
+            </div>
+            {brands.length > 0 && (
+              <button
+                onClick={() => setBrands([])}
+                style={{
+                  background: 'none', border: 'none', color: '#ef4444',
+                  fontSize: 12.5, fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                Bỏ chọn tất cả ({brands.length})
+              </button>
+            )}
+          </div>
+
+          {/* Search Brand */}
+          <Input
+            prefix={<SearchOutlined style={{ color: '#9ca3af', marginRight: 6 }} />}
+            placeholder="Tìm nhanh thương hiệu..."
+            value={brandSearch}
+            onChange={e => setBrandSearch(e.target.value)}
+            allowClear
+            style={{
+              height: 42,
+              borderRadius: 12,
+              marginBottom: 18,
+              background: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+              border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+              color: textCol,
+            }}
+          />
+
+          {/* Brands Grid */}
+          <div style={{
+            maxHeight: '52vh',
+            overflowY: 'auto',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(2, 1fr)',
+            gap: 10,
+            paddingRight: 6,
+          }}>
+            {brandList
+              .filter(b => b.name.toLowerCase().includes(brandSearch.trim().toLowerCase()))
+              .map(b => {
+                const isChecked = brands.includes(b.id);
+                return (
+                  <div
+                    key={b.id}
+                    onClick={() => handleToggleBrand(b.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      borderRadius: 12,
+                      background: isChecked
+                        ? (isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5')
+                        : (isDark ? 'rgba(255,255,255,0.03)' : '#ffffff'),
+                      cursor: 'pointer',
+                      border: isChecked
+                        ? `1.5px solid ${isDark ? '#ffffff' : '#000000'}`
+                        : `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'}`,
+                      transition: 'all 0.15s ease',
+                    }}
+                  >
+                    <span style={{ fontSize: 13.5, fontWeight: isChecked ? 600 : 400, color: textCol }}>
+                      {b.name}
+                    </span>
+
+                    {/* Black Checkbox */}
+                    <div style={{
+                      width: 19,
+                      height: 19,
+                      borderRadius: 5,
+                      border: isChecked
+                        ? `2px solid ${isDark ? '#ffffff' : '#000000'}`
+                        : `1.5px solid ${isDark ? 'rgba(255,255,255,0.3)' : '#d1d5db'}`,
+                      background: isChecked
+                        ? (isDark ? '#ffffff' : '#000000')
+                        : 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                      {isChecked && (
+                        <CheckOutlined style={{
+                          fontSize: 11,
+                          color: isDark ? '#000000' : '#ffffff',
+                        }} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+          </div>
+
+          {/* Action Footer */}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20, gap: 12 }}>
+            <button
+              onClick={() => setIsBrandModalOpen(false)}
+              style={{
+                padding: '10px 24px',
+                borderRadius: 9999,
+                border: 'none',
+                background: isDark ? '#ffffff' : '#111111',
+                color: isDark ? '#000000' : '#ffffff',
+                fontWeight: 600,
+                fontSize: 13.5,
+                cursor: 'pointer',
+              }}
+            >
+              Áp dụng ({brands.length} đã chọn)
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Shimmer keyframe */}
       <style>{`
         @keyframes shimmer {
           0% { background-position: 100% 0; }
