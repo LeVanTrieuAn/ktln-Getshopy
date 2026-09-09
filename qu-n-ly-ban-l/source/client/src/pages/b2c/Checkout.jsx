@@ -18,6 +18,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
+import { useTracking } from '../../hooks/useTracking';
 
 const { Title, Text } = Typography;
 
@@ -39,6 +40,7 @@ export default function Checkout() {
   const { isDark, b2cUser } = useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
+  const { trackPurchase } = useTracking();
 
   useEffect(() => {
     if (!b2cUser && !localStorage.getItem('b2c_token')) {
@@ -163,6 +165,15 @@ export default function Checkout() {
       localStorage.setItem('b2c_points', newPoints.toString());
 
       clearCart(); // Should technically only clear selected items, but clear all for demo
+
+      // Track purchase events for each item
+      trackPurchase(checkoutItems.map(item => ({
+        id: item.id,
+        category_id: item.category_id,
+        brand_id: item.brand_id,
+        price: item.price,
+        quantity: item.quantity,
+      })));
       setOrderData({
         id: res.order?.id || `ORD${Date.now()}`,
         total: finalTotal,

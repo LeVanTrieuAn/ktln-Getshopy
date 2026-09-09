@@ -47,7 +47,17 @@ export const api = {
     getOrders: (cursor, limit = 20) => request('/analytics/orders?' + new URLSearchParams({ 
       ...(cursor ? { cursor } : {}), 
       limit 
-    }))
+    })),
+    // Behavior Analytics (Admin)
+    behaviorOverview: (days = 7) => request('/b2b/analytics/behavior/overview?' + new URLSearchParams({ days })),
+    behaviorFunnel: (days = 7) => request('/b2b/analytics/behavior/funnel?' + new URLSearchParams({ days })),
+    behaviorTopProducts: (days = 7, sort = 'views', limit = 10) => request('/b2b/analytics/behavior/top-products?' + new URLSearchParams({ days, sort, limit })),
+    behaviorSearch: (days = 7) => request('/b2b/analytics/behavior/search?' + new URLSearchParams({ days })),
+    behaviorDevices: (days = 7) => request('/b2b/analytics/behavior/devices?' + new URLSearchParams({ days })),
+    behaviorHourly: (days = 1) => request('/b2b/analytics/behavior/hourly?' + new URLSearchParams({ days })),
+    behaviorReferrers: (days = 7) => request('/b2b/analytics/behavior/referrers?' + new URLSearchParams({ days })),
+    behaviorDailyTrend: (days = 30) => request('/b2b/analytics/behavior/daily-trend?' + new URLSearchParams({ days })),
+    behaviorAiPerf: (days = 7) => request('/b2b/analytics/behavior/ai-performance?' + new URLSearchParams({ days })),
   },
 
   financialSummary: (params = {}) => request('/financial/summary?' + new URLSearchParams(params)),
@@ -138,6 +148,15 @@ export const api = {
     checkout: (data) => request('/b2c/checkout', { method: 'POST', body: JSON.stringify(data) }),
     applyVoucher: (code, cart_total) => request('/b2c/cart/apply-voucher', { method: 'POST', body: JSON.stringify({ code, cart_total }) }),
     getMyOrders: (email) => request('/b2c/orders/me?' + new URLSearchParams({ email })),
-    addReview: (productId, data) => request(`/b2c/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(data) })
+    addReview: (productId, data) => request(`/b2c/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(data) }),
+
+    // Behavior Tracking
+    track: (events) => request('/b2c/track', { method: 'POST', body: JSON.stringify({ events }) }),
+    getRecentlyViewed: (sessionId, customerId) => request('/b2c/recently-viewed?' + new URLSearchParams({ session_id: sessionId, ...(customerId ? { customer_id: customerId } : {}) })),
+    getTrending: (hours = 24, limit = 10) => request('/b2c/trending?' + new URLSearchParams({ hours, limit })),
+
+    // Wishlist
+    toggleWishlist: (customerId, productId) => request('/b2c/wishlist', { method: 'POST', body: JSON.stringify({ customer_id: customerId, product_id: productId }) }),
+    getWishlist: (customerId) => request('/b2c/wishlist?' + new URLSearchParams({ customer_id: customerId })),
   }
 };

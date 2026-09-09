@@ -122,9 +122,13 @@ async function migrate() {
       );
     }
 
-    // Execute batch updates
+    // Execute batch updates — chia nhỏ transaction (100/chunk) để tránh connection closed
     if (updates.length > 0) {
-      await prisma.$transaction(updates);
+      const CHUNK = 100;
+      for (let i = 0; i < updates.length; i += CHUNK) {
+        const chunk = updates.slice(i, i + CHUNK);
+        await prisma.$transaction(chunk);
+      }
       updated += updates.length;
     }
     skipped += batch.length - updates.length;

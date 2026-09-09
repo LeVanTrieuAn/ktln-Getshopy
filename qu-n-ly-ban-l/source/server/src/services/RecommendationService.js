@@ -1,18 +1,25 @@
 'use strict';
 /**
  * ============================================================
- * RECOMMENDATION SERVICE — Getshopy AI Product Recommendations v3.0
+ * RECOMMENDATION SERVICE — Getshopy AI Product Recommendations v4.0
  * services/RecommendationService.js
  * ============================================================
  *
- * ĐẠI NÂNG CẤP v3:
- *   - Category-based recommendations (top sản phẩm cùng category)
- *   - Brand-based recommendations (top sản phẩm cùng brand)
- *   - Specs-based similarity scoring (ProductSpecsCache)
- *   - Mixed strategy: 4 cùng context + 4 bán chạy toàn cửa hàng
- *   - Flash sale price overlay
- *   - Optimized payload: bỏ description, variants, branch_ids
- *   - KnowledgeCache integration
+ * ĐẠI NÂNG CẤP v4 — Behavior-Aware Personalization:
+ *   - [v3] Category/Brand-based recommendations
+ *   - [v3] Specs-based similarity scoring (ProductSpecsCache)
+ *   - [v3] Flash sale price overlay + KnowledgeCache
+ *   - [NEW v4] Recently Viewed re-engagement
+ *   - [NEW v4] Collaborative Filtering (user-user session overlap)
+ *   - [NEW v4] User Preference Profile (weighted category/brand/price)
+ *   - [NEW v4] Trending Products (velocity-based)
+ *
+ * Strategy v4 (khi có behavior data):
+ *   1. Recently Viewed + Not Purchased → 2 SP (re-engagement)
+ *   2. Collaborative Filtering (similar users) → 2 SP
+ *   3. User Preference (top category/brand from profile) → 2 SP
+ *   4. Trending Products → 2 SP
+ *   Fallback: v3 strategy nếu không đủ data
  *
  * @module RecommendationService
  */
@@ -20,6 +27,7 @@
 const { prisma } = require('../db');
 const KC  = require('./KnowledgeCache');
 const PSC = require('./ProductSpecsCache');
+const BS  = require('./BehaviorService');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Flash Sale helpers
@@ -61,25 +69,32 @@ const applyFlashSaleToProduct = (product, fsItems) => {
 };
 
 // ═════════════════════════════════════════════════════════════════════════════
-// MAIN: getRecommendations()
+// MAIN: getRecommendations() — v4 Behavior-Aware
 // ═════════════════════════════════════════════════════════════════════════════
 
 /**
  * Lấy danh sách sản phẩm gợi ý cho khách hàng.
  *
- * Strategies:
- *   1. categoryId specified → 4 top cùng category + 4 top toàn cửa hàng
- *   2. brandId specified → 4 top cùng brand + 4 top toàn cửa hàng
- *   3. Both specified → 4 category+brand + 4 top toàn cửa hàng
- *   4. None → 4 bán chạy + 4 mới nhất
+ * v4 Strategy (khi có behavior data — sessionId):
+ *   1. Recently Viewed + Not Purchased → 2 SP (re-engagement)
+ *   2. Collaborative Filtering → 2 SP (similar users bought)
+ *   3. User Preference Profile → 2 SP (top category/brand from behavior)
+ *   4. Trending Products → 2 SP
  *
- * @param {string|null} email - Email khách hàng (cho personalization tương lai)
+ * Fallback Strategy (không có behavior data):
+ *   1. categoryId/brandId specified → 4 top liên quan
+ *   2. Top bán chạy toàn cửa hàng → fill remaining
+ *   3. Sản phẩm mới nhất → fill remaining
+ *
+ * @param {string|null} email - Email khách hàng
  * @param {Object} opts
- * @param {string} [opts.categoryId] - Category ID để gợi ý liên quan
- * @param {string} [opts.brandId] - Brand ID để gợi ý liên quan
+ * @param {string} [opts.categoryId] - Category ID
+ * @param {string} [opts.brandId] - Brand ID
+ * @param {string} [opts.sessionId] - Session ID (browser fingerprint)
+ * @param {number} [opts.customerId] - B2CCustomer ID
  * @returns {Promise<Array>}
  */
-async function getRecommendations(email = null, { categoryId, brandId } = {}) {
+async function getRecommendations(email = null, { categoryId, brandId, sessionId, customerId } = {}) {
   await KC.ensureLoaded();
   const fsItems = await getActiveFlashSaleItems();
 
@@ -116,8 +131,88 @@ async function getRecommendations(email = null, { categoryId, brandId } = {}) {
     }
   };
 
+  // Helper: fetch products by IDs
+  const fetchProductsByIds = async (ids) => {
+    if (!ids || ids.length === 0) return [];
+    return prisma.product.findMany({
+      where: { id: { in: ids.map(BigInt) }, is_deleted: false, stock: { gt: 0 } },
+      select: REC_SELECT,
+    });
+  };
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // v4 STRATEGY — Behavior-Aware (khi có sessionId)
+  // ═══════════════════════════════════════════════════════════════════════
+  if (sessionId) {
+    try {
+      // ── 1. Recently Viewed (re-engagement) ──────────────────────────
+      const recentIds = await BS.getRecentlyViewed(sessionId, customerId, 4);
+      if (recentIds.length > 0) {
+        const recentProducts = await fetchProductsByIds(recentIds.slice(0, 2));
+        addUnique(recentProducts);
+      }
+
+      // ── 2. Collaborative Filtering ─────────────────────────────────
+      const collabIds = await BS.getCollaborativeRecommendations(sessionId, customerId, 4);
+      if (collabIds.length > 0) {
+        const collabProducts = await fetchProductsByIds(collabIds.slice(0, 2));
+        addUnique(collabProducts);
+      }
+
+      // ── 3. User Preference Profile → category/brand aware ─────────
+      const profile = await BS.getUserProfile(
+        customerId || sessionId,
+        customerId ? 'customer' : 'session'
+      );
+
+      if (profile && profile.categories.length > 0) {
+        const prefCatId = profile.categories[0].id; // Top category
+        const prefBrandId = profile.brands.length > 0 ? profile.brands[0].id : null;
+        const prefWhere = { is_deleted: false, stock: { gt: 0 } };
+
+        const expandedIds = KC.expandCategoryIds(prefCatId);
+        prefWhere.category_id = expandedIds.length === 1 ? expandedIds[0] : { in: expandedIds };
+        if (prefBrandId) prefWhere.brand_id = prefBrandId;
+
+        // Price range filter from profile
+        if (profile.priceRange.p25 > 0 && profile.priceRange.p75 > 0) {
+          prefWhere.price = {
+            gte: profile.priceRange.p25 * 0.5,
+            lte: profile.priceRange.p75 * 2,
+          };
+        }
+
+        const prefProducts = await prisma.product.findMany({
+          where: prefWhere,
+          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+          take: 4,
+          select: REC_SELECT,
+        });
+        addUnique(prefProducts);
+      }
+
+      // ── 4. Trending Products ────────────────────────────────────────
+      if (results.length < 8) {
+        const trendingItems = await BS.getTrendingProducts(24, 4);
+        if (trendingItems.length > 0) {
+          const trendingProducts = await fetchProductsByIds(
+            trendingItems.map(t => t.product_id)
+          );
+          addUnique(trendingProducts);
+        }
+      }
+    } catch (err) {
+      console.error('[Recommendation v4] Behavior strategy error, fallback to v3:', err.message);
+      // Fall through to v3 strategy below
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // v3 FALLBACK STRATEGY — Rule-based (Category/Brand/Bestseller)
+  // ═══════════════════════════════════════════════════════════════════════
+
   // ── Strategy: Category + Brand recommendations ────────────────────────
-  if (categoryId || brandId) {
+  if (results.length < 8 && (categoryId || brandId)) {
     const contextWhere = { is_deleted: false, stock: { gt: 0 } };
 
     if (categoryId) {

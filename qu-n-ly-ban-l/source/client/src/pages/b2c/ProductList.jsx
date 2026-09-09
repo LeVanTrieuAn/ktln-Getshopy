@@ -8,6 +8,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
+import { useTracking } from '../../hooks/useTracking';
 
 // ── Category-aware image fallback ───────────────────────────────
 const FALLBACK_BY_CAT = {
@@ -222,10 +223,18 @@ export default function ProductList() {
   const { isDark, t, selectedBranch } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
+  const { trackCategoryView, trackSearchQuery } = useTracking();
 
   const queryParams = new URLSearchParams(location.search);
   const categoryFilter = queryParams.get('category') || 'ALL';
   const searchQuery = queryParams.get('search') || '';
+
+  // Track category views
+  useEffect(() => {
+    if (categoryFilter && categoryFilter !== 'ALL') {
+      trackCategoryView(categoryFilter);
+    }
+  }, [categoryFilter]);
 
   useEffect(() => {
     setAiResults([]); setAiHint(''); setAiSearchDone(false);
@@ -254,6 +263,11 @@ export default function ProductList() {
         setCategories(catData);
         setBrandList(brandData || []);
         setActiveCategories(activeCatData || []);
+
+        // Track search query with result count
+        if (searchQuery.trim()) {
+          trackSearchQuery(searchQuery, prodData.total || 0);
+        }
 
         if (allProds.length === 0 && searchQuery.trim()) {
           setIsAiLoading(true);

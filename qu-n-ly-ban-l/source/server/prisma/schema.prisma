@@ -70,6 +70,7 @@ model Product {
   image          String?
   images         Json     @default("[]") // Array of strings
   description    String?
+  specs          Json     @default("{}") // Structured specs: {screen: "6.7 inch", chip: "A18 Pro", ram: "8GB", ...}
   variants       Json     @default("[]") // Array of variant objects
   branch_ids     Json     @default("[]") // Array of branch strings
   is_banner      Boolean  @default(false)
@@ -80,6 +81,18 @@ model Product {
   @@index([brand_id])
   @@index([is_deleted, id])
   @@index([price])
+}
+
+// ── Wishlist — Implicit Feedback: Deferred purchase intent ────────────
+// Phục vụ AI Recommendation: user thêm vào wishlist = interested nhưng chưa mua
+model Wishlist {
+  id          BigInt   @id @default(autoincrement())
+  customer_id BigInt
+  product_id  BigInt
+  created_at  DateTime @default(now())
+
+  @@unique([customer_id, product_id])
+  @@index([customer_id])
 }
 
 model Review {

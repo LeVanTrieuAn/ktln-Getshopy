@@ -23,6 +23,7 @@ const Alerts            = lazy(() => import('./pages/Alerts'));
 const Fulfillment       = lazy(() => import('./pages/Fulfillment'));
 const Reviews           = lazy(() => import('./pages/Reviews'));
 const DataLakeDemo      = lazy(() => import('./pages/DataLakeDemo'));
+const BehaviorAnalytics = lazy(() => import('./pages/BehaviorAnalytics'));
 
 // ── Lazy: B2C sub-routes ──────────────────────────────────────
 const ProductList   = lazy(() => import('./pages/b2c/ProductList'));
@@ -83,6 +84,7 @@ export default function ThemedRouter() {
               <Route path="alerts"         element={<Alerts />} />
               <Route path="fulfillment"    element={<Fulfillment />} />
               <Route path="reviews"        element={<Reviews />} />
+              <Route path="behavior"       element={<BehaviorAnalytics />} />
             </Route>
 
             {/* B2C Storefront */}

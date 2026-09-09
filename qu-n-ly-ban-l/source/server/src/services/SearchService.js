@@ -62,6 +62,91 @@ function serializeProducts(products, categoryMap = {}) {
   });
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// RULE-BASED PRICE EXTRACTION — Luôn chính xác, không phụ thuộc LLM
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Extract price range từ query tiếng Việt.
+ * Hỗ trợ: "dưới X triệu", "trên X triệu", "từ X đến Y triệu",
+ *          "tầm X triệu", "khoảng X triệu", "Xtr", "Xk", "X000000"...
+ *
+ * @param {string} query
+ * @returns {{ min: number|null, max: number|null }}
+ */
+function extractPriceFromQuery(query) {
+  if (!query) return { min: null, max: null };
+  const norm = removeDiacritics(query).toLowerCase().replace(/,/g, '');
+  let min = null, max = null;
+
+  // Parse số + đơn vị → VND
+  const parsePrice = (numStr, unit) => {
+    const num = parseFloat(numStr);
+    if (isNaN(num)) return null;
+    if (/trieu|tr\b/.test(unit)) return num * 1_000_000;
+    if (/nghin|ngan|k\b/.test(unit)) return num * 1_000;
+    if (/dong|vnd|d\b/.test(unit)) return num;
+    // Số > 100K thì coi là VND gốc
+    if (num >= 100_000) return num;
+    // Số < 100 → triệu (VD: "dưới 10" → 10 triệu)
+    if (num <= 100) return num * 1_000_000;
+    return num;
+  };
+
+  // Helper: extract number + unit từ substring
+  const NUM_UNIT = /(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/;
+
+  // Pattern 1: "dưới X triệu" / "duoi X tr" / "under X trieu" / "< X trieu"
+  const underMatch = norm.match(/(?:duoi|under|khong qua|<)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/);
+  if (underMatch) {
+    max = parsePrice(underMatch[1], underMatch[2] || '');
+  }
+
+  // Pattern 2: "trên X triệu" / "tren X tr" / "> X trieu" / "hơn X triệu"
+  const overMatch = norm.match(/(?:tren|hon|over|>)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/);
+  if (overMatch) {
+    min = parsePrice(overMatch[1], overMatch[2] || '');
+  }
+
+  // Pattern 3: "từ Xk đến Y triệu" — hỗ trợ đơn vị KHÁC NHAU cho mỗi số
+  const rangeMatch = norm.match(/(?:tu|from)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k)?\s*(?:den|toi|to|-)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k)?/);
+  if (rangeMatch && !min && !max) {
+    const unit1 = rangeMatch[2] || rangeMatch[4] || ''; // fallback lấy unit chung
+    const unit2 = rangeMatch[4] || rangeMatch[2] || '';
+    min = parsePrice(rangeMatch[1], unit1);
+    max = parsePrice(rangeMatch[3], unit2);
+  }
+
+  // Pattern 4: "tầm X triệu" / "khoang X ngan" → ±30%
+  const aroundMatch = norm.match(/(?:tam|khoang|around|about)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/);
+  if (aroundMatch && !min && !max) {
+    const center = parsePrice(aroundMatch[1], aroundMatch[2] || '');
+    if (center) {
+      min = Math.round(center * 0.7);
+      max = Math.round(center * 1.3);
+    }
+  }
+
+  // Pattern 5: "giá rẻ" → dưới 5 triệu (cẩn thận tránh false positive)
+  if (!min && !max && /\b(gia re|budget|gia tot)\b/.test(norm)) {
+    max = 5_000_000;
+  }
+
+  // Pattern 6: "cao cấp" / "premium" → trên 20 triệu
+  if (!min && !max && /\b(cao cap|premium|flagship|high.?end)\b/.test(norm)) {
+    min = 20_000_000;
+  }
+
+  // Sanity check
+  if (min && max && min > max) [min, max] = [max, min];
+
+  if (min || max) {
+    console.log(`[PriceExtract] "${query}" → min=${min?.toLocaleString()}, max=${max?.toLocaleString()}`);
+  }
+
+  return { min, max };
+}
+
 /**
  * Build WHERE clause cho category — hỗ trợ parent→child expansion
  * Nếu catId là parent → trả IN tất cả child IDs
@@ -202,7 +287,16 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
     hint = `Kết quả cho "${rawQuery}"`;
   }
 
-  // ── BƯỚC 2: Resolve category & brand → DB IDs ────────────────────────────
+  // ── BƯỚC 2: Rule-based price extraction (bổ sung / override LLM) ───────
+  // Luôn chạy rule-based để đảm bảo "dưới X triệu" luôn hoạt động
+  const rulePrice = extractPriceFromQuery(rawQuery);
+  if (rulePrice.max && !priceMax) priceMax = rulePrice.max;
+  if (rulePrice.min && !priceMin) priceMin = rulePrice.min;
+  // Override LLM nếu LLM trả priceMax nhưng rule-based detect giá thấp hơn
+  if (rulePrice.max && priceMax && rulePrice.max < priceMax) priceMax = rulePrice.max;
+  if (rulePrice.min && priceMin && rulePrice.min > priceMin) priceMin = rulePrice.min;
+
+  // ── BƯỚC 3: Resolve category & brand → DB IDs ────────────────────────────
   const allCategories = KC.getCategories();
 
   const priceFilter = {};

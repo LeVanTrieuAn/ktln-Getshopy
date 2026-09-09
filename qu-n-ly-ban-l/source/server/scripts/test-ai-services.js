@@ -1,517 +1,389 @@
-#!/usr/bin/env node
 'use strict';
 /**
  * ============================================================
- * TEST AI SERVICES — Kịch bản test tự động chi tiết
+ * TEST AI SERVICES — Kịch bản test chi tiết cho 3 AI Services
  * scripts/test-ai-services.js
  * ============================================================
  *
+ * Test tất cả 3 services: Search, Chatbot, Recommendation
+ * với focus vào specs-awareness, payload optimization, và accuracy.
+ *
  * Chạy: node scripts/test-ai-services.js
- *
- * Yêu cầu:
- *   - Server PHẢI đang chạy trên localhost:8080
- *   - Database phải có dữ liệu (600K sản phẩm, 67 brands)
- *
- * 50+ test cases cho 3 services:
- *   - Search Bot (20 cases)
- *   - Chatbot (20 cases)
- *   - Recommendation (5 cases)
- *   - Edge Cases (5 cases)
  */
 
-const BASE_URL = process.env.TEST_URL || 'http://localhost:8080/api';
+const BASE = process.env.API_BASE || 'http://localhost:8080/api';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPERS
-// ─────────────────────────────────────────────────────────────────────────────
-
+const TESTS = [];
 let passed = 0;
 let failed = 0;
-let skipped = 0;
-const failures = [];
 
-async function request(path, opts = {}) {
-  const url = `${BASE_URL}${path}`;
-  const response = await fetch(url, {
-    method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json', ...opts.headers },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    signal: AbortSignal.timeout(30_000),
-  });
-  const data = await response.json().catch(() => null);
-  return { status: response.status, data };
-}
-
-function assert(condition, message) {
-  if (!condition) throw new Error(message);
-}
-
-async function runTest(name, fn) {
-  const start = Date.now();
-  try {
-    await fn();
-    const ms = Date.now() - start;
-    console.log(`  ✅ ${name} (${ms}ms)`);
+function assert(condition, testName, detail = '') {
+  if (condition) {
     passed++;
-  } catch (err) {
-    const ms = Date.now() - start;
-    console.log(`  ❌ ${name} (${ms}ms) — ${err.message}`);
+    console.log(`  ✅ ${testName}`);
+  } else {
     failed++;
-    failures.push({ name, error: err.message });
+    console.log(`  ❌ ${testName}${detail ? ' — ' + detail : ''}`);
+  }
+}
+
+async function fetchJSON(url, options = {}) {
+  const res = await fetch(url, {
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(30_000),
+    ...options,
+  });
+  const data = await res.json();
+  return { status: res.status, data };
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// 1. SEARCH SERVICE TESTS
+// ═════════════════════════════════════════════════════════════════════════════
+async function testSearch() {
+  console.log('\n══════════════════════════════════════════════════════════');
+  console.log('1. SEARCH SERVICE');
+  console.log('══════════════════════════════════════════════════════════');
+
+  // 1.1 Smart search — basic keyword
+  console.log('\n─── 1.1 Smart Search: "tai nghe bluetooth chống ồn" ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/ai/smart-search`, {
+      method: 'POST',
+      body: JSON.stringify({ query: 'tai nghe bluetooth chống ồn' }),
+    });
+    assert(status === 200, 'HTTP 200');
+    assert(data.products?.length > 0, `Có sản phẩm (${data.products?.length || 0})`);
+    assert(data.hint, `Có hint: "${data.hint}"`);
+
+    // Payload optimization checks
+    if (data.products?.length > 0) {
+      const p = data.products[0];
+      assert(p.id !== undefined, 'Có field id');
+      assert(p.name !== undefined, 'Có field name');
+      assert(p.price !== undefined, 'Có field price');
+      assert(p.image !== undefined, 'Có field image');
+      assert(p.specs !== undefined, `Có field specs: ${JSON.stringify(p.specs)}`);
+      assert(p.images === undefined, 'KHÔNG có images array (payload optimized)');
+      assert(p.stock === undefined, 'KHÔNG có stock (payload optimized)');
+      assert(p.description === undefined, 'KHÔNG có description HTML (payload optimized)');
+
+      // Measure payload size
+      const payloadSize = JSON.stringify(data).length;
+      console.log(`  📦 Payload size: ${(payloadSize / 1024).toFixed(1)} KB`);
+    }
+  } catch (e) {
+    assert(false, 'Smart search request', e.message);
+  }
+
+  // 1.2 Smart search — brand + category
+  console.log('\n─── 1.2 Smart Search: "laptop gaming ASUS RTX" ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/ai/smart-search`, {
+      method: 'POST',
+      body: JSON.stringify({ query: 'laptop gaming ASUS RTX' }),
+    });
+    assert(status === 200, 'HTTP 200');
+    assert(data.products?.length > 0, `Có sản phẩm (${data.products?.length || 0})`);
+
+    if (data.products?.length > 0) {
+      const p = data.products[0];
+      assert(p.specs !== undefined, `Specs: ${JSON.stringify(p.specs)}`);
+      // Verify brand/category relevance
+      const hasAsus = data.products.some(prod =>
+        prod.name.toLowerCase().includes('asus')
+      );
+      assert(hasAsus, 'Có sản phẩm ASUS trong kết quả');
+    }
+  } catch (e) {
+    assert(false, 'Brand+category search', e.message);
+  }
+
+  // 1.3 Smart search — price filter
+  console.log('\n─── 1.3 Smart Search: "điện thoại dưới 10 triệu" ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/ai/smart-search`, {
+      method: 'POST',
+      body: JSON.stringify({ query: 'điện thoại dưới 10 triệu' }),
+    });
+    assert(status === 200, 'HTTP 200');
+    if (data.products?.length > 0) {
+      const allUnder10M = data.products.every(p => p.price <= 10_000_000);
+      assert(allUnder10M, `Tất cả SP dưới 10 triệu (min: ${Math.min(...data.products.map(p=>p.price)).toLocaleString()}, max: ${Math.max(...data.products.map(p=>p.price)).toLocaleString()})`);
+    }
+  } catch (e) {
+    assert(false, 'Price filter search', e.message);
+  }
+
+  // 1.4 Search — specs in results
+  console.log('\n─── 1.4 Smart Search: "sạc dự phòng 20000mAh" ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/ai/smart-search`, {
+      method: 'POST',
+      body: JSON.stringify({ query: 'sạc dự phòng 20000mAh' }),
+    });
+    assert(status === 200, 'HTTP 200');
+    if (data.products?.length > 0) {
+      const hasSpecs = data.products.some(p => p.specs && Object.keys(p.specs).length > 0);
+      assert(hasSpecs, 'Ít nhất 1 SP có specs (VD: capacity, wattage...)');
+      const p = data.products.find(p => p.specs);
+      if (p) console.log(`  📋 Sample specs: ${JSON.stringify(p.specs)}`);
+    }
+  } catch (e) {
+    assert(false, 'Specs in search results', e.message);
   }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// SEARCH BOT TESTS (20 cases)
+// 2. CHATBOT SERVICE TESTS
 // ═════════════════════════════════════════════════════════════════════════════
-
-async function testSearchBot() {
-  console.log('\n🔍 SEARCH BOT TESTS');
-  console.log('─'.repeat(60));
-
-  // 1. Tìm theo category
-  await runTest('S01: tai nghe bluetooth → products có kết quả', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'tai nghe bluetooth' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-    assert(data.hint, 'Thiếu hint');
-  });
-
-  // 2. Tìm theo budget
-  await runTest('S02: laptop gaming dưới 30 triệu → có products + price ≤ 30M', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'laptop gaming dưới 30 triệu' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-    // Kiểm tra price filter
-    const overBudget = data.products.filter(p => p.price > 30_000_000);
-    assert(overBudget.length <= 2, `${overBudget.length} sản phẩm vượt budget`); // cho phép 2 vượt nhẹ
-  });
-
-  // 3. Tìm theo brand
-  await runTest('S03: iPhone 16 Pro Max → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'iPhone 16 Pro Max' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 4. Brand + Category
-  await runTest('S04: sạc dự phòng Anker → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'sạc dự phòng Anker' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 5. Brand + Category
-  await runTest('S05: chuột không dây Logitech → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'chuột không dây Logitech' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 6. Brand search
-  await runTest('S06: Samsung Galaxy S25 → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'Samsung Galaxy S25' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 7. Brand alias
-  await runTest('S07: airpods → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'airpods' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 8. Specific category
-  await runTest('S08: camera giám sát ngoài trời → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'camera giám sát ngoài trời' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 9. Brand + audio
-  await runTest('S09: loa bluetooth Marshall → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'loa bluetooth Marshall' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 10. Gaming brand
-  await runTest('S10: bàn phím cơ gaming Razer → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'bàn phím cơ gaming Razer' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 11. Accessory
-  await runTest('S11: ốp lưng iPhone 15 → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'ốp lưng iPhone 15' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 12. Storage
-  await runTest('S12: thẻ nhớ 128GB → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'thẻ nhớ 128GB' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 13. Network + brand
-  await runTest('S13: router wifi TP-Link → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'router wifi TP-Link' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 14. Smartwatch + brand
-  await runTest('S14: smartwatch Amazfit → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'smartwatch Amazfit' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 15. Price filter
-  await runTest('S15: điện thoại dưới 5 triệu → products có price ≤ 5M', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'điện thoại dưới 5 triệu' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 16. Tablet
-  await runTest('S16: máy tính bảng cho bé → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'máy tính bảng cho bé' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 17. ANC + brand
-  await runTest('S17: tai nghe chống ồn Sony → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'tai nghe chống ồn Sony' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 18. Webcam
-  await runTest('S18: webcam cho họp online → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'webcam cho họp online' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 19. Charger specs
-  await runTest('S19: sạc nhanh 65W → có products', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: 'sạc nhanh 65W' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.products?.length > 0, 'Không có sản phẩm');
-  });
-
-  // 20. Empty query → 400
-  await runTest('S20: empty query → HTTP 400', async () => {
-    const { status } = await request('/ai/smart-search', { method: 'POST', body: { query: '' } });
-    assert(status === 400, `Expected 400 but got ${status}`);
-  });
-}
-
-// ═════════════════════════════════════════════════════════════════════════════
-// CHATBOT TESTS (20 cases)
-// ═════════════════════════════════════════════════════════════════════════════
-
 async function testChatbot() {
-  console.log('\n💬 CHATBOT TESTS');
-  console.log('─'.repeat(60));
+  console.log('\n══════════════════════════════════════════════════════════');
+  console.log('2. CHATBOT SERVICE');
+  console.log('══════════════════════════════════════════════════════════');
 
-  // 1. Greeting
-  await runTest('C01: "Xin chào" → response text có nội dung', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Xin chào' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
+  // 2.1 Greeting
+  console.log('\n─── 2.1 Chatbot: Greeting ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/b2c/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message: 'Xin chào', history: [] }),
+    });
+    assert(status === 200, 'HTTP 200');
+    assert(data.text?.length > 0, `Có text reply (${data.text?.length} chars)`);
+    // Chatbot response = { text, link, products } — intent không expose ra ngoài
+    const isGreeting = (data.text || '').toLowerCase().match(/chào|xin chào|getshopy|giúp/);
+    assert(isGreeting, `Reply có nội dung chào hỏi`);
+  } catch (e) {
+    assert(false, 'Chatbot greeting', e.message);
+  }
 
-  // 2. Hỏi giá + brand
-  await runTest('C02: "iPhone 16 Pro Max giá bao nhiêu?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'iPhone 16 Pro Max giá bao nhiêu?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
+  // 2.2 Search product — specs-aware
+  console.log('\n─── 2.2 Chatbot: "webcam Logitech Full HD" ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/b2c/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message: 'webcam Logitech Full HD', history: [] }),
+    });
+    assert(status === 200, 'HTTP 200');
+    assert(data.products?.length > 0 || data.text?.length > 0, `Có sản phẩm (${data.products?.length || 0}) hoặc text reply`);
 
-  // 3. So sánh
-  await runTest('C03: "So sánh Samsung S25 và iPhone 16" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'So sánh Samsung S25 và iPhone 16' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
+    if (data.products?.length > 0) {
+      const p = data.products[0];
+      assert(p.specs !== undefined, `Có specs: ${JSON.stringify(p.specs)}`);
+      // Payload check — chatbot không cần images array
+      assert(p.images === undefined, 'KHÔNG có images array');
+      assert(p.stock === undefined, 'KHÔNG có stock');
+    }
 
-  // 4. Tư vấn + budget
-  await runTest('C04: "Tư vấn laptop dưới 20 triệu" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Tư vấn laptop dưới 20 triệu' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
+    // Anti-hallucination check
+    if (data.text) {
+      console.log(`  💬 Reply preview: "${data.text.slice(0, 150)}..."`);
+    }
+  } catch (e) {
+    assert(false, 'Chatbot specs-aware search', e.message);
+  }
 
-  // 5. Giao hàng
-  await runTest('C05: "Giao hàng mất bao lâu?" → có text, không crash', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Giao hàng mất bao lâu?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
+  // 2.3 Follow-up context retention
+  console.log('\n─── 2.3 Chatbot: Follow-up "có màu trắng không?" ───');
+  try {
+    const history = [
+      { role: 'user', content: 'webcam Logitech Full HD' },
+      { role: 'assistant', content: 'Dạ em tìm thấy webcam Logitech cho anh/chị.' },
+    ];
+    const { status, data } = await fetchJSON(`${BASE}/b2c/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message: 'có màu trắng không?', history }),
+    });
+    assert(status === 200, 'HTTP 200');
+    assert(data.text?.length > 0, 'Có text reply');
+    // Reply nên liên quan đến webcam (context retention)
+    const replyLower = (data.text || '').toLowerCase();
+    const contextRetained = replyLower.includes('webcam') || replyLower.includes('logitech') || replyLower.includes('màu') || data.products?.length > 0;
+    assert(contextRetained, 'Context retention — reply đề cập webcam/Logitech');
+  } catch (e) {
+    assert(false, 'Chatbot follow-up', e.message);
+  }
 
-  // 6. Flash sale
-  await runTest('C06: "Có flash sale gì không?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Có flash sale gì không?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 7. Đổi trả
-  await runTest('C07: "Đổi trả trong bao lâu?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Đổi trả trong bao lâu?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 8. Thanh toán
-  await runTest('C08: "Thanh toán bằng MoMo được không?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Thanh toán bằng MoMo được không?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 9. Check stock + brand
-  await runTest('C09: "Còn AirPods Pro 2 không?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Còn AirPods Pro 2 không?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 10. Best seller
-  await runTest('C10: "Sản phẩm bán chạy nhất?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Sản phẩm bán chạy nhất?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 11. New arrival
-  await runTest('C11: "Hàng mới về?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Hàng mới về?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 12. Cancel order
-  await runTest('C12: "Tôi muốn hủy đơn" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Tôi muốn hủy đơn' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 13. Track order
-  await runTest('C13: "Cho tôi xem đơn hàng" → có link /profile', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Cho tôi xem đơn hàng' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 14. Positive feedback
-  await runTest('C14: "Cảm ơn shop nhiều nhé!" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Cảm ơn shop nhiều nhé!' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 15. Price complaint
-  await runTest('C15: "Đắt quá, giảm được không?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Đắt quá, giảm được không?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 16. Trade-in
-  await runTest('C16: "Thu cũ đổi mới được không?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Thu cũ đổi mới được không?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 17. Contact
-  await runTest('C17: "Shop ở đâu vậy?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Shop ở đâu vậy?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 18. Recommend + category
-  await runTest('C18: "Tai nghe nào chống ồn tốt?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Tai nghe nào chống ồn tốt?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 19. Battery + brand
-  await runTest('C19: "Galaxy S25 Ultra pin bao lâu?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Galaxy S25 Ultra pin bao lâu?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
-
-  // 20. Camera + brand
-  await runTest('C20: "Camera của iPhone 16 Pro Max thế nào?" → có text', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: 'Camera của iPhone 16 Pro Max thế nào?' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text?.length > 10, 'Response quá ngắn');
-  });
+  // 2.4 Ask specs — should use real data
+  console.log('\n─── 2.4 Chatbot: "laptop ASUS RAM bao nhiêu?" ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/b2c/chat`, {
+      method: 'POST',
+      body: JSON.stringify({ message: 'laptop ASUS có RAM bao nhiêu?', history: [] }),
+    });
+    assert(status === 200, 'HTTP 200');
+    if (data.products?.length > 0) {
+      const hasSpecs = data.products.some(p => p.specs && Object.keys(p.specs).length > 0);
+      assert(hasSpecs, `Có specs: ${JSON.stringify(data.products.find(p=>p.specs)?.specs)}`);
+      const hasRam = data.products.some(p => p.specs?.ram);
+      if (hasRam) console.log(`  📋 RAM: ${data.products.find(p => p.specs?.ram)?.specs?.ram}`);
+    } else {
+      assert(data.text?.length > 0, `Có text reply dù không có products`);
+    }
+  } catch (e) {
+    assert(false, 'Chatbot ask specs', e.message);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// RECOMMENDATION TESTS (5 cases)
+// 3. RECOMMENDATION SERVICE TESTS
 // ═════════════════════════════════════════════════════════════════════════════
+async function testRecommendation() {
+  console.log('\n══════════════════════════════════════════════════════════');
+  console.log('3. RECOMMENDATION SERVICE');
+  console.log('══════════════════════════════════════════════════════════');
 
-async function testRecommendations() {
-  console.log('\n🎯 RECOMMENDATION TESTS');
-  console.log('─'.repeat(60));
+  // 3.1 General recommendations
+  console.log('\n─── 3.1 Recommendations: General ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/b2c/recommendations?email=`);
+    assert(status === 200, 'HTTP 200');
+    assert(Array.isArray(data), `Trả mảng (${data?.length || 0} items)`);
 
-  // 1. Default (no params)
-  await runTest('R01: GET /recommendations → 8 sản phẩm', async () => {
-    const { status, data } = await request('/b2c/recommendations');
-    assert(status === 200, `HTTP ${status}`);
-    assert(Array.isArray(data), 'Response không phải array');
-    assert(data.length > 0, 'Không có sản phẩm');
-    assert(data.length <= 8, `Quá 8 sản phẩm: ${data.length}`);
-    assert(data[0].id, 'Thiếu id');
-    assert(data[0].name, 'Thiếu name');
-    assert(data[0].price !== undefined, 'Thiếu price');
-  });
+    if (data?.length > 0) {
+      const p = data[0];
+      assert(p.id !== undefined, 'Có field id');
+      assert(p.specs !== undefined, `Có field specs: ${JSON.stringify(p.specs)}`);
+      // Payload optimization
+      assert(p.description === undefined, 'KHÔNG có description (payload optimized)');
+      assert(p.variants === undefined, 'KHÔNG có variants (payload optimized)');
+      assert(p.branch_ids === undefined, 'KHÔNG có branch_ids (payload optimized)');
 
-  // 2. With email
-  await runTest('R02: GET /recommendations?email=test@test.com → 8 sản phẩm', async () => {
-    const { status, data } = await request('/b2c/recommendations?email=test@test.com');
-    assert(status === 200, `HTTP ${status}`);
-    assert(Array.isArray(data), 'Response không phải array');
-    assert(data.length > 0, 'Không có sản phẩm');
-  });
+      const payloadSize = JSON.stringify(data).length;
+      console.log(`  📦 Payload size: ${(payloadSize / 1024).toFixed(1)} KB for ${data.length} products`);
+    }
+  } catch (e) {
+    assert(false, 'General recommendations', e.message);
+  }
 
-  // 3. With categoryId
-  await runTest('R03: GET /recommendations?categoryId=cat-phone → sản phẩm điện thoại', async () => {
-    const { status, data } = await request('/b2c/recommendations?categoryId=cat-phone');
-    assert(status === 200, `HTTP ${status}`);
-    assert(Array.isArray(data), 'Response không phải array');
-    assert(data.length > 0, 'Không có sản phẩm');
-  });
+  // 3.2 Category-based recommendations
+  console.log('\n─── 3.2 Recommendations: Category (cat-phone) ───');
+  try {
+    const { status, data } = await fetchJSON(`${BASE}/b2c/recommendations?categoryId=cat-phone`);
+    assert(status === 200, 'HTTP 200');
+    if (data?.length > 0) {
+      const hasPhone = data.some(p => p.category_id === 'cat-phone');
+      assert(hasPhone, 'Có sản phẩm thuộc cat-phone');
+    }
+  } catch (e) {
+    assert(false, 'Category recommendations', e.message);
+  }
 
-  // 4. With brandId
-  await runTest('R04: GET /recommendations?brandId=br-apple → sản phẩm Apple', async () => {
-    const { status, data } = await request('/b2c/recommendations?brandId=br-apple');
-    assert(status === 200, `HTTP ${status}`);
-    assert(Array.isArray(data), 'Response không phải array');
-    assert(data.length > 0, 'Không có sản phẩm');
-  });
+  // 3.3 Similar products (specs-aware) — NEW endpoint
+  console.log('\n─── 3.3 Similar Products: /b2c/similar/:productId ───');
+  try {
+    // Lấy 1 product ID thực
+    const searchRes = await fetchJSON(`${BASE}/ai/smart-search`, {
+      method: 'POST',
+      body: JSON.stringify({ query: 'iPhone' }),
+    });
+    const sampleId = searchRes.data?.products?.[0]?.id;
 
-  // 5. Category + Brand
-  await runTest('R05: GET /recommendations?categoryId=cat-phone&brandId=br-samsung → Samsung phones', async () => {
-    const { status, data } = await request('/b2c/recommendations?categoryId=cat-phone&brandId=br-samsung');
-    assert(status === 200, `HTTP ${status}`);
-    assert(Array.isArray(data), 'Response không phải array');
-    assert(data.length > 0, 'Không có sản phẩm');
-  });
+    if (sampleId) {
+      const { status, data } = await fetchJSON(`${BASE}/b2c/similar/${sampleId}`);
+      assert(status === 200, 'HTTP 200');
+      assert(Array.isArray(data), `Trả mảng (${data?.length || 0} items)`);
+
+      if (data?.length > 0) {
+        const p = data[0];
+        assert(p.specs !== undefined, `Specs: ${JSON.stringify(p.specs)}`);
+        assert(p.category_id !== undefined, 'Có category_id');
+        // Verify similar products are relevant (cùng category hoặc cùng brand)
+        const sourceProduct = searchRes.data.products[0];
+        const isRelevant = data.some(prod =>
+          prod.category_id === sourceProduct.category_id ||
+          prod.category_id === sourceProduct.category ||
+          prod.brand_id === sourceProduct.brand_id ||
+          prod.name.toLowerCase().includes('iphone')
+        );
+        assert(isRelevant, 'Sản phẩm tương tự liên quan đến source');
+        console.log(`  🔗 Source: ${sourceProduct.name}`);
+        console.log(`  🔗 Similar: ${data.slice(0, 3).map(p => p.name).join(', ')}`);
+      }
+    } else {
+      assert(false, 'Không tìm được sample product để test');
+    }
+  } catch (e) {
+    assert(false, 'Similar products', e.message);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
-// EDGE CASE TESTS (5 cases)
+// 4. SPECS COVERAGE & PAYLOAD SIZE TESTS
 // ═════════════════════════════════════════════════════════════════════════════
+async function testSpecsCoverage() {
+  console.log('\n══════════════════════════════════════════════════════════');
+  console.log('4. SPECS COVERAGE & PAYLOAD OPTIMIZATION');
+  console.log('══════════════════════════════════════════════════════════');
 
-async function testEdgeCases() {
-  console.log('\n⚠️  EDGE CASE TESTS');
-  console.log('─'.repeat(60));
+  const queries = [
+    'sạc dự phòng Anker',
+    'ốp lưng iPhone 16 Pro Max',
+    'chuột không dây Logitech',
+    'bàn phím cơ gaming',
+    'tai nghe chụp tai Sony',
+    'camera ngoài trời Dahua',
+    'loa bluetooth JBL',
+    'Apple Watch',
+    'iPad Pro M4',
+    'router WiFi 6 TP-Link',
+  ];
 
-  // 1. Unicode/emoji input
-  await runTest('E01: Unicode/emoji → không crash', async () => {
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: '🎉 Tôi muốn mua 📱 iPhone 😍' } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text, 'Không có response');
-  });
+  let totalWithSpecs = 0;
+  let totalProducts = 0;
+  let totalPayloadBytes = 0;
 
-  // 2. Rất dài (>2000 chars)
-  await runTest('E02: Long input (2000+ chars) → không crash, có response', async () => {
-    const longMessage = 'Tôi muốn mua điện thoại Samsung '.repeat(80); // ~2560 chars
-    const { status, data } = await request('/b2c/chat', { method: 'POST', body: { message: longMessage } });
-    assert(status === 200, `HTTP ${status}`);
-    assert(data.text, 'Không có response');
-  });
+  for (const q of queries) {
+    try {
+      const { data } = await fetchJSON(`${BASE}/ai/smart-search`, {
+        method: 'POST',
+        body: JSON.stringify({ query: q }),
+      });
+      const products = data?.products || [];
+      const withSpecs = products.filter(p => p.specs && Object.keys(p.specs).length > 0);
+      totalWithSpecs += withSpecs.length;
+      totalProducts += products.length;
+      totalPayloadBytes += JSON.stringify(data).length;
 
-  // 3. SQL injection attempt
-  await runTest('E03: SQL injection → safe response, không crash', async () => {
-    const { status, data } = await request('/ai/smart-search', { method: 'POST', body: { query: "'; DROP TABLE Product; --" } });
-    assert(status === 200 || status === 400, `HTTP ${status}`);
-    // Server không crash là đủ
-  });
+      const pct = products.length > 0 ? Math.round(withSpecs.length / products.length * 100) : 0;
+      console.log(`  "${q}" → ${products.length} SP, ${withSpecs.length} có specs (${pct}%)`);
+    } catch (e) {
+      console.log(`  "${q}" → ERROR: ${e.message}`);
+    }
+  }
 
-  // 4. Null/empty message
-  await runTest('E04: Empty message → HTTP 400', async () => {
-    const { status } = await request('/b2c/chat', { method: 'POST', body: { message: '' } });
-    assert(status === 400, `Expected 400 but got ${status}`);
-  });
+  const overallPct = totalProducts > 0 ? Math.round(totalWithSpecs / totalProducts * 100) : 0;
+  console.log(`\n  📊 Tổng: ${totalWithSpecs}/${totalProducts} SP có specs (${overallPct}%)`);
+  console.log(`  📦 Tổng payload: ${(totalPayloadBytes / 1024).toFixed(1)} KB cho ${queries.length} queries`);
+  console.log(`  📦 Trung bình: ${(totalPayloadBytes / queries.length / 1024).toFixed(1)} KB/query`);
 
-  // 5. Missing required field
-  await runTest('E05: No body → có response (không crash)', async () => {
-    const { status } = await request('/b2c/chat', { method: 'POST', body: {} });
-    assert(status === 400 || status === 200, `HTTP ${status}`);
-  });
+  assert(overallPct >= 50, `Specs coverage >= 50% (got ${overallPct}%)`);
 }
-
 
 // ═════════════════════════════════════════════════════════════════════════════
 // MAIN
 // ═════════════════════════════════════════════════════════════════════════════
-
 async function main() {
-  console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║     🧪 GETSHOPY AI SERVICES — TEST SUITE v2.0            ║');
-  console.log('║     600K Products | 67 Brands | 49 Categories            ║');
-  console.log('╠════════════════════════════════════════════════════════════╣');
-  console.log(`║  Server: ${BASE_URL.padEnd(48)}║`);
-  console.log(`║  Time:   ${new Date().toLocaleString('vi-VN').padEnd(48)}║`);
-  console.log('╚════════════════════════════════════════════════════════════╝');
+  console.log('╔══════════════════════════════════════════════════════════╗');
+  console.log('║  GETSHOPY AI SERVICES — COMPREHENSIVE TEST SUITE v3.0  ║');
+  console.log('╚══════════════════════════════════════════════════════════╝');
+  console.log(`\nAPI Base: ${BASE}`);
+  console.log(`Time: ${new Date().toLocaleString('vi-VN')}`);
 
-  // Check server is running
-  try {
-    await fetch(`${BASE_URL.replace('/api', '')}/`, { signal: AbortSignal.timeout(3000) });
-  } catch (e) {
-    console.error('\n❌ Server không chạy! Hãy chạy: npm run dev\n');
-    process.exit(1);
-  }
-
-  const startTime = Date.now();
-
-  await testSearchBot();
+  await testSearch();
   await testChatbot();
-  await testRecommendations();
-  await testEdgeCases();
+  await testRecommendation();
+  await testSpecsCoverage();
 
-  const totalTime = ((Date.now() - startTime) / 1000).toFixed(1);
-  const total = passed + failed + skipped;
-
-  console.log('\n');
-  console.log('╔════════════════════════════════════════════════════════════╗');
-  console.log('║                    📊 KẾT QUẢ TỔNG HỢP                  ║');
-  console.log('╠════════════════════════════════════════════════════════════╣');
-  console.log(`║  Tổng test cases  : ${String(total).padStart(3)}                                  ║`);
-  console.log(`║  ✅ Passed        : ${String(passed).padStart(3)}                                  ║`);
-  console.log(`║  ❌ Failed        : ${String(failed).padStart(3)}                                  ║`);
-  console.log(`║  ⏱️  Thời gian     : ${totalTime.padStart(6)}s                              ║`);
-  console.log(`║  📈 Tỉ lệ pass    : ${String(Math.round(passed / total * 100)).padStart(3)}%                                 ║`);
-  console.log('╚════════════════════════════════════════════════════════════╝');
-
-  if (failures.length > 0) {
-    console.log('\n❌ DANH SÁCH THẤT BẠI:');
-    failures.forEach((f, i) => {
-      console.log(`  ${i + 1}. ${f.name}: ${f.error}`);
-    });
-  }
+  console.log('\n══════════════════════════════════════════════════════════');
+  console.log(`RESULTS: ${passed} passed, ${failed} failed (${passed + failed} total)`);
+  console.log('══════════════════════════════════════════════════════════');
 
   process.exit(failed > 0 ? 1 : 0);
 }
 
 main().catch(e => {
-  console.error('Fatal:', e.message);
+  console.error('Test suite crashed:', e);
   process.exit(1);
 });

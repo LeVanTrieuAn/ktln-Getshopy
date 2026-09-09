@@ -319,9 +319,13 @@ const CATEGORY_SPEC_TEMPLATES = {
       { field: 'feature', regex: /(ANC|chống ồn|noise\s*cancel|ENC)/i, transform: (m) => m[1] },
       { field: 'battery', regex: /(\d{1,2})\s*(?:giờ|h)\b/i, transform: (m) => m[1] + ' giờ' },
       { field: 'connectivity', regex: /(Bluetooth\s*\d\.?\d?|BT\s*\d\.?\d?)/i, transform: (m) => m[1] },
-      { field: 'type', regex: /(True Wireless|TWS|In-ear|Earbuds)/i, transform: (m) => m[1] },
+      { field: 'type', regex: /(True Wireless|TWS|In-ear|Earbuds|Chụp Tai)/i, transform: (m) => m[1] },
+      // Fallback: bất kỳ SP nào có tên chứa 'Bluetooth' đều là tai nghe BT
+      { field: 'connectivity', regex: /(Bluetooth)/i, transform: () => 'Bluetooth' },
+      // Brand model patterns — JBL, Sony, Samsung, Anker...
+      { field: 'brand_model', regex: /(JBL\s+[\w\s]+\d|Sony\s+WF-?[\w]+|Sony\s+WH-?[\w]+|Galaxy\s+Buds\s*\w*|AirPods\s*\w*|Soundcore\s+[\w\s]+)/i, transform: (m) => m[1].trim() },
     ],
-    priority: ['feature', 'battery', 'type', 'connectivity'],
+    priority: ['feature', 'battery', 'type', 'connectivity', 'brand_model'],
   },
 
   // ── Tai nghe có dây ─────────────────────────────────────────────────────
@@ -341,8 +345,10 @@ const CATEGORY_SPEC_TEMPLATES = {
       { field: 'feature', regex: /(ANC|chống ồn|noise\s*cancel|LDAC|Hi-Res)/i, transform: (m) => m[1] },
       { field: 'battery', regex: /(\d{1,3})\s*(?:giờ|h)\b/i, transform: (m) => m[1] + ' giờ' },
       { field: 'connectivity', regex: /(Bluetooth|không dây|wireless|có dây)/i, transform: (m) => m[1] },
+      { field: 'type', regex: /(Chụp Tai|Over-ear|On-ear|Gaming)/i, transform: (m) => m[1] },
+      { field: 'brand_model', regex: /(JBL\s+[\w\s]+\d|Sony\s+WH-?[\w]+|Marshall\s+\w+|Razer\s+\w+)/i, transform: (m) => m[1].trim() },
     ],
-    priority: ['feature', 'battery', 'connectivity'],
+    priority: ['feature', 'battery', 'connectivity', 'type'],
   },
 
   // ── Tai nghe thể thao ───────────────────────────────────────────────────
@@ -363,9 +369,13 @@ const CATEGORY_SPEC_TEMPLATES = {
       { field: 'wattage', regex: /(\d+)\s*W\b/i, transform: (m) => m[1] + 'W' },
       { field: 'waterproof', regex: /(IP\d{2}|IPX\d)/i, transform: (m) => m[1] },
       { field: 'battery', regex: /(\d{1,3})\s*(?:giờ|h)\b/i, transform: (m) => m[1] + ' giờ' },
-      { field: 'feature', regex: /(PartyBoost|Mega Bass|stereo|360|portable)/i, transform: (m) => m[1] },
+      { field: 'feature', regex: /(PartyBoost|Mega Bass|stereo|360|portable|Charge)/i, transform: (m) => m[1] },
+      // Fallback brand model
+      { field: 'brand_model', regex: /(JBL\s+(?:Flip|Charge|Xtreme|Go|Clip|Boombox|Pulse|PartyBox)\s*\w*|Marshall\s+\w+|Harman\s+\w+|Sony\s+SRS-?\w+)/i, transform: (m) => m[1].trim() },
+      // Fallback type
+      { field: 'type', regex: /(Bluetooth|Lòa|loa|portable|di động)/i, transform: () => 'Loa Bluetooth' },
     ],
-    priority: ['wattage', 'waterproof', 'battery'],
+    priority: ['wattage', 'waterproof', 'battery', 'brand_model'],
   },
 
   // ── Micro / Mic ─────────────────────────────────────────────────────────

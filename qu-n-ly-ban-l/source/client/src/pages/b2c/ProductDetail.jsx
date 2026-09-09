@@ -17,6 +17,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
+import { useProductViewTracker, useTracking } from '../../hooks/useTracking';
 
 const { Title, Text } = Typography;
 
@@ -1448,6 +1449,10 @@ export default function ProductDetail() {
   const { addToCart } = useCart();
   const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed } = useApp();
   const navigate = useNavigate();
+  const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
+
+  // Auto-track product view with dwell time + scroll depth
+  useProductViewTracker(product);
 
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState('center center');
@@ -1538,8 +1543,8 @@ export default function ProductDetail() {
     return p;
   };
 
-  const handleAddToCart = () => addToCart(getProductToAdd(), 1);
-  const handleBuyNow = () => { addToCart(getProductToAdd(), 1); navigate('/checkout'); };
+  const handleAddToCart = () => { addToCart(getProductToAdd(), 1); trackAddToCart(product); };
+  const handleBuyNow = () => { addToCart(getProductToAdd(), 1); trackAddToCart(product); navigate('/checkout'); };
 
   const submitReview = async () => {
     if (!reviewComment.trim()) return message.error('Vui lòng nhập nội dung đánh giá!');
@@ -1548,6 +1553,7 @@ export default function ProductDetail() {
       const res = await api.b2c.addReview(id, { rating: reviewRating, comment: reviewComment });
       if (res.success) {
         message.success('Đánh giá của bạn đã được gửi thành công!');
+        trackReviewSubmit(Number(id), reviewRating);
         setProduct({ ...product, reviews: [res.review, ...(product.reviews || [])] });
         setReviewComment(''); setReviewRating(5);
       }

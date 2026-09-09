@@ -359,6 +359,91 @@ async function refresh() {
   return ensureLoaded();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// SPEC KEYWORD ALIASES — Từ khóa specs tiếng Việt → field name chuẩn
+// Dùng cho Search/Chatbot để detect khi user hỏi về specs cụ thể
+// ─────────────────────────────────────────────────────────────────────────────
+const SPEC_KEYWORD_ALIASES = {
+  // Chống nước
+  'chong nuoc': 'waterproof', 'khang nuoc': 'waterproof', 'ip67': 'waterproof',
+  'ip68': 'waterproof', 'ipx4': 'waterproof', 'ipx5': 'waterproof',
+  'ipx7': 'waterproof', 'waterproof': 'waterproof',
+
+  // Sạc nhanh / Pin
+  'sac nhanh': 'fast_charging', 'quick charge': 'fast_charging', 'pd': 'fast_charging',
+  'magsafe': 'fast_charging', 'gan': 'fast_charging', 'qi': 'wireless_charging',
+  'pin': 'battery', 'dung luong pin': 'battery', 'mah': 'battery',
+
+  // Màn hình
+  'man hinh': 'screen', 'amoled': 'screen', 'oled': 'screen', 'ips': 'screen',
+  'retina': 'screen', '120hz': 'screen', '90hz': 'screen', '60hz': 'screen',
+  'do phan giai': 'resolution', 'full hd': 'resolution', '4k': 'resolution',
+  '2k': 'resolution', '1080p': 'resolution', '720p': 'resolution',
+
+  // Chip / CPU
+  'chip': 'chip', 'cpu': 'chip', 'vi xu ly': 'chip', 'bo xu ly': 'chip',
+  'snapdragon': 'chip', 'exynos': 'chip', 'dimensity': 'chip',
+  'apple silicon': 'chip', 'a18': 'chip', 'm1': 'chip', 'm2': 'chip',
+  'm3': 'chip', 'm4': 'chip', 'm5': 'chip',
+
+  // RAM / Bộ nhớ
+  'ram': 'ram', 'bo nho': 'storage', 'rom': 'storage', 'dung luong': 'storage',
+  'ssd': 'storage', 'hdd': 'storage', 'nvme': 'storage',
+
+  // Camera
+  'camera': 'camera', 'cam truoc': 'front_camera', 'cam sau': 'camera',
+  'megapixel': 'camera', 'mp': 'camera', 'zoom': 'camera',
+
+  // Kết nối
+  '5g': 'connectivity', 'wifi': 'connectivity', 'bluetooth': 'connectivity',
+  'nfc': 'connectivity', 'usb c': 'ports', 'type c': 'ports',
+  'lightning': 'ports', 'hdmi': 'ports', 'thunderbolt': 'ports',
+
+  // Âm thanh
+  'chong on': 'feature', 'anc': 'feature', 'enc': 'feature',
+  'noise cancel': 'feature', 'ldac': 'codec', 'aptx': 'codec',
+  'hi-res': 'feature', 'dolby': 'feature',
+
+  // Bàn phím / Chuột
+  'switch': 'switch', 'hot swap': 'switch', 'dpi': 'dpi',
+  'co': 'type', 'membrane': 'type',
+
+  // GPU
+  'card do hoa': 'gpu', 'vga': 'gpu', 'gpu': 'gpu',
+  'rtx': 'gpu', 'gtx': 'gpu', 'radeon': 'gpu',
+
+  // Thiết kế
+  'trong luong': 'weight', 'khoi luong': 'weight', 'nhe': 'weight',
+  'chat lieu': 'material', 'kim loai': 'material', 'nhua': 'material',
+};
+
+/**
+ * Detect spec keyword trong text → trả field name chuẩn.
+ * @param {string} text
+ * @returns {string|null} — VD: 'waterproof', 'screen', 'ram'
+ */
+function detectSpecKeyword(text) {
+  if (!text) return null;
+  const norm = removeDiacritics(text).toLowerCase().trim();
+  for (const [alias, field] of Object.entries(SPEC_KEYWORD_ALIASES)) {
+    if (norm.includes(alias)) return field;
+  }
+  return null;
+}
+
+/**
+ * Detect tất cả spec keywords trong text → trả mảng field names.
+ */
+function detectAllSpecKeywords(text) {
+  if (!text) return [];
+  const norm = removeDiacritics(text).toLowerCase().trim();
+  const found = new Set();
+  for (const [alias, field] of Object.entries(SPEC_KEYWORD_ALIASES)) {
+    if (norm.includes(alias)) found.add(field);
+  }
+  return [...found];
+}
+
 module.exports = {
   ensureLoaded,
   getCategories,
@@ -374,7 +459,10 @@ module.exports = {
   getCategoryTaxonomyForPrompt,
   getBrandNamesForPrompt,
   refresh,
+  detectSpecKeyword,
+  detectAllSpecKeywords,
   // Expose for direct use
   BRAND_KEYWORD_ALIASES,
   CATEGORY_KEYWORD_TO_ID,
+  SPEC_KEYWORD_ALIASES,
 };

@@ -839,6 +839,10 @@ app.use('/api', recommendationRouter);
 const b2cRouter = require('./routes/b2c');
 app.use('/api/b2c', b2cRouter);
 
+// ─── B2C Behavior Tracking (Implicit Feedback cho AI Recommendation) ──
+const trackingRouter = require('./routes/tracking');
+app.use('/api/b2c', trackingRouter);
+
 // ─── B2B ADMIN ROUTES ─────────────────────────────────────────
 const b2bRouter = require('./routes/b2b');
 app.use('/api/b2b', b2bRouter);
@@ -846,6 +850,10 @@ app.use('/api/b2b', b2bRouter);
 // ─── AI ADMIN ROUTES (MLOps — ChatLog quản lý & trigger train) ──
 const aiAdminRouter = require('./routes/aiAdmin');
 app.use('/api/b2b', aiAdminRouter);
+
+// ─── B2B BEHAVIOR ANALYTICS (Admin Dashboard) ──────────────────
+const behaviorAnalyticsRouter = require('./routes/behavior-analytics');
+app.use('/api/b2b/analytics/behavior', behaviorAnalyticsRouter);
 
 // ─── START ────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
