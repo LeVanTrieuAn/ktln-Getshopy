@@ -1489,7 +1489,8 @@ export default function ProductDetail() {
         if (data.variants && data.variants.length > 0) setSelectedVariantId(data.variants[0].id);
         addRecentlyViewed(data);
         const allProds = await api.b2c.getProducts(data.category_id);
-        setRelatedProducts(allProds.filter(p => p.id != id).slice(0, 4));
+        const list = Array.isArray(allProds) ? allProds : (allProds?.data || []);
+        setRelatedProducts(list.filter(p => p.id != id).slice(0, 4));
       } catch (err) {
         console.error(err);
       } finally {
@@ -1500,20 +1501,24 @@ export default function ProductDetail() {
   }, [id]);
 
   useEffect(() => {
+    if (!import.meta.env.VITE_WS_URL) return;
     const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsHost = import.meta.env.VITE_WS_URL || `${wsProtocol}//${window.location.hostname}:8080`;
-    const ws = new WebSocket(wsHost);
-    ws.onmessage = async (e) => {
-      try {
-        const msg = JSON.parse(e.data);
-        if (msg.type === 'STOCK_UPDATE') {
-          const data = await api.b2c.getProductDetails(id);
-          setProduct(data);
-        }
-      } catch (err) {}
-    };
-    ws.onerror = () => {};
-    return () => { if (ws.readyState === 1) ws.close(); };
+    let ws;
+    try {
+      ws = new WebSocket(wsHost);
+      ws.onmessage = async (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.type === 'STOCK_UPDATE') {
+            const data = await api.b2c.getProductDetails(id);
+            setProduct(data);
+          }
+        } catch (err) {}
+      };
+      ws.onerror = () => {};
+    } catch (err) {}
+    return () => { if (ws && ws.readyState === 1) ws.close(); };
   }, [id]);
 
   if (loading) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>;
