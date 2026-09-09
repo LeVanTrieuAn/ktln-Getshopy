@@ -1218,9 +1218,10 @@ function ProductTabs({ product, specs, highlights, description, isDark,
                 }}><AppstoreOutlined /></span>
                 <span style={{ fontSize: 17, fontWeight: 700, color: isDark ? '#f1f5f9' : '#0f172a' }}>Giới thiệu sản phẩm</span>
               </div>
-              <p style={{ fontSize: 15, lineHeight: 1.9, color: isDark ? '#94a3b8' : '#475569', margin: 0 }}>
-                {product.description?.trim() || description}
-              </p>
+              <div
+                style={{ fontSize: 15, lineHeight: 1.9, color: isDark ? '#94a3b8' : '#475569', margin: 0 }}
+                dangerouslySetInnerHTML={{ __html: product.description?.trim() || description }}
+              />
             </div>
 
             {/* Highlights */}
@@ -1477,12 +1478,21 @@ export default function ProductDetail() {
   }
 
   useEffect(() => {
+    // Safely parse JSON fields that may be double-encoded strings from DB
+    const safeArr = (val) => {
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') { try { const p = JSON.parse(val); return Array.isArray(p) ? p : []; } catch { return []; } }
+      return [];
+    };
+
     async function load() {
       try {
         const data = await api.b2c.getProductDetails(id);
-        if (data.variants && Array.isArray(data.variants)) {
-          data.variants = data.variants.map((v, i) => ({ ...v, id: v.id || `var-${i}` }));
-        }
+        // Fix double-encoded JSON fields from seed data
+        data.images   = safeArr(data.images);
+        data.variants = safeArr(data.variants).map((v, i) => ({ ...v, id: v.id || `var-${i}` }));
+        data.reviews  = safeArr(data.reviews);
+        data.branch_ids = safeArr(data.branch_ids);
         setProduct(data);
         if (data.image) setMainImage(data.image);
         else if (data.images && data.images.length > 0) setMainImage(data.images[0]);
@@ -1527,9 +1537,10 @@ export default function ProductDetail() {
   const activeVariant = product?.variants?.find(v => v.id === selectedVariantId);
   const currentPrice  = activeVariant?.price || product?.price;
   const currentStock  = activeVariant?.stock ?? product?.stock;
-  const isWished      = wishlist?.some(p => p.id === product.id);
-  const isCompared    = compareList?.some(p => p.id === product.id);
-  const allImages     = [...new Set([product.image, ...(product.images || [])].filter(Boolean))];
+  const isWished      = Array.isArray(wishlist) && wishlist.some(p => p.id === product.id);
+  const isCompared    = Array.isArray(compareList) && compareList.some(p => p.id === product.id);
+  const safeRecentlyViewed = Array.isArray(recentlyViewed) ? recentlyViewed : [];
+  const allImages     = [...new Set([product.image, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean))];
 
   // Generate rich specs
   const specs       = generateSpecs(product);
@@ -1834,11 +1845,11 @@ export default function ProductDetail() {
       )}
 
       {/* ── RECENTLY VIEWED ───────────────────────────────────────── */}
-      {recentlyViewed && recentlyViewed.filter(p => p.id !== product.id).length > 0 && (
+      {safeRecentlyViewed.filter(p => p.id !== product.id).length > 0 && (
         <div style={{ marginTop: 64 }}>
           <Title level={3} style={{ color: isDark ? '#fff' : '#000', marginBottom: 24 }}>Sản phẩm bạn vừa xem</Title>
           <Row gutter={[24, 24]}>
-            {recentlyViewed.filter(p => p.id !== product.id).slice(0, 4).map(p => (
+            {safeRecentlyViewed.filter(p => p.id !== product.id).slice(0, 4).map(p => (
               <Col xs={12} md={6} key={p.id}>
                 <Card hoverable onClick={() => navigate(`/product/${p.id}`)}
                   style={{ background: isDark ? 'rgba(255,255,255,0.02)' : '#fff', borderColor: isDark ? '#333' : '#f0f0f0', borderRadius: 16, overflow: 'hidden' }}

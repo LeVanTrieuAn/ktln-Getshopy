@@ -231,7 +231,7 @@ function makeProduct(catId, brandId) {
   const pId  = PICSUM[idx % PICSUM.length];
   const pId2 = PICSUM[(idx + 7) % PICSUM.length];
   const image  = `https://picsum.photos/id/${pId}/400/400`;
-  const images = JSON.stringify([image, `https://picsum.photos/id/${pId2}/400/400`]);
+  const images = [image, `https://picsum.photos/id/${pId2}/400/400`];
 
   const numColors = randInt(1, 3);
   const usedColors = new Set();
@@ -257,7 +257,7 @@ function makeProduct(catId, brandId) {
     sold:           randInt(0, 999),
     image, images,
     description: `${brandName} ${catName} ${adj} — Sản phẩm chính hãng, chất lượng cao, bảo hành đầy đủ.`,
-    variants:    JSON.stringify(variants),
+    variants:    variants,
     branch_ids:  branchIds,
     is_banner:   false,
     is_deleted:  false,

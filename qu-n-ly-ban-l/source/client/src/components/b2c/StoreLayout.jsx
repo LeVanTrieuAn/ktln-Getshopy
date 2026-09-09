@@ -240,7 +240,7 @@ export default function StoreLayout() {
         </div>
 
         {/* NAV LINKS */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: 24, margin: '0 24px' }}>
+        <nav className="store-nav-links" style={{ display: 'flex', alignItems: 'center', gap: 24, margin: '0 24px', overflow: 'hidden', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
           {[
             { label: 'Trang chủ', path: '/' },
             { label: 'Sản phẩm', path: '/shop' },
@@ -583,6 +583,9 @@ export default function StoreLayout() {
           background-color: ${isDark ? '#fff' : '#000'}; transition: width 0.3s ease;
         }
         .minimal-nav-link:hover::after { width: 100%; }
+        @media (max-width: 900px) {
+          .store-nav-links { display: none !important; }
+        }
       `}</style>
 
       <Content style={{ padding: 0, width: '100%', position: 'relative', zIndex: 1 }}>

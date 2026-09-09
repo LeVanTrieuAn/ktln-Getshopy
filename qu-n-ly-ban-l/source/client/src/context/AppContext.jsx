@@ -20,13 +20,13 @@ export function AppProvider({ children }) {
     try { return JSON.parse(localStorage.getItem('b2c_user')); } catch { return null; }
   });
   const [wishlist, setWishlist] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('b2c_wishlist')) || []; } catch { return []; }
+    try { const v = JSON.parse(localStorage.getItem('b2c_wishlist')); return Array.isArray(v) ? v : []; } catch { return []; }
   });
   const [compareList, setCompareList] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('b2c_compare')) || []; } catch { return []; }
+    try { const v = JSON.parse(localStorage.getItem('b2c_compare')); return Array.isArray(v) ? v : []; } catch { return []; }
   });
   const [recentlyViewed, setRecentlyViewed] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('b2c_recent')) || []; } catch { return []; }
+    try { const v = JSON.parse(localStorage.getItem('b2c_recent')); return Array.isArray(v) ? v : []; } catch { return []; }
   });
 
   const toggleWishlist = (product) => {
