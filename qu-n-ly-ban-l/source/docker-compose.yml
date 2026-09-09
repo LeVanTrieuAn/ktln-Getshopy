@@ -104,6 +104,28 @@ services:
       retries: 12
     restart: unless-stopped
 
+  # ─── AI Recommendation Service (FastAPI) ───────────────────────────────────
+  ai-rec:
+    build:
+      context: ./ai-rec
+      dockerfile: Dockerfile
+    container_name: getshopy-ai-rec
+    ports:
+      - "${AI_REC_PORT:-8000}:8000"
+    environment:
+      PORT: 8000
+      DEFAULT_TOP_K: 10
+    volumes:
+      - ./ai-rec/output:/app/output
+      - ./ai-rec/data:/app/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   clickhouse_data:
