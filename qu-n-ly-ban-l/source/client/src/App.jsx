@@ -30,6 +30,7 @@ const ProductDetail = lazy(() => import('./pages/b2c/ProductDetail'));
 const Checkout      = lazy(() => import('./pages/b2c/Checkout'));
 const Account       = lazy(() => import('./pages/b2c/Account'));
 const Compare       = lazy(() => import('./pages/b2c/Compare'));
+const About         = lazy(() => import('./pages/b2c/About'));
 
 import './App.css';
 
@@ -110,6 +111,7 @@ export default function App() {
                     <Route path="compare"  element={<Compare />} />
                     <Route path="checkout" element={<Checkout />} />
                     <Route path="account"  element={<Account />} />
+                    <Route path="about"    element={<About />} />
                     <Route path="data-lake" element={<DataLakeDemo />} />
                   </Route>
 

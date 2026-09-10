@@ -1211,19 +1211,45 @@ export default function ProductList() {
 
           {/* Pagination */}
           {totalProducts > 16 && (
-            <div style={{ textAlign: 'center', marginTop: 48 }}>
-              <Pagination
-                current={currentPage}
-                total={totalProducts}
-                pageSize={16}
-                onChange={page => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                showSizeChanger={false}
-                showTotal={(total, range) => (
-                  <span style={{ color: subCol, fontSize: 13 }}>
-                    {range[0]}–{range[1]} / {total.toLocaleString()} sản phẩm
-                  </span>
-                )}
-              />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 48, marginBottom: 40, width: '100%' }}>
+              <div className="modern-pagination-container">
+                <Pagination
+                  current={currentPage}
+                  total={totalProducts}
+                  pageSize={16}
+                  onChange={page => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                  showSizeChanger={false}
+                  itemRender={(page, type, originalElement) => {
+                    if (type === 'prev') {
+                      return (
+                        <span className="custom-pag-arrow" title="Trang trước">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="19" y1="12" x2="5" y2="12" />
+                            <polyline points="12 19 5 12 12 5" />
+                          </svg>
+                        </span>
+                      );
+                    }
+                    if (type === 'next') {
+                      return (
+                        <span className="custom-pag-arrow" title="Trang sau">
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="5" y1="12" x2="19" y2="12" />
+                            <polyline points="12 5 19 12 12 19" />
+                          </svg>
+                        </span>
+                      );
+                    }
+                    if (type === 'page') {
+                      return <span className="custom-pag-num">{page}</span>;
+                    }
+                    if (type === 'jump-prev' || type === 'jump-next') {
+                      return <span className="custom-pag-dots">•••</span>;
+                    }
+                    return originalElement;
+                  }}
+                />
+              </div>
             </div>
           )}
         </div>

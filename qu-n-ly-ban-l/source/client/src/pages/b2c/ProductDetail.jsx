@@ -1448,8 +1448,8 @@ export default function ProductDetail() {
   const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(null);
   const carouselRef = useRef(null);
-  const { addToCart } = useCart();
-  const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed } = useApp();
+  const { addToCart, toggleSelectAll } = useCart();
+  const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed, b2cUser, openAuthModal } = useApp();
   const navigate = useNavigate();
   const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
 
@@ -1576,7 +1576,18 @@ export default function ProductDetail() {
   const handleBuyNow = () => {
     const pToAdd = getProductToAdd();
     addToCart(pToAdd, quantity, false);
+    toggleSelectAll(true);
     trackAddToCart(product, quantity);
+
+    if (!b2cUser && !localStorage.getItem('b2c_token')) {
+      message.warning('Vui lòng đăng nhập để thực hiện mua hàng');
+      if (typeof openAuthModal === 'function') {
+        openAuthModal(() => {
+          navigate('/checkout');
+        });
+      }
+      return;
+    }
     navigate('/checkout');
   };
 

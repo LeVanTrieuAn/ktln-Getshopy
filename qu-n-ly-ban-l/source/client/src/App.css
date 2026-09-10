@@ -103,3 +103,236 @@ body {
   background: transparent !important;
   border-radius: inherit;
 }
+
+/* ==========================================================================
+   Modern Minimalist Pagination (Right-aligned, Larger Gap, Bold Active, Arrow icons)
+   ========================================================================== */
+.modern-pagination-container {
+  display: flex !important;
+  justify-content: flex-end !important;
+  width: 100% !important;
+}
+
+.modern-pagination-container .ant-pagination {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  flex-wrap: wrap !important;
+  gap: 20px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  list-style: none !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.modern-pagination-container .ant-pagination-item {
+  min-width: auto !important;
+  width: auto !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  padding: 0 4px !important;
+  border-radius: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  margin: 0 !important;
+  margin-inline-end: 0 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+}
+
+.modern-pagination-container .ant-pagination-item a,
+.modern-pagination-container .ant-pagination-item .custom-pag-num {
+  color: #71717a !important;
+  font-weight: 500 !important;
+  font-size: 15px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+  transition: color 0.2s ease, font-weight 0.2s ease !important;
+}
+
+.modern-pagination-container .ant-pagination-item:hover {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.modern-pagination-container .ant-pagination-item:hover a,
+.modern-pagination-container .ant-pagination-item:hover .custom-pag-num {
+  color: #09090b !important;
+}
+
+.modern-pagination-container .ant-pagination-item-active {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+.modern-pagination-container .ant-pagination-item-active a,
+.modern-pagination-container .ant-pagination-item-active .custom-pag-num {
+  color: #09090b !important;
+  font-weight: 800 !important;
+  font-size: 15px !important;
+}
+
+.modern-pagination-container .ant-pagination-item-active:hover {
+  background: transparent !important;
+  border: none !important;
+}
+
+.modern-pagination-container .ant-pagination-item-active:hover a,
+.modern-pagination-container .ant-pagination-item-active:hover .custom-pag-num {
+  color: #09090b !important;
+}
+
+.modern-pagination-container .ant-pagination-prev,
+.modern-pagination-container .ant-pagination-next {
+  min-width: 32px !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  border-radius: 0 !important;
+  border: none !important;
+  background: transparent !important;
+  margin: 0 !important;
+  margin-inline-end: 0 !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: none !important;
+}
+
+.modern-pagination-container .ant-pagination-prev button,
+.modern-pagination-container .ant-pagination-next button,
+.modern-pagination-container .ant-pagination-prev .ant-pagination-item-link,
+.modern-pagination-container .ant-pagination-next .ant-pagination-item-link,
+.modern-pagination-container .ant-pagination-prev .custom-pag-arrow,
+.modern-pagination-container .ant-pagination-next .custom-pag-arrow {
+  color: #71717a !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  transition: color 0.2s ease, transform 0.2s ease !important;
+}
+
+.modern-pagination-container .ant-pagination-prev:hover:not(.ant-pagination-disabled),
+.modern-pagination-container .ant-pagination-next:hover:not(.ant-pagination-disabled) {
+  background: transparent !important;
+  border: none !important;
+}
+
+.modern-pagination-container .ant-pagination-prev:hover:not(.ant-pagination-disabled) .custom-pag-arrow {
+  color: #09090b !important;
+  transform: translateX(-3px);
+}
+
+.modern-pagination-container .ant-pagination-next:hover:not(.ant-pagination-disabled) .custom-pag-arrow {
+  color: #09090b !important;
+  transform: translateX(3px);
+}
+
+.modern-pagination-container .ant-pagination-disabled {
+  opacity: 0.2 !important;
+  cursor: not-allowed !important;
+  pointer-events: none !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.modern-pagination-container .ant-pagination-jump-prev,
+.modern-pagination-container .ant-pagination-jump-next {
+  min-width: auto !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  margin: 0 !important;
+  margin-inline-end: 0 !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #a1a1aa !important;
+  border: none !important;
+  background: transparent !important;
+}
+
+.modern-pagination-container .custom-pag-dots {
+  color: #a1a1aa !important;
+  letter-spacing: 2px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+/* Dark theme overrides */
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item a,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item .custom-pag-num {
+  color: #a1a1aa !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item:hover {
+  background: transparent !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item:hover a,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item:hover .custom-pag-num {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item-active {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item-active a,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item-active .custom-pag-num {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item-active:hover {
+  background: transparent !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item-active:hover a,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-item-active:hover .custom-pag-num {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-prev button,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-next button,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-prev .ant-pagination-item-link,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-next .ant-pagination-item-link,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-prev .custom-pag-arrow,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-next .custom-pag-arrow {
+  color: #a1a1aa !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-prev:hover:not(.ant-pagination-disabled),
+[data-theme='dark'] .modern-pagination-container .ant-pagination-next:hover:not(.ant-pagination-disabled) {
+  background: transparent !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .ant-pagination-prev:hover:not(.ant-pagination-disabled) .custom-pag-arrow,
+[data-theme='dark'] .modern-pagination-container .ant-pagination-next:hover:not(.ant-pagination-disabled) .custom-pag-arrow {
+  color: #ffffff !important;
+}
+
+[data-theme='dark'] .modern-pagination-container .custom-pag-dots {
+  color: #71717a !important;
+}
+

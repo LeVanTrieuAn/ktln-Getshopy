@@ -124,6 +124,16 @@ export function CartProvider({ children }) {
     setCart(prev => prev.map(item => ({ ...item, selected: checked })));
   };
 
+  const removeItemsFromCart = (itemsToRemove) => {
+    if (!Array.isArray(itemsToRemove) || itemsToRemove.length === 0) return;
+    const toRemoveSet = new Set(
+      itemsToRemove.map(item => `${item.id}-${item.selectedVariant?.id || ''}`)
+    );
+    setCart(prev => prev.filter(item => 
+      !toRemoveSet.has(`${item.id}-${item.selectedVariant?.id || ''}`)
+    ));
+  };
+
   const clearCart = () => {
     setCart([]);
   };
@@ -141,7 +151,7 @@ export function CartProvider({ children }) {
 
   return (
     <CartContext.Provider value={{ 
-      cart, addToCart, updateQuantity, removeFromCart, clearCart, 
+      cart, setCart, addToCart, updateQuantity, removeFromCart, removeItemsFromCart, clearCart, 
       cartTotal, cartCount, toggleSelect, toggleSelectAll,
       cartOpen, setCartOpen, openCart, closeCart
     }}>

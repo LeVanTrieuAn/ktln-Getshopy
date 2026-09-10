@@ -23,6 +23,20 @@ if (typeof document !== 'undefined' && !document.getElementById(CART_STYLE_ID)) 
     .cart-drawer-custom .ant-checkbox-checked::after {
       border: 1px solid #18181b !important;
     }
+    .user-dropdown-custom-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-size: 13.5px;
+      font-weight: 500;
+      transition: all 0.16s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .user-dropdown-custom-item:hover {
+      transform: translateX(2px);
+    }
   `;
   document.head.appendChild(s);
 }
@@ -59,13 +73,10 @@ import { SunOutlined, MoonOutlined } from '@ant-design/icons';
 const { Header, Content, Footer } = Layout;
 
 export default function StoreLayout() {
-  const { isDark, toggleTheme, bg, compareList, lang, toggleLang, t, b2cUser, user, b2cLogout, logout, selectedBranch, setSelectedBranch } = useApp();
+  const { isDark, toggleTheme, bg, compareList, lang, toggleLang, t, b2cUser, user, b2cLogout, logout, selectedBranch, setSelectedBranch, authOpen, setAuthOpen, openAuthModal, closeAuthModal, authSuccessCallback } = useApp();
   const currentUser = b2cUser || user;
   const { cart, removeFromCart, cartTotal, cartCount, toggleSelect, toggleSelectAll, updateQuantity, cartOpen, setCartOpen } = useCart();
   const navigate = useNavigate();
-  
-  // Auth Modal State
-  const [authOpen, setAuthOpen] = useState(false);
 
   // Navbar dropdown states
   const [productsOpen, setProductsOpen] = useState(false);
@@ -318,9 +329,8 @@ export default function StoreLayout() {
           </span>
           <span
             onClick={() => {
-              const el = document.getElementById('catalog');
-              if (el) el.scrollIntoView({ behavior: 'smooth' });
-              else navigate('/');
+              navigate('/about');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
             className="commerce-nav-link"
             style={{
@@ -703,48 +713,157 @@ export default function StoreLayout() {
             Contact
           </span>
 
-          {/* User Icon */}
+          {/* User Icon & Dropdown */}
           {currentUser ? (
             <Dropdown
-              menu={{
-                items: [
-                  { key: '1', label: t('nav.my_account'), icon: <UserOutlined />, onClick: () => navigate('/account') },
-                  { key: '2', label: t('nav.switch_account'), icon: <SwapOutlined />, onClick: () => { b2cLogout(); logout(); setAuthOpen(true); } },
-                  { key: '3', label: t('nav.logout'), icon: <LogoutOutlined />, onClick: () => { b2cLogout(); logout(); message.success(t('nav.logged_out_success')); navigate('/'); } }
-                ]
-              }}
+              dropdownRender={() => (
+                <div
+                  style={{
+                    minWidth: 260,
+                    background: isDark ? '#18181b' : '#ffffff',
+                    borderRadius: 20,
+                    padding: '12px',
+                    boxShadow: isDark
+                      ? '0 20px 40px -8px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1)'
+                      : '0 20px 40px -8px rgba(0,0,0,0.14), 0 6px 18px rgba(0,0,0,0.05), 0 0 0 1px rgba(0,0,0,0.08)',
+                    backdropFilter: 'blur(20px)',
+                  }}
+                >
+                  {/* User Profile Header */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 8px 14px', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5'}` }}>
+                    <div
+                      style={{
+                        width: 42,
+                        height: 42,
+                        borderRadius: '50%',
+                        background: isDark ? '#27272a' : '#18181b',
+                        color: '#ffffff',
+                        border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#18181b'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                      }}
+                    >
+                      <UserOutlined style={{ fontSize: 20, color: '#ffffff' }} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14.5, color: isDark ? '#ffffff' : '#18181b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {currentUser.full_name || 'Khách hàng'}
+                      </div>
+                      <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {currentUser.email || 'customer@getshopy.vn'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Menu Items */}
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <div
+                      onClick={() => navigate('/account')}
+                      className="user-dropdown-custom-item"
+                      style={{
+                        color: isDark ? '#e4e4e7' : '#27272a',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <UserOutlined style={{ fontSize: 16, color: isDark ? '#a1a1aa' : '#52525b' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>{t('nav.my_account')}</div>
+                        <div style={{ fontSize: 11, color: isDark ? '#71717a' : '#a1a1aa' }}>Hồ sơ & thông tin tài khoản</div>
+                      </div>
+                    </div>
+
+                    <div
+                      onClick={() => navigate('/account?tab=orders')}
+                      className="user-dropdown-custom-item"
+                      style={{
+                        color: isDark ? '#e4e4e7' : '#27272a',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <ShoppingOutlined style={{ fontSize: 16, color: isDark ? '#a1a1aa' : '#52525b' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>{t('account.my_orders') || 'Đơn hàng của tôi'}</div>
+                        <div style={{ fontSize: 11, color: isDark ? '#71717a' : '#a1a1aa' }}>Quản lý đơn mua & hóa đơn</div>
+                      </div>
+                    </div>
+
+                    <div style={{ height: 1, background: isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5', margin: '4px 2px' }} />
+
+                    <div
+                      onClick={() => { b2cLogout(); logout(); message.success(t('nav.logged_out_success')); navigate('/'); }}
+                      className="user-dropdown-custom-item"
+                      style={{
+                        color: '#ef4444',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(239, 68, 68, 0.12)' : '#fef2f2'}
+                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <LogoutOutlined style={{ fontSize: 16, color: '#ef4444' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>{t('nav.logout')}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
               placement="bottomRight"
+              trigger={['hover', 'click']}
             >
               <div
                 style={{
-                  width: 36,
-                  height: 36,
+                  position: 'relative',
+                  width: 38,
+                  height: 38,
                   borderRadius: '50%',
-                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.12)'}`,
+                  background: isDark ? '#27272a' : '#18181b',
+                  color: '#ffffff',
+                  border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.2)' : '#18181b'}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   cursor: 'pointer',
-                  overflow: 'hidden',
-                  background: isDark ? 'rgba(255,255,255,0.06)' : '#fafafa'
+                  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  boxShadow: isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.15)',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = isDark ? '0 2px 8px rgba(0,0,0,0.4)' : '0 2px 8px rgba(0,0,0,0.15)';
                 }}
               >
-                <Avatar 
-                  src={currentUser.avatar ? currentUser.avatar.replace('notionists', 'avataaars') : (`https://api.dicebear.com/7.x/avataaars/svg?seed=` + (currentUser.email || 'user'))} 
-                  icon={<UserOutlined />} 
-                  size={34} 
+                <UserOutlined style={{ fontSize: 17, color: '#ffffff' }} />
+                {/* Active online dot */}
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: 0,
+                    right: 0,
+                    width: 9,
+                    height: 9,
+                    borderRadius: '50%',
+                    background: '#10b981',
+                    border: `1.5px solid ${isDark ? '#09090b' : '#ffffff'}`,
+                  }}
                 />
               </div>
             </Dropdown>
           ) : (
             <div
-              onClick={() => setAuthOpen(true)}
+              onClick={() => openAuthModal()}
               title="Đăng nhập / Tài khoản"
               style={{
-                width: 36,
-                height: 36,
+                width: 38,
+                height: 38,
                 borderRadius: '50%',
                 border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.25)' : '#27272a'}`,
+                background: 'transparent',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -752,10 +871,18 @@ export default function StoreLayout() {
                 transition: 'all 0.2s',
                 color: isDark ? '#ffffff' : '#18181b',
               }}
-              onMouseEnter={e => { e.currentTarget.style.borderColor = '#10b981'; e.currentTarget.style.color = '#10b981'; }}
-              onMouseLeave={e => { e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.25)' : '#27272a'; e.currentTarget.style.color = isDark ? '#ffffff' : '#18181b'; }}
+              onMouseEnter={e => { 
+                e.currentTarget.style.borderColor = '#18181b'; 
+                e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={e => { 
+                e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.25)' : '#27272a'; 
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
             >
-              <UserOutlined style={{ fontSize: 16 }} />
+              <UserOutlined style={{ fontSize: 17 }} />
             </div>
           )}
 
@@ -880,7 +1007,15 @@ export default function StoreLayout() {
             <Col xs={12} md={5}>
               <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 24, color: '#10b981' }}>{t('footer.about')}</div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <li style={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>{t('footer.about_intro')}</li>
+                <li 
+                  onClick={() => {
+                    navigate('/about');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  style={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}
+                >
+                  {t('footer.about_intro')}
+                </li>
                 <li style={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>{t('footer.careers')}</li>
                 <li style={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>{t('footer.terms')}</li>
                 <li style={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer' }}>{t('footer.privacy')}</li>
@@ -1159,14 +1294,23 @@ export default function StoreLayout() {
                 block
                 size="large"
                 onClick={() => { 
-                  if (!b2cUser) {
-                    setCartOpen(false);
-                    setAuthOpen(true);
-                    message.warning('Vui lòng đăng nhập để tiến hành đặt hàng');
-                  } else {
-                    setCartOpen(false); 
-                    navigate('/checkout'); 
+                  if (cart.length === 0) {
+                    message.warning('Giỏ hàng của bạn đang trống');
+                    return;
                   }
+                  // Nếu chưa có sản phẩm nào được chọn, tự động chọn tất cả để sang checkout không bị trống
+                  if (!cart.some(i => i.selected)) {
+                    toggleSelectAll(true);
+                  }
+                  setCartOpen(false); 
+                  if (!b2cUser && !localStorage.getItem('b2c_token')) {
+                    message.warning('Vui lòng đăng nhập để thực hiện mua hàng');
+                    openAuthModal(() => {
+                      navigate('/checkout');
+                    });
+                    return;
+                  }
+                  navigate('/checkout'); 
                 }}
                 style={{
                   background: '#18181b',
@@ -1183,7 +1327,7 @@ export default function StoreLayout() {
                 onMouseEnter={e => e.currentTarget.style.background = '#27272a'}
                 onMouseLeave={e => e.currentTarget.style.background = '#18181b'}
               >
-                {t('cart.checkout')}
+                {t('cart.checkout')} {cart.filter(i => i.selected).length > 0 ? `(${cart.filter(i => i.selected).length})` : `(${cart.length})`}
               </Button>
             </div>
           )}
@@ -1194,7 +1338,7 @@ export default function StoreLayout() {
       <AIChatbot />
 
       {/* AUTH MODAL */}
-      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+      <AuthModal open={authOpen} onClose={closeAuthModal} onSuccess={authSuccessCallback} />
     </Layout>
   );
 }
