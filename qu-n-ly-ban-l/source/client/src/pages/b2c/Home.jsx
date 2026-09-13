@@ -562,22 +562,41 @@ export default function Home() {
                 />
               </div>
 
-              {/* Link at bottom left */}
+              {/* Button at bottom left */}
               <div style={{ zIndex: 3 }}>
-                <span
+                <button
                   style={{
                     fontSize: 13,
                     fontWeight: 600,
                     color: isDark ? '#ffffff' : '#111111',
+                    background: 'transparent',
+                    border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}`,
+                    borderRadius: 9999,
+                    padding: '8px 18px',
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: 6,
-                    padding: '6px 0',
-                    transition: 'gap 0.2s',
+                    gap: 7,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    backdropFilter: 'blur(8px)',
+                    WebkitBackdropFilter: 'blur(8px)',
                   }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)';
+                    e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)';
+                    e.currentTarget.style.gap = '10px';
+                    e.stopPropagation();
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
+                    e.currentTarget.style.gap = '7px';
+                  }}
+                  onClick={e => { e.stopPropagation(); handleCategoryClick(cat); }}
                 >
-                  {cat.linkText}
-                </span>
+                  {cat.type === 'modal' ? 'Xem tất cả' : 'Khám phá'}
+                  <ArrowRightOutlined style={{ fontSize: 11 }} />
+                </button>
               </div>
             </div>
           ))}

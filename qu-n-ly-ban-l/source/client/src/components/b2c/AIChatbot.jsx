@@ -71,26 +71,24 @@ function ProductCards({ products, isDark, onNavigate }) {
           style={{
             display: 'flex', gap: 10, padding: '8px 10px',
             borderRadius: 10,
-            background: isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.05)',
-            border: `1px solid ${isDark ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.15)'}`,
+            background: isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
+            border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
             cursor: 'pointer', transition: 'all 0.18s',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.1)';
-            e.currentTarget.style.borderColor = '#10b981';
-            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.06)';
+            e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)';
           }}
           onMouseLeave={e => {
-            e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.1)' : 'rgba(16,185,129,0.05)';
-            e.currentTarget.style.borderColor = isDark ? 'rgba(16,185,129,0.25)' : 'rgba(16,185,129,0.15)';
-            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)';
+            e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)';
           }}
         >
           <img
-            src={p.image || 'https://placehold.co/56x56/f0fdf4/10b981?text=?'}
+            src={p.image || 'https://placehold.co/56x56/f5f5f5/333?text=?'}
             alt={p.name}
-            style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 8, background: isDark ? '#111' : '#f9fafb', flexShrink: 0 }}
-            onError={e => { e.target.src = 'https://placehold.co/56x56/f0fdf4/10b981?text=?'; }}
+            style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 8, background: isDark ? '#111' : '#f5f5f5', flexShrink: 0 }}
+            onError={e => { e.target.src = 'https://placehold.co/56x56/f5f5f5/333?text=?'; }}
           />
           <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
             <div style={{
@@ -98,15 +96,16 @@ function ProductCards({ products, isDark, onNavigate }) {
               color: isDark ? '#e2e8f0' : '#1e293b',
               whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>{p.name}</div>
-            {p.rating && <Rate disabled defaultValue={p.rating} style={{ fontSize: 9, color: '#f59e0b', marginTop: 2 }} />}
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#10b981', marginTop: 1 }}>
+            {p.rating && <Rate disabled defaultValue={p.rating} style={{ fontSize: 9, color: isDark ? '#ffffff' : '#000000', marginTop: 2 }} />}
+            <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.8)', marginTop: 1 }}>
               {Number(p.price).toLocaleString('vi-VN')} ₫
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
             <span style={{
-              fontSize: 11, fontWeight: 600, color: '#10b981',
-              border: '1px solid #10b981',
+              fontSize: 11, fontWeight: 600,
+              color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)',
+              border: `1px solid ${isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.2)'}`,
               borderRadius: 12, padding: '2px 8px',
               whiteSpace: 'nowrap',
             }}>Xem ngay</span>
@@ -239,13 +238,15 @@ export default function AIChatbot() {
           title="Mở trợ lý AI"
           style={{
             position: 'fixed', bottom: 28, right: 28,
-            width: 60, height: 60, zIndex: 9999,
-            borderRadius: '50%', border: 'none', cursor: 'pointer',
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            boxShadow: '0 8px 32px rgba(16,185,129,0.45), 0 2px 8px rgba(0,0,0,0.12)',
+            width: 56, height: 56, zIndex: 9999,
+            borderRadius: '50%', border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)'}`,
+            cursor: 'pointer',
+            background: isDark ? '#ffffff' : '#000000',
+            boxShadow: isDark
+              ? '0 8px 32px rgba(255,255,255,0.12), 0 2px 8px rgba(0,0,0,0.3)'
+              : '0 8px 32px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.1)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 24, color: '#fff',
-            animation: 'chatbot-pulse 3s ease-in-out infinite',
+            fontSize: 22, color: isDark ? '#000000' : '#ffffff',
             transition: 'transform 0.2s, box-shadow 0.2s',
           }}
           onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.08)'; }}
@@ -274,34 +275,33 @@ export default function AIChatbot() {
           {/* ── Header ── */}
           <div style={{
             padding: '16px 20px',
-            background: 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
+            background: isDark ? '#ffffff' : '#000000',
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             flexShrink: 0,
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              {/* Avatar with pulse ring */}
               <div style={{ position: 'relative', flexShrink: 0 }}>
                 <div style={{
-                  width: 40, height: 40, borderRadius: '50%',
-                  background: 'rgba(255,255,255,0.2)',
-                  backdropFilter: 'blur(4px)',
+                  width: 38, height: 38, borderRadius: '50%',
+                  background: isDark ? 'rgba(0,0,0,0.15)' : 'rgba(255,255,255,0.15)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 20, color: '#fff',
-                  border: '2px solid rgba(255,255,255,0.35)',
+                  fontSize: 19, color: isDark ? '#000000' : '#ffffff',
+                  border: `2px solid ${isDark ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.3)'}`,
                 }}>
                   <RobotOutlined />
                 </div>
                 <span style={{
                   position: 'absolute', bottom: 1, right: 1,
-                  width: 10, height: 10, borderRadius: '50%',
-                  background: '#86efac', border: '2px solid #047857',
+                  width: 9, height: 9, borderRadius: '50%',
+                  background: isDark ? '#000000' : '#ffffff',
+                  border: `2px solid ${isDark ? '#ffffff' : '#000000'}`,
                 }} />
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 15, color: '#fff', lineHeight: 1.3 }}>
+                <div style={{ fontWeight: 700, fontSize: 15, color: isDark ? '#000000' : '#ffffff', lineHeight: 1.3 }}>
                   AI Shopping Assistant
                 </div>
-                <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)', marginTop: 1 }}>
+                <div style={{ fontSize: 11, color: isDark ? 'rgba(0,0,0,0.6)' : 'rgba(255,255,255,0.7)', marginTop: 1 }}>
                   ● Online · Phản hồi ngay
                 </div>
               </div>
@@ -309,14 +309,14 @@ export default function AIChatbot() {
             <button
               onClick={() => setIsOpen(false)}
               style={{
-                width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
-                background: 'rgba(255,255,255,0.15)',
-                color: '#fff', fontSize: 14,
+                width: 30, height: 30, borderRadius: '50%', border: 'none', cursor: 'pointer',
+                background: isDark ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)',
+                color: isDark ? '#000000' : '#ffffff', fontSize: 13,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 transition: 'background 0.2s',
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.25)'; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.15)'; }}
+              onMouseEnter={e => { e.currentTarget.style.background = isDark ? 'rgba(0,0,0,0.22)' : 'rgba(255,255,255,0.28)'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = isDark ? 'rgba(0,0,0,0.12)' : 'rgba(255,255,255,0.15)'; }}
             >
               <CloseOutlined />
             </button>
@@ -347,30 +347,29 @@ export default function AIChatbot() {
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 14, color: '#fff',
                   background: msg.sender === 'user'
-                    ? 'linear-gradient(135deg, #3b82f6, #2563eb)'
-                    : 'linear-gradient(135deg, #10b981, #047857)',
-                  boxShadow: msg.sender === 'user'
-                    ? '0 2px 8px rgba(59,130,246,0.3)'
-                    : '0 2px 8px rgba(16,185,129,0.3)',
+                    ? (isDark ? '#ffffff' : '#000000')
+                    : (isDark ? '#2a2a2a' : '#f0f0f0'),
+                  boxShadow: 'none',
                 }}>
-                  {msg.sender === 'user' ? <UserOutlined /> : <RobotOutlined />}
+                  {msg.sender === 'user' ? <UserOutlined style={{ color: isDark ? '#000000' : '#ffffff' }} /> : <RobotOutlined style={{ color: isDark ? '#ffffff' : '#000000' }} />}
                 </div>
 
                 {/* Bubble */}
                 <div style={{
                   maxWidth: '78%',
                   background: msg.sender === 'user'
-                    ? 'linear-gradient(135deg, #3b82f6, #2563eb)'
-                    : aiBubble,
-                  color: msg.sender === 'user' ? '#fff' : aiText,
-                  padding: '14px 16px',
+                    ? (isDark ? '#ffffff' : '#000000')
+                    : (isDark ? '#1e1e1e' : '#f4f4f4'),
+                  color: msg.sender === 'user'
+                    ? (isDark ? '#000000' : '#ffffff')
+                    : (isDark ? '#e2e8f0' : '#1e293b'),
+                  padding: '12px 15px',
                   borderRadius: msg.sender === 'user'
                     ? '18px 4px 18px 18px'
                     : '4px 18px 18px 18px',
                   fontSize: 14, lineHeight: 1.65,
-                  boxShadow: msg.sender === 'user'
-                    ? '0 4px 12px rgba(59,130,246,0.25)'
-                    : `0 2px 8px ${isDark ? 'rgba(0,0,0,0.2)' : 'rgba(0,0,0,0.05)'}`,
+                  boxShadow: `0 1px 4px ${isDark ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.06)'}`,
+                  border: msg.sender === 'ai' ? `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'}` : 'none',
                 }}>
                   {/* Image preview */}
                   {msg.imagePreview && (
@@ -405,21 +404,17 @@ export default function AIChatbot() {
                       onClick={() => { navigate(msg.link); setIsOpen(false); }}
                       style={{
                         marginTop: 10, padding: '6px 16px',
-                        borderRadius: 20, border: 'none', cursor: 'pointer',
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        color: '#fff', fontSize: 12, fontWeight: 600,
-                        boxShadow: '0 2px 8px rgba(16,185,129,0.3)',
-                        transition: 'transform 0.15s, box-shadow 0.15s',
+                        borderRadius: 20,
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)'}`,
+                        cursor: 'pointer',
+                        background: 'transparent',
+                        color: msg.sender === 'user' ? (isDark ? '#000000' : '#ffffff') : (isDark ? '#ffffff' : '#000000'),
+                        fontSize: 12, fontWeight: 600,
+                        transition: 'all 0.15s',
                         display: 'inline-flex', alignItems: 'center', gap: 6,
                       }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.transform = 'translateY(-1px)';
-                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(16,185,129,0.4)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(16,185,129,0.3)';
-                      }}
+                      onMouseEnter={e => { e.currentTarget.style.opacity = '0.75'; }}
+                      onMouseLeave={e => { e.currentTarget.style.opacity = '1'; }}
                     >
                       Xem ngay
                     </button>
@@ -441,10 +436,10 @@ export default function AIChatbot() {
             {isTyping && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', animation: 'msg-in 0.22s ease both' }}>
                 <div style={{
-                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, color: '#fff',
-                  background: 'linear-gradient(135deg, #10b981, #047857)',
+                  fontSize: 13, color: isDark ? '#000000' : '#ffffff',
+                  background: isDark ? '#ffffff' : '#000000',
                 }}>
                   <RobotOutlined />
                 </div>
@@ -464,10 +459,10 @@ export default function AIChatbot() {
             {isAnalyzing && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', animation: 'msg-in 0.22s ease both' }}>
                 <div style={{
-                  width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
+                  width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 14, color: '#fff',
-                  background: 'linear-gradient(135deg, #10b981, #047857)',
+                  fontSize: 13, color: isDark ? '#000000' : '#ffffff',
+                  background: isDark ? '#ffffff' : '#000000',
                 }}>
                   <RobotOutlined />
                 </div>
@@ -521,22 +516,20 @@ export default function AIChatbot() {
                 disabled={isTyping || isAnalyzing}
                 title="Gửi ảnh để tìm sản phẩm tương tự"
                 style={{
-                  width: 36, height: 36, borderRadius: '50%', border: 'none', flexShrink: 0,
+                  width: 34, height: 34, borderRadius: '50%', border: 'none', flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)',
-                  color: '#10b981', fontSize: 16, cursor: 'pointer',
+                  background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)',
+                  color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)', fontSize: 15, cursor: 'pointer',
                   transition: 'all 0.2s',
-                  opacity: (isTyping || isAnalyzing) ? 0.5 : 1,
+                  opacity: (isTyping || isAnalyzing) ? 0.4 : 1,
                 }}
                 onMouseEnter={e => {
                   if (!isTyping && !isAnalyzing) {
-                    e.currentTarget.style.background = 'rgba(16,185,129,0.25)';
-                    e.currentTarget.style.transform = 'scale(1.08)';
+                    e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.1)';
                   }
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.background = isDark ? 'rgba(16,185,129,0.15)' : 'rgba(16,185,129,0.1)';
-                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
                 }}
               >
                 <PictureOutlined />
@@ -556,7 +549,7 @@ export default function AIChatbot() {
                   background: 'transparent',
                   fontSize: 13, color: isDark ? '#e2e8f0' : '#1e293b',
                   padding: '6px 4px',
-                  caretColor: '#10b981',
+                  caretColor: isDark ? '#ffffff' : '#000000',
                 }}
               />
 
@@ -568,12 +561,14 @@ export default function AIChatbot() {
                   width: 36, height: 36, borderRadius: '50%', border: 'none',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: inputValue.trim()
-                    ? 'linear-gradient(135deg, #10b981, #059669)'
-                    : (isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0'),
-                  color: inputValue.trim() ? '#fff' : (isDark ? '#475569' : '#94a3b8'),
+                    ? (isDark ? '#ffffff' : '#000000')
+                    : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'),
+                  color: inputValue.trim()
+                    ? (isDark ? '#000000' : '#ffffff')
+                    : (isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'),
                   fontSize: 15, cursor: inputValue.trim() ? 'pointer' : 'default',
                   transition: 'all 0.2s', flexShrink: 0,
-                  boxShadow: inputValue.trim() ? '0 4px 12px rgba(16,185,129,0.35)' : 'none',
+                  boxShadow: 'none',
                 }}
                 onMouseEnter={e => { if (inputValue.trim()) e.currentTarget.style.transform = 'scale(1.08)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
@@ -587,26 +582,22 @@ export default function AIChatbot() {
       )}
 
       <style>{`
-        @keyframes chatbot-pulse {
-          0%, 100% { box-shadow: 0 8px 32px rgba(16,185,129,0.45), 0 0 0 0 rgba(16,185,129,0.4); }
-          50% { box-shadow: 0 8px 32px rgba(16,185,129,0.45), 0 0 0 10px rgba(16,185,129,0); }
-        }
         @keyframes msg-in {
-          from { opacity: 0; transform: translateY(8px); }
+          from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
         .chatbot-typing {
           display: flex; align-items: center; gap: 4px;
         }
         .chatbot-typing span {
-          display: inline-block; width: 7px; height: 7px;
-          background: #10b981; border-radius: 50%;
+          display: inline-block; width: 6px; height: 6px;
+          background: currentColor; border-radius: 50%;
           animation: chatbot-dot 1.4s infinite ease-in-out both;
         }
         .chatbot-typing span:nth-child(1) { animation-delay: -0.32s; }
         .chatbot-typing span:nth-child(2) { animation-delay: -0.16s; }
         @keyframes chatbot-dot {
-          0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+          0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
           40% { transform: scale(1); opacity: 1; }
         }
       `}</style>
