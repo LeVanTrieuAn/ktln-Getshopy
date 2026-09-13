@@ -13,6 +13,7 @@
     "@ant-design/icons": "^5.5.0",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
     "@gsap/react": "^2.1.2",
+    "@react-oauth/google": "^0.13.5",
     "@react-three/drei": "^10.7.8",
     "@react-three/fiber": "^9.7.0",
     "@tanstack/react-query": "^5.28.0",

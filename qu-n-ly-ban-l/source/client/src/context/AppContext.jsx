@@ -1,6 +1,7 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import vi from '../i18n/vi';
 import en from '../i18n/en';
+import { api } from '../services/api';
 
 const translations = { vi, en };
 
@@ -29,13 +30,32 @@ export function AppProvider({ children }) {
     try { const v = JSON.parse(localStorage.getItem('b2c_recent')); return Array.isArray(v) ? v : []; } catch { return []; }
   });
 
-  const toggleWishlist = (product) => {
+  useEffect(() => {
+    if (b2cUser) {
+      api.b2c.getWishlist()
+        .then(products => {
+          setWishlist(products);
+          localStorage.setItem('b2c_wishlist', JSON.stringify(products));
+        })
+        .catch(err => console.error('Failed to load wishlist:', err));
+    }
+  }, [b2cUser]);
+
+  const toggleWishlist = async (product) => {
     setWishlist(prev => {
       const exists = prev.find(p => p.id === product.id);
       const next = exists ? prev.filter(p => p.id !== product.id) : [product, ...prev];
       localStorage.setItem('b2c_wishlist', JSON.stringify(next));
       return next;
     });
+    
+    if (b2cUser) {
+      try {
+        await api.b2c.toggleWishlist(product.id);
+      } catch (err) {
+        console.error('Failed to sync wishlist to server:', err);
+      }
+    }
   };
 
   const toggleCompare = (product) => {

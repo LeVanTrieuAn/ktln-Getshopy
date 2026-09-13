@@ -580,10 +580,9 @@ export default function StoreLayout() {
                 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', paddingBottom: 8, marginBottom: 6, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span>Danh mục</span>
-                    <span onClick={() => { setProductsOpen(false); navigate('/shop'); }} style={{ fontSize: 11.5, color: isDark ? 'rgba(255,255,255,0.6)' : '#52525b', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 3 }}>Xem tất cả <RightOutlined style={{ fontSize: 9 }} /></span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {[{ key: 'all', title: 'Tất cả sản phẩm', desc: 'Toàn bộ 34.000+ thiết bị', icon: <OrderedListOutlined />, path: '/shop' },
+                    {[{ key: 'all', title: 'Tất cả sản phẩm', desc: 'Toàn bộ 600.000+ sản phẩm', icon: <OrderedListOutlined />, path: '/shop' },
                       ...navCategories.map(cat => ({ key: cat.id, title: cat.name, desc: cat.desc, icon: cat.icon || <InboxOutlined />, path: `/shop?category=${cat.id}` }))
                     ].map(item => (
                       <div key={item.key} onClick={() => { setProductsOpen(false); navigate(item.path); }} className="dropdown-menu-card-item"
