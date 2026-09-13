@@ -417,18 +417,19 @@ router.get('/orders/me', async (req, res) => {
     // but in Postgres we can use path-based filtering, OR we fetch and filter since number of orders is small,
     // OR we just use Prisma's Json filtering:
     let orders;
+    const allOrders = await prisma.order.findMany({ orderBy: { date: 'desc' } });
     if (email) {
-      orders = await prisma.order.findMany({
-        where: {
-          customer: {
-            path: ['email'],
-            equals: email
-          }
-        },
-        orderBy: { date: 'desc' }
+      orders = allOrders.filter(o => {
+        try {
+          let cust = o.customer;
+          if (typeof cust === 'string') cust = JSON.parse(cust);
+          return cust && cust.email === email;
+        } catch (e) {
+          return false;
+        }
       });
     } else {
-      orders = await prisma.order.findMany({ orderBy: { date: 'desc' } });
+      orders = allOrders;
     }
     res.json(orders);
   } catch (err) {
@@ -455,7 +456,75 @@ router.post('/products/:id/reviews', async (req, res) => {
       }
     });
 
+    // Update product overall rating
+    const allReviews = await prisma.review.findMany({ where: { product_id: BigInt(id) } });
+    if (allReviews.length > 0) {
+      const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
+      await prisma.product.update({
+        where: { id: BigInt(id) },
+        data: { rating: avgRating }
+      });
+    }
+
     res.json({ success: true, review: { ...newReview, product_id: Number(newReview.product_id) } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- B2C MIDDLEWARE ---
+const b2cAuth = (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Vui lòng đăng nhập' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ error: 'Phiên đăng nhập hết hạn' });
+  }
+};
+
+// --- WISHLIST ---
+router.get('/wishlist', b2cAuth, async (req, res) => {
+  try {
+    const list = await prisma.wishlist.findMany({
+      where: { customer_id: BigInt(req.user.id) }
+    });
+    const productIds = list.map(item => item.product_id);
+    
+    const products = await prisma.product.findMany({
+      where: { id: { in: productIds }, is_deleted: false }
+    });
+    
+    res.json(products.map(p => ({ ...p, id: Number(p.id) })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/wishlist', b2cAuth, async (req, res) => {
+  try {
+    const { product_id } = req.body;
+    const existing = await prisma.wishlist.findFirst({
+      where: { 
+        customer_id: BigInt(req.user.id), 
+        product_id: BigInt(product_id) 
+      }
+    });
+    
+    if (existing) {
+      await prisma.wishlist.delete({ where: { id: existing.id } });
+      res.json({ success: true, action: 'removed' });
+    } else {
+      await prisma.wishlist.create({
+        data: { 
+          customer_id: BigInt(req.user.id), 
+          product_id: BigInt(product_id) 
+        }
+      });
+      res.json({ success: true, action: 'added' });
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -518,33 +587,55 @@ router.post('/auth/login', async (req, res) => {
   }
 });
 
-// Social Login (Mock)
+// Social Login
 router.post('/auth/social', async (req, res) => {
   try {
-    const { provider, email, full_name, avatar } = req.body;
+    const { provider, email: mockEmail, full_name: mockName, avatar: mockAvatar, token: accessToken } = req.body;
     
-    let user = await prisma.b2CCustomer.findUnique({ where: { email } });
+    let realEmail = mockEmail;
+    let realName = mockName;
+    let realAvatar = mockAvatar;
+
+    // Nếu provider là google và có token, xác thực với Google
+    if (provider === 'google' && accessToken) {
+      try {
+        const response = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${accessToken}` }
+        });
+        if (!response.ok) {
+          throw new Error('Failed to verify Google token');
+        }
+        const googleUser = await response.json();
+        realEmail = googleUser.email;
+        realName = googleUser.name;
+        realAvatar = googleUser.picture;
+      } catch (e) {
+        return res.status(401).json({ error: 'Google authentication failed' });
+      }
+    }
+
+    let user = await prisma.b2CCustomer.findUnique({ where: { email: realEmail } });
 
     if (!user) {
       // Auto-register
       user = await prisma.b2CCustomer.create({
         data: {
-          full_name,
-          email,
+          full_name: realName,
+          email: realEmail,
           phone: '',
           password_hash: '', 
           loyalty_points: 0,
-          avatar: avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + email),
+          avatar: realAvatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + realEmail),
           provider: provider
         }
       });
     } else {
       if (user.provider !== provider) {
          user = await prisma.b2CCustomer.update({
-           where: { email },
+           where: { email: realEmail },
            data: {
              provider: provider,
-             avatar: avatar || user.avatar
+             avatar: realAvatar || user.avatar
            }
          });
       }

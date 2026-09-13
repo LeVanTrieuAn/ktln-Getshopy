@@ -106,30 +106,37 @@ export default function Home() {
 
   // 2. Fetch "Dành riêng cho bạn" (Exactly 8 products from AI recommendation or personalized top picks)
   useEffect(() => {
+    let ignore = false;
     async function loadRecommendations() {
       try {
         setLoadingRec(true);
         const recData = await api.recommendation.get(b2cUser?.email || '');
+        if (ignore) return;
         if (Array.isArray(recData) && recData.length > 0) {
           setRecommendedProducts(recData.slice(0, 8));
         } else {
           // Fallback to top rated/bestselling items
           const res = await api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 8);
+          if (ignore) return;
           setRecommendedProducts(res?.data?.slice(0, 8) || []);
         }
       } catch (err) {
+        if (ignore) return;
         console.warn('Rec error:', err);
         try {
           const res = await api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 8);
+          if (ignore) return;
           setRecommendedProducts(res?.data?.slice(0, 8) || []);
         } catch {
+          if (ignore) return;
           setRecommendedProducts([]);
         }
       } finally {
-        setLoadingRec(false);
+        if (!ignore) setLoadingRec(false);
       }
     }
     loadRecommendations();
+    return () => { ignore = true; };
   }, [selectedBranch, b2cUser]);
 
   // 3. Fetch "Sản phẩm mới" (Exactly 8 newest products)

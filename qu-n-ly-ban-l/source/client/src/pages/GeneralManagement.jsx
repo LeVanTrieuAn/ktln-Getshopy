@@ -51,6 +51,7 @@ export default function GeneralManagement() {
   const [categories, setCategories] = useState([]);
   const [flashSales, setFlashSales] = useState([]);
   const [brands, setBrands] = useState([]);
+  const [customers, setCustomers] = useState([]);
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -93,18 +94,20 @@ export default function GeneralManagement() {
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
-      const [br, pr, cat, fs, brds] = await Promise.all([
+      const [br, pr, cat, fs, brds, cust] = await Promise.all([
         api.b2b.getBranches(),
         api.b2b.getProducts ? api.b2b.getProducts() : api.b2c.getProducts('ALL'),
         api.b2c.getCategories(),
         api.b2b.getFlashSales ? api.b2b.getFlashSales() : fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/b2b/flash-sales`).then(r => r.json()),
-        api.b2b.getBrands ? api.b2b.getBrands() : api.b2c.getBrands()
+        api.b2b.getBrands ? api.b2b.getBrands() : api.b2c.getBrands(),
+        api.b2b.getCustomers ? api.b2b.getCustomers() : Promise.resolve([])
       ]);
       setBranches(br);
       setProducts(pr);
       setCategories(cat);
       setFlashSales(fs);
       setBrands(brds);
+      setCustomers(cust);
     } catch(e) {
       console.error(e);
       message.error('Không thể tải dữ liệu');
@@ -360,6 +363,16 @@ export default function GeneralManagement() {
     },
   ];
 
+  const customerColumns = [
+    { title: 'ID', dataIndex: 'id', key: 'id' },
+    { title: 'Họ tên', dataIndex: 'full_name', key: 'full_name' },
+    { title: 'Email', dataIndex: 'email', key: 'email' },
+    { title: 'Số điện thoại', dataIndex: 'phone', key: 'phone', render: (val) => val || '-' },
+    { title: 'Điểm tích lũy', dataIndex: 'loyalty_points', key: 'loyalty_points', render: (val) => <Tag color="gold">{val}</Tag> },
+    { title: 'Đăng nhập', dataIndex: 'provider', key: 'provider' },
+    { title: 'Ngày tham gia', dataIndex: 'created_at', key: 'created_at', render: (t) => dayjs(t).format('DD/MM/YYYY') },
+  ];
+
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -372,6 +385,7 @@ export default function GeneralManagement() {
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
         { key: '1', label: 'Chi nhánh', children: <Table dataSource={branches} columns={branchColumns} rowKey="id" loading={loading} /> },
         { key: '4', label: 'Thương hiệu', children: <Table dataSource={brands} columns={brandColumns} rowKey="id" loading={loading} /> },
+        { key: '5', label: 'Khách hàng', children: <Table dataSource={customers} columns={customerColumns} rowKey="id" loading={loading} /> },
         { key: '2', label: 'Sản phẩm', children: <Table dataSource={products} columns={productColumns} rowKey="id" loading={loading} /> },
         { key: '3', label: 'Mã giảm (Flash Sale)', children: (
           <div>

@@ -399,4 +399,25 @@ router.delete('/flash-sales/:id', async (req, res) => {
   }
 });
 
+// Customers (B2C)
+router.get('/customers', async (req, res) => {
+  try {
+    const customers = await prisma.b2CCustomer.findMany({
+      orderBy: { created_at: 'desc' },
+      select: {
+        id: true,
+        full_name: true,
+        email: true,
+        phone: true,
+        loyalty_points: true,
+        provider: true,
+        created_at: true
+      }
+    });
+    res.json(customers.map(c => ({ ...c, id: Number(c.id) })));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;

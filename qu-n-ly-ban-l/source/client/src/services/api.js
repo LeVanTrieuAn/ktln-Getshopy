@@ -102,6 +102,7 @@ export const api = {
 
   // ─── B2B APIs ────────────────────────────────────────────────
   b2b: {
+    getCustomers: () => request('/b2b/customers'),
     getReviews: () => request('/b2b/reviews'),
     replyReview: (id, reply) => request(`/b2b/reviews/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
     
@@ -133,6 +134,10 @@ export const api = {
     register: (data) => request('/b2c/auth/register', { method: 'POST', body: JSON.stringify(data) }),
     login: (email, password) => request('/b2c/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     socialLogin: (data) => request('/b2c/auth/social', { method: 'POST', body: JSON.stringify(data) }),
+    
+    // Wishlist
+    getWishlist: () => request('/b2c/wishlist'),
+    toggleWishlist: (product_id) => request('/b2c/wishlist', { method: 'POST', body: JSON.stringify({ product_id }) }),
     
     // Store
     getCategories: () => request('/b2c/categories'),
