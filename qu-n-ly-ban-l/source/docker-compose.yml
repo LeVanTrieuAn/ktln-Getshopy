@@ -29,8 +29,6 @@ services:
       PORT: 8080
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      CLICKHOUSE_HOST: http://clickhouse:8123
-      CLICKHOUSE_URL: http://clickhouse:8123
       REDIS_URL: redis://redis:6379
       DATABASE_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
       DIRECT_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
@@ -44,8 +42,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      clickhouse:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -53,7 +49,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 1200s   # 20 min — allow first-boot seed of 600k products
+      start_period: 30s
     restart: unless-stopped
 
   # ─── PostgreSQL ────────────────────────────────────────────────────────────
@@ -74,22 +70,6 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # ─── ClickHouse Analytics ──────────────────────────────────────────────────
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.8-alpine
-    environment:
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
-      CLICKHOUSE_USER: default
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
-    volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - ./clickhouse-init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-    restart: unless-stopped
 
   # ─── Redis Cache ───────────────────────────────────────────────────────────
   redis:
@@ -104,29 +84,6 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # ─── AI Recommendation Service (FastAPI) ───────────────────────────────────
-  ai-rec:
-    build:
-      context: ./ai-rec
-      dockerfile: Dockerfile
-    container_name: getshopy-ai-rec
-    ports:
-      - "${AI_REC_PORT:-8000}:8000"
-    environment:
-      PORT: 8000
-      DEFAULT_TOP_K: 10
-    volumes:
-      - ./ai-rec/output:/app/output
-      - ./ai-rec/data:/app/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    restart: unless-stopped
-
 volumes:
   postgres_data:
-  clickhouse_data:
   redis_data:
