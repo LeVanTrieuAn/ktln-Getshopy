@@ -133,11 +133,25 @@ export function AppProvider({ children }) {
     clearAllUserSession();
   };
 
+  const [authOpen, setAuthOpen] = useState(false);
+  const [authSuccessCallback, setAuthSuccessCallback] = useState(null);
+
+  const openAuthModal = (callback = null) => {
+    setAuthSuccessCallback(() => (typeof callback === 'function' ? callback : null));
+    setAuthOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setAuthOpen(false);
+    setAuthSuccessCallback(null);
+  };
+
   return (
     <AppContext.Provider value={{
       lang, isDark, toggleLang, toggleTheme, t, 
       user, login, logout,
       b2cUser, b2cLogin, b2cLogout,
+      authOpen, setAuthOpen, openAuthModal, closeAuthModal, authSuccessCallback,
       selectedBranch, setSelectedBranch,
       wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed
     }}>

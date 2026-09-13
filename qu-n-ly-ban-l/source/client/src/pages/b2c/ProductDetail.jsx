@@ -1445,10 +1445,11 @@ export default function ProductDetail() {
   const [relatedProducts, setRelatedProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
+  const [quantity, setQuantity] = useState(1);
   const [mainImage, setMainImage] = useState(null);
   const carouselRef = useRef(null);
-  const { addToCart } = useCart();
-  const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed } = useApp();
+  const { addToCart, toggleSelectAll } = useCart();
+  const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed, b2cUser, openAuthModal } = useApp();
   const navigate = useNavigate();
   const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
 
@@ -1552,15 +1553,43 @@ export default function ProductDetail() {
 
   const getProductToAdd = () => {
     const p = { ...product };
-    if (selectedVariantId) {
+    if (selectedVariantId && product.variants?.length) {
       const variant = product.variants.find(v => v.id === selectedVariantId);
-      if (variant) { p.selectedVariant = variant; p.price = variant.price; }
+      if (variant) {
+        p.selectedVariant = variant;
+        const vPrice = Number(variant.price);
+        p.price = !isNaN(vPrice) && vPrice > 0 ? vPrice : Number(product.price || 0);
+      } else {
+        p.price = Number(product.price || 0);
+      }
+    } else {
+      p.price = Number(product.price || 0);
     }
     return p;
   };
 
-  const handleAddToCart = () => { addToCart(getProductToAdd(), 1); trackAddToCart(product); };
-  const handleBuyNow = () => { addToCart(getProductToAdd(), 1); trackAddToCart(product); navigate('/checkout'); };
+  const handleAddToCart = () => {
+    const pToAdd = getProductToAdd();
+    addToCart(pToAdd, quantity, true);
+    trackAddToCart(product, quantity);
+  };
+  const handleBuyNow = () => {
+    const pToAdd = getProductToAdd();
+    addToCart(pToAdd, quantity, false);
+    toggleSelectAll(true);
+    trackAddToCart(product, quantity);
+
+    if (!b2cUser && !localStorage.getItem('b2c_token')) {
+      message.warning('Vui lòng đăng nhập để thực hiện mua hàng');
+      if (typeof openAuthModal === 'function') {
+        openAuthModal(() => {
+          navigate('/checkout');
+        });
+      }
+      return;
+    }
+    navigate('/checkout');
+  };
 
   const submitReview = async () => {
     if (!reviewComment.trim()) return message.error('Vui lòng nhập nội dung đánh giá!');
@@ -1755,8 +1784,90 @@ export default function ProductDetail() {
               </div>
             )}
 
-            {/* Stock */}
-            <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+            {/* Quantity Selector & Stock */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 24, marginBottom: 24, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#d1d5db' : '#374151' }}>
+                  Số lượng:
+                </span>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#e5e7eb'}`,
+                  borderRadius: 12,
+                  background: isDark ? 'rgba(255,255,255,0.04)' : '#f9fafb',
+                  padding: 2,
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(q => Math.max(1, q - 1))}
+                    disabled={quantity <= 1}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      border: 'none',
+                      borderRadius: 8,
+                      background: 'transparent',
+                      color: quantity <= 1 ? (isDark ? '#555' : '#ccc') : (isDark ? '#fff' : '#18181b'),
+                      fontSize: 16,
+                      fontWeight: 700,
+                      cursor: quantity <= 1 ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min={1}
+                    max={currentStock || 999}
+                    value={quantity}
+                    onChange={e => {
+                      const val = parseInt(e.target.value, 10);
+                      if (isNaN(val) || val < 1) setQuantity(1);
+                      else if (currentStock && val > currentStock) setQuantity(currentStock);
+                      else setQuantity(val);
+                    }}
+                    style={{
+                      width: 48,
+                      height: 34,
+                      border: 'none',
+                      background: 'transparent',
+                      color: isDark ? '#fff' : '#18181b',
+                      textAlign: 'center',
+                      fontWeight: 700,
+                      fontSize: 15,
+                      outline: 'none',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setQuantity(q => Math.min(currentStock || 999, q + 1))}
+                    disabled={currentStock > 0 && quantity >= currentStock}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      border: 'none',
+                      borderRadius: 8,
+                      background: 'transparent',
+                      color: (currentStock > 0 && quantity >= currentStock) ? (isDark ? '#555' : '#ccc') : (isDark ? '#fff' : '#18181b'),
+                      fontSize: 16,
+                      fontWeight: 700,
+                      cursor: (currentStock > 0 && quantity >= currentStock) ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'background 0.15s',
+                    }}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: isDark ? '#ccc' : '#555', fontSize: 14 }}>
                 <CheckCircleOutlined style={{ color: '#10b981' }} />
                 {t('product.in_stock')}: <strong>{currentStock}</strong> {t('product.items')}
@@ -1834,7 +1945,18 @@ export default function ProductDetail() {
                   <div style={{ fontWeight: 700, fontSize: 15, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
                   <div style={{ color: '#10b981', fontSize: 18, fontWeight: 800, marginBottom: 12 }}>{p.price.toLocaleString('vi-VN')} đ</div>
                   <Button type="primary" style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #047857)', border: 'none', borderRadius: 8 }}
-                    onClick={(e) => { e.stopPropagation(); const pToAdd = { ...p }; if (p.variants?.[0]) { pToAdd.selectedVariant = p.variants[0]; pToAdd.price = p.variants[0].price; } addToCart(pToAdd, 1); message.success('Đã thêm vào giỏ'); }}>
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const pToAdd = { ...p };
+                      if (p.variants?.[0]) {
+                        pToAdd.selectedVariant = p.variants[0];
+                        const vP = Number(p.variants[0].price);
+                        pToAdd.price = !isNaN(vP) && vP > 0 ? vP : Number(p.price || 0);
+                      } else {
+                        pToAdd.price = Number(p.price || 0);
+                      }
+                      addToCart(pToAdd, 1, true);
+                    }}>
                     Thêm vào giỏ
                   </Button>
                 </Card>
