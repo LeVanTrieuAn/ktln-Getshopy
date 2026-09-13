@@ -40,8 +40,35 @@ USER_COUNT=$(node -e "
 " 2>/dev/null || echo "0")
 
 if [ "$USER_COUNT" = "0" ]; then
-  echo "No existing data found — running seed..."
+  echo "No existing data found — running full seed pipeline..."
+
+  # Step 1: Baseline seed (users, branches, categories cũ, brands cũ từ db.json)
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "[1/5] Seeding baseline data (users, branches)..."
   node src/seed.js
+
+  # Step 2: Tái cấu trúc categories → 49 categories (8 cha + 41 con)
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "[2/5] Seeding full category structure (49 categories)..."
+  node scripts/seed-categories.js
+
+  # Step 3: Seed brands trung gian (~80 brands) — fill-600k cần hệ thống này
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "[3/5] Seeding brand structure..."
+  node scripts/seed-brands.js
+
+  # Step 4: Fill 600,000 products (dùng brand IDs từ step 3)
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "[4/5] Filling 600,000 products (this may take 5-15 minutes)..."
+  node scripts/fill-600k.js
+
+  # Step 5: Migrate brands → 67 brands + "Khác" (remap products)
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "[5/5] Migrating to 67-brand system..."
+  node scripts/migrate-brands-67.js
+
+  echo "═══════════════════════════════════════════════════════════════"
+  echo "✅ Full seed pipeline completed!"
 else
   echo "Data already seeded ($USER_COUNT users found) — skipping seed."
 fi
