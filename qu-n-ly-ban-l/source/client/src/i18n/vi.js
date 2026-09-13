@@ -149,7 +149,7 @@ const vi = {
     variant: 'Phân loại',
     remove: 'Xóa',
     total: 'Tổng cộng',
-    checkout: 'Thanh toán ngay'
+    checkout: 'Mua hàng'
   },
   auth: {
     login: 'Đăng nhập',
