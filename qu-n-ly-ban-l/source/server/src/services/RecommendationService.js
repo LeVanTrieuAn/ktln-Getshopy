@@ -30,6 +30,40 @@ const PSC = require('./ProductSpecsCache');
 const BS  = require('./BehaviorService');
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AI Rec Container Integration (Collaborative Filtering via HTTP)
+// Docker: AI_REC_URL=http://ai-rec:8000 | Local dev: http://localhost:8000
+// ─────────────────────────────────────────────────────────────────────────────
+const AI_REC_URL = process.env.AI_REC_URL || null;
+
+/**
+ * Gọi AI Rec container để lấy CF-based recommendations.
+ * Trả về mảng product_ids hoặc [] nếu AI container không khả dụng.
+ *
+ * @param {string} customerId - ID khách hàng (VD: "CUST_0001")
+ * @param {number} topK - Số lượng gợi ý tối đa
+ * @returns {Promise<string[]>} - Mảng product_id strings từ AI model
+ */
+async function fetchAIRecRecommendations(customerId, topK = 8) {
+  if (!AI_REC_URL) return [];
+  try {
+    const url = `${AI_REC_URL}/api/v1/recommend/customer/${encodeURIComponent(customerId)}?top_k=${topK}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!response.ok) return [];
+    const data = await response.json();
+    // data.recommendations = [{product_id: "..."}, ...]
+    return (data.recommendations || []).map(r => r.product_id);
+  } catch (err) {
+    console.warn('[RecommendationService] AI Rec container unavailable, using fallback:', err.message);
+    return [];
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Flash Sale helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -204,6 +238,24 @@ async function getRecommendations(email = null, { categoryId, brandId, sessionId
     } catch (err) {
       console.error('[Recommendation v4] Behavior strategy error, fallback to v3:', err.message);
       // Fall through to v3 strategy below
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // AI REC CONTAINER — Collaborative Filtering (Item-CF via HTTP)
+  // Gọi AI container nếu có customerId và chưa đủ 8 kết quả
+  // ═══════════════════════════════════════════════════════════════════════
+  if (results.length < 8 && customerId && AI_REC_URL) {
+    try {
+      const cfProductIds = await fetchAIRecRecommendations(String(customerId), 8 - results.length);
+      if (cfProductIds.length > 0) {
+        const cfProducts = await fetchProductsByIds(
+          cfProductIds.filter(id => !isNaN(id)).map(id => Number(id))
+        );
+        addUnique(cfProducts);
+      }
+    } catch (err) {
+      console.warn('[Recommendation] AI Rec CF fallback:', err.message);
     }
   }
 

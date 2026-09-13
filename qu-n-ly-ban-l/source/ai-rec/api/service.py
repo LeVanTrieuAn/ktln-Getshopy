@@ -38,16 +38,27 @@ class CFModelService:
         if self.model.model_path.exists():
             logger.info("Loading pre-trained CF model from %s...", self.model.model_path)
             self.model.load_model()
+            self.is_loaded = True
         else:
             logger.warning(
                 "Model artifact not found at %s. Training CF model from raw dataset...",
                 self.model.model_path,
             )
-            self.model.train()
-            self.model.save_model()
-            logger.info("Model trained and saved to %s.", self.model.model_path)
+            try:
+                self.model.train()
+                self.model.save_model()
+                logger.info("Model trained and saved to %s.", self.model.model_path)
+                self.is_loaded = True
+            except FileNotFoundError as exc:
+                logger.warning(
+                    "Training data not available (%s). "
+                    "AI Rec will start in DEGRADED mode — returning empty recommendations. "
+                    "Mount training data to /app/data/raw/ and restart to enable.",
+                    exc,
+                )
+                # Degraded mode: healthcheck passes but recommendations are empty
+                return
 
-        self.is_loaded = True
         summary = self.model.summary()
         logger.info(
             "CF Model ready: %d customers, %d products, %d interactions.",
@@ -84,7 +95,11 @@ class CFModelService:
     ) -> CustomerRecommendationResponse:
         """Generate top_k product recommendations for a customer."""
         if not self.is_loaded:
-            raise RuntimeError("Model is not initialized.")
+            # Degraded mode: return empty recommendations
+            return CustomerRecommendationResponse(
+                customer_id=customer_id,
+                recommendations=[],
+            )
 
         raw_recs = self.model.recommend(customer_id=customer_id, top_k=top_k)
         items = [RecommendationItem(product_id=product_id) for product_id, _ in raw_recs]
