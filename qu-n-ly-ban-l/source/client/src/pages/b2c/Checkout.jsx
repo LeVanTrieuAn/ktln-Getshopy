@@ -18,6 +18,7 @@ import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 import { useTracking } from '../../hooks/useTracking';
+import PaymentQRModal from '../../components/b2c/PaymentQRModal';
 
 const { Title, Text } = Typography;
 
@@ -100,6 +101,8 @@ export default function Checkout() {
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [discount, setDiscount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('COD');
+  // Popup VietQR cho đơn chuyển khoản
+  const [qrModal, setQrModal] = useState(null);
 
   // Address Book Integration
   const [savedAddresses] = useState(() => JSON.parse(localStorage.getItem('b2c_addresses') || '[]'));
@@ -178,12 +181,15 @@ export default function Checkout() {
       };
       const res = await api.b2c.checkout(orderPayload);
       
-      // Update points
-      let newPoints = points;
-      if (usePoints) newPoints -= maxPointsToUse;
-      const pointsEarned = Math.floor(finalTotal / 100000);
-      newPoints += pointsEarned;
-      localStorage.setItem('b2c_points', newPoints.toString());
+      // Điểm thưởng giờ do SERVER quản lý trong LoyaltyTransaction.
+      // Trước đây client tự cộng/trừ localStorage['b2c_points'] — sửa DevTools
+      // là có điểm vô hạn, và pointsDiscount kéo tổng tiền về 0.
+      // Chỉ đồng bộ lại con số server trả về để hiển thị.
+      if (res.pricing) {
+        const serverPoints = (points - (res.pricing.pointsUsed || 0))
+          + (res.payment_method === 'COD' ? (res.pricing.pointsEarned || 0) : 0);
+        localStorage.setItem('b2c_points', String(Math.max(0, serverPoints)));
+      }
 
       // Remove checked-out items
       if (typeof removeItemsFromCart === 'function') {
@@ -200,17 +206,28 @@ export default function Checkout() {
         price: item.price,
         quantity: item.quantity,
       })));
-      setOrderData({
-        id: res.order?.id || `ORD${Date.now()}`,
+      const common = {
+        id: res.order_id,
         items: [...checkoutItems],
         customer_info: { ...values, province, email: b2cUser?.email || values.email },
-        subTotal,
-        shippingFee,
-        discount: discount + pointsDiscount,
-        total: finalTotal,
-        method: paymentMethod
-      });
-      setSuccess(true);
+        // Dùng số SERVER tính, không dùng số client tự cộng — hai bên có thể
+        // lệch khi giá vừa đổi hoặc voucher/điểm bị server tính lại.
+        subTotal: res.pricing?.subTotal ?? subTotal,
+        shippingFee: res.pricing?.shippingFee ?? shippingFee,
+        discount: res.pricing?.discount ?? (discount + pointsDiscount),
+        total: res.pricing?.total ?? finalTotal,
+        method: res.payment_method,
+        payment_ref: res.payment_ref,
+        payment_status: res.payment_status,
+      };
+
+      if (res.payment_method === 'BANK_TRANSFER' && res.qr) {
+        // Chuyển khoản: mở popup QR, chờ webhook báo đã thanh toán
+        setQrModal({ ...res, _order: common });
+      } else {
+        setOrderData(common);
+        setSuccess(true);
+      }
     } catch (err) {
       message.error(err.message || 'Thanh toán thất bại');
     } finally {
@@ -219,10 +236,8 @@ export default function Checkout() {
   }
 
   if (success && orderData) {
-    const isBankTransfer = orderData.method === 'BANK_TRANSFER' || orderData.method === 'VNPAY';
-    const qrUrl = isBankTransfer 
-      ? `https://img.vietqr.io/image/MB-0123456789-print.png?amount=${orderData.total}&addInfo=Thanh toan don hang ${orderData.id}&accountName=GETSHOPY STORE` 
-      : null;
+    const isBankTransfer = orderData.method === 'BANK_TRANSFER';
+    const isPaid = orderData.payment_status === 'PAID';
 
     return (
       <div 
@@ -304,18 +319,44 @@ export default function Checkout() {
           </div>
         )}
 
+        {/* Trạng thái thanh toán — KHÔNG hiện lại QR ở đây.
+            Màn này nói "đặt hàng thành công"; kèm thêm một mã QR chờ thanh toán
+            là mâu thuẫn, khách không biết rốt cuộc đã xong hay chưa. QR chỉ
+            sống trong popup, đúng lúc khách cần quét. */}
         {isBankTransfer && (
-          <div style={{ background: isDark ? '#202024' : '#fafafa', padding: 24, borderRadius: 16, marginBottom: 28, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, textAlign: 'center' }}>
-            <Title level={4} style={{ color: isDark ? '#fff' : '#18181b', marginTop: 0, fontWeight: 700 }}>Chuyển khoản qua VietQR</Title>
-            <div style={{ background: '#fff', display: 'inline-block', padding: 14, borderRadius: 14, marginBottom: 16, border: '1px solid #e4e4e7' }}>
-              <img src={qrUrl} alt="VietQR" style={{ width: 220, height: 220, objectFit: 'contain' }} />
+          <div style={{
+            background: isPaid ? (isDark ? '#052e16' : '#f0fdf4') : (isDark ? '#2a1f05' : '#fffbeb'),
+            border: `1px solid ${isPaid ? '#16a34a' : '#d97706'}`,
+            padding: '16px 20px', borderRadius: 14, marginBottom: 28, textAlign: 'left',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isPaid ? 0 : 8 }}>
+              <span style={{ fontSize: 20 }}>{isPaid ? '✓' : '⏳'}</span>
+              <strong style={{ color: isPaid ? '#16a34a' : '#d97706', fontSize: 15.5 }}>
+                {isPaid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+              </strong>
             </div>
-            <div style={{ textAlign: 'left', background: isDark ? '#18181b' : '#ffffff', padding: 16, borderRadius: 12, fontSize: 14, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}` }}>
-              <div style={{ marginBottom: 8 }}><span style={{ color: isDark ? '#a1a1aa' : '#71717a', display: 'inline-block', width: 130 }}>Ngân hàng:</span> <strong>MBBank</strong></div>
-              <div style={{ marginBottom: 8 }}><span style={{ color: isDark ? '#a1a1aa' : '#71717a', display: 'inline-block', width: 130 }}>Chủ tài khoản:</span> <strong>GETSHOPY STORE</strong></div>
-              <div style={{ marginBottom: 8 }}><span style={{ color: isDark ? '#a1a1aa' : '#71717a', display: 'inline-block', width: 130 }}>Số tài khoản:</span> <strong>0123456789</strong></div>
-              <div style={{ marginBottom: 8 }}><span style={{ color: isDark ? '#a1a1aa' : '#71717a', display: 'inline-block', width: 130 }}>Số tiền:</span> <strong style={{ color: isDark ? '#fff' : '#18181b' }}>{orderData.total.toLocaleString('vi-VN')} đ</strong></div>
-              <div><span style={{ color: isDark ? '#a1a1aa' : '#71717a', display: 'inline-block', width: 130 }}>Nội dung CK:</span> <strong>Thanh toan don hang {orderData.id}</strong></div>
+            {!isPaid && (
+              <div style={{ fontSize: 13.5, color: isDark ? '#a1a1aa' : '#71717a', lineHeight: 1.7 }}>
+                Đơn đang được giữ hàng trong ít phút. Nếu bạn vừa chuyển khoản, hệ thống sẽ tự
+                xác nhận trong giây lát. Quá thời gian giữ mà chưa nhận được tiền thì đơn sẽ tự huỷ.
+                <div style={{ marginTop: 6 }}>
+                  Mã đối soát: <strong style={{ color: isDark ? '#fff' : '#18181b', fontFamily: 'ui-monospace, monospace' }}>
+                    {orderData.payment_ref || '—'}
+                  </strong>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {!isBankTransfer && (
+          <div style={{
+            background: isDark ? '#202024' : '#fafafa', border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+            padding: '14px 20px', borderRadius: 14, marginBottom: 28, textAlign: 'left',
+          }}>
+            <strong style={{ color: isDark ? '#fff' : '#18181b' }}>Thanh toán khi nhận hàng</strong>
+            <div style={{ fontSize: 13.5, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 4 }}>
+              Bạn thanh toán trực tiếp cho nhân viên giao hàng.
             </div>
           </div>
         )}
@@ -342,7 +383,31 @@ export default function Checkout() {
     );
   }
 
+  const qrPopup = (
+    <PaymentQRModal
+      open={!!qrModal}
+      orderData={qrModal}
+      isDark={isDark}
+      onPaid={() => {
+        // Webhook đã xác nhận tiền về
+        setOrderData({ ...qrModal._order, payment_status: 'PAID' });
+        setSuccess(true);
+        setQrModal(null);
+      }}
+      onClose={() => {
+        // Khách đóng popup khi chưa trả. Đơn vẫn tồn tại ở PENDING_PAYMENT và
+        // vẫn giữ chỗ trong kho cho tới khi job hết hạn dọn — chuyển khoản muộn
+        // vẫn được đối soát. Màn hoàn tất sẽ ghi rõ là CHƯA thanh toán.
+        setOrderData({ ...qrModal._order, payment_status: 'PENDING' });
+        setSuccess(true);
+        setQrModal(null);
+      }}
+    />
+  );
+
   return (
+    <>
+    {qrPopup}
     <div style={{ padding: '100px 24px 48px', maxWidth: 1240, margin: '0 auto' }}>
       <Row gutter={[36, 36]}>
       {/* Cột form thông tin */}
@@ -524,14 +589,14 @@ export default function Checkout() {
               </div>
 
               <div 
-                onClick={() => setPaymentMethod('VNPAY')}
+                onClick={() => setPaymentMethod('BANK_TRANSFER')}
                 style={{ 
                   padding: 16, 
-                  border: paymentMethod === 'VNPAY' 
+                  border: paymentMethod === 'BANK_TRANSFER' 
                     ? `2px solid ${isDark ? '#ffffff' : '#18181b'}` 
                     : `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, 
                   borderRadius: 14, 
-                  background: paymentMethod === 'VNPAY' 
+                  background: paymentMethod === 'BANK_TRANSFER' 
                     ? (isDark ? '#27272a' : '#f4f4f5') 
                     : 'transparent', 
                   color: isDark ? '#fff' : '#18181b', 
@@ -549,12 +614,12 @@ export default function Checkout() {
                   width: 20, 
                   height: 20, 
                   borderRadius: '50%', 
-                  border: `2px solid ${paymentMethod === 'VNPAY' ? (isDark ? '#fff' : '#18181b') : '#a1a1aa'}`,
+                  border: `2px solid ${paymentMethod === 'BANK_TRANSFER' ? (isDark ? '#fff' : '#18181b') : '#a1a1aa'}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center'
                 }}>
-                  {paymentMethod === 'VNPAY' && (
+                  {paymentMethod === 'BANK_TRANSFER' && (
                     <div style={{ width: 10, height: 10, borderRadius: '50%', background: isDark ? '#fff' : '#18181b' }} />
                   )}
                 </div>
@@ -748,5 +813,6 @@ export default function Checkout() {
       </Col>
       </Row>
     </div>
+    </>
   );
 }

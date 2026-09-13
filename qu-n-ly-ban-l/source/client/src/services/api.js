@@ -146,8 +146,16 @@ export const api = {
     },
     getProductDetails: (id) => request(`/b2c/products/${id}`),
     checkout: (data) => request('/b2c/checkout', { method: 'POST', body: JSON.stringify(data) }),
+    // Màn chờ thanh toán poll endpoint này. Chỉ trả trạng thái + thời gian còn
+    // lại theo giờ server, không kèm thông tin nhạy cảm của đơn.
+    getPaymentStatus: (orderId) => request(`/b2c/orders/${orderId}/payment-status`),
     applyVoucher: (code, cart_total) => request('/b2c/cart/apply-voucher', { method: 'POST', body: JSON.stringify({ code, cart_total }) }),
-    getMyOrders: (email) => request('/b2c/orders/me?' + new URLSearchParams({ email })),
+    // customer_id lấy từ token ở server — không truyền email nữa, truyền cũng
+    // không có tác dụng (trước đây truyền email bất kỳ là xem được đơn người khác).
+    getMyOrders: () => request('/b2c/orders/me'),
+    cancelOrder: (orderId, reason) => request(`/b2c/orders/${orderId}/cancel`, {
+      method: 'POST', body: JSON.stringify({ reason }),
+    }),
     addReview: (productId, data) => request(`/b2c/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(data) }),
 
     // Behavior Tracking

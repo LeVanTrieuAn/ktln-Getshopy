@@ -5,7 +5,13 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'istore_secret';
+// KHÔNG có giá trị mặc định: secret hardcode trong source nghĩa là bất kỳ ai
+// đọc được repo cũng ký được token giả cho mọi tài khoản.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('Thiếu JWT_SECRET. Sinh bằng: openssl rand -base64 48');
+}
+const { authB2C } = require('../middleware/authB2C');
 
 // Get Categories — barely change, so cache for a few minutes instead of hitting DB every load
 router.get('/categories', async (req, res) => {
@@ -409,28 +415,51 @@ router.post('/cart/apply-voucher', async (req, res) => {
 });
 
 // Get My Orders
-router.get('/orders/me', async (req, res) => {
+//
+// Sửa ba vấn đề của bản cũ:
+//   1. KHÔNG CÓ AUTH — truyền email bất kỳ là xem được đơn người khác, và gọi
+//      không kèm email thì trả về TOÀN BỘ đơn hàng của mọi khách.
+//   2. Không include items — schema đã tách OrderItem ra bảng riêng, trang
+//      "Đơn hàng của tôi" đọc order.items sẽ nhận undefined.
+//   3. Lọc theo customer->>email trong JSON thay vì customer_id đã có sẵn.
+router.get('/orders/me', authB2C, async (req, res) => {
   try {
-    const { email } = req.query;
-    // In JSON, customer info is stored in `customer` Json field. We'll find orders where customer->>email = email.
-    // However, Prisma currently doesn't deeply filter JSON nicely across all DBs without raw,
-    // but in Postgres we can use path-based filtering, OR we fetch and filter since number of orders is small,
-    // OR we just use Prisma's Json filtering:
-    let orders;
-    if (email) {
-      orders = await prisma.order.findMany({
-        where: {
-          customer: {
-            path: ['email'],
-            equals: email
-          }
-        },
-        orderBy: { date: 'desc' }
-      });
-    } else {
-      orders = await prisma.order.findMany({ orderBy: { date: 'desc' } });
-    }
-    res.json(orders);
+    const orders = await prisma.order.findMany({
+      // customer_id LẤY TỪ TOKEN, không từ query
+      where: { customer_id: BigInt(req.b2cUser.id) },
+      orderBy: { date: 'desc' },
+      take: Math.min(Number(req.query.limit) || 50, 200),
+      include: { items: true },
+    });
+
+    // Chuẩn hoá cho client: BigInt không serialize được sang JSON, và giữ tên
+    // trường `items` để phần hiển thị cũ không phải sửa.
+    const data = orders.map(o => ({
+      id: o.id,
+      date: o.date,
+      status: o.status,
+      payment_method: o.payment_method,
+      payment_status: o.payment_status,
+      payment_ref: o.payment_ref,
+      expires_at: o.expires_at,
+      paid_at: o.paid_at,
+      subTotal: o.subTotal,
+      shippingFee: o.shippingFee,
+      discount: o.discount,
+      total: o.total,
+      customer: o.customer,
+      items: o.items.map(i => ({
+        id: Number(i.id),
+        product_id: Number(i.product_id),
+        name: i.product_name,
+        quantity: i.quantity,
+        price: i.unit_price,
+        net_amount: i.net_amount,
+        variant_id: i.variant_id,
+      })),
+    }));
+
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

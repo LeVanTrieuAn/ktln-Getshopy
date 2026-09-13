@@ -60,8 +60,8 @@ model Brand {
 model Product {
   id             BigInt   @id @default(autoincrement())
   name           String
-  price          Float
-  original_price Float
+  price          Int      // VND — đơn vị đồng, không có phần lẻ
+  original_price Int      // VND
   category_id    String
   brand_id       String
   stock          Int      @default(0)
@@ -121,40 +121,216 @@ model FlashSaleItem {
   id             BigInt   @id @default(autoincrement())
   flash_sale_id  BigInt
   product_id     BigInt
-  discount_price Float
+  discount_price Int      // VND
   limit          Int      @default(100)
   sold           Int      @default(0)
 }
 
 model Order {
   id          String   @id
-  customer    Json     // Customer info
-  items       Json     // Array of items
-  total       Float
-  discount    Float    @default(0)
-  shippingFee Float    @default(0)
-  subTotal    Float    @default(0)
-  status      String
+  customer    Json                        // snapshot thông tin nhận hàng
+  customer_id BigInt?                     // lấy từ JWT, KHÔNG từ request body
+  total       Int                         // VND — server tự tính, không nhận từ client
+  discount    Int      @default(0)
+  shippingFee Int      @default(0)
+  subTotal    Int      @default(0)
+  status      String                      // PENDING_PAYMENT | CONFIRMED | SHIPPING | DELIVERED | CANCELLED
   date        DateTime @default(now())
+
+  // ── Thanh toán ───────────────────────────────────────────────────────
+  payment_method String  @default("COD")     // COD | BANK_TRANSFER
+  payment_status String  @default("UNPAID")  // UNPAID | PENDING | PAID | EXPIRED | FAILED | CANCELLED | REFUND_REQUIRED | REFUNDED
+  payment_ref    String? @unique             // mã đối soát in trong nội dung CK — xem §A.4.1
+  paid_at        DateTime?
+  paid_amount    Int?
+  expires_at     DateTime?                   // server giữ 8'; đồng hồ hiển thị cho khách 5'
+
+  items        OrderItem[]
+  transactions PaymentTransaction[]
+
+  @@index([customer_id])
+  @@index([payment_status, expires_at])     // job quét đơn hết hạn
+  @@index([status])
+  @@index([date])
+}
+
+// ── Dòng đơn hàng ──────────────────────────────────────────────────────
+// Tách khỏi Order.items Json. Hai lý do:
+//   1. CDC/dbt dựng fact_orders_detail bằng SQL thường thay vì JSONExtract
+//   2. Snapshot giá + tên tại thời điểm mua — fact table phải giữ giá trị
+//      giao dịch, không join sang Product hiện tại (giá đổi thì doanh thu
+//      lịch sử không được đổi theo)
+model OrderItem {
+  id           BigInt  @id @default(autoincrement())
+  order_id     String
+  product_id   BigInt
+  product_name String                     // snapshot
+  category_id  String?
+  brand_id     String?
+  branch_id    String?
+  variant_id   String?
+  quantity     Int
+  unit_price   Int                        // snapshot giá tại thời điểm mua — VND
+  discount     Int     @default(0)
+  net_amount   Int
+
+  order        Order   @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@index([product_id])
+  @@index([category_id])
+  @@index([brand_id])
+}
+
+// ── Giao dịch thanh toán nhận từ webhook ───────────────────────────────
+// Ghi TRƯỚC khi xử lý, kể cả khi verify thất bại — để còn điều tra.
+model PaymentTransaction {
+  id              BigInt   @id @default(autoincrement())
+  order_id        String?
+  provider        String                  // sepay | casso | payos | manual
+  provider_txn_id String   @unique        // idempotency tầng 1 — chặn webhook bắn trùng
+  amount          Int                     // VND
+  bank_account    String?
+  content         String?                 // nội dung CK thô, chưa normalize
+  content_norm    String?                 // sau normalize — để truy vết vì sao match/không match
+  raw_payload     Json
+  received_at     DateTime @default(now())
+
+  // MATCHED          — khớp đơn còn hiệu lực
+  // LATE_MATCHED     — đơn đã hết hạn nhưng giữ chỗ lại được, vẫn cho PAID
+  // UNMATCHED        — chưa tìm ra đơn; KHÔNG phải trạng thái cuối, job re-match sẽ quét lại
+  // REFUND_REQUIRED  — tiền đã vào nhưng không gán được vào đơn nào còn hiệu lực
+  // DUPLICATE        — đơn đã PAID rồi, đây là tiền thừa
+  // REFUNDED        — đã hoàn tiền cho khách, khép lại
+  match_status    String   @default("UNMATCHED")
+
+  // Audit cho thao tác xác nhận tay — đụng tiền thì phải truy được ai làm
+  confirmed_by    Int?
+  confirmed_at    DateTime?
+  confirm_reason  String?
+
+  // ── Hoàn tiền ────────────────────────────────────────────────────────
+  // REFUND_REQUIRED mới chỉ nói "cần hoàn", không nói đã hoàn chưa. Thiếu mấy
+  // cột này thì admin hoàn tiền xong không có chỗ nào ghi lại, và không ai
+  // biết khoản nào đã xử lý.
+  refunded_at     DateTime?
+  refunded_amount Int?
+  refunded_by     Int?
+  refund_ref      String?    // mã giao dịch hoàn tiền phía ngân hàng
+  refund_note     String?
+
+  order           Order?   @relation(fields: [order_id], references: [id])
+
+  @@index([order_id])
+  @@index([match_status])
+  @@index([received_at])
+}
+
+// ── Tồn kho ────────────────────────────────────────────────────────────
+// Trước đây tồn nằm ở Product.stock (một số tổng) và Product.variants[].stock
+// (chôn trong Json, không index, update không atomic).
+// available = on_hand - reserved.
+//
+// variant_id/branch_id dùng "" thay vì NULL: Postgres coi mỗi NULL là KHÁC
+// nhau trong unique index, nên @@unique với cột NULL sẽ cho chèn trùng vô số
+// hàng. Sentinel chuỗi rỗng làm ràng buộc hoạt động đúng như mong đợi.
+model Inventory {
+  id          BigInt   @id @default(autoincrement())
+  product_id  BigInt
+  variant_id  String   @default("")       // "" = sản phẩm không biến thể
+  branch_id   String   @default("")       // "" = kho tổng; để sẵn cho tồn theo chi nhánh
+  on_hand     Int      @default(0)        // tồn vật lý
+  reserved    Int      @default(0)        // đang giữ chỗ
+  updated_at  DateTime @updatedAt
+
+  reservations StockReservation[]
+
+  @@unique([product_id, variant_id, branch_id])
+  @@index([product_id])
+}
+
+// ── Giữ chỗ tồn kho ────────────────────────────────────────────────────
+// Vòng đời: HELD -> COMMITTED (đã thanh toán) | RELEASED (hết hạn/huỷ)
+model StockReservation {
+  id           BigInt   @id @default(autoincrement())
+  order_id     String
+  inventory_id BigInt
+  quantity     Int
+  status       String   @default("HELD")  // HELD | COMMITTED | RELEASED
+  expires_at   DateTime
+  created_at   DateTime @default(now())
+
+  inventory    Inventory @relation(fields: [inventory_id], references: [id])
+
+  @@index([order_id])
+  @@index([status, expires_at])           // job quét reservation hết hạn
 }
 
 model VoucherTier {
   id                     BigInt   @id @default(autoincrement())
   name                   String
   min_points_required    Int      @default(0)
-  min_lifetime_spend_vnd Float    @default(0)
-  discount_amount_vnd    Float
+  min_lifetime_spend_vnd BigInt   @default(0)  // tích luỹ — có thể vượt int4
+  discount_amount_vnd    Int
   active                 Int      @default(1)
 }
 
 model Voucher {
   id               BigInt   @id @default(autoincrement())
   code             String   @unique
-  min_order_value  Float
-  type             String   // "percent" or "fixed"
-  value            Float
-  max_discount     Float
+  min_order_value  Int                    // VND
+  type             String                 // "percent" | "fixed"
+  value            Int                    // percent: 0-100 | fixed: VND
+  max_discount     Int                    // VND
   is_deleted       Boolean  @default(false)
+
+  // Giới hạn sử dụng — trước đây không có, mã dùng lại được vô hạn
+  max_uses         Int?                   // null = không giới hạn tổng
+  max_uses_per_customer Int?  @default(1) // null = không giới hạn mỗi khách
+  used_count       Int      @default(0)   // cập nhật atomic cùng VoucherUsage
+  valid_from       DateTime?
+  valid_until      DateTime?
+
+  usages           VoucherUsage[]
+}
+
+// ── Ghi nhận từng lần voucher được dùng ────────────────────────────────
+// Lý do tồn tại: model Voucher cũ không có cách nào biết mã đã dùng chưa,
+// nên một mã dùng được mãi mãi bởi mọi khách. Bảng này vừa chặn dùng lại,
+// vừa cho phép TRẢ LẠI voucher khi đơn chuyển khoản hết hạn.
+model VoucherUsage {
+  id          BigInt   @id @default(autoincrement())
+  voucher_id  BigInt
+  order_id    String
+  customer_id BigInt?
+  amount      Int                        // số tiền đã giảm — VND
+  status      String   @default("HELD")  // HELD | COMMITTED | RELEASED
+  created_at  DateTime @default(now())
+
+  voucher     Voucher  @relation(fields: [voucher_id], references: [id])
+
+  @@unique([voucher_id, order_id])
+  @@index([order_id])
+  @@index([customer_id])
+  @@index([status])
+}
+
+// ── Sổ cái điểm thưởng ─────────────────────────────────────────────────
+// Trước đây điểm nằm hoàn toàn ở localStorage phía client (b2c_points),
+// server chỉ set loyalty_points = 0 lúc đăng ký. Khách sửa DevTools là có
+// điểm vô hạn. Mọi thay đổi điểm từ nay phải đi qua bảng này.
+model LoyaltyTransaction {
+  id          BigInt   @id @default(autoincrement())
+  customer_id BigInt
+  order_id    String?
+  points      Int                        // âm = tiêu, dương = tích
+  reason      String                     // EARN_ORDER | REDEEM_ORDER | REFUND_EXPIRED | ADMIN_ADJUST
+  status      String   @default("HELD")  // HELD | COMMITTED | RELEASED
+  created_at  DateTime @default(now())
+
+  @@index([customer_id])
+  @@index([order_id])
+  @@index([status])
 }
 
 // ── MLOps: Lưu toàn bộ lịch sử cuộc hội thoại Chatbot ──────────────────────

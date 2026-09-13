@@ -80,7 +80,7 @@ export default function Account() {
     if (!email) return message.error(t('account.lookup_placeholder'));
     try {
       setLoading(true);
-      const data = await api.b2c.getMyOrders(email);
+      const data = await api.b2c.getMyOrders();
       setOrders(data);
     } catch (err) {
       message.error(t('account.order_not_found'));
@@ -100,6 +100,54 @@ export default function Account() {
   const handleDeleteAddress = (id) => {
     setAddresses(addresses.filter(a => a.id !== id));
     message.success('Đã xoá địa chỉ');
+  };
+
+  // Trạng thái THANH TOÁN là trục riêng, không lẫn với trạng thái GIAO HÀNG.
+  // Một đơn có thể "Đã xác nhận" mà vẫn "Chưa thanh toán" (COD), hoặc
+  // "Đã huỷ" mà vẫn còn nợ tiền khách (REFUND_REQUIRED).
+  const getPaymentLabel = (o) => {
+    switch (o.payment_status) {
+      case 'PAID':            return { text: 'Đã thanh toán', color: 'success' };
+      case 'PENDING':         return { text: 'Chờ chuyển khoản', color: 'warning' };
+      case 'EXPIRED':         return { text: 'Quá hạn thanh toán', color: 'default' };
+      case 'REFUND_REQUIRED': return { text: 'Đang hoàn tiền', color: 'processing' };
+      case 'CANCELLED':       return { text: 'Đã huỷ', color: 'default' };
+      case 'UNPAID':
+        return o.payment_method === 'COD'
+          ? { text: 'Thanh toán khi nhận hàng', color: 'default' }
+          : { text: 'Chưa thanh toán', color: 'warning' };
+      default: return null;
+    }
+  };
+
+  // Khách chỉ huỷ được đơn chưa rời kho. Đang giao/đã giao thì phải qua hỗ trợ.
+  const canCancel = (o) =>
+    !['CANCELLED', 'SHIPPING', 'DELIVERED', 'COMPLETED'].includes(o.status);
+
+  const [cancelling, setCancelling] = useState(null);
+
+  const handleCancel = (order) => {
+    Modal.confirm({
+      title: `Huỷ đơn ${order.id}?`,
+      content: order.payment_status === 'PAID'
+        ? 'Đơn này đã thanh toán. Sau khi huỷ, khoản tiền sẽ được hoàn lại và bộ phận hỗ trợ sẽ liên hệ với bạn.'
+        : 'Hàng đang giữ cho đơn này sẽ được trả lại kho. Thao tác không thể hoàn tác.',
+      okText: 'Huỷ đơn',
+      okButtonProps: { danger: true },
+      cancelText: 'Không',
+      onOk: async () => {
+        setCancelling(order.id);
+        try {
+          const res = await api.b2c.cancelOrder(order.id, 'Khách tự huỷ');
+          message.success(res.message || 'Đã huỷ đơn hàng');
+          await handleLookup(currentUser?.email);
+        } catch (err) {
+          message.error(err.message || 'Không huỷ được đơn hàng');
+        } finally {
+          setCancelling(null);
+        }
+      },
+    });
   };
 
   const getOrderStatus = (status) => {
@@ -317,17 +365,35 @@ export default function Account() {
                               {new Date(order.date || order.created_at).toLocaleString('vi-VN')}
                             </span>
                           </div>
-                          <span style={{
-                            padding: '4px 12px',
-                            borderRadius: 12,
-                            fontSize: 12,
-                            fontWeight: 600,
-                            background: isDark ? '#27272a' : '#ffffff',
-                            color: isDark ? '#f4f4f5' : '#18181b',
-                            border: `1px solid ${isDark ? '#3f3f46' : '#d4d4d8'}`
-                          }}>
-                            {getOrderStatus(order.status).text}
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            {/* Trạng thái THANH TOÁN tách riêng khỏi trạng thái GIAO HÀNG:
+                                đơn COD có thể "Đã xác nhận" mà vẫn chưa trả tiền. */}
+                            {getPaymentLabel(order) && (
+                              <Tag color={getPaymentLabel(order).color} style={{ margin: 0 }}>
+                                {getPaymentLabel(order).text}
+                              </Tag>
+                            )}
+                            <span style={{
+                              padding: '4px 12px',
+                              borderRadius: 12,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              background: isDark ? '#27272a' : '#ffffff',
+                              color: isDark ? '#f4f4f5' : '#18181b',
+                              border: `1px solid ${isDark ? '#3f3f46' : '#d4d4d8'}`
+                            }}>
+                              {getOrderStatus(order.status).text}
+                            </span>
+                            {canCancel(order) && (
+                              <Button
+                                size="small" danger
+                                loading={cancelling === order.id}
+                                onClick={() => handleCancel(order)}
+                              >
+                                Huỷ đơn
+                              </Button>
+                            )}
+                          </div>
                         </div>
                         <Divider style={{ margin: '14px 0', borderColor: isDark ? '#27272a' : '#e4e4e7' }} />
                         

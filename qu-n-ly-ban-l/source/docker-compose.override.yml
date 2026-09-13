@@ -1,0 +1,13 @@
+# Override cho chạy dev: server + client chạy native trên host, nên các dịch vụ
+# hạ tầng phải mở cổng ra host. File gốc cố ý không expose (server nói chuyện
+# với chúng qua network nội bộ của compose).
+#
+# Docker Compose tự nạp file này nếu có mặt. Xoá đi là trở về cấu hình gốc.
+services:
+  clickhouse:
+    ports:
+      - "8123:8123"
+      - "9010:9000"     # 9000 hay đụng MinIO bên sandbox, đổi sang 9010
+  redis:
+    ports:
+      - "6379:6379"

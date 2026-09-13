@@ -59,6 +59,20 @@ services:
   # ─── PostgreSQL ────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
+    # wal_level=logical là ĐIỀU KIỆN BẮT BUỘC để Debezium tạo replication slot.
+    # Mặc định là 'replica' — thiếu dòng này thì connector báo lỗi ngay lúc ĐĂNG KÝ
+    # (không phải lúc chạy), nên dễ tưởng đã cấu hình xong.
+    #
+    # max_replication_slots / max_wal_senders: mỗi connector chiếm 1 slot + 1 sender.
+    # Để 4 cho thoải mái khi thêm connector hoặc khi slot cũ chưa được dọn.
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=4
+      - -c
+      - max_wal_senders=4
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-getshopy}
       POSTGRES_USER: ${POSTGRES_USER:-getshopy}
@@ -104,27 +118,34 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # ─── AI Recommendation Service (FastAPI) ───────────────────────────────────
-  ai-rec:
-    build:
-      context: ./ai-rec
-      dockerfile: Dockerfile
-    container_name: getshopy-ai-rec
-    ports:
-      - "${AI_REC_PORT:-8000}:8000"
-    environment:
-      PORT: 8000
-      DEFAULT_TOP_K: 10
-    volumes:
-      - ./ai-rec/output:/app/output
-      - ./ai-rec/data:/app/data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    restart: unless-stopped
+  # ─── AI Recommendation Service (FastAPI) — TẠM TẮT ─────────────────────────
+  # Code AI-rec đã chuyển sang chỗ khác, service này không còn dùng ở đây.
+  #
+  # Ngoài ra nó không tự khởi động được nếu thiếu /app/data/raw/sales.csv —
+  # file đó là dữ liệu đã tiền xử lý, chính là bảng processed_data_for_AI_rec
+  # mà dbt sẽ dựng ở mục 3.4. Chưa có bảng đó thì container restart vô hạn.
+  #
+  # Bật lại: bỏ dấu # ở các dòng dưới.
+  # ai-rec:
+  #   build:
+  #     context: ./ai-rec
+  #     dockerfile: Dockerfile
+  #   container_name: getshopy-ai-rec
+  #   ports:
+  #     - "${AI_REC_PORT:-8000}:8000"
+  #   environment:
+  #     PORT: 8000
+  #     DEFAULT_TOP_K: 10
+  #   volumes:
+  #     - ./ai-rec/output:/app/output
+  #     - ./ai-rec/data:/app/data
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 20s
+  #   restart: unless-stopped
 
 volumes:
   postgres_data:
