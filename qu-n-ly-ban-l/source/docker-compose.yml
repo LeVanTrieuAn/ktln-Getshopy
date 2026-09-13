@@ -109,6 +109,20 @@ services:
   # ─── PostgreSQL ────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
+    # wal_level=logical là ĐIỀU KIỆN BẮT BUỘC để Debezium tạo replication slot.
+    # Mặc định là 'replica' — thiếu dòng này thì connector báo lỗi ngay lúc ĐĂNG KÝ
+    # (không phải lúc chạy), nên dễ tưởng đã cấu hình xong.
+    #
+    # max_replication_slots / max_wal_senders: mỗi connector chiếm 1 slot + 1 sender.
+    # Để 4 cho thoải mái khi thêm connector hoặc khi slot cũ chưa được dọn.
+    command:
+      - postgres
+      - -c
+      - wal_level=logical
+      - -c
+      - max_replication_slots=4
+      - -c
+      - max_wal_senders=4
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-getshopy}
       POSTGRES_USER: ${POSTGRES_USER:-getshopy}
@@ -126,6 +140,24 @@ services:
 
 
   # ─── Redis Cache ───────────────────────────────────────────────────────────
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - ./clickhouse-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  # ─── Redis Cache ───────────────────────────────────────────────────────────
+
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -140,6 +172,7 @@ services:
 
 volumes:
   postgres_data:
+  clickhouse_data:
   redis_data:
   ai_data:
   ai_models:

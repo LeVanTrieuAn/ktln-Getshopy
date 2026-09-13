@@ -1,0 +1,28 @@
+{
+  "name": "postgres-source-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+
+    "_comment_target": "Trỏ vào DB THẬT của Getshopy, không phải postgres_mock_source/app_sales nữa.",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "getshopy",
+    "database.password": "${env:POSTGRES_PASSWORD}",
+    "database.dbname": "getshopy",
+
+    "topic.prefix": "cdc_prod",
+    "plugin.name": "pgoutput",
+
+    "_comment_tables": "Prisma tạo bảng PascalCase có quote: \"Order\", \"OrderItem\". Viết sai hoa/thường là Debezium không bắt được bảng nào.",
+    "table.include.list": "public.Order,public.OrderItem",
+
+    "_comment_wal": "Postgres phải chạy với wal_level=logical, nếu không connector không tạo được replication slot.",
+    "slot.name": "getshopy_cdc_slot",
+    "publication.name": "getshopy_cdc_pub",
+
+    "_comment_decimal": "Tiền trong Postgres là Int (đơn vị đồng) nên không cần xử lý Decimal. Giữ mặc định.",
+    "decimal.handling.mode": "double",
+    "time.precision.mode": "connect"
+  }
+}

@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: app_sales            # Trùng với tên nguồn bạn gọi trong hàm {{ source() }}
+    database: default          # Tên database mặc định của ClickHouse local
+    schema: default
+    tables:
+      - name: orders
+      - name: orders_detail

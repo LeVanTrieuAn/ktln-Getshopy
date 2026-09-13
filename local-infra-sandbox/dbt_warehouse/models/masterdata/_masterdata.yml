@@ -1,0 +1,57 @@
+version: 2
+
+# =====================================================================
+# MASTERDATA — kéo THẲNG từ Postgres, KHÔNG đi qua CDC/Kafka/MinIO
+#
+# Vì sao tách khỏi pipeline:
+#   - Là dữ liệu CHIỀU (dimension), thay đổi rất ít: sản phẩm, danh mục,
+#     thương hiệu, chi nhánh. Dựng cả một đường CDC cho chúng là thừa.
+#   - Không cần lịch sử thay đổi. Chỉ cần ảnh chụp mới nhất để join.
+#   - Ít dòng (lớn nhất 26k) nên full refresh mỗi lần build rất nhanh.
+#
+# Chỉ dữ liệu GIAO DỊCH (Order, OrderItem) mới đi qua CDC, vì ở đó cần bắt
+# từng thay đổi theo thời gian và không được mất bản ghi nào.
+# =====================================================================
+
+models:
+  - name: dim_products
+    description: "Danh mục sản phẩm. is_deleted=1 nghĩa là ngừng bán — phải lọc trước khi đưa sang AI-Rec."
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: category_id
+        tests:
+          - relationships:
+              to: ref('dim_categories')
+              field: category_id
+      - name: brand_id
+        tests:
+          - relationships:
+              to: ref('dim_brands')
+              field: brand_id
+
+  - name: dim_categories
+    columns:
+      - name: category_id
+        tests: [unique, not_null]
+
+  - name: dim_brands
+    columns:
+      - name: brand_id
+        tests: [unique, not_null]
+
+  - name: dim_branches
+    columns:
+      - name: branch_id
+        tests: [unique, not_null]
+
+  - name: dim_customers
+    description: "Khách B2C. KHÔNG chứa password_hash."
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+
+  - name: dim_vouchers
+    columns:
+      - name: voucher_id
+        tests: [unique, not_null]

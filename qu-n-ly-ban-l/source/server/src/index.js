@@ -9,6 +9,7 @@ const WebSocket = require('ws');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { prisma } = require('./db');
+const { authB2C } = require('./middleware/authB2C');
 const { redis, isConnected: redisIsConnected, cached: redisCached } = require('./redis');
 
 // ─── GLOBAL BIGINT SERIALIZER ────────────────────────────────────────────
@@ -29,11 +30,25 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 
 const PORT = process.env.PORT || 8080;
-const JWT_SECRET = process.env.JWT_SECRET || 'istore_secret';
+// KHÔNG có giá trị mặc định: secret hardcode trong source nghĩa là bất kỳ ai
+// đọc được repo cũng ký được token giả cho mọi tài khoản.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  throw new Error('Thiếu JWT_SECRET. Sinh bằng: openssl rand -base64 48');
+}
 
 app.use(cors());
 app.use(morgan('dev'));
-app.use(express.json());
+// Giữ lại body thô để xác thực chữ ký HMAC của webhook thanh toán.
+// JSON.stringify(req.body) KHÔNG dùng thay được: nó có thể đổi thứ tự khoá và
+// cách escape, làm chữ ký sai dù payload hợp lệ.
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    if (req.originalUrl && req.originalUrl.startsWith('/api/payment/webhook')) {
+      req.rawBody = buf.toString('utf8');
+    }
+  },
+}));
 
 // ─── RATE LIMITING ────────────────────────────────────────────
 const limiter = rateLimit({
@@ -43,7 +58,12 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', limiter);
+// Webhook thanh toán KHÔNG đi qua rate limiter: provider bắn dồn khi có nhiều
+// giao dịch cùng lúc, bị chặn là mất tín hiệu tiền vào. Bảo vệ của endpoint này
+// là chữ ký HMAC / API key + IP allowlist, không phải giới hạn tần suất.
+app.use('/api/', (req, res, next) =>
+  req.path.startsWith('/payment/webhook') ? next() : limiter(req, res, next)
+);
 
 // ─── CLICKHOUSE CLIENT ──────────────────────────────────────────
 const ch = createClient({
@@ -679,153 +699,71 @@ app.post('/api/admin/simulate-sale', authMiddleware, async (req, res) => {
 });
 
 // ─── B2C STOREFRONT ROUTES ──────────────────────────────────────
-app.post('/api/b2c/checkout', async (req, res) => {
+/**
+ * Tạo đơn hàng B2C.
+ *
+ * Thay cho phiên bản cũ (xem scratchpad/old-checkout.js.bak). Bốn thay đổi:
+ *
+ *   1. CÓ XÁC THỰC. Trước đây endpoint này không có middleware nào — việc kiểm
+ *      tra đăng nhập nằm ở client, ai cũng curl thẳng vào tạo đơn được.
+ *      customer_id giờ lấy từ token, không từ body.
+ *
+ *   2. SERVER TỰ TÍNH TIỀN. Trước đây total/subTotal/discount/shippingFee lấy
+ *      thẳng từ req.body, và fallback items.reduce() cũng dùng item.price do
+ *      client gửi. Khi gắn thanh toán, lỗ hổng đó thành: QR sinh theo số tiền
+ *      client tự khai.
+ *
+ *   3. GIỮ CHỖ TỒN KHO ATOMIC thay cho vòng lặp check-then-act.
+ *
+ *   4. KHÔNG GHI CLICKHOUSE trong request path. ClickHouse không chịu được
+ *      insert nhỏ tần suất cao (mỗi insert tạo một data part; merge không kịp
+ *      là lỗi TOO_MANY_PARTS), và analytics không được đứng chắn đường giao
+ *      dịch. Dữ liệu sang ClickHouse qua CDC Debezium đọc WAL.
+ */
+app.post('/api/b2c/checkout', authB2C, async (req, res) => {
   try {
-    const { items, customer_info, payment_method, discount, shippingFee, subTotal, total } = req.body;
-    
-    const orderId = 'ORD-' + Date.now();
-    const orderDate = new Date();
-    const chDate = orderDate.toISOString().replace('T', ' ').substring(0, 19);
-    
-    // Create order record in PostgreSQL for B2C history
-    await prisma.order.create({
-      data: {
-        id: orderId,
-        customer: customer_info,
-        items: items,
-        total: total || items.reduce((acc, item) => acc + (item.price * item.quantity), 0),
-        discount: discount || 0,
-        shippingFee: shippingFee || 0,
-        subTotal: subTotal || 0,
-        status: 'CONFIRMED',
-        date: orderDate
-      }
+    const { items, customer_info, payment_method, voucher, pointsUsed } = req.body;
+
+    const result = await checkoutService.createOrder(prisma, {
+      items,
+      customerInfo: customer_info,
+      paymentMethod: payment_method,
+      customerId: req.b2cUser.id,        // TỪ TOKEN, không từ body
+      voucherCode: voucher || null,
+      pointsToUse: Number(pointsUsed || 0),
+      claimed: {
+        subTotal: req.body.subTotal,
+        shippingFee: req.body.shippingFee,
+        discount: req.body.discount,
+        total: req.body.total,
+      },
     });
 
-    // Sync order to ClickHouse for B2B Analytics and Fulfillment
-    const chValues = [];
-    const chVouchers = [];
-    
-    const branchIds = [...new Set(items.flatMap(i => i.branch_ids || []))];
-    const branches = branchIds.length > 0 ? await prisma.branch.findMany({ where: { id: { in: branchIds } } }) : [];
-    
-    for (const item of items) {
-      // Find branch_id or assign default
-      let branch_id = 'BR_1'; // Default
-      let branch_name = 'Chi nhánh 1';
-      if (item.branch_ids && item.branch_ids.length > 0) {
-        branch_id = item.branch_ids[0];
-        const br = branches.find(b => b.id === branch_id);
-        if (br) branch_name = br.name;
-      }
-      
-      const itemTotal = item.price * item.quantity;
-      const proportion = itemTotal / (subTotal || itemTotal || 1);
-      const itemDiscount = (discount || 0) * proportion;
-      const itemNet = itemTotal - itemDiscount;
-
-      chValues.push({
-        order_id: orderId,
-        branch_id: branch_id,
-        branch_name: branch_name,
-        region: customer_info.province || 'VN',
-        salesperson_id: 'ONLINE',
-        customer_id: customer_info.email || customer_info.phone || 'GUEST',
-        product_id: item.id.toString(),
-        product_name: item.name,
-        product_category: item.category_id || 'OTHER',
-        quantity: Number(item.quantity),
-        unit_price: Number(item.price),
-        total_amount: Number(itemTotal),
-        discount: Number(itemDiscount),
-        net_amount: Number(itemNet),
-        status: 'CONFIRMED',
-        payment_method: payment_method || 'COD',
-        order_date: chDate
-      });
-
-      // --- Deduct Realtime Inventory ---
-      try {
-        const product = await prisma.product.findUnique({ where: { id: BigInt(item.id) } });
-        if (product) {
-          let updatedVariants = product.variants;
-          let stockToDeduct = Number(item.quantity);
-          if (item.selectedVariant) {
-            if (Array.isArray(updatedVariants)) {
-              updatedVariants = updatedVariants.map(v => {
-                if (v.id === item.selectedVariant.id) {
-                  return { ...v, stock: Math.max(0, (v.stock || 0) - stockToDeduct) };
-                }
-                return v;
-              });
-            }
-          }
-          await prisma.product.update({
-            where: { id: BigInt(item.id) },
-            data: {
-              stock: Math.max(0, product.stock - stockToDeduct),
-              variants: updatedVariants,
-              sold: { increment: stockToDeduct }
-            }
-          });
-        }
-      } catch (err) {
-        console.error('Failed to deduct inventory:', err);
-      }
-    }
-
-    if (chValues.length > 0) {
-      await ch.insert({
-        table: 'analytics.sale_orders',
-        values: chValues,
-        format: 'JSONEachRow'
-      });
-      
-      // If paid by bank/VNPAY, auto generate input voucher
-      if (payment_method && payment_method !== 'COD') {
-        // Group by branch
-        const branchTotals = {};
-        for (const val of chValues) {
-          branchTotals[val.branch_id] = (branchTotals[val.branch_id] || 0) + val.net_amount;
-        }
-        
-        for (const [brId, amt] of Object.entries(branchTotals)) {
-          chVouchers.push({
-            voucher_id: 'VOU' + Date.now() + Math.floor(Math.random()*1000),
-            order_id: orderId,
-            branch_id: brId,
-            amount: Number(amt),
-            voucher_date: chDate,
-            payment_type: payment_method,
-            note: 'Auto reconciled from Online Payment'
-          });
-        }
-        
-        if (chVouchers.length > 0) {
-          await ch.insert({
-            table: 'analytics.input_vouchers',
-            values: chVouchers,
-            format: 'JSONEachRow'
-          });
-        }
-      }
-      
-      await invalidateAnalyticsCache(); // C-04: targeted invalidation
-    }
-
-    // Broadcast STOCK_UPDATE via WebSocket
+    // Báo client cập nhật tồn kho hiển thị
     wsClients.forEach(ws => {
       if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() }));
       }
     });
 
-    res.json({ success: true, order_id: orderId });
+    return res.json({ success: true, ...result });
   } catch (err) {
-    console.error("Checkout Error:", err);
-    res.status(500).json({ error: err.message });
+    // Lỗi nghiệp vụ (hết hàng, voucher sai, thiếu tỉnh thành) trả 400 kèm mã
+    // để client hiển thị đúng thông báo, thay vì 500 chung chung.
+    if (err.code === 'OUT_OF_STOCK' || err.name === 'PricingError') {
+      return res.status(400).json({ error: err.message, code: err.code });
+    }
+    console.error('Checkout Error:', err);
+    return res.status(500).json({ error: err.message });
   }
 });
+
+// ─── PAYMENT ─────────────────────────────────────────────────────────────
+const checkoutService      = require('./services/payment/checkoutService');
+const expireScheduler      = require('./services/payment/expireScheduler');
+const { checkPaymentConfig } = require('./services/payment/configCheck');
+const paymentRouter        = require('./routes/payment');
+app.use('/api', paymentRouter);
 
 // ─── AI SERVICES (tách thành container riêng: ai-bot) ────────────────────────
 // Proxy tất cả request AI (chat, search) sang container ai-bot
@@ -880,6 +818,11 @@ app.use('/api/b2b/analytics/behavior', behaviorAnalyticsRouter);
 
 // ─── START ────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
+  // Lỗi cấu hình thanh toán không tự báo ra — chỉ lộ khi có tiền thật chạy qua.
+  checkPaymentConfig();
+
+  // Job đóng đơn quá hạn — không chạy thì kho giữ chỗ mãi không nhả.
+  expireScheduler.start(prisma);
   console.log(`🚀 iStore Analytics Server on http://localhost:${PORT}`);
   console.log(`🔌 WebSocket server ready`);
 });

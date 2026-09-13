@@ -1,0 +1,143 @@
+version: '3.8'
+
+services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    container_name: sandbox_zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - data-net
+  postgres-mock-source:
+
+    image: postgres:15-alpine
+    container_name: postgres_mock_source
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_SOURCE_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_SOURCE_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_SOURCE_DB}
+      POSTGRES_PORT: ${POSTGRES_SOURCE_PORT}
+    ports:
+      - "${POSTGRES_SOURCE_PORT}:5432"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql  # Tự động chạy file tạo bảng khi start lần đầu
+      - pg_mock_data:/var/lib/postgresql/data
+    # Kích hoạt chế độ ghi nhật ký nâng cao phục vụ CDC (Bắt buộc)
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=4"]
+    networks:
+      - data-net
+
+  clickhouse-local:
+    image: clickhouse/clickhouse-server:23.8-alpine
+    container_name: clickhouse_local
+    env_file:
+      - .env
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB}
+    ports:
+      - "${CLICKHOUSE_PORT}:8123" # Cổng HTTP để dbt và DBeaver chọc vào
+      - "9005:9000"              # Cổng TCP Client
+    volumes:
+      - ch_data:/var/lib/clickhouse
+      - ./config-clickhouse/s3.xml:/etc/clickhouse-server/config.d/s3.xml:ro
+    networks:
+      - data-net
+
+  # 2. KAFKA BROKER: Bến trung chuyển Event dữ liệu
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: sandbox_kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092" # Cổng kết nối từ máy Host (Windows) ngoài Container
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      # Định nghĩa 2 dải mạng: PLAINTEXT cho nội bộ Docker, PLAINTEXT_HOST cho máy Windows bên ngoài
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      
+    networks:
+      - data-net
+
+  # 3. KAFKA CONNECT: Trạm chạy plugin Debezium CDC và S3 Sink
+  kafka-connect:
+    image: confluentinc/cp-kafka-connect-base:7.4.0
+    container_name: sandbox_kafka_connect
+    depends_on:
+      - kafka
+    ports:
+      - "8083:8083" # REST API để cấu hình Connector
+    environment:
+      CONNECT_BOOTSTRAP_SERVERS: 'kafka:29092' # Trỏ vào cổng nội bộ của Kafka
+      CONNECT_REST_ADVERTISED_HOST_NAME: kafka-connect
+      CONNECT_REST_PORT: 8083
+      CONNECT_GROUP_ID: kafka-connect-group
+      CONNECT_CONFIG_STORAGE_TOPIC: _connect-configs
+      CONNECT_CONFIG_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_OFFSET_STORAGE_TOPIC: _connect-offsets
+      CONNECT_OFFSET_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_STATUS_STORAGE_TOPIC: _connect-status
+      CONNECT_STATUS_STORAGE_REPLICATION_FACTOR: 1
+      CONNECT_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+      # Đường dẫn chứa các file plugin JARs tải về
+      CONNECT_PLUGIN_PATH: "/usr/share/java,/data/connectors"
+    volumes:
+      - ./connectors:/data/connectors # Mount thư mục từ Windows vào để chứa Plugin
+    networks:
+      - data-net
+
+  # 4. MINIO STORAGE: Giả lập Cloud Storage AWS S3 (Data Lake)
+  minio:
+    image: minio/minio:RELEASE.2023-08-29T23-07-35Z
+    container_name: sandbox_minio
+    env_file:
+      - .env
+    ports:
+      - "${MINIO_PORT}:9000" # API Endpoint cho S3 Sink bắn data vào
+      - "9001:9001" # Web Console để bạn vào kiểm tra file
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    networks:
+      data-net:
+        aliases:
+        - data-lake.sandbox_minio.local
+  metabase:
+    image: metabase/metabase:latest
+    container_name: sandbox_metabase
+    ports:
+      - "3001:3000"    # đổi từ 3000 -> tránh đụng client Getshopy
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: ${POSTGRES_SOURCE_DB}
+      MB_DB_PORT: 5432
+      MB_DB_USER: ${POSTGRES_SOURCE_USER}
+      MB_DB_PASS: ${POSTGRES_SOURCE_PASSWORD}
+      MB_DB_HOST: postgres-mock-source
+    depends_on:
+      - postgres-mock-source
+    networks:
+      - data-net
+
+volumes:
+  minio_data:
+  pg_mock_data:
+  ch_data:
+
+networks:
+  data-net:
+    driver: bridge

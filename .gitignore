@@ -1,0 +1,45 @@
+# ── Secrets — KHÔNG BAO GIỜ commit ────────────────────────────────────
+# Lên GitHub rồi thì kể cả xoá commit, lịch sử vẫn còn — phải đổi toàn bộ
+# mật khẩu thật. Chặn từ đầu rẻ hơn nhiều.
+.env
+.env.local
+.env.*.local
+**/.env
+!**/.env.example
+*.pem
+*.key
+
+# ── Phụ thuộc tải lại được ────────────────────────────────────────────
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Kafka Connect plugins — 50MB JAR, tải lại từ Confluent Hub / Debezium
+local-infra-sandbox/connectors/
+
+# ── Sinh ra khi build / chạy ──────────────────────────────────────────
+dist/
+build/
+.next/
+*.log
+logs/
+**/dbt_warehouse/target/
+**/dbt_warehouse/logs/
+**/dbt_warehouse/dbt_packages/
+**/.ua/
+
+# ── Dữ liệu lớn — không thuộc về git ─────────────────────────────────
+orders_mock_data.json
+data-platform-poc/*.json
+*.parquet
+*.sqlite
+*.db
+
+# ── Rác của hệ điều hành / IDE ───────────────────────────────────────
+.DS_Store
+**/.DS_Store
+Thumbs.db
+.idea/
+.vscode/

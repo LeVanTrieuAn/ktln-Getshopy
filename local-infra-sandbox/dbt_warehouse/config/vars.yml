@@ -1,0 +1,19 @@
+# dbt_warehouse/config/vars.yml
+minio:
+  host: "minio"
+  port: "9000"
+  bucket: "data-lake"
+  access_key: "{{ env_var('MINIO_ACCESS_KEY') }}"
+  secret_key: "{{ env_var('MINIO_SECRET_KEY') }}"
+
+targets:
+  dev:
+    host: "localhost"
+    port: "8123"
+    user: "ch_admin"
+    password: "{{ env_var('CLICKHOUSE_PASSWORD') }}"
+  prod:
+    host: "clickhouse-prod"
+    port: "8123"
+    user: "ch_admin"
+    password: "{{ env_var('CLICKHOUSE_PASSWORD') }}"
