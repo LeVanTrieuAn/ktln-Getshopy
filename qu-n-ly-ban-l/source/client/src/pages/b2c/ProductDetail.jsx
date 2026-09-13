@@ -1314,33 +1314,13 @@ function ProductTabs({ product, specs, highlights, description, isDark,
             }}>
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
                 <div style={{ fontSize: 64, fontWeight: 900, color: '#f59e0b', lineHeight: 1, textShadow: '0 2px 8px rgba(245,158,11,0.3)' }}>
-                  {product.rating?.toFixed(1)}
+                  {(product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : (product?.rating || 5)).toFixed(1)}
                 </div>
-                <Rate disabled defaultValue={product.rating} style={{ fontSize: 18, color: '#f59e0b' }} />
+                <Rate disabled value={product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : (product?.rating || 5)} style={{ fontSize: 18, color: '#f59e0b' }} />
                 <div style={{ fontSize: 13, color: isDark ? '#78716c' : '#92400e', marginTop: 6, fontWeight: 500 }}>
                   {product.reviews?.length || 0} đánh giá
                 </div>
               </div>
-              <div style={{ width: 1, height: 80, background: isDark ? 'rgba(250,204,21,0.15)' : '#fcd34d', flexShrink: 0 }} />
-              {product.reviews && product.reviews.length > 0 && (
-                <div style={{ flex: 1, minWidth: 200 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                    <span style={{
-                      width: 28, height: 28, borderRadius: 8,
-                      background: 'linear-gradient(135deg, #10b981, #047857)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      color: '#fff', fontSize: 13,
-                    }}><RobotOutlined /></span>
-                    <span style={{ fontWeight: 700, color: '#10b981', fontSize: 14 }}>AI tóm tắt đánh giá</span>
-                    <Tag color="green" style={{ margin: 0, borderRadius: 8, fontSize: 11 }}>Beta</Tag>
-                  </div>
-                  <div style={{ fontSize: 14, color: isDark ? '#94a3b8' : '#475569', lineHeight: 1.7 }}>
-                    Phần lớn khách hàng <strong style={{ color: '#10b981' }}>rất hài lòng</strong>.{' '}
-                    Ưu điểm: hiệu năng mạnh, thiết kế đẹp, pin bền.{' '}
-                    Đa số đánh giá <strong style={{ color: '#f59e0b' }}>{product.rating?.toFixed(1)}/5 ★</strong> và sẽ giới thiệu cho bạn bè.
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Write review */}
@@ -1694,7 +1674,7 @@ export default function ProductDetail() {
             </Title>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <Rate disabled defaultValue={product.rating} style={{ fontSize: 14, color: '#facc15' }} />
+              <Rate disabled value={product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : (product?.rating || 5)} style={{ fontSize: 14, color: '#facc15' }} />
               <span style={{ color: isDark ? '#aaa' : '#666', fontSize: 13 }}>({product.reviews?.length || 0} đánh giá)</span>
               <Divider type="vertical" />
               <span style={{ color: isDark ? '#aaa' : '#666', fontSize: 13 }}>Đã bán: <strong>{product.sold?.toLocaleString('vi-VN')}</strong></span>

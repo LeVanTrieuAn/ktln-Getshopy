@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Row, Col, Card, Typography, Menu, Divider, Tag, Steps, Button, Input, message, Spin, Modal, Form, Empty } from 'antd';
+import { SketchOutlined, CrownOutlined, StarOutlined, TrophyOutlined, GiftOutlined } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -168,8 +169,15 @@ export default function Account() {
     name: currentUser ? (currentUser.full_name || currentUser.name || currentUser.email) : 'Khách vãng lai',
     email: currentUser?.email || 'Chưa đăng nhập',
     phone: currentUser?.phone || 'Chưa cập nhật',
-    tier: points > 500 ? 'Thành viên Vàng' : (points > 100 ? 'Thành viên Bạc' : 'Thành viên Đồng'),
+    tier: points > 1000 ? 'Thành viên Kim cương' : (points > 500 ? 'Thành viên Vàng' : (points > 100 ? 'Thành viên Bạc' : 'Thành viên Đồng')),
     points: points
+  };
+
+  const getTierStyle = (tier) => {
+    if (tier.includes('Kim cương')) return { bg: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(56, 189, 248, 0.3) 100%)', color: '#06b6d4', border: 'rgba(6, 182, 212, 0.6)', icon: <SketchOutlined />, glow: 'rgba(6, 182, 212, 0.5)' };
+    if (tier.includes('Vàng')) return { bg: 'linear-gradient(135deg, rgba(251, 191, 36, 0.15) 0%, rgba(250, 204, 21, 0.3) 100%)', color: '#fbbf24', border: 'rgba(251, 191, 36, 0.6)', icon: <CrownOutlined />, glow: 'rgba(251, 191, 36, 0.5)' };
+    if (tier.includes('Bạc')) return { bg: 'linear-gradient(135deg, rgba(156, 163, 175, 0.15) 0%, rgba(209, 213, 219, 0.3) 100%)', color: '#9ca3af', border: 'rgba(156, 163, 175, 0.6)', icon: <StarOutlined />, glow: 'rgba(156, 163, 175, 0.5)' };
+    return { bg: 'linear-gradient(135deg, rgba(205, 127, 50, 0.15) 0%, rgba(217, 119, 6, 0.3) 100%)', color: '#cd7f32', border: 'rgba(205, 127, 50, 0.6)', icon: <TrophyOutlined />, glow: 'rgba(205, 127, 50, 0.5)' };
   };
 
   // Get first character of user name as letter avatar
@@ -194,6 +202,34 @@ export default function Account() {
 
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 48px' }}>
+      <style>{`
+        @keyframes pulseGlow {
+          0% { box-shadow: 0 0 0px var(--glow-color); }
+          50% { box-shadow: 0 0 12px var(--glow-color); }
+          100% { box-shadow: 0 0 0px var(--glow-color); }
+        }
+        @keyframes shineEffect {
+          0% { left: -100%; }
+          20% { left: 200%; }
+          100% { left: 200%; }
+        }
+        .shiny-badge {
+          position: relative;
+          overflow: hidden;
+          animation: pulseGlow 2.5s infinite;
+        }
+        .shiny-badge::after {
+          content: '';
+          position: absolute;
+          top: -50%;
+          left: -100%;
+          width: 50%;
+          height: 200%;
+          background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+          transform: rotate(30deg);
+          animation: shineEffect 3s infinite;
+        }
+      `}</style>
       <Row gutter={[32, 32]}>
         <Col xs={24} md={7} lg={6}>
           <div 
@@ -229,17 +265,22 @@ export default function Account() {
               </div>
               <Title level={4} style={{ color: isDark ? '#fff' : '#18181b', margin: 0, fontWeight: 700 }}>{mockUser.name}</Title>
               <div style={{ marginTop: 8 }}>
-                <span style={{ 
-                  display: 'inline-block',
+                <span 
+                  className="shiny-badge"
+                  style={{ 
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
                   padding: '4px 12px',
                   borderRadius: 20,
                   fontSize: 12,
                   fontWeight: 600,
-                  background: isDark ? '#27272a' : '#f4f4f5',
-                  color: isDark ? '#e4e4e7' : '#18181b',
-                  border: `1px solid ${isDark ? '#3f3f46' : '#e4e4e7'}`
+                  background: getTierStyle(mockUser.tier).bg,
+                  color: getTierStyle(mockUser.tier).color,
+                  border: `1px solid ${getTierStyle(mockUser.tier).border}`,
+                  '--glow-color': getTierStyle(mockUser.tier).glow
                 }}>
-                  {mockUser.tier}
+                  {getTierStyle(mockUser.tier).icon} {mockUser.tier}
                 </span>
               </div>
             </div>
@@ -580,7 +621,9 @@ export default function Account() {
                   </div>
                   <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
                     <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Hạng thành viên</div>
-                    <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.tier} ({points} điểm)</div>
+                    <div style={{ color: getTierStyle(mockUser.tier).color, fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                      {getTierStyle(mockUser.tier).icon} {mockUser.tier} <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 14 }}>({points} điểm)</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -723,22 +766,31 @@ export default function Account() {
                 >
                   <div>
                     <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7, marginBottom: 8 }}>Hạng thành viên hiện tại</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16 }}>{mockUser.tier}</div>
+                    <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, color: getTierStyle(mockUser.tier).color, display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {getTierStyle(mockUser.tier).icon} {mockUser.tier}
+                    </div>
                     <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1 }}>
                       {points.toLocaleString()} <span style={{ fontSize: 20, fontWeight: 500, opacity: 0.8 }}>Điểm</span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ 
-                      display: 'inline-block',
+                    <div 
+                      className="shiny-badge"
+                      style={{ 
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
                       padding: '8px 16px',
                       borderRadius: 20,
-                      border: '1px solid rgba(255,255,255,0.25)',
+                      background: getTierStyle(mockUser.tier).bg,
+                      color: getTierStyle(mockUser.tier).color,
+                      border: `1px solid ${getTierStyle(mockUser.tier).border}`,
                       fontSize: 13,
-                      fontWeight: 600,
-                      letterSpacing: 0.5
+                      fontWeight: 700,
+                      letterSpacing: 0.5,
+                      '--glow-color': getTierStyle(mockUser.tier).glow
                     }}>
-                      GETSHOPY REWARDS
+                      <GiftOutlined style={{ fontSize: 15 }} /> GETSHOPY REWARDS
                     </div>
                   </div>
                 </div>

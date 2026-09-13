@@ -32,7 +32,7 @@ until ./node_modules/.bin/prisma db push --skip-generate; do
 done
 
 echo "Seeding baseline application data..."
-# L-08: Ch\u1ec9 seed n\u1ebfu ch\u01b0a c\u00f3 d\u1eef li\u1ec7u (ki\u1ec3m tra b\u1ea3ng User) \u2014 tr\u00e1nh duplicate v\u00e0 t\u0103ng t\u1ed1c restart
+# Chỉ seed nếu chưa có dữ liệu (kiểm tra bảng User) — tránh duplicate và tăng tốc restart
 USER_COUNT=$(node -e "
   const { PrismaClient } = require('@prisma/client');
   const p = new PrismaClient();
@@ -40,8 +40,34 @@ USER_COUNT=$(node -e "
 " 2>/dev/null || echo "0")
 
 if [ "$USER_COUNT" = "0" ]; then
-  echo "No existing data found — running seed..."
+  echo "══════════════════════════════════════════════════════════"
+  echo "  No existing data found — running FULL seed pipeline..."
+  echo "══════════════════════════════════════════════════════════"
+
+  # Step 1: Baseline seed (users, branches, basic categories/brands from db.json)
+  echo ""
+  echo "  [1/4] Seeding baseline data (users, branches)..."
   node src/seed.js
+
+  # Step 2: Full 49 categories (8 parents + 41 children)
+  echo ""
+  echo "  [2/4] Seeding 49 categories (8 parents + 41 children)..."
+  node scripts/seed-categories.js
+
+  # Step 3: Full 67+ brands
+  echo ""
+  echo "  [3/4] Seeding 67+ brands..."
+  node scripts/seed-brands.js
+
+  # Step 4: Fill 600,000 products
+  echo ""
+  echo "  [4/4] Filling 600,000 products (this may take several minutes)..."
+  node scripts/fill-600k.js
+
+  echo ""
+  echo "══════════════════════════════════════════════════════════"
+  echo "  ✅ Full seed pipeline completed!"
+  echo "══════════════════════════════════════════════════════════"
 else
   echo "Data already seeded ($USER_COUNT users found) — skipping seed."
 fi

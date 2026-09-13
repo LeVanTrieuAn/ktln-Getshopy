@@ -5,6 +5,7 @@ import { StyleProvider, createCache } from '@ant-design/cssinjs';
 import { AppProvider, useApp } from './context/AppContext';
 import { CartProvider } from './context/CartContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { GoogleOAuthProvider } from '@react-oauth/google';
 
 // ── Eager: critical path (antd + trang chủ B2C load ngay) ────────
 import StoreLayout from './components/b2c/StoreLayout';
@@ -80,8 +81,9 @@ const ThemeWrapper = ({ children }) => {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <AppProvider>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID_HERE'}>
+      <QueryClientProvider client={queryClient}>
+        <AppProvider>
         <CartProvider>
           <ThemeWrapper>
             <Router>
@@ -123,5 +125,6 @@ export default function App() {
         </CartProvider>
       </AppProvider>
     </QueryClientProvider>
+    </GoogleOAuthProvider>
   );
 }

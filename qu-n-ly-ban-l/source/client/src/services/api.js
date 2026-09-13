@@ -102,6 +102,7 @@ export const api = {
 
   // ─── B2B APIs ────────────────────────────────────────────────
   b2b: {
+    getCustomers: () => request('/b2b/customers'),
     getReviews: () => request('/b2b/reviews'),
     replyReview: (id, reply) => request(`/b2b/reviews/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
     
@@ -134,13 +135,22 @@ export const api = {
     login: (email, password) => request('/b2c/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     socialLogin: (data) => request('/b2c/auth/social', { method: 'POST', body: JSON.stringify(data) }),
     
+    // Wishlist
+    getWishlist: () => request('/b2c/wishlist'),
+    toggleWishlist: (product_id) => request('/b2c/wishlist', { method: 'POST', body: JSON.stringify({ product_id }) }),
+    
     // Store
     getCategories: () => request('/b2c/categories'),
-    getActiveCategories: (branch_id = '') => request('/b2c/categories/active?' + new URLSearchParams({ branch_id })),
+    getActiveCategories: (branch_id = '') => {
+      const params = {};
+      if (branch_id && branch_id !== 'undefined') params.branch_id = branch_id;
+      return request('/b2c/categories/active?' + new URLSearchParams(params));
+    },
     getBrands: () => request('/b2c/brands'),
     getFlashSales: () => request('/b2c/flash-sales'),
     getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = []) => {
-      const params = { category_id, search, sort, branch_id, page, limit };
+      const params = { category_id, search, sort, page, limit };
+      if (branch_id && branch_id !== 'undefined') params.branch_id = branch_id;
       if (brands && brands.length > 0) params.brand_ids = brands.join(',');
       return request('/b2c/products?' + new URLSearchParams(params));
     },

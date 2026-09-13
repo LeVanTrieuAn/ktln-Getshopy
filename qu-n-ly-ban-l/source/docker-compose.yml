@@ -17,6 +17,54 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ─── AI Services (Recommendation Engine — FastAPI/Python) ───────────────────
+  ai-rec:
+    build:
+      context: ./ai-rec
+    expose:
+      - "8000"
+    volumes:
+      - ai_data:/app/data
+      - ai_models:/app/output
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  # ─── AI Bot Container (Chatbot + Searchbot — Node.js) ─────────────────────
+  ai-bot:
+    build:
+      context: ./ai-bot
+    env_file:
+      - ./server/.env
+    environment:
+      PORT: 3001
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      REDIS_URL: redis://redis:6379
+      DATABASE_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
+      DIRECT_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    expose:
+      - "3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3001/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: unless-stopped
+
   # ─── Backend Server ─────────────────────────────────────────────────────────
   server:
     build:
@@ -29,11 +77,11 @@ services:
       PORT: 8080
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-      CLICKHOUSE_HOST: http://clickhouse:8123
-      CLICKHOUSE_URL: http://clickhouse:8123
       REDIS_URL: redis://redis:6379
       DATABASE_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
       DIRECT_URL: "postgresql://getshopy:getshopy_dev_password@postgres:5432/getshopy"
+      AI_REC_URL: "http://ai-rec:8000"
+      AI_BOT_URL: "http://ai-bot:3001"
     # DNS tường minh — cho phép container gọi Hugging Face API bên ngoài
     dns:
       - 8.8.8.8
@@ -44,9 +92,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      clickhouse:
-        condition: service_healthy
       redis:
+        condition: service_healthy
+      ai-rec:
+        condition: service_healthy
+      ai-bot:
         condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:8080/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\""]
@@ -88,7 +138,8 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # ─── ClickHouse Analytics ──────────────────────────────────────────────────
+
+  # ─── Redis Cache ───────────────────────────────────────────────────────────
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
     environment:
@@ -106,6 +157,7 @@ services:
     restart: unless-stopped
 
   # ─── Redis Cache ───────────────────────────────────────────────────────────
+
   redis:
     image: redis:7-alpine
     command: ["redis-server", "--appendonly", "yes"]
@@ -118,36 +170,9 @@ services:
       retries: 12
     restart: unless-stopped
 
-  # ─── AI Recommendation Service (FastAPI) — TẠM TẮT ─────────────────────────
-  # Code AI-rec đã chuyển sang chỗ khác, service này không còn dùng ở đây.
-  #
-  # Ngoài ra nó không tự khởi động được nếu thiếu /app/data/raw/sales.csv —
-  # file đó là dữ liệu đã tiền xử lý, chính là bảng processed_data_for_AI_rec
-  # mà dbt sẽ dựng ở mục 3.4. Chưa có bảng đó thì container restart vô hạn.
-  #
-  # Bật lại: bỏ dấu # ở các dòng dưới.
-  # ai-rec:
-  #   build:
-  #     context: ./ai-rec
-  #     dockerfile: Dockerfile
-  #   container_name: getshopy-ai-rec
-  #   ports:
-  #     - "${AI_REC_PORT:-8000}:8000"
-  #   environment:
-  #     PORT: 8000
-  #     DEFAULT_TOP_K: 10
-  #   volumes:
-  #     - ./ai-rec/output:/app/output
-  #     - ./ai-rec/data:/app/data
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-  #     interval: 15s
-  #     timeout: 5s
-  #     retries: 5
-  #     start_period: 20s
-  #   restart: unless-stopped
-
 volumes:
   postgres_data:
   clickhouse_data:
   redis_data:
+  ai_data:
+  ai_models:

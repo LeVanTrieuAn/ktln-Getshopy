@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
+import { useGoogleLogin } from '@react-oauth/google';
 
 /* ─── Styles & Keyframes ───────────────────────────────────────── */
 const STYLE_ID = 'auth-modal-modern-styles';
@@ -159,13 +160,43 @@ export default function AuthModal({ open, onClose, onSuccess }) {
     }
   };
 
+  const handleGoogleSuccess = async (tokenResponse) => {
+    setLoading(true);
+    try {
+      const res = await api.b2c.socialLogin({
+        provider: 'google',
+        token: tokenResponse.access_token,
+      });
+      b2cLogin(res.user, res.token);
+      message.success(`Đăng nhập bằng Google thành công.`);
+      if (typeof onSuccess === 'function') {
+        onSuccess(res.user);
+      }
+      onClose();
+    } catch (err) {
+      message.error(err.message || t('auth.social_fail'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loginWithGoogle = useGoogleLogin({
+    onSuccess: handleGoogleSuccess,
+    onError: () => message.error('Đăng nhập Google thất bại')
+  });
+
   const handleSocialLogin = async (provider) => {
+    if (provider === 'google') {
+      loginWithGoogle();
+      return;
+    }
+    
     setLoading(true);
     try {
       const res = await api.b2c.socialLogin({
         provider,
         email: `${provider}_${Date.now().toString().slice(-4)}@example.com`,
-        full_name: provider === 'google' ? 'Google User' : provider === 'facebook' ? 'Facebook User' : 'Apple User',
+        full_name: provider === 'facebook' ? 'Facebook User' : 'Apple User',
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${Date.now()}`
       });
       b2cLogin(res.user, res.token);
