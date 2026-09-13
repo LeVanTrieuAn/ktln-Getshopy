@@ -1,0 +1,8 @@
+Refactor: Tách biệt AI Modules thành 2 Docker containers độc lập
+
+- [Arch] Tách Chatbot & Search AI (Node.js) ra khỏi server chính thành container `ai-bot`.
+- [Arch] Cập nhật proxy trong `server` để forward requests tới `ai-bot`.
+- [Arch] Container `ai-rec` (Python) đã được cập nhật để handle fallback gracefully nếu thiếu data training, tránh crash loop.
+- [Config] Cập nhật `docker-compose.yml` định nghĩa service `ai-bot` và `ai-rec`, expose đúng ports nội bộ.
+- [Dep] Downgrade `http-proxy-middleware` về v3.0.7 để hỗ trợ Node.js 20.
+- [Docs] Đóng gói đầy đủ `Dockerfile`, `docker-entrypoint.sh` và `package.json` cho `ai-bot`.
