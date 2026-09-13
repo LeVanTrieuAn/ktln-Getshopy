@@ -20,7 +20,7 @@ const RANGE = 1000;
 async function updateRange(lo, hi) {
   const client = new Client({
     connectionString: DB_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: DB_URL.includes('localhost') ? false : { rejectUnauthorized: false },
     connectionTimeoutMillis: 10000,
     statement_timeout: 25000,
   });
@@ -45,7 +45,7 @@ async function updateRange(lo, hi) {
 }
 
 async function getCount(filter) {
-  const client = new Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
+  const client = new Client({ connectionString: DB_URL, ssl: DB_URL.includes('localhost') ? false : { rejectUnauthorized: false } });
   await client.connect();
   try {
     const res = await client.query(`SELECT COUNT(*)::int as cnt FROM "Product" WHERE is_deleted = false ${filter}`);
@@ -60,7 +60,7 @@ async function main() {
   console.log('═'.repeat(55));
 
   // Lấy min/max ID
-  const client0 = new Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
+  const client0 = new Client({ connectionString: DB_URL, ssl: DB_URL.includes('localhost') ? false : { rejectUnauthorized: false } });
   await client0.connect();
   const bounds = await client0.query(
     'SELECT MIN(id) as min_id, MAX(id) as max_id FROM "Product" WHERE is_deleted = false'
@@ -117,7 +117,7 @@ async function main() {
   console.log('  ╚══════════════════════════════════════════════╝');
 
   // Xác nhận ngẫu nhiên
-  const client2 = new Client({ connectionString: DB_URL, ssl: { rejectUnauthorized: false } });
+  const client2 = new Client({ connectionString: DB_URL, ssl: DB_URL.includes('localhost') ? false : { rejectUnauthorized: false } });
   await client2.connect();
   const verify = await client2.query(
     `SELECT id::text, branch_ids FROM "Product" WHERE is_deleted = false ORDER BY RANDOM() LIMIT 5`

@@ -136,11 +136,16 @@ export const api = {
     
     // Store
     getCategories: () => request('/b2c/categories'),
-    getActiveCategories: (branch_id = '') => request('/b2c/categories/active?' + new URLSearchParams({ branch_id })),
+    getActiveCategories: (branch_id = '') => {
+      const params = {};
+      if (branch_id && branch_id !== 'undefined') params.branch_id = branch_id;
+      return request('/b2c/categories/active?' + new URLSearchParams(params));
+    },
     getBrands: () => request('/b2c/brands'),
     getFlashSales: () => request('/b2c/flash-sales'),
     getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = []) => {
-      const params = { category_id, search, sort, branch_id, page, limit };
+      const params = { category_id, search, sort, page, limit };
+      if (branch_id && branch_id !== 'undefined') params.branch_id = branch_id;
       if (brands && brands.length > 0) params.brand_ids = brands.join(',');
       return request('/b2c/products?' + new URLSearchParams(params));
     },

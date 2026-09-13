@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select } from 'antd';
+import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select, Popover, InputNumber } from 'antd';
 import {
   ShoppingOutlined,
   RobotOutlined,
@@ -10,8 +10,34 @@ import {
   CloseOutlined,
   CheckOutlined,
   HeartOutlined,
-  HeartFilled
+  HeartFilled,
+  MobileOutlined,
+  LaptopOutlined,
+  TabletOutlined,
+  ClockCircleOutlined,
+  ApiOutlined,
+  UsbOutlined,
+  CustomerServiceOutlined,
+  CameraOutlined,
+  HomeOutlined,
+  WifiOutlined,
+  DesktopOutlined,
+  InboxOutlined
 } from '@ant-design/icons';
+
+const CAT_ICON_MAP = {
+  'cat-phone': <MobileOutlined />,
+  'cat-laptop': <LaptopOutlined />,
+  'cat-tablet': <TabletOutlined />,
+  'cat-watch': <ClockCircleOutlined />,
+  'cat-mobile-acc': <ApiOutlined />,
+  'cat-laptop-acc': <UsbOutlined />,
+  'cat-audio': <CustomerServiceOutlined />,
+  'cat-camera': <CameraOutlined />,
+  'cat-smarthome': <HomeOutlined />,
+  'cat-network': <WifiOutlined />,
+  'cat-gaming': <DesktopOutlined />
+};
 import { useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
@@ -325,7 +351,7 @@ export default function ProductList() {
   // Filters state
   const [brands, setBrands] = useState([]);
   const [brandSearch, setBrandSearch] = useState('');
-  const [minPrice, setMinPrice] = useState(0);
+  const [minPrice, setMinPrice] = useState(100000);
   const [maxPrice, setMaxPrice] = useState(50000000);
   const [appliedMinPrice, setAppliedMinPrice] = useState(null);
   const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
@@ -401,7 +427,7 @@ export default function ProductList() {
       setLoading(true);
       try {
         let [prodData, catData, brandData, activeCatData] = await Promise.all([
-          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 16, brands),
+          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands),
           api.b2c.getCategories(),
           api.b2c.getBrands(),
           api.b2c.getActiveCategories(selectedBranch?.id || ''),
@@ -506,9 +532,131 @@ export default function ProductList() {
   const textCol = isDark ? '#ffffff' : '#111111';
   const subCol = isDark ? 'rgba(255,255,255,0.6)' : '#71717a';
 
+  const categoryPopoverContent = (
+    <div style={{ width: 800, padding: 0 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+        <div>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: '0 0 4px 0', color: textCol }}>
+            Toàn bộ danh mục sản phẩm
+          </h2>
+          <p style={{ margin: 0, color: subCol, fontSize: 13 }}>
+            Chọn bất kỳ danh mục nào bên dưới để lọc sản phẩm tức thì
+          </p>
+        </div>
+      </div>
+
+      {/* Category Search Input */}
+      <div style={{ marginBottom: 20 }}>
+        <Input
+          prefix={<SearchOutlined style={{ color: '#9ca3af', marginRight: 6 }} />}
+          placeholder="Tìm kiếm danh mục (ví dụ: Điện thoại, Cáp sạc, Tablet...)"
+          value={categoryModalSearch}
+          onChange={e => setCategoryModalSearch(e.target.value)}
+          allowClear
+          style={{
+            height: 40,
+            borderRadius: 10,
+            background: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
+            border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+            color: textCol,
+            fontSize: 13.5,
+            padding: '0 16px',
+          }}
+        />
+      </div>
+
+      {/* Hierarchical Categories View */}
+      <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8 }}>
+        {hierarchicalCategories.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: subCol }}>
+            Không tìm thấy danh mục phù hợp.
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+            {hierarchicalCategories.map(parent => (
+              <div
+                key={parent.id}
+                style={{
+                  background: isDark ? 'rgba(255,255,255,0.03)' : '#f9fafb',
+                  borderRadius: 16,
+                  padding: 16,
+                  border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f2',
+                }}
+              >
+                {/* Parent Category */}
+                <div
+                  onClick={() => handleSelectCategory(parent.id)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    padding: '6px 8px',
+                    borderRadius: 10,
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 18 }}>
+                      {CAT_ICON_MAP[parent.id] || <InboxOutlined />}
+                    </span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: textCol }}>
+                      {parent.name}
+                    </span>
+                  </div>
+                  <span style={{ fontSize: 12.5, fontWeight: 600, color: isDark ? '#ffffff' : '#000000' }}>
+                    Xem tất cả →
+                  </span>
+                </div>
+
+                {/* Subcategories Pills */}
+                {parent.children && parent.children.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingLeft: 8 }}>
+                    {parent.children.map(child => (
+                      <button
+                        key={child.id}
+                        onClick={() => handleSelectCategory(child.id)}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 9999,
+                          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
+                          background: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff',
+                          color: isDark ? 'rgba(255,255,255,0.85)' : '#374151',
+                          fontSize: 12.5,
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = isDark ? '#ffffff' : '#111111';
+                          e.currentTarget.style.color = isDark ? '#000000' : '#ffffff';
+                          e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#111111';
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
+                          e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.85)' : '#374151';
+                          e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
+                        }}
+                      >
+                        {child.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{
-      paddingTop: 72,
+      paddingTop: 0,
       minHeight: '100vh',
       background: bg,
       fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
@@ -517,7 +665,7 @@ export default function ProductList() {
       {/* ── 1. Top Category Pill Tabs Bar (Matches mockup pill tag design) ── */}
       <div style={{
         position: 'sticky',
-        top: 72,
+        top: 0,
         zIndex: 90,
         background: isDark ? 'rgba(9, 13, 22, 0.95)' : 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(16px)',
@@ -558,69 +706,41 @@ export default function ProductList() {
               Tất cả
             </button>
 
-            {/* Pill 2: Tab đặc biệt "Tất cả danh mục" (mở popup phân cấp rõ ràng) */}
-            <button
-              onClick={() => setIsCategoryModalOpen(true)}
-              style={{
-                padding: '9px 20px',
-                borderRadius: 9999,
-                border: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid #d1d5db',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: 13.5,
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                background: isDark ? 'rgba(255,255,255,0.04)' : '#ffffff',
-                color: isDark ? '#ffffff' : '#111111',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#000000';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.18)' : '#d1d5db';
-              }}
+            {/* Pill 2: Tab đặc biệt "Danh mục" (mở Popover) */}
+            <Popover
+              content={categoryPopoverContent}
+              trigger="hover"
+              placement="bottomLeft"
+              overlayInnerStyle={{ borderRadius: 20, padding: 24, background: isDark ? '#0f172a' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)' }}
             >
-              Tất cả danh mục
-            </button>
-
-            {/* Dynamic Active Category Pills */}
-            {activeCategories.map(c => {
-              const isActive = categoryFilter === c.id;
-              return (
-                <button
-                  key={c.id}
-                  onClick={() => handleSelectCategory(c.id)}
-                  style={{
-                    padding: '9px 20px',
-                    borderRadius: 9999,
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontWeight: 600,
-                    fontSize: 13.5,
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.2s cubic-bezier(.16,1,.3,1)',
-                    background: isActive
-                      ? (isDark ? '#ffffff' : '#111111')
-                      : (isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6'),
-                    color: isActive
-                      ? (isDark ? '#000000' : '#ffffff')
-                      : (isDark ? 'rgba(255,255,255,0.75)' : '#4b5563'),
-                    boxShadow: isActive ? '0 2px 8px rgba(0,0,0,0.12)' : 'none',
-                  }}
-                  onMouseEnter={e => {
-                    if (!isActive) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
-                  }}
-                  onMouseLeave={e => {
-                    if (!isActive) e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6';
-                  }}
-                >
-                  {c.name}
-                </button>
-              );
-            })}
+              <button
+                style={{
+                  padding: '9px 16px',
+                  borderRadius: 9999,
+                  border: isDark ? '1px solid rgba(255,255,255,0.18)' : '1px solid #e5e7eb',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 13.5,
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  background: isDark ? 'rgba(255,255,255,0.04)' : '#ffffff',
+                  color: isDark ? '#ffffff' : '#111111',
+                  boxShadow: isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#000000';
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.18)' : '#e5e7eb';
+                }}
+              >
+                <AppstoreOutlined style={{ fontSize: 16 }} />
+                Danh mục
+              </button>
+            </Popover>
           </div>
         </div>
       </div>
@@ -688,7 +808,7 @@ export default function ProductList() {
                 {(appliedMinPrice !== null || appliedMaxPrice !== null) && (
                   <button
                     onClick={() => {
-                      setMinPrice(0);
+                      setMinPrice(100000);
                       setMaxPrice(50000000);
                       setAppliedMinPrice(null);
                       setAppliedMaxPrice(null);
@@ -706,16 +826,16 @@ export default function ProductList() {
 
               <div style={{ fontSize: 12, color: subCol, marginBottom: 18 }}>
                 {appliedMinPrice !== null || appliedMaxPrice !== null
-                  ? `${(appliedMinPrice || 0).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 50000000).toLocaleString('vi-VN')} đ`
+                  ? `${(appliedMinPrice || 100000).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 50000000).toLocaleString('vi-VN')} đ`
                   : 'Lọc theo ngân sách sản phẩm'}
               </div>
 
               {/* Clean Range Slider (No Histogram / Chart) */}
               <Slider
                 range
-                min={0}
+                min={100000}
                 max={50000000}
-                step={500000}
+                step={100000}
                 value={[minPrice, maxPrice]}
                 onChange={([valMin, valMax]) => {
                   setMinPrice(valMin);
@@ -728,37 +848,54 @@ export default function ProductList() {
                     borderColor: isDark ? '#ffffff' : '#111111',
                     background: isDark ? '#111111' : '#ffffff',
                     boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    marginTop: -5,
                   }
                 }}
               />
 
               {/* Price Pill Values */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
-                <div style={{
-                  flex: 1,
-                  padding: '6px 8px',
-                  background: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6',
-                  borderRadius: 10,
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: textCol,
-                  textAlign: 'center',
-                }}>
-                  {(minPrice || 0).toLocaleString('vi-VN')} đ
-                </div>
+                <InputNumber
+                  min={100000}
+                  max={50000000}
+                  step={100000}
+                  value={minPrice}
+                  onChange={v => { if (v !== null) setMinPrice(v) }}
+                  formatter={value => `${value} đ`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  parser={value => value?.replace(/\D/g, '')}
+                  bordered={false}
+                  controls={false}
+                  style={{
+                    flex: 1,
+                    background: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6',
+                    borderRadius: 10,
+                    color: textCol,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    textAlign: 'center',
+                  }}
+                />
                 <span style={{ color: subCol, fontSize: 12 }}>—</span>
-                <div style={{
-                  flex: 1,
-                  padding: '6px 8px',
-                  background: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6',
-                  borderRadius: 10,
-                  fontSize: 11.5,
-                  fontWeight: 600,
-                  color: textCol,
-                  textAlign: 'center',
-                }}>
-                  {(maxPrice || 50000000).toLocaleString('vi-VN')} đ
-                </div>
+                <InputNumber
+                  min={100000}
+                  max={50000000}
+                  step={100000}
+                  value={maxPrice}
+                  onChange={v => { if (v !== null) setMaxPrice(v) }}
+                  formatter={value => `${value} đ`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
+                  parser={value => value?.replace(/\D/g, '')}
+                  bordered={false}
+                  controls={false}
+                  style={{
+                    flex: 1,
+                    background: isDark ? 'rgba(255,255,255,0.05)' : '#f3f4f6',
+                    borderRadius: 10,
+                    color: textCol,
+                    fontWeight: 600,
+                    fontSize: 12,
+                    textAlign: 'center',
+                  }}
+                />
               </div>
 
               {/* Apply Price Button */}
@@ -1210,13 +1347,13 @@ export default function ProductList() {
           )}
 
           {/* Pagination */}
-          {totalProducts > 16 && (
+          {totalProducts > 24 && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 48, marginBottom: 40, width: '100%' }}>
               <div className="modern-pagination-container">
                 <Pagination
                   current={currentPage}
                   total={totalProducts}
-                  pageSize={16}
+                  pageSize={24}
                   onChange={page => { setCurrentPage(page); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                   showSizeChanger={false}
                   itemRender={(page, type, originalElement) => {
@@ -1255,144 +1392,7 @@ export default function ProductList() {
         </div>
       </div>
 
-      {/* ── 3. Hierarchical Category Modal (Tab "Tất cả danh mục ↗") ── */}
-      <Modal
-        open={isCategoryModalOpen}
-        onCancel={() => { setIsCategoryModalOpen(false); setCategoryModalSearch(''); }}
-        footer={null}
-        width={920}
-        centered
-        styles={{
-          content: {
-            borderRadius: 24,
-            padding: '32px 36px',
-            background: isDark ? '#0f172a' : '#ffffff',
-            border: isDark ? '1px solid rgba(255,255,255,0.1)' : 'none',
-          }
-        }}
-      >
-        <div>
-          {/* Header */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-            <div>
-              <h2 style={{
-                fontSize: 22,
-                fontWeight: 700,
-                margin: '0 0 4px 0',
-                color: textCol,
-              }}>
-                Toàn bộ danh mục sản phẩm
-              </h2>
-              <p style={{ margin: 0, color: subCol, fontSize: 13.5 }}>
-                Chọn bất kỳ danh mục nào bên dưới để lọc sản phẩm tức thì
-              </p>
-            </div>
-          </div>
 
-          {/* Category Search Input */}
-          <div style={{ marginBottom: 24 }}>
-            <Input
-              prefix={<SearchOutlined style={{ color: '#9ca3af', marginRight: 6 }} />}
-              placeholder="Tìm kiếm danh mục (ví dụ: Điện thoại, Cáp sạc, Tablet...)"
-              value={categoryModalSearch}
-              onChange={e => setCategoryModalSearch(e.target.value)}
-              allowClear
-              style={{
-                height: 44,
-                borderRadius: 12,
-                background: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
-                border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
-                color: textCol,
-                fontSize: 14,
-              }}
-            />
-          </div>
-
-          {/* Hierarchical Categories View */}
-          <div style={{ maxHeight: '60vh', overflowY: 'auto', paddingRight: 8 }}>
-            {hierarchicalCategories.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: subCol }}>
-                Không tìm thấy danh mục phù hợp.
-              </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                {hierarchicalCategories.map(parent => (
-                  <div
-                    key={parent.id}
-                    style={{
-                      background: isDark ? 'rgba(255,255,255,0.03)' : '#f9fafb',
-                      borderRadius: 16,
-                      padding: 16,
-                      border: isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #f0f0f2',
-                    }}
-                  >
-                    {/* Parent Category */}
-                    <div
-                      onClick={() => handleSelectCategory(parent.id)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        cursor: 'pointer',
-                        padding: '6px 8px',
-                        borderRadius: 10,
-                        transition: 'background 0.2s',
-                      }}
-                      onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb'}
-                      onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        {parent.icon && <span style={{ fontSize: 18 }}>{parent.icon}</span>}
-                        <span style={{ fontSize: 15, fontWeight: 700, color: textCol }}>
-                          {parent.name}
-                        </span>
-                      </div>
-                      <span style={{ fontSize: 12.5, fontWeight: 600, color: isDark ? '#38bdf8' : '#2563eb' }}>
-                        Xem tất cả nhóm này →
-                      </span>
-                    </div>
-
-                    {/* Subcategories Pills */}
-                    {parent.children && parent.children.length > 0 && (
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingLeft: 8 }}>
-                        {parent.children.map(child => (
-                          <button
-                            key={child.id}
-                            onClick={() => handleSelectCategory(child.id)}
-                            style={{
-                              padding: '6px 14px',
-                              borderRadius: 9999,
-                              border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
-                              background: isDark ? 'rgba(255,255,255,0.05)' : '#ffffff',
-                              color: isDark ? 'rgba(255,255,255,0.85)' : '#374151',
-                              fontSize: 13,
-                              fontWeight: 500,
-                              cursor: 'pointer',
-                              transition: 'all 0.15s ease',
-                            }}
-                            onMouseEnter={e => {
-                              e.currentTarget.style.background = isDark ? '#ffffff' : '#111111';
-                              e.currentTarget.style.color = isDark ? '#000000' : '#ffffff';
-                              e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#111111';
-                            }}
-                            onMouseLeave={e => {
-                              e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#ffffff';
-                              e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.85)' : '#374151';
-                              e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.1)' : '#e5e7eb';
-                            }}
-                          >
-                            {child.name}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </Modal>
 
       {/* ── 4. Brand Selection Modal ("More Brand") ── */}
       <Modal
@@ -1447,6 +1447,7 @@ export default function ProductList() {
               background: isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6',
               border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e5e7eb',
               color: textCol,
+              padding: '0 16px',
             }}
           />
 

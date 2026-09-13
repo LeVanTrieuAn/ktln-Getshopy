@@ -336,3 +336,9 @@ body {
   color: #71717a !important;
 }
 
+/* B2C Sidebar - Mobile hamburger button */
+@media (max-width: 768px) {
+  .b2c-hamburger-btn {
+    display: flex !important;
+  }
+}
