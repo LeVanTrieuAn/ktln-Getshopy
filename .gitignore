@@ -16,8 +16,11 @@ __pycache__/
 .venv/
 venv/
 
-# Kafka Connect plugins — 50MB JAR, tải lại từ Confluent Hub / Debezium
-local-infra-sandbox/connectors/
+# Kafka Connect plugins — 50MB JAR. Không commit binary vào git: không diff
+# được, và mỗi lần nâng phiên bản lại cộng thêm 50MB vào lịch sử vĩnh viễn.
+# Image tự tải lúc build, phiên bản ghim trong kafka-connect/Dockerfile.
+local-infra-sandbox/connectors/*
+!local-infra-sandbox/connectors/README.md
 
 # ── Sinh ra khi build / chạy ──────────────────────────────────────────
 dist/

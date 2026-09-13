@@ -27,12 +27,7 @@ CH_CONTAINER="${CH_CONTAINER:-getshopy-clickhouse-1}"
 PG_HOST="${PG_SOURCE_HOST:-postgres}:${PG_SOURCE_PORT:-5432}"
 PG_DB="${PG_SOURCE_DB:-getshopy}"
 PG_USER="${PG_SOURCE_USER:-getshopy}"
-PG_PASS="${PG_SOURCE_PASSWORD:-}"
-if [ -z "$PG_PASS" ]; then
-  echo "Thiếu PG_SOURCE_PASSWORD." >&2
-  echo "  export PG_SOURCE_PASSWORD=<mật khẩu Postgres>" >&2
-  exit 1
-fi
+PG_PASS="${PG_SOURCE_PASSWORD:-getshopy_dev_password}"
 
 ch()  { docker exec -i "$CH_CONTAINER" clickhouse-client "$@"; }
 chq() { docker exec -i "$CH_CONTAINER" clickhouse-client --query "$1"; }
