@@ -1,0 +1,44 @@
+name: 'dbt_warehouse'
+version: '1.0.0'
+
+profile: 'dbt_warehouse'
+
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+models:
+  dbt_warehouse:
+    # Masterdata kéo thẳng từ Postgres, không qua CDC — xem models/masterdata/_masterdata.yml
+    masterdata:
+      +materialized: table
+      +database: masterdata
+    staging:
+      +materialized: view
+    transformation:
+      +materialized: view
+    warehouse:
+      +materialized: incremental
+      +database: warehouse
+    serving:
+      +materialized: table
+      +database: serving
+    audit:
+      +materialized: table
+      +database: audit
+      +tags: ['audit']
+    # marts:
+    #   +materialized: table
+vars:
+  minio_host: "{{ env_var('MINIO_HOST', 'localhost') }}"
+  minio_port: "{{ env_var('MINIO_PORT', '9000') }}"
+  minio_bucket: "{{ env_var('MINIO_BUCKET', 'data-lake') }}"
+  minio_access_key: "{{ env_var('MINIO_ACCESS_KEY', '') }}"
+  minio_secret_key: "{{ env_var('MINIO_SECRET_KEY', '') }}"

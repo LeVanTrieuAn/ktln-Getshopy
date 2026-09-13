@@ -1,0 +1,13 @@
+version: 2
+
+sources:
+  - name: minio_staging #tên source nè
+
+    description: "Raw parquet files from MinIO via Kafka Connect S3 Sink"
+    database: default
+    schema: default
+    tables:
+      - name: stg_orders
+        identifier: stg_orders_s3  # ← tên table/view thực tế trong ClickHouse
+      - name: stg_order_details
+        identifier: stg_orders_detail_s3
