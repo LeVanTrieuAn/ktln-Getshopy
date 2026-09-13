@@ -21,7 +21,10 @@
     "format.class": "io.confluent.connect.s3.format.parquet.ParquetFormat",
     "flush.size": "1000",
     "rotate.interval.ms": "20000",
-    "schema.compatibility": "NONE",
-    "behavior.on.null.values": "ignore"
+    "schema.compatibility": "BACKWARD",
+    "behavior.on.null.values": "ignore",
+    "_comment_rotate": "rotate.interval.ms dựa trên TIMESTAMP CỦA RECORD, nên chỉ đóng file khi có record mới đến. Dev ít đơn thì bản ghi cuối nằm mãi trong buffer. rotate.schedule.interval.ms dựa trên ĐỒNG HỒ THẬT nên flush đều đặn.",
+    "rotate.schedule.interval.ms": "15000",
+    "_comment_schema": "schema.compatibility=NONE khiến sink dùng schema của record ĐẦU TIÊN cho cả file và KHÔNG mở file mới khi schema đổi — thêm cột vào Postgres thì cột đó bị bỏ IM LẶNG, Kafka có dữ liệu mà parquet không. BACKWARD cho phép đọc dữ liệu cũ bằng schema mới, và sink tự xoay file khi phát hiện schema tiến hoá."
   }
 }

@@ -1,44 +1,43 @@
 name: 'dbt_warehouse'
 version: '1.0.0'
-
 profile: 'dbt_warehouse'
 
-model-paths: ["models"]
-analysis-paths: ["analyses"]
-test-paths: ["tests"]
-seed-paths: ["seeds"]
-macro-paths: ["macros"]
+model-paths:   ["models"]
+macro-paths:   ["macros"]
+seed-paths:    ["seeds"]
+test-paths:    ["tests"]
 snapshot-paths: ["snapshots"]
+analysis-paths: ["analyses"]
 
-clean-targets:
-  - "target"
-  - "dbt_packages"
+clean-targets: ["target", "dbt_packages"]
+
+vars:
+  # Tiền tố topic Kafka do Debezium đặt (topic.prefix trong connector config)
+  cdc_prefix: "{{ env_var('CDC_TOPIC_PREFIX', 'cdc_prod') }}"
 
 models:
   dbt_warehouse:
-    # Masterdata kéo thẳng từ Postgres, không qua CDC — xem models/masterdata/_masterdata.yml
+    # Kéo THẲNG từ Postgres, không qua CDC — dimension thay đổi rất ít
     masterdata:
       +materialized: table
-      +database: masterdata
+      +schema: masterdata
+
+    # VIEW ánh xạ parquet sang cột, không lưu gì
     staging:
       +materialized: view
-    transformation:
-      +materialized: view
+      +schema: staging
+
+    # BẢNG nạp tăng dần — không để view vì view s3() quét lại cả data lake
     warehouse:
       +materialized: incremental
-      +database: warehouse
+      +schema: warehouse
+
+    # Bảng gộp sẵn cho dashboard và AI-rec
     serving:
       +materialized: table
-      +database: serving
+      +schema: serving
+
     audit:
       +materialized: table
-      +database: audit
+      +schema: audit
       +tags: ['audit']
-    # marts:
-    #   +materialized: table
-vars:
-  minio_host: "{{ env_var('MINIO_HOST', 'localhost') }}"
-  minio_port: "{{ env_var('MINIO_PORT', '9000') }}"
-  minio_bucket: "{{ env_var('MINIO_BUCKET', 'data-lake') }}"
-  minio_access_key: "{{ env_var('MINIO_ACCESS_KEY', '') }}"
-  minio_secret_key: "{{ env_var('MINIO_SECRET_KEY', '') }}"

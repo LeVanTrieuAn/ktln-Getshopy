@@ -1,4 +1,4 @@
-{{ config(materialized='table', database='masterdata', engine='MergeTree()', order_by='product_id') }}
+{{ config(materialized='table', schema='masterdata', engine='MergeTree()', order_by='product_id') }}
 
 -- Kéo thẳng từ Postgres qua table function, không qua CDC (xem _masterdata.yml).
 -- Full refresh mỗi lần build: 26k dòng, vài giây.

@@ -1,0 +1,18 @@
+version: 2
+
+# =====================================================================
+# STAGING — VIEW ánh xạ parquet CDC sang cột. Không lưu gì.
+#
+# Đường dẫn KHÔNG có hour=: S3 sink cấu hình path.format chỉ tới ngày
+# ('year='YYYY/'month='MM/'day='dd).
+#
+# Truy cập trường theo TÊN (tupleElement(after,'id')) chứ KHÔNG theo vị trí.
+# Bản cũ dùng tupleElement(after, 1) — thêm/bớt/đổi thứ tự một cột trong
+# Postgres là mọi model lệch hết, mà KHÔNG có lỗi nào báo ra, chỉ là số sai.
+# =====================================================================
+
+models:
+  - name: stg_orders
+    description: "Sự kiện CDC của bảng Order. Một dòng cho MỖI thay đổi."
+  - name: stg_order_items
+    description: "Sự kiện CDC của bảng OrderItem."

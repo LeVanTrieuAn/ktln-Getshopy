@@ -39,13 +39,36 @@ function calcShippingFee(province) {
 }
 
 /**
- * Giá hiệu lực của một sản phẩm tại thời điểm này.
- * Flash sale chỉ được áp dụng nếu ĐANG trong khoảng thời gian chạy — client
- * gửi lên giá flash sale đã hết hạn thì bị bỏ qua.
+ * Tìm một biến thể trong Product.variants theo id.
+ * variants là Json: [{ id, color, storage, price, stock }]
  */
-function resolveUnitPrice(product, flashSaleItem) {
+function findVariant(product, variantId) {
+  if (!variantId) return null;
+  const list = Array.isArray(product.variants) ? product.variants : [];
+  return list.find(v => String(v?.id) === String(variantId)) || null;
+}
+
+/**
+ * Giá hiệu lực của một sản phẩm tại thời điểm này.
+ *
+ * Thứ tự ưu tiên: flash sale > giá biến thể > giá sản phẩm.
+ *
+ * GIÁ BIẾN THỂ BẮT BUỘC PHẢI TÍNH. Trước đây hàm này chỉ trả product.price,
+ * nên khách chọn biến thể đắt hơn vẫn trả giá gốc — ví dụ sản phẩm #4 có biến
+ * thể 32.990.000 trong khi Product.price là 27.990.000, chênh 5 triệu mỗi đơn.
+ * Lỗi nằm ở SERVER nên mọi lớp chống gian lận phía client đều vô dụng: QR sinh
+ * đúng số tiền sai đó, webhook khớp, đơn thành PAID.
+ *
+ * Flash sale vẫn thắng vì đó là giá khuyến mãi có chủ đích, và chỉ áp dụng khi
+ * ĐANG trong khoảng thời gian chạy.
+ */
+function resolveUnitPrice(product, flashSaleItem, variantId) {
   if (flashSaleItem && Number.isInteger(flashSaleItem.discount_price)) {
     return flashSaleItem.discount_price;
+  }
+  const variant = findVariant(product, variantId);
+  if (variant && Number.isFinite(Number(variant.price))) {
+    return Math.round(Number(variant.price));
   }
   return product.price;
 }
@@ -108,7 +131,21 @@ async function priceOrder(prisma, { items, province, voucherCode, pointsToUse = 
     }
 
     const product = byId.get(String(item.id));
-    const unitPrice = resolveUnitPrice(product, saleByProduct.get(String(item.id)));
+
+    // Client có thể gửi variant_id hoặc cả object selectedVariant — chấp nhận
+    // cả hai để không phải sửa đồng loạt mọi nơi gọi, nhưng chỉ tin cái ID.
+    const variantId = item.variant_id ?? item.selectedVariant?.id ?? null;
+
+    // Biến thể không tồn tại thì từ chối, KHÔNG lặng lẽ rơi về giá sản phẩm:
+    // im lặng bỏ qua nghĩa là client gửi variant_id bịa cũng mua được giá gốc.
+    if (variantId && !findVariant(product, variantId)) {
+      throw new PricingError(
+        `Phiên bản "${variantId}" của sản phẩm ${item.id} không còn tồn tại`,
+        'VARIANT_NOT_FOUND'
+      );
+    }
+
+    const unitPrice = resolveUnitPrice(product, saleByProduct.get(String(item.id)), variantId);
     const lineTotal = unitPrice * qty;
     subTotal += lineTotal;
 
@@ -118,7 +155,7 @@ async function priceOrder(prisma, { items, province, voucherCode, pointsToUse = 
       category_id: product.category_id,
       brand_id: product.brand_id,
       branch_id: item.branch_id || null,
-      variant_id: item.variant_id || null,
+      variant_id: variantId,
       quantity: qty,
       unit_price: unitPrice,               // snapshot
       line_total: lineTotal,
@@ -236,6 +273,7 @@ function diffClientClaim(serverPricing, claimed = {}) {
 
 module.exports = {
   priceOrder,
+  findVariant,
   diffClientClaim,
   calcShippingFee,
   PricingError,

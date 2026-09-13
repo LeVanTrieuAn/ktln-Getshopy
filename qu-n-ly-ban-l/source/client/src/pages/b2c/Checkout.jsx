@@ -152,6 +152,12 @@ export default function Checkout() {
     }
   };
 
+  // Dọn giỏ khi rời màn checkout — không gọi sớm hơn, xem chú thích trong onFinish
+  const clearCartAfterOrder = (items) => {
+    if (typeof removeItemsFromCart === 'function') removeItemsFromCart(items);
+    else clearCart();
+  };
+
   async function onFinish(values) {
     if (!b2cUser && !localStorage.getItem('b2c_token')) {
       message.warning('Vui lòng đăng nhập để thực hiện mua hàng');
@@ -191,12 +197,14 @@ export default function Checkout() {
         localStorage.setItem('b2c_points', String(Math.max(0, serverPoints)));
       }
 
-      // Remove checked-out items
-      if (typeof removeItemsFromCart === 'function') {
-        removeItemsFromCart(checkoutItems);
-      } else {
-        clearCart();
-      }
+      // KHÔNG xoá giỏ ở đây.
+      //
+      // Đơn chuyển khoản mở popup QR đè lên màn checkout — màn này vẫn đang
+      // hiển thị bên dưới và tính lại subTotal từ giỏ mỗi lần render. Xoá giỏ
+      // lúc này thì phần tổng tiền tụt về 0 + phí ship ngay sau lưng popup,
+      // trong khi QR mang số tiền đúng.
+      //
+      // Giỏ được xoá ở clearCartAfterOrder(), gọi khi thực sự rời màn checkout.
 
       // Track purchase events
       trackPurchase(checkoutItems.map(item => ({
@@ -225,6 +233,8 @@ export default function Checkout() {
         // Chuyển khoản: mở popup QR, chờ webhook báo đã thanh toán
         setQrModal({ ...res, _order: common });
       } else {
+        // COD chuyển thẳng sang màn hoàn tất, không có popup che
+        clearCartAfterOrder(common.items);
         setOrderData(common);
         setSuccess(true);
       }
@@ -390,6 +400,7 @@ export default function Checkout() {
       isDark={isDark}
       onPaid={() => {
         // Webhook đã xác nhận tiền về
+        clearCartAfterOrder(qrModal._order.items);
         setOrderData({ ...qrModal._order, payment_status: 'PAID' });
         setSuccess(true);
         setQrModal(null);
@@ -398,6 +409,9 @@ export default function Checkout() {
         // Khách đóng popup khi chưa trả. Đơn vẫn tồn tại ở PENDING_PAYMENT và
         // vẫn giữ chỗ trong kho cho tới khi job hết hạn dọn — chuyển khoản muộn
         // vẫn được đối soát. Màn hoàn tất sẽ ghi rõ là CHƯA thanh toán.
+        // Vẫn dọn giỏ: đơn đã tạo và đang giữ chỗ trong kho, để hàng nằm lại
+        // giỏ thì khách dễ đặt trùng.
+        clearCartAfterOrder(qrModal._order.items);
         setOrderData({ ...qrModal._order, payment_status: 'PENDING' });
         setSuccess(true);
         setQrModal(null);

@@ -1,6 +1,6 @@
 # Kết quả thực hiện — Mục 2: Payment VietQR
 
-> Cập nhật: 13/09/2026 · Hệ Ecommerce (`ktln-Getshopy`)
+> Cập nhật: 14/09/2026 · Hệ Ecommerce (`ktln-Getshopy`)
 > Kế hoạch: [implement-plan-Sep13.md](../implement-plan/implement-plan-Sep13.md)
 
 ---
@@ -207,9 +207,138 @@ token khách     -> 403
 
 ## 7. Còn lại
 
-- **Giao diện admin** cho hàng đợi đối soát (route đã có, chưa có UI) — [spec](admin-payment-queue-Sep13.md)
+- ~~**Giao diện admin** cho hàng đợi đối soát~~ → xong, `components/admin/PaymentQueue.jsx`, gắn trong `Reconciliation.jsx` — [spec](admin-payment-queue-Sep13.md)
 - **`local-infra-sandbox/.env`** chứa password thật, thư mục chưa có `.gitignore`
 - **`wal_level=logical`** chưa bật trên Postgres → mục 3 chưa chạy CDC được
 - **Phase 2.0** — gộp 37 script seed one-off
 - **Giao dịch thật `GSA3G3SBC7Q` (100.000đ)** chuyển trước khi có `SEVQR`, SePay
   không ghi nhận nên không tự đối soát được — cần xác nhận tay khi có admin queue
+
+---
+
+## 8. Hạn chế đã biết — `province` không tới nhánh lạnh
+
+Thêm cột `Order.province` (migration `add_order_province`) để báo cáo theo vùng.
+Cột chảy tới nhánh nóng bình thường nhưng **không tới nhánh lạnh**.
+
+Đã khoanh vùng:
+
+| Tầng | Có `province`? |
+|---|---|
+| Postgres | ✅ |
+| Kafka message | ✅ `'HCM'`, đủ 16 cột |
+| **parquet trên MinIO** | ❌ chỉ 15 cột |
+| ClickHouse staging | ❌ đọc ra rỗng |
+| `realtime.orders_live` | ✅ (đọc thẳng Kafka) |
+
+Đứt ở **S3 Sink connector**. Đã thử và đều không được: restart source connector,
+xoá + tạo lại source, đổi `schema.compatibility` từ `NONE` sang `BACKWARD`,
+restart sink task, `schema_inference_mode='union'` phía ClickHouse,
+`SYSTEM DROP SCHEMA CACHE`, xoá + tạo lại sink kèm xoá consumer group.
+
+**Bài học:** thêm một cột vào Postgres KHÔNG tự chảy hết đường ống. Nhánh
+realtime nhận ngay vì đọc thẳng JSON; nhánh lakehouse thì không, vì parquet có
+schema cố định tại thời điểm ghi. Và **không có lỗi nào báo ra** — cột chỉ rỗng.
+
+Hướng chưa thử: chuyển từ JsonConverter sang **Avro + Schema Registry** — đó là
+cách chuẩn để xử lý schema evolution trong CDC, nhưng thêm một service.
+
+**Ảnh hưởng:** báo cáo theo vùng ở nhánh lạnh không dùng được. Nhánh nóng có đủ,
+hoặc join `masterdata.dim_customers`. Không chặn luồng nào khác.
+
+---
+
+## 9. Giao diện (14/09)
+
+Ba yêu cầu: sidebar trang khách tự ẩn, làm lại popup QR, và đưa dashboard về
+tông trắng đen.
+
+### 9.1 Sidebar tự ẩn — `components/b2c/StoreLayout.jsx`
+
+Thêm dải cảm ứng `12px` sát mép trái; rê chuột vào thì sidebar trượt ra, rời
+chuột thì thu lại.
+
+Hai chỗ dễ sai, đều đã xử lý:
+
+**Không đẩy nội dung khi tự mở.** Tách `contentOffset` khỏi `currentWidth`:
+chiều rộng sidebar đổi theo hover, nhưng lề trái của nội dung chỉ theo trạng
+thái ghim. Dùng chung một biến thì mỗi lần con trỏ lướt qua mép màn hình cả
+trang bị giật ngang — sidebar nổi đè lên là đúng hơn.
+
+**Nút "Thu gọn" nằm bên trong sidebar.** Bấm xong con trỏ vẫn trong vùng
+sidebar nên `onMouseLeave` không chạy, `sidebarOpen = !collapsed || hovered`
+vẫn ra `true` và sidebar đứng nguyên tại chỗ. Phải `setSidebarHovered(false)`
+ngay trong `onClick`. Sau đó con trỏ không rời phần tử nên cũng không có
+`mouseenter` mới — trạng thái giữ đúng là đã thu gọn.
+
+### 9.2 Popup QR — `components/b2c/PaymentQRModal.jsx`
+
+Viết lại phần hiển thị, **giữ nguyên** logic polling và đồng hồ theo giờ server.
+Đồng hồ thành viên nhộng + thanh tiến trình, QR có 4 góc ngắm, khối tách giá và
+khối thông tin chuyển khoản gọn lại, nút "Sao chép" đảo màu khi hover.
+
+Mốc đầy của thanh tiến trình giữ trong `useRef`, không phải state — server trả
+về số nhỏ dần thì thanh không bị "đầy lại" giữa chừng.
+
+### 9.3 Tông đơn sắc cho khu admin
+
+| File | Vai trò |
+|---|---|
+| `theme/monochrome.js` *(mới)* | Bảng màu + thang xám 7 bậc cho biểu đồ + token antd |
+| `components/AppLayout.jsx` | `ConfigProvider` lồng, khung admin trắng/đen |
+| `pages/Dashboard.jsx` | Thẻ KPI, 4 biểu đồ ECharts, bảng xếp hạng |
+
+**Vì sao `ConfigProvider` lồng chứ không sửa `App.jsx`.** Token ở `App.jsx`
+(`colorPrimary: '#10b981'`) dùng chung với gian hàng B2C. Đổi ở gốc thì toàn bộ
+nút, link, badge phía khách cũng mất màu — ngoài phạm vi yêu cầu. `AppLayout`
+bọc thêm một `ConfigProvider` nên chỉ `/admin` đổi tông. Các lớp dùng chung
+(`.glass-panel`, `.ambient-glow` — đang gắn viền vàng và nền phát sáng xanh)
+được ghi đè trong phạm vi `.admin-mono`, không sửa `App.css`.
+
+**Nguyên tắc chuyển màu → xám.** Bỏ màu thì mọi tín hiệu ngữ nghĩa dựa vào sắc
+độ đều mất, nên phải chuyển sang mã hoá khác:
+
+| Trước | Sau | Lý do |
+|---|---|---|
+| Tăng xanh / giảm đỏ | Viên nhộng **đặc** / **rỗng** | Đỏ và xanh quy về cùng mức xám |
+| Đồng hồ QR đỏ khi sắp hết | **Đảo nền** đen-trắng | Nhấn bằng tương phản, không bằng sắc độ |
+| Cột xanh + đường vàng | Cột xám + đường **nét đứt** | Cùng thang xám thì hai chuỗi dính vào nhau |
+| Top 3 chữ vàng | Huy hiệu đảo nền | Vàng tụt xuống gần bằng xám nhạt |
+| Chi nhánh cùng một màu | **Bậc xám theo hạng** | Thứ hạng đọc được cả khi bỏ nhãn |
+
+**Ngoại lệ có chủ ý:** giữ đỏ cho thao tác nguy hiểm (`colorError`) và dòng tiền
+ròng âm. Bỏ hẳn tín hiệu đỏ thì nút xoá nhìn y hệt nút thường — đó là rủi ro
+vận hành, không phải lựa chọn thẩm mỹ.
+
+**Chưa làm:** `pages/Login.jsx` vẫn còn gradient xanh. Trang này render *ngoài*
+`AppLayout` nên `ConfigProvider` lồng không với tới.
+
+### 9.4 Lỗi cú pháp chặn toàn bộ bản build — `services/api.js`
+
+Thiếu một dấu phẩy sau object `b2c`:
+
+```js
+    getWishlist: (customerId) => request(...),
+  }          // ← thiếu dấu phẩy
+
+  payments: { ... }
+```
+
+`npm run build` dừng ở `[vite:define] Expected "}" but found "payments"`.
+
+Nghĩa là **khối `api.payments` chưa từng vào được bản production** — phần admin
+đối soát ở §6 trước đó chỉ chạy qua dev server. Lỗi này không lộ ra khi test thủ
+công vì dev server nạp module khác đường với bản build.
+
+**Bài học:** test một tính năng qua dev server không chứng minh nó build được.
+Việc chạy `docker compose build client` sau khi sửa là bước bắt buộc, không phải
+tuỳ chọn.
+
+---
+
+## 10. Còn lại sau 14/09
+
+- `pages/Login.jsx` chưa đổi tông (§9.3)
+- Tồn kho theo chi nhánh — đang mỗi sản phẩm một dòng tồn, chưa tách theo
+  `branch_id` (đã thống nhất hoãn)
+- `province` chưa tới nhánh lạnh (§8)

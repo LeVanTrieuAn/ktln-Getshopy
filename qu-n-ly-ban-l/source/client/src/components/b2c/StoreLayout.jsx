@@ -91,6 +91,10 @@ export default function StoreLayout() {
 
   // Sidebar states
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Sidebar tự ẩn: chỉ hiện khi chuột chạm mép trái hoặc rê lên chính nó.
+  // Trả lại toàn bộ chiều ngang cho nội dung — trang bán hàng thì hàng hoá mới
+  // là thứ đáng chiếm chỗ, không phải thanh điều hướng.
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Navbar dropdown states
@@ -321,7 +325,16 @@ export default function StoreLayout() {
 
   const SIDEBAR_WIDTH = 280;
   const SIDEBAR_COLLAPSED_WIDTH = 68;
-  const currentWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
+  // Dải cảm ứng sát mép trái: đủ rộng để chuột chạm được, đủ hẹp để không
+  // nuốt cú click vào nội dung.
+  const SIDEBAR_HOVER_ZONE = 12;
+
+  // Đang mở = người dùng ghim (nút thu gọn tắt) HOẶC đang rê chuột tới
+  const sidebarOpen = !sidebarCollapsed || sidebarHovered;
+  const currentWidth = sidebarOpen ? SIDEBAR_WIDTH : SIDEBAR_COLLAPSED_WIDTH;
+  // Khi tự ẩn thì KHÔNG đẩy nội dung: sidebar nổi đè lên, tránh cả trang
+  // giật sang phải mỗi lần chuột lướt qua mép.
+  const contentOffset = sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH;
 
   /* ── Sidebar nav item renderer ── */
   const SideNavItem = ({ icon, label, path, onClick: customOnClick, active, badge }) => {
@@ -329,13 +342,13 @@ export default function StoreLayout() {
     return (
       <div
         onClick={customOnClick ?? (() => navigate(path))}
-        title={sidebarCollapsed ? (typeof label === 'string' ? label : undefined) : undefined}
+        title={!sidebarOpen ? (typeof label === 'string' ? label : undefined) : undefined}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 12,
-          padding: sidebarCollapsed ? '10px 0' : '10px 14px',
-          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+          padding: sidebarOpen ? '10px 14px' : '10px 0',
+          justifyContent: sidebarOpen ? 'flex-start' : 'center',
           borderRadius: 8,
           cursor: 'pointer',
           background: isActive
@@ -358,10 +371,10 @@ export default function StoreLayout() {
             <Badge count={badge} size="small" offset={[4, -2]}>{icon}</Badge>
           ) : icon}
         </span>
-        {!sidebarCollapsed && (
+        {sidebarOpen && (
           <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
         )}
-        {isActive && !sidebarCollapsed && (
+        {isActive && sidebarOpen && (
           <span style={{
             width: 3, height: 3, borderRadius: '50%',
             background: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.5)',
@@ -406,20 +419,42 @@ export default function StoreLayout() {
         }
       `}</style>
 
+      {/* Dải cảm ứng sát mép trái — chuột chạm vào là sidebar trượt ra.
+          Chỉ tồn tại khi sidebar đang thu gọn; rộng 12px nên không cản click
+          vào nội dung, nhưng đủ để chuột bắt được khi rê sát mép màn hình. */}
+      {sidebarCollapsed && (
+        <div
+          onMouseEnter={() => setSidebarHovered(true)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: SIDEBAR_HOVER_ZONE,
+            height: '100vh',
+            zIndex: 201,
+          }}
+        />
+      )}
+
       {/* ── SIDEBAR ── */}
       <div
         className={`b2c-sidebar-fixed${mobileSidebarOpen ? ' b2c-sidebar-mobile-open' : ''}`}
+        onMouseEnter={() => setSidebarHovered(true)}
+        onMouseLeave={() => setSidebarHovered(false)}
         style={{
           position: 'fixed',
           top: 0,
           left: 0,
           height: '100vh',
-          width: sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
+          width: currentWidth,
           background: isDark ? 'rgba(9, 13, 22, 0.94)' : 'rgba(255, 255, 255, 0.96)',
           backdropFilter: 'blur(24px)',
           WebkitBackdropFilter: 'blur(24px)',
           borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'}`,
-          boxShadow: isDark ? '4px 0 24px rgba(0,0,0,0.5)' : '4px 0 24px rgba(0,0,0,0.06)',
+          // Khi nổi đè lên nội dung thì cần bóng đậm hơn để tách lớp
+          boxShadow: sidebarCollapsed && sidebarHovered
+            ? (isDark ? '8px 0 32px rgba(0,0,0,0.7)' : '8px 0 32px rgba(0,0,0,0.16)')
+            : (isDark ? '4px 0 24px rgba(0,0,0,0.5)' : '4px 0 24px rgba(0,0,0,0.06)'),
           zIndex: 200,
           display: 'flex',
           flexDirection: 'column',
@@ -429,11 +464,11 @@ export default function StoreLayout() {
       >
         {/* ── Logo ── */}
         <div style={{
-          padding: sidebarCollapsed ? '20px 0' : '20px 18px',
+          padding: sidebarOpen ? '20px 18px' : '20px 0',
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+          justifyContent: sidebarOpen ? 'flex-start' : 'center',
           borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)'}`,
           flexShrink: 0,
           cursor: 'pointer',
@@ -447,7 +482,7 @@ export default function StoreLayout() {
           }}>
             <ShoppingOutlined style={{ color: isDark ? '#000000' : '#ffffff' }} />
           </div>
-          {!sidebarCollapsed && (
+          {sidebarOpen && (
             <div>
               <div style={{ color: isDark ? '#fff' : '#000', fontWeight: 800, fontSize: 16, lineHeight: 1.2, letterSpacing: '-0.5px' }}>GetShopy</div>
               <div style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', fontSize: 10, fontWeight: 600, letterSpacing: '0.15em' }}>STORE</div>
@@ -555,7 +590,7 @@ export default function StoreLayout() {
         <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: sidebarCollapsed ? '10px 8px' : '10px 10px' }}>
           {/* Main nav */}
           <div style={{ marginBottom: 4 }}>
-            {!sidebarCollapsed && (
+            {sidebarOpen && (
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)', padding: '4px 14px 8px' }}>Điều hướng</div>
             )}
             <SideNavItem icon={<HomeOutlined />} label="Trang chủ" path="/" active={location?.pathname === '/'} />
@@ -664,13 +699,13 @@ export default function StoreLayout() {
           </div>
 
           {/* Divider */}
-          {!sidebarCollapsed && (
+          {sidebarOpen && (
             <div style={{ height: 1, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)', margin: '8px 14px 12px' }} />
           )}
 
           {/* Actions */}
           <div>
-            {!sidebarCollapsed && (
+            {sidebarOpen && (
               <div style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.12em', textTransform: 'uppercase', color: isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.3)', padding: '4px 14px 8px' }}>Tài khoản</div>
             )}
             {currentUser ? (
@@ -726,8 +761,8 @@ export default function StoreLayout() {
               >
                 <div className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
-                  padding: sidebarCollapsed ? '10px 0' : '10px 14px',
-                  justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                  padding: sidebarOpen ? '10px 14px' : '10px 0',
+                  justifyContent: sidebarOpen ? 'flex-start' : 'center',
                   borderRadius: 10, cursor: 'pointer', marginBottom: 2,
                   color: isDark ? 'rgba(255,255,255,0.72)' : '#52525b',
                 }}>
@@ -737,7 +772,7 @@ export default function StoreLayout() {
                     </div>
                     <span style={{ position: 'absolute', bottom: 0, right: 0, width: 7, height: 7, borderRadius: '50%', background: isDark ? '#ffffff' : '#000000', border: `1.5px solid ${isDark ? '#09090b' : '#fff'}` }} />
                   </div>
-                  {!sidebarCollapsed && (
+                  {sidebarOpen && (
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#fff' : '#18181b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{currentUser.full_name || 'Tài khoản'}</div>
                       <div style={{ fontSize: 11, color: isDark ? '#a1a1aa' : '#71717a' }}>Đã đăng nhập</div>
@@ -748,8 +783,8 @@ export default function StoreLayout() {
             ) : (
               <div onClick={() => openAuthModal()} className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} style={{
                 display: 'flex', alignItems: 'center', gap: 12,
-                padding: sidebarCollapsed ? '10px 0' : '10px 14px',
-                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                padding: sidebarOpen ? '10px 14px' : '10px 0',
+                justifyContent: sidebarOpen ? 'flex-start' : 'center',
                 borderRadius: 10, cursor: 'pointer', marginBottom: 2,
                 color: isDark ? 'rgba(255,255,255,0.72)' : '#52525b',
               }} title={sidebarCollapsed ? 'Đăng nhập' : undefined}>
@@ -761,8 +796,8 @@ export default function StoreLayout() {
             {/* Cart */}
             <div onClick={() => setCartOpen(true)} className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} style={{
               display: 'flex', alignItems: 'center', gap: 12,
-              padding: sidebarCollapsed ? '10px 0' : '10px 14px',
-              justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+              padding: sidebarOpen ? '10px 14px' : '10px 0',
+              justifyContent: sidebarOpen ? 'flex-start' : 'center',
               borderRadius: 10, cursor: 'pointer', marginBottom: 2,
               color: isDark ? 'rgba(255,255,255,0.72)' : '#52525b',
             }} title={sidebarCollapsed ? 'Giỏ hàng' : undefined}>
@@ -777,7 +812,7 @@ export default function StoreLayout() {
                   }}>{cartCount}</span>
                 )}
               </div>
-              {!sidebarCollapsed && (
+              {sidebarOpen && (
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: 14, fontWeight: 500 }}>Giỏ hàng</span>
                   {cartCount > 0 && <span style={{ fontSize: 11, background: isDark ? '#ffffff' : '#000000', color: isDark ? '#000000' : '#ffffff', borderRadius: 20, padding: '1px 7px', fontWeight: 700 }}>{cartCount}</span>}
@@ -798,21 +833,28 @@ export default function StoreLayout() {
         }}>
           {/* Theme toggle */}
           <div onClick={toggleTheme} className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} title={sidebarCollapsed ? (isDark ? 'Chế độ sáng' : 'Chế độ tối') : undefined}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 0' : '10px 14px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 8, cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)', marginBottom: 1 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarOpen ? '10px 14px' : '10px 0', justifyContent: sidebarOpen ? 'flex-start' : 'center', borderRadius: 8, cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)', marginBottom: 1 }}>
             {isDark ? <SunOutlined style={{ fontSize: 15 }} /> : <MoonOutlined style={{ fontSize: 15 }} />}
             {!sidebarCollapsed && <span style={{ fontSize: 14, fontWeight: 400 }}>{isDark ? 'Chế độ sáng' : 'Chế độ tối'}</span>}
           </div>
 
           {/* Language toggle */}
           <div onClick={toggleLang} className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} title={sidebarCollapsed ? 'Đổi ngôn ngữ' : undefined}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 0' : '10px 14px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 8, cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)', marginBottom: 1 }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarOpen ? '10px 14px' : '10px 0', justifyContent: sidebarOpen ? 'flex-start' : 'center', borderRadius: 8, cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.55)', marginBottom: 1 }}>
             <GlobalOutlined style={{ fontSize: 15 }} />
             {!sidebarCollapsed && <span style={{ fontSize: 14, fontWeight: 400 }}>{lang === 'vi' ? 'Tiếng Việt' : 'English'}</span>}
           </div>
 
-          {/* Collapse toggle */}
-          <div onClick={() => setSidebarCollapsed(!sidebarCollapsed)} title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
-            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarCollapsed ? '10px 0' : '10px 14px', justifyContent: sidebarCollapsed ? 'center' : 'flex-start', borderRadius: 8, cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', transition: 'all 0.18s' }}
+          {/* Collapse toggle.
+
+              Phải tắt sidebarHovered ngay khi bấm: nút này nằm BÊN TRONG
+              sidebar, nên bấm xong con trỏ vẫn còn trong vùng sidebar và
+              onMouseLeave không hề chạy — sidebarOpen = !collapsed || hovered
+              vẫn ra true, sidebar đứng nguyên tại chỗ cho tới khi rê chuột ra.
+              Sau khi tắt thì con trỏ không rời phần tử nên cũng KHÔNG có
+              mouseenter mới, trạng thái giữ đúng là đã thu gọn. */}
+          <div onClick={() => { setSidebarCollapsed(v => !v); setSidebarHovered(false); }} title={sidebarCollapsed ? 'Mở rộng' : 'Thu gọn'}
+            style={{ display: 'flex', alignItems: 'center', gap: 12, padding: sidebarOpen ? '10px 14px' : '10px 0', justifyContent: sidebarOpen ? 'flex-start' : 'center', borderRadius: 8, cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)', transition: 'all 0.18s' }}
             onMouseEnter={e => e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.65)' : 'rgba(0,0,0,0.65)'}
             onMouseLeave={e => e.currentTarget.style.color = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)'}>
             {sidebarCollapsed ? <MenuUnfoldOutlined style={{ fontSize: 15 }} /> : <MenuFoldOutlined style={{ fontSize: 15 }} />}
@@ -852,7 +894,7 @@ export default function StoreLayout() {
       <Layout
         className="b2c-main-content"
         style={{
-          marginLeft: currentWidth,
+          marginLeft: contentOffset,
           transition: 'margin-left 0.25s cubic-bezier(0.4,0,0.2,1)',
           background: 'transparent',
           minHeight: '100vh',

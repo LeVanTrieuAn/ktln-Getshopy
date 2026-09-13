@@ -209,7 +209,10 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio:RELEASE.2023-08-29T23-07-35Z
+    # quay.io chứ không phải Docker Hub: MinIO đã gỡ image khỏi Docker Hub
+    # công khai, `docker pull minio/minio` trả "pull access denied".
+    # quay.io là registry chính thức MinIO vẫn phát hành.
+    image: quay.io/minio/minio:${MINIO_VERSION:-latest}
     profiles: [bigdata]
     ports:
       - "${MINIO_PORT:-9000}:9000"
@@ -234,6 +237,97 @@ services:
     ports: ["${METABASE_PORT:-3001}:3000"]
     depends_on:
       clickhouse: {condition: service_healthy}
+    restart: unless-stopped
+
+  # Chạy một lần sau khi các service sẵn sàng, rồi thoát.
+  # Bốn việc phải đúng thứ tự và phải chờ service khác lên: tạo bucket MinIO,
+  # user ClickHouse cho AI-Rec, kéo masterdata, đăng ký connector CDC. Làm tay
+  # thì dễ sót bước hoặc chạy sai thứ tự, mà lỗi kiểu đó không hiện ra ngay —
+  # chỉ là dữ liệu không bao giờ chảy.
+  bootstrap:
+    build:
+      context: ./scripts/bootstrap
+    profiles: [bigdata]
+    command: ["/bootstrap.sh"]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-getshopy}
+      POSTGRES_USER: ${POSTGRES_USER:-getshopy}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET:-data-lake}
+      AI_REC_CH_USER: ${AI_REC_CH_USER:-ai_rec}
+      AI_REC_CH_PASSWORD: ${AI_REC_CH_PASSWORD:-}
+      CLIENT_PORT: ${CLIENT_PORT:-3000}
+    volumes:
+      - ./scripts/bootstrap-bigdata.sh:/bootstrap.sh:ro
+      - ./local-infra-sandbox/config-json:/config-json:ro
+    depends_on:
+      postgres: {condition: service_healthy}
+      clickhouse: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      kafka-connect: {condition: service_started}
+    # Chạy xong thì thoát, không dựng lại
+    restart: "no"
+
+  # dbt — CHẠY THỦ CÔNG, không có scheduler.
+  #
+  #   docker compose --profile dbt run --rm dbt build   # dựng toàn bộ model
+  #   docker compose --profile dbt run --rm dbt test    # chạy test
+  #   docker compose --profile dbt run --rm dbt run --select mart_revenue
+  #
+  # profile 'dbt' nên `up -d` thường không đụng tới nó.
+  dbt:
+    build:
+      context: ./scripts/dbt
+    profiles: [dbt]
+    working_dir: /dbt
+    volumes:
+      - ./local-infra-sandbox/dbt_warehouse:/dbt
+    environment:
+      CH_HOST: clickhouse
+      CH_PORT: 8123
+      CH_USER: ${CLICKHOUSE_USER:-default}
+      CH_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
+      CH_DB: default
+      MINIO_HOST: minio
+      MINIO_PORT: 9000
+      MINIO_BUCKET: ${MINIO_BUCKET:-data-lake}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      CDC_TOPIC_PREFIX: ${CDC_TOPIC_PREFIX:-cdc_prod}
+      PG_SOURCE_HOST: postgres
+      PG_SOURCE_PORT: 5432
+      PG_SOURCE_DB: ${POSTGRES_DB:-getshopy}
+      PG_SOURCE_USER: ${POSTGRES_USER:-getshopy}
+      PG_SOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+  # Scheduler gọi dbt theo lịch. Tách khỏi service `dbt` (chạy tay) để hai
+  # cách dùng không giẫm chân nhau.
+  #
+  # ofelia đọc lịch từ label của chính nó, gọi `docker run` lên image dbt.
+  # Nhẹ hơn Airflow rất nhiều — quy mô này chưa cần DAG, retry policy hay
+  # backfill.
+  #
+  # `dbt build` chứ không `dbt run`: build = run + test, nên checksum 3 tầng
+  # chạy mỗi lượt và phát hiện lệch sớm. Chạy `run` là mất dữ liệu giữa đường
+  # mà không ai biết cho tới khi chạy test tay.
+  dbt-scheduler:
+    image: mcuadros/ofelia:latest
+    profiles: [bigdata]
+    depends_on:
+      clickhouse: {condition: service_healthy}
+    command: daemon --docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      ofelia.job-run.dbt-build.schedule: "@every ${DBT_SCHEDULE:-5m}"
+      ofelia.job-run.dbt-build.image: "kltn-dbt:latest"
+      ofelia.job-run.dbt-build.network: "kltn_default"
+      ofelia.job-run.dbt-build.volume: "${PWD}/local-infra-sandbox/dbt_warehouse:/dbt"
+      ofelia.job-run.dbt-build.command: "build"
+      ofelia.job-run.dbt-build.environment: >-
+        CH_HOST=clickhouse,CH_PORT=8123,CH_USER=${CLICKHOUSE_USER:-default},CH_PASSWORD=${CLICKHOUSE_PASSWORD:-},CH_DB=default,MINIO_HOST=minio,MINIO_PORT=9000,MINIO_BUCKET=${MINIO_BUCKET:-data-lake},MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY},MINIO_SECRET_KEY=${MINIO_SECRET_KEY},CDC_TOPIC_PREFIX=${CDC_TOPIC_PREFIX:-cdc_prod},PG_SOURCE_HOST=postgres,PG_SOURCE_PORT=5432,PG_SOURCE_DB=${POSTGRES_DB:-getshopy},PG_SOURCE_USER=${POSTGRES_USER:-getshopy},PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD}
     restart: unless-stopped
 
 volumes:

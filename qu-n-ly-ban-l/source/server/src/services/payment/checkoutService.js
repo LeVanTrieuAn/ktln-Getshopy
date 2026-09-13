@@ -179,6 +179,7 @@ async function createOrder(prisma, {
         id: orderId,
         customer: customerInfo,
         customer_id: customerId ? BigInt(customerId) : null,
+        province: customerInfo?.province ?? null,
         total: pricing.total,
         subTotal: pricing.subTotal,
         discount: pricing.discount,

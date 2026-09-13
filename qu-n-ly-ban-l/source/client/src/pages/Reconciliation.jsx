@@ -4,6 +4,7 @@ import { SearchOutlined, CheckCircleOutlined, SyncOutlined, ExclamationCircleOut
 import dayjs from 'dayjs';
 import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
+import PaymentQueue from '../components/admin/PaymentQueue';
 
 const { Text } = Typography;
 
@@ -104,6 +105,9 @@ export default function Reconciliation() {
 
   return (
     <div>
+      {/* Hàng đợi cần HÀNH ĐỘNG đặt lên trên; bảng đối soát cũ bên dưới để tra cứu */}
+      <PaymentQueue isDark={isDark} />
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h2 style={{ margin: 0, color: textColor, fontSize: 22, fontWeight: 700 }}>

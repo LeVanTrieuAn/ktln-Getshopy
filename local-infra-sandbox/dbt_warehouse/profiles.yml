@@ -1,16 +1,20 @@
+# Kết nối ClickHouse. Mọi giá trị lấy từ biến môi trường — không hardcode mật
+# khẩu vào file nằm trong git.
 dbt_warehouse:
+  target: "{{ env_var('DBT_TARGET', 'dev') }}"
   outputs:
     dev:
       type: clickhouse
-      host: "{{ env_var('CH_HOST', 'localhost') }}"
+      # Trong network của compose thì gọi nhau bằng TÊN SERVICE, không localhost
+      host: "{{ env_var('CH_HOST', 'clickhouse') }}"
       port: "{{ env_var('CH_PORT', '8123') | int }}"
       user: "{{ env_var('CH_USER', 'default') }}"
       password: "{{ env_var('CH_PASSWORD', '') }}"
-      
-    prod:
-      type: clickhouse
-      host: "{{ env_var('CH_HOST', '10.1.24.241') }}"
-      port: "{{ env_var('CH_PORT', '8123') | int }}"
-      user: "{{ env_var('CH_USER', 'default') }}"
-      password: "{{ env_var('CH_PASSWORD', '') }}"
-  target: dev
+      schema: "{{ env_var('CH_DB', 'default') }}"
+      driver: http
+      secure: False
+      # Cần để dbt tạo được bảng ở nhiều database (staging/warehouse/serving/...)
+      allow_automatic_cluster_creation: False
+      use_lw_deletes: False
+      connect_timeout: 30
+      send_receive_timeout: 300

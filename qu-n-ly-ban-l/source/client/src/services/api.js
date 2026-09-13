@@ -3,7 +3,14 @@
 // — VITE_API_URL vẫn có thể override cho production deploy
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
-function getToken() {
+function getToken(path = '') {
+  // Route admin (/b2b/*) phải dùng token ADMIN. Lấy b2c_token trước như cũ thì
+  // trang admin gửi token khách và nhận 403 — mà lỗi đó nhìn như "không có
+  // quyền" chứ không phải "gửi nhầm token".
+  // Cùng một trình duyệt có thể đang đăng nhập cả hai vai.
+  if (path.startsWith('/b2b/')) {
+    return localStorage.getItem('token') || localStorage.getItem('b2c_token');
+  }
   return localStorage.getItem('b2c_token') || localStorage.getItem('token');
 }
 
@@ -12,7 +19,7 @@ async function request(path, options = {}) {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${getToken()}`,
+      Authorization: `Bearer ${getToken(path)}`,
       ...options.headers,
     },
   });
@@ -166,6 +173,7 @@ export const api = {
     cancelOrder: (orderId, reason) => request(`/b2c/orders/${orderId}/cancel`, {
       method: 'POST', body: JSON.stringify({ reason }),
     }),
+
     addReview: (productId, data) => request(`/b2c/products/${productId}/reviews`, { method: 'POST', body: JSON.stringify(data) }),
 
     // Behavior Tracking
@@ -176,5 +184,18 @@ export const api = {
     // Wishlist
     toggleWishlist: (customerId, productId) => request('/b2c/wishlist', { method: 'POST', body: JSON.stringify({ customer_id: customerId, product_id: productId }) }),
     getWishlist: (customerId) => request('/b2c/wishlist?' + new URLSearchParams({ customer_id: customerId })),
-  }
+  },
+
+  // ── Admin: đối soát thanh toán ─────────────────────────────────────────
+  // Gọi /b2b/* nên tự động dùng token admin, xem getToken().
+  payments: {
+    queue: (status) =>
+      request('/b2b/payments/queue' + (status ? `?status=${status}` : '')),
+    refund: (txnId, { amount, refund_ref, note } = {}) =>
+      request(`/b2b/payments/${txnId}/refund`, {
+        method: 'POST', body: JSON.stringify({ amount, refund_ref, note }),
+      }),
+    markDelivered: (orderId) =>
+      request(`/b2b/orders/${orderId}/delivered`, { method: 'POST' }),
+  },
 };

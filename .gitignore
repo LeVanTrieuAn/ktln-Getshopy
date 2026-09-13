@@ -6,6 +6,10 @@
 .env.*.local
 **/.env
 !**/.env.example
+# Bản sao lưu .env do script tạo (.env.bak-1789321417). Pattern `.env` ở trên
+# KHÔNG phủ được tên này, mà file thì chứa nguyên JWT_SECRET và HMAC của SePay.
+.env.bak*
+*.bak-[0-9]*
 *.pem
 *.key
 

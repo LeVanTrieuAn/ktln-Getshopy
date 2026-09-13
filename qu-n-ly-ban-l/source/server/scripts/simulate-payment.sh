@@ -32,7 +32,15 @@ QUERY="SELECT payment_ref || '|' || total FROM \"Order\"
 [ -n "$ORDER_ID" ] && QUERY="$QUERY AND id = '$ORDER_ID'"
 QUERY="$QUERY ORDER BY date DESC LIMIT 1;"
 
-ROW=$(docker compose exec -T postgres psql -U getshopy -d getshopy -t -A -c "$QUERY" | tr -d '[:space:]')
+# Gọi container trực tiếp thay vì `docker compose exec`: compose phụ thuộc thư
+# mục đang đứng, mà repo có nhiều file compose. Đặt PG_CONTAINER nếu tên khác.
+PG_CONTAINER="${PG_CONTAINER:-kltn-postgres-1}"
+if ! docker ps --format '{{.Names}}' | grep -qx "$PG_CONTAINER"; then
+  echo "Không thấy container '$PG_CONTAINER'. Đặt PG_CONTAINER=<tên> rồi chạy lại." >&2
+  docker ps --format '  {{.Names}}' | grep -i postgres >&2 || true
+  exit 1
+fi
+ROW=$(docker exec -i "$PG_CONTAINER" psql -U getshopy -d getshopy -t -A -c "$QUERY" | tr -d '[:space:]')
 
 if [ -z "$ROW" ]; then
   echo "Không có đơn nào đang chờ thanh toán${ORDER_ID:+ với id $ORDER_ID}."

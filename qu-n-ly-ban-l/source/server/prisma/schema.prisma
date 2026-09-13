@@ -130,6 +130,10 @@ model Order {
   id          String   @id
   customer    Json                        // snapshot thông tin nhận hàng
   customer_id BigInt?                     // lấy từ JWT, KHÔNG từ request body
+  // Tách khỏi customer Json thành cột riêng: báo cáo theo vùng cần group by,
+  // mà Debezium đẩy Json nguyên chuỗi — parse bằng JSONExtract mỗi lần query
+  // thì chậm, và đổi cấu trúc Json là vỡ âm thầm.
+  province    String?                     // HCM | HN | DN | OTHER
   total       Int                         // VND — server tự tính, không nhận từ client
   discount    Int      @default(0)
   shippingFee Int      @default(0)

@@ -1,4 +1,4 @@
-{{ config(materialized='table', database='masterdata', engine='MergeTree()', order_by='voucher_id') }}
+{{ config(materialized='table', schema='masterdata', engine='MergeTree()', order_by='voucher_id') }}
 
 -- Kéo thẳng từ Postgres, không qua CDC (xem _masterdata.yml).
 SELECT

@@ -226,23 +226,59 @@ function makeProduct(catId, brandId) {
 
   const originalPrice = Math.round(rand(150_000, 50_000_000) / 1000) * 1000;
   const discountPct   = rand(0.02, 0.35);
-  const price         = Math.round(originalPrice * (1 - discountPct) * 100) / 100;
+  // Tiền là Int, đơn vị ĐỒNG. Công thức cũ `Math.round(x * 100) / 100` là tàn
+  // dư từ thời cột tiền còn là Float — nó trả về số có 2 chữ số thập phân.
+  // Product.price được Prisma ép về Int nên nhìn vẫn nguyên, nhưng giá trong
+  // variants (JSON) giữ nguyên phần lẻ, và mọi phép so sánh số tiền sau đó lệch.
+  // Làm tròn nghìn cho khớp cách niêm yết giá thực tế.
+  const price         = Math.round(originalPrice * (1 - discountPct) / 1000) * 1000;
 
   const pId  = PICSUM[idx % PICSUM.length];
   const pId2 = PICSUM[(idx + 7) % PICSUM.length];
   const image  = `https://picsum.photos/id/${pId}/400/400`;
   const images = [image, `https://picsum.photos/id/${pId2}/400/400`];
 
-  const numColors = randInt(1, 3);
+  // ── Biến thể ──────────────────────────────────────────────────────────
+  // Mỗi biến thể PHẢI có id, price, stock — không chỉ nhãn màu/dung lượng.
+  //
+  //   id    : khoá client gửi lên khi đặt hàng, và khoá của bảng Inventory.
+  //           Thiếu id thì không tách được tồn kho theo biến thể, và client
+  //           không có gì để chỉ ra khách đang chọn phiên bản nào.
+  //   stock : tồn của RIÊNG biến thể đó. Thiếu thì màu đã hết vẫn bán được,
+  //           vì hệ thống chỉ thấy tổng tồn của cả sản phẩm.
+  //   price : biến thể dung lượng cao hơn thì đắt hơn — nếu dùng chung một
+  //           giá thì khách chọn bản đắt vẫn trả giá gốc.
+  //
+  // Tổng stock các biến thể = stock của sản phẩm, để hai con số không mâu thuẫn.
+  const productStock = randInt(0, 999);
+  const numColors  = randInt(1, 3);
   const usedColors = new Set();
-  const variants = [];
-  while (variants.length < numColors) {
+  const rawVariants = [];
+  while (rawVariants.length < numColors) {
     const c = pick(COLORS);
     if (!usedColors.has(c)) {
       usedColors.add(c);
-      variants.push(Math.random() > 0.5 ? { color: c, storage: pick(STORAGES) } : { color: c });
+      rawVariants.push(Math.random() > 0.5 ? { color: c, storage: pick(STORAGES) } : { color: c });
     }
   }
+
+  // Chia stock của sản phẩm cho các biến thể; phần dư dồn vào biến thể cuối
+  const perVariant = Math.floor(productStock / rawVariants.length);
+  const variants = rawVariants.map((v, i) => {
+    // Dung lượng lớn hơn thì đắt hơn — cùng vị trí trong STORAGES thì cùng giá
+    const storageIdx = v.storage ? STORAGES.indexOf(v.storage) : 0;
+    const bump = storageIdx > 0 ? Math.round(price * 0.08 * storageIdx) : 0;
+    return {
+      // id ổn định trong phạm vi một sản phẩm, không phụ thuộc thứ tự mảng
+      id: `v${i + 1}`,
+      color: v.color,
+      ...(v.storage ? { storage: v.storage } : {}),
+      price: price + bump,
+      stock: i === rawVariants.length - 1
+        ? productStock - perVariant * (rawVariants.length - 1)
+        : perVariant,
+    };
+  });
 
   const numBranches = randInt(1, BRANCHES.length);
   const branchIds   = [...BRANCHES].sort(() => Math.random() - 0.5).slice(0, numBranches);
@@ -252,7 +288,7 @@ function makeProduct(catId, brandId) {
     original_price: originalPrice,
     category_id:    catId,
     brand_id:       brandId,
-    stock:          randInt(0, 999),
+    stock:          productStock,
     rating:         Math.round(rand(3.5, 5.0) * 100) / 100,
     sold:           randInt(0, 999),
     image, images,
