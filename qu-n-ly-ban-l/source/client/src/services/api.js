@@ -18,7 +18,8 @@ async function request(path, options = {}) {
   });
   if (res.status === 401) {
     if (path.includes('/login')) {
-      throw new Error((await res.json()).error || 'Request failed');
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Request failed');
     }
     localStorage.clear();
     if (path.startsWith('/b2c')) {
@@ -28,8 +29,14 @@ async function request(path, options = {}) {
     }
     return;
   }
-  if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
-  return res.json();
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  // Handle empty responses (204 No Content, etc.)
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 export const api = {
