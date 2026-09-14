@@ -711,7 +711,7 @@ export default function ProductList() {
               content={categoryPopoverContent}
               trigger="hover"
               placement="bottomLeft"
-              overlayInnerStyle={{ borderRadius: 20, padding: 24, background: isDark ? '#0f172a' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)' }}
+              styles={{ body: { borderRadius: 20, padding: 24, background: isDark ? '#0f172a' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)' } }}
             >
               <button
                 style={{
@@ -863,7 +863,7 @@ export default function ProductList() {
                   onChange={v => { if (v !== null) setMinPrice(v) }}
                   formatter={value => `${value} đ`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
                   parser={value => value?.replace(/\D/g, '')}
-                  bordered={false}
+                  variant="borderless"
                   controls={false}
                   style={{
                     flex: 1,
@@ -884,7 +884,7 @@ export default function ProductList() {
                   onChange={v => { if (v !== null) setMaxPrice(v) }}
                   formatter={value => `${value} đ`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
                   parser={value => value?.replace(/\D/g, '')}
-                  bordered={false}
+                  variant="borderless"
                   controls={false}
                   style={{
                     flex: 1,

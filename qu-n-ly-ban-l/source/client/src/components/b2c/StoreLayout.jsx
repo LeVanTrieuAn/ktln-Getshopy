@@ -602,7 +602,7 @@ export default function StoreLayout() {
               onOpenChange={setProductsOpen}
               placement="rightTop"
               overlayStyle={{ zIndex: 1050 }}
-              dropdownRender={() => (
+              popupRender={() => (
                 <div style={{
                   width: 320,
                   background: isDark ? '#111827' : '#ffffff',
@@ -649,7 +649,7 @@ export default function StoreLayout() {
               onOpenChange={setPagesOpen}
               placement="rightTop"
               overlayStyle={{ zIndex: 1050 }}
-              dropdownRender={() => (
+              popupRender={() => (
                 <div style={{
                   width: 290,
                   background: isDark ? '#111827' : '#ffffff',
@@ -710,7 +710,7 @@ export default function StoreLayout() {
             )}
             {currentUser ? (
               <Dropdown
-                dropdownRender={() => (
+                popupRender={() => (
                   <div style={{
                     minWidth: 260,
                     background: isDark ? '#18181b' : '#ffffff',
