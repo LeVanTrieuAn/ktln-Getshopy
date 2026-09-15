@@ -80,8 +80,11 @@ const ThemeWrapper = ({ children }) => {
 };
 
 export default function App() {
+  // clientId để chuỗi rỗng khi chưa cấu hình, KHÔNG phải chuỗi placeholder
+  // 'YOUR_GOOGLE_CLIENT_ID_HERE' như trước: placeholder khiến Google trả lỗi
+  // 'invalid_client' khó đoán, còn chuỗi rỗng thì AuthModal biết đường ẩn nút.
   return (
-    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID_HERE'}>
+    <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || ''}>
       <QueryClientProvider client={queryClient}>
         <AppProvider>
         <CartProvider>

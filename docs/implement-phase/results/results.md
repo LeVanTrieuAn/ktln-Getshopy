@@ -1,6 +1,6 @@
 # Kết quả thực hiện — Mục 2: Payment VietQR
 
-> Cập nhật: 14/09/2026 · Hệ Ecommerce (`ktln-Getshopy`)
+> Cập nhật: 15/09/2026 · Hệ Ecommerce (`ktln-Getshopy`)
 > Kế hoạch: [implement-plan-Sep13.md](../implement-plan/implement-plan-Sep13.md)
 
 ---
@@ -338,7 +338,138 @@ tuỳ chọn.
 
 ## 10. Còn lại sau 14/09
 
-- `pages/Login.jsx` chưa đổi tông (§9.3)
+- ~~`pages/Login.jsx` chưa đổi tông~~ → xong (§11.4)
 - Tồn kho theo chi nhánh — đang mỗi sản phẩm một dòng tồn, chưa tách theo
   `branch_id` (đã thống nhất hoãn)
 - `province` chưa tới nhánh lạnh (§8)
+
+---
+
+## 11. Đăng nhập B2C + Google OAuth (15/09)
+
+### 11.1 🔴 Lỗ hổng chiếm tài khoản ở `/api/b2c/auth/social`
+
+Bản cũ nhận `email` **thẳng từ `req.body`** rồi cấp JWT cho email đó, không xác
+thực gì:
+
+```js
+const { provider, email, full_name, avatar } = req.body;   // `token` không hề được đọc
+let user = await prisma.b2CCustomer.findUnique({ where: { email } });
+const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
+```
+
+Khai thác chỉ cần một dòng:
+
+```
+POST /api/b2c/auth/social  {"provider":"google","email":"<email nạn nhân>"}
+-> JWT hợp lệ 7 ngày với tư cách khách hàng đó
+```
+
+Chiếm được là đọc đơn hàng, địa chỉ, số điện thoại, tiêu điểm thưởng. Email chưa
+tồn tại thì endpoint **tự tạo tài khoản mới**.
+
+Hai nút Facebook / Apple ở `AuthModal` khai thác đúng đường này để demo: chúng
+không gọi Facebook hay Apple, chỉ bịa `facebook_1234@example.com` gửi lên.
+
+**Vì sao không ai phát hiện:** endpoint *trông như* đang xác thực — client có
+gửi `token: tokenResponse.access_token`. Nhưng server destructure
+`{ provider, email, full_name, avatar }`, không có `token`. Biến bị bỏ quên
+lặng lẽ, không cảnh báo, không lỗi. Luồng Google thật vì thế cũng **chưa từng
+chạy được**: `email` là `undefined` → `findUnique({where:{email: undefined}})`
+→ Prisma ném lỗi → 500.
+
+### 11.2 Bản vá — chỉ tin danh tính lấy từ token đã verify
+
+Dùng `google-auth-library` (đã có sẵn trong `package.json`, `^11.0.2`):
+
+| Bước | Chặn được gì |
+|---|---|
+| `verifyIdToken` kiểm chữ ký bằng khoá công khai Google | Token tự chế |
+| `audience: GOOGLE_CLIENT_ID` | Token Google phát cho **app khác** — chữ ký vẫn đúng, chỉ là không dành cho ta |
+| `payload.email_verified === true` | Tài khoản Google đăng ký email người khác nhưng chưa xác minh |
+| Danh sách provider **cho phép** (chỉ `google`) | Mọi provider giả |
+
+Email **luôn** lấy từ `ticket.getPayload()`, không bao giờ từ `req.body`.
+
+Thiếu `GOOGLE_CLIENT_ID` thì trả 503 — **không** rơi về chế độ tin dữ liệu
+client gửi lên. Một fallback "cho tiện lúc dev" ở đây chính là lỗ hổng cũ.
+
+Kiểm chứng (đặt Client ID giả để ép chạy đường verify):
+
+```
+email trong body, không credential          -> 400 "Thiếu credential từ Google"
+credential rác                              -> 401 "Token không hợp lệ"
+JWT đúng định dạng, aud/iss/exp đúng,
+email_verified=true, CHỮ KÝ GIẢ             -> 401 "Token không hợp lệ"   <- quan trọng nhất
+provider=facebook                           -> 400 "Không được hỗ trợ"
+đăng nhập email/mật khẩu thường             -> 200, JWT bình thường
+```
+
+Case thứ ba chứng minh chữ ký thật sự được kiểm, không phải chỉ kiểm trường.
+
+### 11.3 Nối biến môi trường
+
+`VITE_*` được Vite nhúng vào bundle **lúc build**, không đọc lúc chạy. Đường dẫn
+phải liền mạch, đứt một mắt là biến ra chuỗi rỗng mà không có lỗi nào:
+
+```
+.env  ->  docker-compose.yml (build.args)  ->  client/Dockerfile (ARG+ENV)  ->  Vite
+.env  ->  docker-compose.yml (env_file)    ->  server (process.env)
+```
+
+Trước đó `client/Dockerfile` chỉ khai `ARG VITE_API_URL` và `VITE_WS_URL`, nên
+dù `.env` có Client ID thì bản build vẫn ra rỗng.
+
+`VITE_GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_ID` là **cùng một giá trị**, lệch nhau
+thì server từ chối mọi token vì `aud` không khớp.
+
+Client ID **không phải secret** — nó nằm công khai trong bundle trình duyệt theo
+đúng thiết kế OAuth. Client *secret* mới là bí mật, và luồng ID token không dùng
+tới nó.
+
+Chưa cấu hình thì `AuthModal` **ẩn** nút Google thay vì hiện nút bấm vào báo lỗi.
+
+### 11.4 Giao diện
+
+- `AuthModal.jsx` — thay `useGoogleLogin` bằng component `GoogleLogin` (trả
+  `credential`), gỡ hai nút Facebook / Apple cùng nhánh xử lý provider giả.
+- `pages/Login.jsx` — viết lại theo tông đơn sắc, dùng chung `theme/monochrome.js`
+  và `ConfigProvider` lồng (trang này render *ngoài* `AppLayout` nên không thừa
+  hưởng token). Tiện thể sửa nút đổi ngôn ngữ: bản cũ đặt cứng `color: '#fff'`
+  nên ở nền sáng là chữ trắng trên nền trắng.
+
+### 11.5 Ranh giới authen / author — client không phải chỗ để kiểm
+
+Ghi lại vì đã hỏi trong lúc làm:
+
+| Tầng | Làm gì | Có phải bảo mật? |
+|---|---|---|
+| Client | Ẩn/hiện UI, redirect, giữ token | **Không** — chỉ trải nghiệm |
+| Server | Verify chữ ký JWT, lấy `customer_id` **từ token**, kiểm quyền mỗi request | **Có** |
+
+Client là mã chạy trên máy người dùng; `localStorage` và React state đều sửa
+được trong DevTools. `ProtectedRoute` chỉ quyết định *vẽ component nào*, không
+chặn được `curl` gọi thẳng API.
+
+Chính lỗ hổng §11.1 là minh hoạ: nút Google nằm ở client, nhưng kẻ tấn công
+không cần bấm nút — họ gọi thẳng endpoint. Cùng một bài học với `/orders/me`
+ở §2.3.
+
+**Quy tắc:** client quyết định người dùng *thấy* gì, server quyết định họ
+*lấy được* gì.
+
+### 11.6 Việc người dùng phải tự làm
+
+1. Google Cloud Console → APIs & Services → Credentials → Create credentials →
+   OAuth client ID → **Web application**
+2. Authorized JavaScript origins: `http://localhost:3000`
+3. Điền **cùng một Client ID** vào `VITE_GOOGLE_CLIENT_ID` và `GOOGLE_CLIENT_ID`
+   trong `.env`
+4. `docker compose build client && docker compose up -d client server`
+   — phải **build lại** client, không chỉ restart, vì Vite nhúng lúc build.
+
+### 11.7 Dữ liệu rác còn lại
+
+`B2CCustomer` còn một bản ghi `google_user_4224@example.com` (provider
+`google`) do đường không xác thực cũ tạo ra lúc test. Không ảnh hưởng gì, nhưng
+nên xoá cho sạch số liệu — chưa xoá vì đó là thao tác xoá dữ liệu.

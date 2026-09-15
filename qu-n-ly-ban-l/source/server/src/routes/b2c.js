@@ -12,6 +12,13 @@ if (!JWT_SECRET) {
   throw new Error('Thiếu JWT_SECRET. Sinh bằng: openssl rand -base64 48');
 }
 const { authB2C } = require('../middleware/authB2C');
+const { OAuth2Client } = require('google-auth-library');
+
+// Client ID phải khớp với VITE_GOOGLE_CLIENT_ID mà trình duyệt dùng. Thiếu
+// biến này thì đăng nhập Google bị từ chối thẳng, KHÔNG rơi về chế độ tin
+// tưởng dữ liệu client gửi lên.
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 
 // Get Categories — barely change, so cache for a few minutes instead of hitting DB every load
 router.get('/categories', async (req, res) => {
@@ -548,43 +555,105 @@ router.post('/auth/login', async (req, res) => {
 });
 
 // Social Login (Mock)
+/**
+ * Đăng nhập bằng Google.
+ *
+ * BẢN CŨ CÓ LỖ HỔNG CHIẾM TÀI KHOẢN. Nó nhận `email` thẳng từ req.body rồi
+ * cấp JWT cho email đó, không xác thực gì:
+ *
+ *     POST /api/b2c/auth/social {"provider":"google","email":"<bất kỳ>"}
+ *     -> JWT hợp lệ 7 ngày với tư cách khách hàng đó
+ *
+ * Email chưa tồn tại thì nó còn tự tạo tài khoản mới. Hai nút Facebook/Apple
+ * cũ khai thác đúng đường này để demo — đã gỡ bỏ cùng lỗ hổng.
+ *
+ * Bản này chỉ tin DANH TÍNH LẤY TỪ TOKEN do Google ký:
+ *
+ *   1. `credential` là ID token (JWT) Google ký bằng khoá riêng của họ.
+ *   2. verifyIdToken kiểm chữ ký bằng khoá công khai của Google (thư viện tự
+ *      tải và cache, nên không phải gọi mạng mỗi lần đăng nhập).
+ *   3. `audience` bắt buộc: chặn token Google phát cho MỘT APP KHÁC. Thiếu bước
+ *      này thì kẻ tấn công lấy token hợp lệ từ app bất kỳ của họ và dùng được
+ *      ở đây — chữ ký vẫn đúng, chỉ là không dành cho ta.
+ *   4. `email_verified`: Google có loại tài khoản email chưa xác minh. Bỏ qua
+ *      cờ này thì đăng ký email của người khác rồi chiếm tài khoản tại đây.
+ *
+ * Email LUÔN lấy từ payload đã verify, không bao giờ từ req.body.
+ */
 router.post('/auth/social', async (req, res) => {
   try {
-    const { provider, email, full_name, avatar } = req.body;
-    
+    const { provider, credential } = req.body;
+
+    if (provider !== 'google') {
+      // Danh sách cho phép, không phải danh sách chặn: thêm provider mới phải
+      // là hành động có chủ đích, kèm đoạn xác thực riêng của provider đó.
+      return res.status(400).json({ error: 'Phương thức đăng nhập không được hỗ trợ' });
+    }
+    if (!googleClient) {
+      return res.status(503).json({
+        error: 'Đăng nhập Google chưa được cấu hình trên máy chủ (thiếu GOOGLE_CLIENT_ID)',
+      });
+    }
+    if (!credential || typeof credential !== 'string') {
+      return res.status(400).json({ error: 'Thiếu credential từ Google' });
+    }
+
+    let payload;
+    try {
+      const ticket = await googleClient.verifyIdToken({
+        idToken: credential,
+        audience: GOOGLE_CLIENT_ID,
+      });
+      payload = ticket.getPayload();
+    } catch {
+      // Không trả chi tiết lỗi của thư viện ra ngoài: nó mô tả chính xác bước
+      // nào hỏng, đủ để người thăm dò biết cần sửa gì ở token giả.
+      return res.status(401).json({ error: 'Token Google không hợp lệ hoặc đã hết hạn' });
+    }
+
+    if (!payload?.email || payload.email_verified !== true) {
+      return res.status(401).json({ error: 'Tài khoản Google chưa xác minh email' });
+    }
+
+    const email = payload.email.toLowerCase();
+    const fullName = payload.name || email.split('@')[0];
+    const avatar = payload.picture || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + email);
+
     let user = await prisma.b2CCustomer.findUnique({ where: { email } });
 
     if (!user) {
-      // Auto-register
       user = await prisma.b2CCustomer.create({
         data: {
-          full_name,
+          full_name: fullName,
           email,
           phone: '',
-          password_hash: '', 
+          // Chuỗi rỗng, không phải hash của mật khẩu nào. Đường đăng nhập bằng
+          // mật khẩu dùng bcrypt.compare, và compare với chuỗi rỗng luôn sai —
+          // nên tài khoản Google không thể đăng nhập bằng mật khẩu trống.
+          password_hash: '',
           loyalty_points: 0,
-          avatar: avatar || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + email),
-          provider: provider
-        }
+          avatar,
+          provider: 'google',
+        },
       });
-    } else {
-      if (user.provider !== provider) {
-         user = await prisma.b2CCustomer.update({
-           where: { email },
-           data: {
-             provider: provider,
-             avatar: avatar || user.avatar
-           }
-         });
-      }
+    } else if (user.provider !== 'google') {
+      // Email đã đăng ký bằng mật khẩu, giờ đăng nhập bằng Google. Gộp làm một
+      // tài khoản là đúng: Google đã xác minh chủ sở hữu email chính là người
+      // này. Nhưng KHÔNG xoá password_hash — chủ tài khoản vẫn đăng nhập bằng
+      // mật khẩu như cũ được.
+      user = await prisma.b2CCustomer.update({
+        where: { email },
+        data: { provider: 'google', avatar: user.avatar || avatar },
+      });
     }
 
     const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
-    
+
     res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[auth/social]', err);
+    res.status(500).json({ error: 'Không đăng nhập được, vui lòng thử lại' });
   }
 });
 
