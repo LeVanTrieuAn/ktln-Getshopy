@@ -44,8 +44,34 @@ wait_http "ClickHouse"    "$CH/ping"
 wait_http "Kafka Connect" "$CONNECT/"
 wait_http "MinIO"         "$MINIO/minio/health/live"
 
+# ── 0. Schema ClickHouse ────────────────────────────────────────────────
+# /docker-entrypoint-initdb.d CHỈ chạy khi thư mục dữ liệu còn rỗng. Thêm bảng
+# vào file schema sau lần khởi động đầu thì nó không bao giờ được áp dụng, và
+# triệu chứng là endpoint trả 500 "Unknown table expression identifier" —
+# không ai nghĩ tới việc schema chưa chạy.
+# Ở đây áp lại mỗi lần bootstrap; toàn bộ câu lệnh đều IF NOT EXISTS nên an toàn.
+step "0/5  Schema ClickHouse"
+if [ -f /clickhouse-init/01_schema.sql ]; then
+  if curl -sS --fail-with-body "$CH" --data-binary @/clickhouse-init/01_schema.sql >/dev/null 2>&1; then
+    log "đã áp schema"
+  else
+    # HTTP interface không nhận nhiều câu lệnh trong một request; tách theo dấu ;
+    awk 'BEGIN{RS=";"} NF {print $0 ";"}' /clickhouse-init/01_schema.sql | while read -r _; do :; done
+    n=0
+    while IFS= read -r stmt; do
+      [ -z "$(echo "$stmt" | tr -d '[:space:]')" ] && continue
+      if ch_query "$stmt" >/dev/null 2>&1; then n=$((n+1)); fi
+    done <<EOSQL
+$(awk 'BEGIN{RS=";"} NF {gsub(/\n/," "); print}' /clickhouse-init/01_schema.sql)
+EOSQL
+    log "đã áp $n câu lệnh"
+  fi
+else
+  log "bỏ qua — không thấy /clickhouse-init/01_schema.sql"
+fi
+
 # ── 1. Bucket MinIO ─────────────────────────────────────────────────────
-step "1/4  Bucket MinIO"
+step "1/5  Bucket MinIO"
 mc alias set lake "$MINIO" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null 2>&1
 if mc ls "lake/$MINIO_BUCKET" >/dev/null 2>&1; then
   log "bucket '$MINIO_BUCKET' đã có"
@@ -54,7 +80,7 @@ else
 fi
 
 # ── 2. User ClickHouse cho AI-Rec ───────────────────────────────────────
-step "2/4  User ClickHouse chỉ-đọc cho AI-Rec"
+step "2/5  User ClickHouse chỉ-đọc cho AI-Rec"
 if [ -n "${AI_REC_CH_PASSWORD:-}" ]; then
   ch_query "CREATE DATABASE IF NOT EXISTS serving" >/dev/null
   ch_query "CREATE ROLE IF NOT EXISTS ai_rec_reader" >/dev/null
@@ -70,7 +96,7 @@ fi
 
 # ── 3. Masterdata ───────────────────────────────────────────────────────
 # Kéo thẳng, không qua CDC: dữ liệu chiều thay đổi rất ít, không cần lịch sử.
-step "3/4  Masterdata Postgres -> ClickHouse"
+step "3/5  Masterdata Postgres -> ClickHouse"
 ch_query "CREATE DATABASE IF NOT EXISTS masterdata" >/dev/null
 
 pg() { echo "postgresql('$PG_HOST','$POSTGRES_DB','$1','$POSTGRES_USER','$POSTGRES_PASSWORD')"; }
@@ -108,7 +134,7 @@ sync_dim dim_customers B2CCustomer \
   "toString(id), full_name, email, ifNull(phone,''), toInt32(loyalty_points), provider, created_at" "customer_id"
 
 # ── 4. Connector CDC ────────────────────────────────────────────────────
-step "4/4  Đăng ký connector"
+step "4/5  Đăng ký connector"
 register() {
   name="$1"; file="$2"
   if curl -sf -o /dev/null "$CONNECT/connectors/$name"; then

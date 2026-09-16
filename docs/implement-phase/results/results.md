@@ -1,6 +1,6 @@
 # Kết quả thực hiện — Mục 2: Payment VietQR
 
-> Cập nhật: 15/09/2026 · Hệ Ecommerce (`ktln-Getshopy`)
+> Cập nhật: 16/09/2026 · Hệ Ecommerce (`ktln-Getshopy`)
 > Kế hoạch: [implement-plan-Sep13.md](../implement-plan/implement-plan-Sep13.md)
 
 ---
@@ -473,3 +473,130 @@ không cần bấm nút — họ gọi thẳng endpoint. Cùng một bài học 
 `B2CCustomer` còn một bản ghi `google_user_4224@example.com` (provider
 `google`) do đường không xác thực cũ tạo ra lúc test. Không ảnh hưởng gì, nhưng
 nên xoá cho sạch số liệu — chưa xoá vì đó là thao tác xoá dữ liệu.
+
+---
+
+## 12. Nối AI-Rec vào warehouse (16/09)
+
+Trước hôm nay luồng đứt ở chặng cuối: warehouse đã mở đúng hợp đồng §4, nhưng
+AI-Rec **không có dòng code nào gọi ClickHouse**. Ba biến `CLICKHOUSE_*` vẫn
+được compose truyền vào container và bị bỏ qua hoàn toàn — dây nối sẵn, đầu kia
+chưa cắm. Service chạy degraded, mọi gợi ý trả mảng rỗng.
+
+### 12.1 Đổi `processed_data_for_AI_rec` sang append-only
+
+Bản cũ `materialized='table'`: mỗi lần dbt chạy là DROP rồi CREATE lại. Với
+chu kỳ 5 phút thì có một khoảng bảng không tồn tại hoặc rỗng — AI-Rec fetch
+đúng lúc đó sẽ train trên bảng trống và **xoá sạch model đang tốt**.
+
+Bản mới:
+
+```
+materialized         = 'incremental'
+incremental_strategy = 'append'
+engine               = 'ReplacingMergeTree(updated_at)'
+order_by             = '(CustomerID, ProductID)'
+```
+
+Ba điểm thiết kế:
+
+**Tính lại trên toàn bộ lịch sử của cặp bị đụng, không cộng dồn phần mới.**
+Cộng dồn là sai: một dòng fact bị *sửa* (đơn chuyển sang huỷ, số lượng thay
+đổi) sẽ bị tính hai lần. Cách làm là tìm các cặp có dòng fact nạp sau mốc
+(`_loaded_at > max(updated_at)`), rồi `GROUP BY` lại trên **cả** lịch sử của
+riêng chúng.
+
+**`LEFT JOIN` chứ không phải `INNER`.** Một cặp vừa thay đổi có thể không còn
+thoả điều kiện nữa. Lúc đó nhánh tính lại không sinh dòng nào, và nếu bỏ qua
+thì dòng cũ nằm lại vĩnh viễn — model vẫn học một tương tác đã bị huỷ. Ghi
+`Quantity = 0` làm bia mộ mềm, đúng quy ước "không có thông tin số lượng → xem
+như 0" trong contract, và `fit()` lọc `Quantity > 0` nên dòng đó tự rụng.
+
+**Đọc bắt buộc kèm `FINAL`.** Quên là một cặp hiện ra nhiều lần với số lượng
+khác nhau — không có lỗi nào báo ra, chỉ là model train trên dữ liệu sai.
+
+`OPTIMIZE ... FINAL` đặt ở job ofelia **hàng giờ** trên container ClickHouse,
+không phải `post_hook` của dbt: dbt chạy mỗi 5 phút mà `OPTIMIZE FINAL` đọc và
+ghi lại toàn bộ bảng.
+
+### 12.2 AI-Rec: đọc warehouse + train nền + đổi bản
+
+| File | Vai trò |
+|---|---|
+| `config.py` | Cấu hình ClickHouse, chu kỳ train, cache |
+| `data_source/clickhouse.py` *(mới)* | Gọi HTTP interface, đọc `TabSeparatedWithNames` |
+| `api/service.py` | `ModelBundle` + vòng train nền + đổi bản |
+
+**Vì sao fetch toàn bộ chứ không lấy phần chênh.** Bảng nguồn là bảng tổng hợp
+— grain một dòng cho mỗi cặp. Khách mua lại một sản phẩm thì dòng **cũ** bị đổi
+số lượng, không phải thêm dòng mới. Lấy "các dòng mới hơn lần trước" bỏ sót
+đúng những thay đổi đó, và sai im lặng.
+
+**`ModelBundle` gói model + cache vào một đối tượng.** Nếu để rời thì có
+khoảnh khắc model đã là v2 còn cache vẫn của v1 — request rơi đúng đó nhận gợi
+ý trỏ tới sản phẩm không còn trong catalog. Đổi cả gói bằng **một phép gán**
+thì không tồn tại trạng thái lai; phép gán atomic nhờ GIL.
+
+Trong suốt lúc train v2, **v1 vẫn phục vụ bình thường**. Bản cũ chỉ được giải
+phóng khi request cuối cùng đang cầm nó kết thúc — Python đếm tham chiếu, không
+cần ép thu gom.
+
+**`asyncio.to_thread` là bắt buộc.** Train và tính sẵn đều nặng CPU; chạy thẳng
+trong vòng lặp sự kiện sẽ treo toàn bộ API cho tới khi xong.
+
+**Tính sẵn có trần thời gian.** Quá hạn thì dừng, khách còn lại rơi về tính tại
+chỗ. Cache là *tối ưu*, không phải điều kiện đúng đắn — thiếu đường dự phòng
+thì khách vừa mua lần đầu không có gợi ý suốt cả chu kỳ.
+
+**Lưu model:** ghi file tạm rồi `os.replace` — đổi tên là thao tác nguyên tử
+trên cùng hệ thống tệp. Ghi đè thẳng mà tiến trình chết giữa chừng sẽ để lại
+`.joblib` cụt, và lần khởi động sau nạp phải nó.
+
+### 12.3 Kiểm chứng end-to-end
+
+Chèn một đơn `PAID` mới (khách 5, hai sản phẩm 40800/40801, mỗi thứ 4 cái):
+
+```
+Postgres     -> đơn ORD-E2E-TEST-001
+staging      -> 20 đơn, 15 dòng hàng   (parquet đã có)
+fact FINAL   -> 14 dòng
+serving thô  -> 8 dòng      <- append-only ghi thêm
+serving FINAL-> 6 dòng      <- ReplacingMergeTree gộp lại
+   trong đó 40768 có Quantity = 0  <- bia mộ mềm hoạt động
+
+AI-Rec: v2 (2 tương tác) --[chu kỳ 5 phút, KHÔNG restart]--> v3 (5 tương tác)
+```
+
+Vòng train nền tự nhặt đơn mới. 5 tương tác chứ không phải 6 vì dòng
+`Quantity = 0` bị lọc ở nguồn — đúng thiết kế.
+
+Gợi ý:
+
+```
+khách 5      -> []                      <- đã mua HẾT 5 sản phẩm model biết
+khách 99999  -> 5 sản phẩm phổ biến     <- cold-start
+qua server   -> trả sản phẩm            <- đường FE đi
+```
+
+Kết quả rỗng của khách 5 **không phải lỗi**: catalog của model mới có 5 sản
+phẩm (vì warehouse mới có 5 cặp), và khách đó đã mua cả 5. `recommend()` loại
+sản phẩm đã mua, phần bù bằng `popular_items` cũng loại. Có thêm khách và đơn
+là tự hết.
+
+### 12.4 Hai lỗi đóng gói bắt được lúc chạy
+
+- `Dockerfile` không `COPY data_source/` — image build thành công nhưng
+  container chết ngay lúc import.
+- Volume `ai_models` do root sở hữu còn tiến trình chạy bằng `appuser` →
+  `Permission denied` khi ghi model. Không làm chết service (bản trong bộ nhớ
+  vẫn chạy) nên rất dễ bỏ sót: nó chỉ lộ ra ở lần khởi động sau, khi không có
+  gì để nạp lại. Docker chỉ sao chép quyền sở hữu từ image sang volume lúc
+  volume còn **rỗng**, nên phải `mkdir` sẵn thư mục trong Dockerfile *trước*
+  `chown`, và vá tay volume đã tồn tại.
+
+### 12.5 Còn lại
+
+- `fit()` train lại toàn bộ mỗi chu kỳ — CF item-based không tăng dần được.
+  Hiện rẻ (mili-giây) vì `fit()` chỉ dựng ma trận thưa và chuẩn hoá, **không**
+  nhân ma trận item×item. Cần đo lại khi số tương tác lên hàng triệu.
+- Đỉnh bộ nhớ gấp đôi trong lúc đổi bản — chưa đo ở quy mô thật.

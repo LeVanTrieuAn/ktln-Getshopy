@@ -114,6 +114,24 @@ services:
     ports: ["${POSTGRES_PORT:-5432}:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Thư mục trên MÁY THẬT, không phải volume. Volume bị xoá (down -v, prune,
+      # nút Clean của Docker Desktop) thì bản sao lưu vẫn còn — đó mới là điểm
+      # của việc sao lưu. Để trong volume khác thì cùng một lệnh xoá cả hai.
+      - ./backups:/backups
+    # Sao lưu tự động — lưới an toàn cho THAO TÁC TAY.
+    #
+    # Dữ liệu seed dựng lại được từ code (PRNG có hạt giống cố định), nhưng mọi
+    # thứ bạn sửa/thêm bằng tay thì KHÔNG. Mất volume là mất hẳn phần đó.
+    #
+    # pg_dump chứ không phải sao chép thư mục dữ liệu: dump là SQL nên khôi phục
+    # được sang máy khác kiến trúc khác, còn data dir của Postgres thì không.
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.pg-backup.schedule: "@every ${PG_BACKUP_SCHEDULE:-24h}"
+      ofelia.job-exec.pg-backup.command: >-
+        sh -c "pg_dump -U ${POSTGRES_USER:-getshopy} -d ${POSTGRES_DB:-getshopy} -Fc --no-owner --no-acl
+        > /backups/kltn-$$(date +%Y%m%d-%H%M).dump
+        && ls -t /backups/kltn-*.dump | tail -n +${PG_BACKUP_KEEP:-8} | xargs -r rm -f"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 5s
@@ -141,6 +159,23 @@ services:
       interval: 5s
       timeout: 5s
       retries: 12
+    # Gộp phần thừa của ReplacingMergeTree, chạy thưa vào lúc rảnh.
+    #
+    # Bảng processed_data_for_AI_rec là append-only: mỗi cặp (khách, sản phẩm)
+    # đổi số lượng là ghi thêm một dòng. ClickHouse tự gộp trong nền, nhưng
+    # không hứa lúc nào — phần thừa tích lại làm mọi truy vấn FINAL chậm dần.
+    #
+    # KHÔNG đặt OPTIMIZE vào post_hook của dbt: dbt chạy mỗi 5 phút, mà
+    # OPTIMIZE FINAL đọc và ghi lại TOÀN BỘ bảng. Chạy mỗi 5 phút là dành phần
+    # lớn thời gian của máy để sắp xếp lại dữ liệu vừa mới sắp xong.
+    #
+    # Nhãn ofelia.job-exec phải nằm trên chính container cần chạy lệnh, không
+    # phải trên container scheduler.
+    labels:
+      ofelia.enabled: "true"
+      ofelia.job-exec.ch-optimize.schedule: "@every ${CH_OPTIMIZE_SCHEDULE:-1h}"
+      ofelia.job-exec.ch-optimize.command: >-
+        clickhouse-client --query "OPTIMIZE TABLE serving.processed_data_for_AI_rec FINAL"
     restart: unless-stopped
 
   redis:
@@ -263,6 +298,7 @@ services:
     volumes:
       - ./scripts/bootstrap-bigdata.sh:/bootstrap.sh:ro
       - ./local-infra-sandbox/config-json:/config-json:ro
+      - ./ktln-Getshopy/qu-n-ly-ban-l/source/clickhouse-init:/clickhouse-init:ro
     depends_on:
       postgres: {condition: service_healthy}
       clickhouse: {condition: service_healthy}
@@ -327,8 +363,18 @@ services:
       ofelia.job-run.dbt-build.network: "kltn_default"
       ofelia.job-run.dbt-build.volume: "${PWD}/local-infra-sandbox/dbt_warehouse:/dbt"
       ofelia.job-run.dbt-build.command: "build"
+      # ofelia đọc trường `environment` theo cú pháp MẢNG JSON. Chuỗi ngăn bằng
+      # dấu phẩy được nhận nguyên khối thành MỘT biến, nên dbt báo
+      # "Env var required but not provided: MINIO_ACCESS_KEY" dù nhãn có đủ giá
+      # trị. Job hỏng âm thầm mỗi 5 phút — chỉ thấy khi đọc log scheduler.
       ofelia.job-run.dbt-build.environment: >-
-        CH_HOST=clickhouse,CH_PORT=8123,CH_USER=${CLICKHOUSE_USER:-default},CH_PASSWORD=${CLICKHOUSE_PASSWORD:-},CH_DB=default,MINIO_HOST=minio,MINIO_PORT=9000,MINIO_BUCKET=${MINIO_BUCKET:-data-lake},MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY},MINIO_SECRET_KEY=${MINIO_SECRET_KEY},CDC_TOPIC_PREFIX=${CDC_TOPIC_PREFIX:-cdc_prod},PG_SOURCE_HOST=postgres,PG_SOURCE_PORT=5432,PG_SOURCE_DB=${POSTGRES_DB:-getshopy},PG_SOURCE_USER=${POSTGRES_USER:-getshopy},PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD}
+        ["CH_HOST=clickhouse","CH_PORT=8123","CH_USER=${CLICKHOUSE_USER:-default}",
+        "CH_PASSWORD=${CLICKHOUSE_PASSWORD:-}","CH_DB=default",
+        "MINIO_HOST=minio","MINIO_PORT=9000","MINIO_BUCKET=${MINIO_BUCKET:-data-lake}",
+        "MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}","MINIO_SECRET_KEY=${MINIO_SECRET_KEY}",
+        "CDC_TOPIC_PREFIX=${CDC_TOPIC_PREFIX:-cdc_prod}",
+        "PG_SOURCE_HOST=postgres","PG_SOURCE_PORT=5432","PG_SOURCE_DB=${POSTGRES_DB:-getshopy}",
+        "PG_SOURCE_USER=${POSTGRES_USER:-getshopy}","PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD}"]
     restart: unless-stopped
 
 volumes:
