@@ -19,6 +19,21 @@
 
 name: kltn
 
+# KHÔNG dùng profiles cho các service hạ tầng.
+#
+# Trước đây zookeeper/kafka/kafka-connect/minio/metabase/bootstrap/dbt-scheduler
+# nằm sau `profiles: [bigdata]`, nên `docker compose up` chỉ dựng nửa hệ thống:
+# web chạy được nhưng CDC không chảy, dbt không có lịch, warehouse rỗng. Người
+# mới vào không có cách nào biết mình đang thiếu gì — không có lỗi nào báo ra.
+#
+# Chỉ `dbt` còn giữ profile, vì nó là lệnh chạy một lần rồi thoát chứ không
+# phải service:  docker compose --profile dbt run --rm dbt build
+
+# Cú pháp ${VAR:?thông báo} làm compose DỪNG HẲN khi biến rỗng hoặc chưa đặt.
+# Mặc định compose chỉ cảnh báo rồi thay chuỗi rỗng — Postgres khởi động với
+# mật khẩu trống, MinIO hỏng, và người mới nhận một chuỗi lỗi không liên quan
+# gì tới nguyên nhân thật là quên file .env.
+
 x-ecom-build: &ecom-build
   context: ./ktln-Getshopy/qu-n-ly-ban-l/source
 
@@ -46,8 +61,8 @@ services:
     env_file: [.env]
     environment:
       # Trong network của compose thì gọi nhau bằng tên service, không phải localhost
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-getshopy}"
-      DIRECT_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-getshopy}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
+      DIRECT_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
       CLICKHOUSE_HOST: http://clickhouse:8123
       REDIS_URL: redis://redis:6379
       AI_BOT_URL: http://ai-bot:3001
@@ -71,7 +86,7 @@ services:
     env_file: [.env]
     environment:
       PORT: 3001
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-getshopy}"
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
     expose: ["3001"]
     depends_on:
       postgres: {condition: service_healthy}
@@ -110,7 +125,7 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-getshopy}
       POSTGRES_USER: ${POSTGRES_USER:-getshopy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
     ports: ["${POSTGRES_PORT:-5432}:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -193,7 +208,6 @@ services:
 
   zookeeper:
     image: confluentinc/cp-zookeeper:7.4.0
-    profiles: [bigdata]
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -201,7 +215,6 @@ services:
 
   kafka:
     image: confluentinc/cp-kafka:7.4.0
-    profiles: [bigdata]
     depends_on: [zookeeper]
     ports: ["${KAFKA_PORT:-9092}:9092"]
     environment:
@@ -217,7 +230,6 @@ services:
     # Build thay vì mount JAR: plugin ~50MB, ghim phiên bản trong Dockerfile
     build:
       context: ./local-infra-sandbox/kafka-connect
-    profiles: [bigdata]
     depends_on: [kafka]
     ports: ["${KAFKA_CONNECT_PORT:-8083}:8083"]
     environment:
@@ -236,9 +248,9 @@ services:
       CONNECT_INTERNAL_KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       CONNECT_INTERNAL_VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
       # Connector config đọc bí mật qua ${env:...} thay vì hardcode trong JSON
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
     volumes:
       - ./local-infra-sandbox/config-json:/config-json:ro
     restart: unless-stopped
@@ -248,13 +260,12 @@ services:
     # công khai, `docker pull minio/minio` trả "pull access denied".
     # quay.io là registry chính thức MinIO vẫn phát hành.
     image: quay.io/minio/minio:${MINIO_VERSION:-latest}
-    profiles: [bigdata]
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
-      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -267,7 +278,6 @@ services:
 
   metabase:
     image: metabase/metabase:latest
-    profiles: [bigdata]
     # 3000 đã dành cho client Getshopy
     ports: ["${METABASE_PORT:-3001}:3000"]
     depends_on:
@@ -282,14 +292,13 @@ services:
   bootstrap:
     build:
       context: ./scripts/bootstrap
-    profiles: [bigdata]
     command: ["/bootstrap.sh"]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-getshopy}
       POSTGRES_USER: ${POSTGRES_USER:-getshopy}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
       MINIO_BUCKET: ${MINIO_BUCKET:-data-lake}
       AI_REC_CH_USER: ${AI_REC_CH_USER:-ai_rec}
       AI_REC_CH_PASSWORD: ${AI_REC_CH_PASSWORD:-}
@@ -329,14 +338,14 @@ services:
       MINIO_HOST: minio
       MINIO_PORT: 9000
       MINIO_BUCKET: ${MINIO_BUCKET:-data-lake}
-      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
-      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
       CDC_TOPIC_PREFIX: ${CDC_TOPIC_PREFIX:-cdc_prod}
       PG_SOURCE_HOST: postgres
       PG_SOURCE_PORT: 5432
       PG_SOURCE_DB: ${POSTGRES_DB:-getshopy}
       PG_SOURCE_USER: ${POSTGRES_USER:-getshopy}
-      PG_SOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      PG_SOURCE_PASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
 
   # Scheduler gọi dbt theo lịch. Tách khỏi service `dbt` (chạy tay) để hai
   # cách dùng không giẫm chân nhau.
@@ -350,7 +359,6 @@ services:
   # mà không ai biết cho tới khi chạy test tay.
   dbt-scheduler:
     image: mcuadros/ofelia:latest
-    profiles: [bigdata]
     depends_on:
       clickhouse: {condition: service_healthy}
     command: daemon --docker
@@ -370,10 +378,10 @@ services:
         ["CH_HOST=clickhouse","CH_PORT=8123","CH_USER=${CLICKHOUSE_USER:-default}",
         "CH_PASSWORD=${CLICKHOUSE_PASSWORD:-}","CH_DB=default",
         "MINIO_HOST=minio","MINIO_PORT=9000","MINIO_BUCKET=${MINIO_BUCKET:-data-lake}",
-        "MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}","MINIO_SECRET_KEY=${MINIO_SECRET_KEY}",
+        "MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}","MINIO_SECRET_KEY=${MINIO_SECRET_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}",
         "CDC_TOPIC_PREFIX=${CDC_TOPIC_PREFIX:-cdc_prod}",
         "PG_SOURCE_HOST=postgres","PG_SOURCE_PORT=5432","PG_SOURCE_DB=${POSTGRES_DB:-getshopy}",
-        "PG_SOURCE_USER=${POSTGRES_USER:-getshopy}","PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD}"]
+        "PG_SOURCE_USER=${POSTGRES_USER:-getshopy}","PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}"]
     restart: unless-stopped
 
 volumes:

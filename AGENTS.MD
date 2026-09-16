@@ -48,3 +48,5 @@ URL để khai bên SePay luôn có dạng:
 
 MUỐN HẾT PHIỀN: dựng named tunnel với domain riêng (cloudflared tunnel create +
 tunnel route dns) thì URL cố định vĩnh viễn. Quick tunnel chỉ hợp lúc dev.
+
+AGENTS MUỐN PUSH CODE LÊN GIT, PHẢI BIẾT RẰNG ƯU TIÊN PUSH LÊN NHÁNH MỚI THAY VÌ PUSH THẲNG VÀO MAIN, PHẢI COMMIT TRƯỚC KHI XỬ LÝ CONFLICT, KHI XỬ LÝ CONFLICT LÀ PHẢI ĐỌC KỸ VÀ SOẠN BỘ CÂU HỎI ĐỂ NGƯỜI DÙNG CHỌN(BẠN ĐỀ XUẤT KHUYẾN NGHỊ)

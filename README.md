@@ -22,49 +22,104 @@ GetShopy là một hệ thống thương mại điện tử toàn diện bao g�
 
 ---
 
-## 🚀 Hướng dẫn cài đặt và khởi chạy (Localhost)
+## 🚀 Khởi chạy
 
-Hệ thống cung cấp sẵn `docker-compose` giúp bạn dễ dàng khởi chạy toàn bộ dịch vụ (Cả Frontend, Backend, Database) chỉ bằng 1 câu lệnh.
+Repo này là **private**. Toàn bộ hệ thống lên bằng **một lệnh** — không cần
+cài Node, không cần chạy migration, không cần seed tay.
 
-### Yêu cầu tiên quyết
-- Đã cài đặt [Docker](https://www.docker.com/) và Docker Compose.
-- Đã cài đặt [Node.js](https://nodejs.org/) (Nếu muốn chạy ở môi trường ngoài Docker).
+### 1. Xin file `.env`
 
-### Cách chạy với Docker (Khuyên dùng)
-1. Mở Terminal (Command Prompt / PowerShell) và di chuyển vào thư mục gốc của dự án.
-2. Chạy câu lệnh sau:
-   ```bash
-   docker-compose up -d --build
-   ```
-3. Docker sẽ tự động cài đặt các thành phần, kéo image của ClickHouse, Redis, Nodejs và chạy dự án.
+`.env` chứa mật khẩu và khoá thật nên **không nằm trong repo**. Xin từ chủ
+repo rồi đặt ở thư mục gốc (ngang hàng với `docker-compose.yml`).
 
-### Thông tin các Port (Cổng) truy cập Local
-Sau khi Docker khởi động xong, bạn truy cập hệ thống qua các đường dẫn sau:
+Quên bước này thì compose dừng ngay với thông báo
+`required variable POSTGRES_PASSWORD is missing a value` — nó cố tình dừng
+thay vì chạy tiếp với mật khẩu rỗng rồi hỏng ở chỗ không liên quan.
 
-- **Frontend B2C & B2B (Giao diện Web):** [http://localhost:5173](http://localhost:5173)
-- **Backend API (Node.js/Express):** `http://localhost:8080` (Ví dụ: [http://localhost:8080/api/b2c/products](http://localhost:8080/api/b2c/products))
-- **ClickHouse (Data Warehouse):** `http://localhost:8123` (Cổng HTTP API) và `9000` (Cổng Native TCP).
-- **Redis (Cache):** `localhost:6379`
+`.env.example` liệt kê đủ biến kèm giải thích, dùng để đối chiếu.
 
-### Cách chạy thủ công không dùng Docker (Tùy chọn)
+### 2. Chạy
 
-**1. Khởi động Backend:**
 ```bash
-cd source/server
-npm install
-npm run dev
+docker compose up -d --build
 ```
-*(Backend sẽ chạy ở port `8080`)*
 
-**2. Khởi động Frontend:**
+Thế thôi. Lần đầu mất **10–20 phút**: build image, rồi seed 600.000 sản phẩm
+và 1,2 triệu dòng tồn kho. Theo dõi bằng:
+
 ```bash
-cd source/client
-npm install
-npm run dev
+docker compose logs -f server      # tiến độ seed
+docker compose logs -f bootstrap   # khởi tạo phần big-data
 ```
-*(Frontend sẽ chạy ở port `5173`)*
 
-> **Lưu ý:** Nếu chạy thủ công, bạn vẫn cần phải có ClickHouse và Redis chạy ngầm trên máy (hoặc chạy 2 dịch vụ đó qua docker-compose riêng) thì API mới hoạt động hoàn chỉnh.
+Những việc sau **tự chạy**, không cần gõ gì thêm:
+
+| Việc | Ai làm |
+|---|---|
+| Tạo schema Postgres, seed 600k sản phẩm, tồn kho, voucher, flash sale | `server` lúc khởi động |
+| Tạo bucket MinIO, user ClickHouse, kéo masterdata, đăng ký connector CDC | `bootstrap` (chạy một lần rồi thoát) |
+| Dựng model dbt mỗi 5 phút | `dbt-scheduler` |
+| Train lại mô hình gợi ý mỗi 5 phút | `ai-rec` |
+| Sao lưu Postgres mỗi 24h vào `./backups/` | `dbt-scheduler` |
+
+Seed chỉ chạy khi database còn rỗng. Lần `up` sau bỏ qua, dữ liệu giữ nguyên.
+
+### 3. Truy cập
+
+| Địa chỉ | Là gì |
+|---|---|
+| http://localhost:3000 | **Cửa hàng + trang quản trị** (`/admin/dashboard`) |
+| http://localhost:3001 | Metabase |
+| http://localhost:8123 | ClickHouse HTTP |
+| http://localhost:8083 | Kafka Connect REST |
+| http://localhost:9001 | MinIO Console |
+| localhost:5432 | Postgres |
+
+Backend Node và AI-Rec **không mở cổng ra ngoài** — gọi qua `localhost:3000/api`,
+nginx của `client` chuyển tiếp vào.
+
+Tài khoản có sẵn:
+
+| Vai | Tài khoản |
+|---|---|
+| Quản trị | `admin@gmail.com` / `admin` |
+| Khách hàng | `test@getshopy.vn` / `123456` |
+
+### 4. Lệnh hay dùng
+
+```bash
+docker compose ps                                  # trạng thái 14 service
+docker compose logs -f <service>                   # xem log
+docker compose --profile dbt run --rm dbt build    # chạy dbt ngay, không chờ lịch
+python3 data-platform-poc/pos_simulator.py --orders 200   # bắn đơn giả lập
+```
+
+### ⚠️ Lệnh KHÔNG được chạy
+
+```bash
+docker compose down -v    # -v XOÁ SẠCH volume: 600k sản phẩm, warehouse, data lake
+```
+
+`down` không kèm `-v` thì an toàn — dữ liệu nằm trong named volume, `build` và
+`up` không đụng tới. Bản sao lưu tự động nằm ở `./backups/`, khôi phục bằng
+`sh scripts/import-data.sh <thư-mục>`.
 
 ---
-**Đồ án Khóa Luận Tốt Nghiệp - Hệ thống GetShopy**
+
+## 📁 Cấu trúc
+
+```
+.
+├── docker-compose.yml          # toàn bộ 14 service
+├── .env                        # KHÔNG trong repo — xin riêng
+├── ktln-Getshopy/
+│   └── qu-n-ly-ban-l/source/   # client (React) · server (Node) · ai-bot · ai-rec (Python)
+├── local-infra-sandbox/        # dbt, cấu hình Kafka Connect
+├── data-platform-poc/          # POS giả lập bắn đơn vào DB
+├── scripts/                    # bootstrap, dbt runner, export/import dữ liệu
+├── docs/                       # kế hoạch và kết quả từng giai đoạn
+└── backups/                    # bản sao lưu Postgres tự động
+```
+
+---
+**Đồ án Khóa Luận Tốt Nghiệp — Hệ thống GetShopy**
