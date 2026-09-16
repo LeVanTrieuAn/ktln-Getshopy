@@ -52,5 +52,11 @@ Thumbs.db
 .vscode/
 
 # Bản sao lưu database — dữ liệu thật, không thuộc về git
-backups/
+# `backups/*` chứ KHÔNG phải `backups/`: git không cho bỏ ignore một file nằm
+# trong thư mục đã bị ignore — nó không buồn duyệt vào bên trong. Chặn theo
+# từng file thì dòng phủ định bên dưới mới có tác dụng.
+backups/*
+# Giữ lại thư mục rỗng: compose mount ./backups vào container postgres. Thiếu
+# nó thì Docker tự tạo thư mục do root sở hữu, và pg_dump ghi vào không được.
+!backups/.gitkeep
 *.dump

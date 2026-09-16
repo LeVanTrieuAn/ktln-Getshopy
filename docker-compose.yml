@@ -153,7 +153,6 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./ktln-Getshopy/qu-n-ly-ban-l/source/clickhouse-init:/docker-entrypoint-initdb.d:ro
-      - ./local-infra-sandbox/config-clickhouse/s3.xml:/etc/clickhouse-server/config.d/s3.xml:ro
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 5s
