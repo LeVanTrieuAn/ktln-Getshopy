@@ -210,7 +210,12 @@ const BRAND_NAMES = {
 };
 
 // ── Helpers ──────────────────────────────────────────────────────
-const rand    = (a, b) => Math.random() * (b - a) + a;
+// Dòng ngẫu nhiên có hạt giống cố định: cùng SEED_RANDOM_SEED thì mọi máy
+// sinh ra đúng cùng một bộ 600.000 sản phẩm. Xem scripts/lib/rng.js.
+const { createRng, shuffle } = require('./lib/rng');
+const rng = createRng('fill-600k');
+
+const rand    = (a, b) => rng() * (b - a) + a;
 const randInt = (a, b) => Math.floor(rand(a, b + 1));
 const pick    = (arr)  => arr[randInt(0, arr.length - 1)];
 
@@ -258,7 +263,7 @@ function makeProduct(catId, brandId) {
     const c = pick(COLORS);
     if (!usedColors.has(c)) {
       usedColors.add(c);
-      rawVariants.push(Math.random() > 0.5 ? { color: c, storage: pick(STORAGES) } : { color: c });
+      rawVariants.push(rng() > 0.5 ? { color: c, storage: pick(STORAGES) } : { color: c });
     }
   }
 
@@ -281,7 +286,9 @@ function makeProduct(catId, brandId) {
   });
 
   const numBranches = randInt(1, BRANCHES.length);
-  const branchIds   = [...BRANCHES].sort(() => Math.random() - 0.5).slice(0, numBranches);
+  // Fisher-Yates thay cho sort(() => Math.random() - 0.5): cách cũ vừa lệch
+  // phân bố vừa đưa hàm so sánh không nhất quán vào sort (kết quả không xác định).
+  const branchIds   = shuffle(BRANCHES, rng).slice(0, numBranches);
 
   return {
     name, price,

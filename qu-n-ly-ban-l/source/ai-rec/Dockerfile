@@ -29,7 +29,19 @@ RUN pip install --no-cache-dir --upgrade pip && \
 # Copy toàn bộ mã nguồn của dự án
 COPY api/ ./api/
 COPY models/ ./models/
+# data_source/ chứa tầng đọc warehouse ClickHouse. Thiếu dòng này thì image
+# build thành công nhưng container chết ngay lúc import — lỗi chỉ lộ ra lúc chạy.
+COPY data_source/ ./data_source/
 COPY config.py main.py ./
+
+# Tạo sẵn hai thư mục là điểm gắn volume, TRƯỚC khi chown.
+#
+# Docker chỉ sao chép quyền sở hữu từ image sang volume lúc volume còn RỖNG.
+# Thư mục chưa tồn tại trong image thì Docker tự tạo và gán cho root, còn tiến
+# trình chạy bằng appuser -> ghi model ra đĩa báo "Permission denied". Lỗi đó
+# không làm chết service (bản trong bộ nhớ vẫn dùng được) nên rất dễ bỏ sót:
+# nó chỉ hiện ra ở lần khởi động sau, khi không có gì để nạp lại.
+RUN mkdir -p /app/output/cf /app/data/raw
 
 # Phân quyền cho appuser trên toàn bộ thư mục /app
 RUN chown -R appuser:appgroup /app

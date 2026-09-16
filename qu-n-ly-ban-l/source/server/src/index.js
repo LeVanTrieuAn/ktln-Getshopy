@@ -418,8 +418,14 @@ app.get('/api/analytics/orders', async (req, res) => {
 app.get('/api/alerts/active', authMiddleware, async (req, res) => {
   try {
     // P-06: Column projection — ClickHouse columnar DB, SELECT * đọc thừa I/O
+    //
+    // Bảng dùng alert_id / rule_name, nhưng client đọc event_id / event_type.
+    // Đổi tên bằng AS ở đây thay vì sửa client: cột trong ClickHouse là tên do
+    // pipeline đặt, còn event_id/event_type là hợp đồng với giao diện. Trước đó
+    // query chọn thẳng event_id nên mọi request trả 500 — và AppLayout gọi
+    // /alerts/active trên MỌI trang admin, chỉ là lỗi bị nuốt trong .catch().
     const rows = await queryClickHouse(`
-      SELECT event_id, event_type, severity, message, branch_id, triggered_at, acknowledged
+      SELECT alert_id AS event_id, rule_name AS event_type, severity, message, branch_id, triggered_at, acknowledged
       FROM analytics.alert_events
       WHERE acknowledged = 0
       ORDER BY
@@ -437,7 +443,7 @@ app.get('/api/alerts/history', authMiddleware, async (req, res) => {
   try {
     // P-06: Column projection
     const rows = await queryClickHouse(`
-      SELECT event_id, event_type, severity, message, branch_id, triggered_at, acknowledged
+      SELECT alert_id AS event_id, rule_name AS event_type, severity, message, branch_id, triggered_at, acknowledged
       FROM analytics.alert_events
       ORDER BY triggered_at DESC LIMIT 100
     `);

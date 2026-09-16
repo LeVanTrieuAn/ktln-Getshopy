@@ -50,3 +50,7 @@ data-platform-poc/*.json
 Thumbs.db
 .idea/
 .vscode/
+
+# Bản sao lưu database — dữ liệu thật, không thuộc về git
+backups/
+*.dump

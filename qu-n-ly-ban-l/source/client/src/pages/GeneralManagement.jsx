@@ -47,7 +47,15 @@ export default function GeneralManagement() {
   const [loading, setLoading] = useState(false);
   
   const [branches, setBranches] = useState([]);
+  // `products` giờ là MỘT TRANG, không phải cả catalog.
   const [products, setProducts] = useState([]);
+  const [productPage, setProductPage] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [productSearch, setProductSearch] = useState('');
+  // Bảng tra tên riêng cho các sản phẩm được flash sale tham chiếu. Chúng
+  // hiếm khi nằm trong trang đang xem, nên phải nạp theo id.
+  const [productNames, setProductNames] = useState({});
+  // Danh sách cho ô chọn sản phẩm trong form flash sale — nạp theo từ khoá.
+  const [productOptions, setProductOptions] = useState([]);
   const [categories, setCategories] = useState([]);
   const [flashSales, setFlashSales] = useState([]);
   const [brands, setBrands] = useState([]);
@@ -91,19 +99,30 @@ export default function GeneralManagement() {
     setModalOpen(true);
   };
 
+  // Nạp một trang sản phẩm từ máy chủ. Mọi thao tác lọc/phân trang đều đi
+  // qua đây — không lọc phía client vì client chỉ giữ 20 dòng.
+  const loadProducts = useCallback(async (page = 1, pageSize = 20, search = '') => {
+    try {
+      const res = await api.b2b.getProducts({ page, limit: pageSize, search });
+      setProducts(res.data || []);
+      setProductPage({ current: res.page || page, pageSize, total: res.total || 0 });
+    } catch (e) { console.error(e); }
+  }, []);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [br, pr, cat, fs, brds, cust] = await Promise.all([
         api.b2b.getBranches(),
-        api.b2b.getProducts ? api.b2b.getProducts() : api.b2c.getProducts('ALL'),
+        api.b2b.getProducts({ page: 1, limit: 20 }),
         api.b2c.getCategories(),
         api.b2b.getFlashSales ? api.b2b.getFlashSales() : fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/b2b/flash-sales`).then(r => r.json()),
         api.b2b.getBrands ? api.b2b.getBrands() : api.b2c.getBrands(),
         api.b2b.getCustomers ? api.b2b.getCustomers() : Promise.resolve([])
       ]);
       setBranches(br);
-      setProducts(pr);
+      setProducts(pr.data || []);
+      setProductPage(pp => ({ ...pp, current: 1, total: pr.total || 0 }));
       setCategories(cat);
       setFlashSales(fs);
       setBrands(brds);
@@ -116,6 +135,21 @@ export default function GeneralManagement() {
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Flash sale trỏ tới sản phẩm bất kỳ trong 600.000 cái; trang đang xem chỉ
+  // có 20. Nạp riêng đúng những id được tham chiếu để cột "Sản phẩm" không
+  // hiện dấu gạch ngang.
+  useEffect(() => {
+    const ids = [...new Set(flashSales.map(f => f.product_id).filter(Boolean))];
+    const missing = ids.filter(id => !(id in productNames));
+    if (missing.length === 0) return;
+    api.b2b.getProductsByIds(missing)
+      .then(res => setProductNames(prev => ({
+        ...prev,
+        ...Object.fromEntries((res.data || []).map(p => [p.id, p.name])),
+      })))
+      .catch(console.error);
+  }, [flashSales, productNames]);
 
   // --- Modal Handling ---
   const openModal = (item = null) => {
@@ -328,7 +362,7 @@ export default function GeneralManagement() {
     { title: 'ID', dataIndex: 'id', key: 'id' },
     { title: 'Tên chương trình', dataIndex: 'title', key: 'title' },
     { title: 'Danh mục', dataIndex: 'category_id', key: 'category_id', render: (id) => categories.find(c => c.id === id)?.name || '-' },
-    { title: 'Sản phẩm', dataIndex: 'product_id', key: 'product_id', render: (id) => products.find(p => p.id === id)?.name || '-' },
+    { title: 'Sản phẩm', dataIndex: 'product_id', key: 'product_id', render: (id) => productNames[id] || products.find(p => p.id === id)?.name || (id ? `#${id}` : '-') },
     { title: 'Giảm giá', dataIndex: 'discount_percent', key: 'discount_percent', render: (pct) => pct ? `${pct}%` : '-' },
     { title: 'Bắt đầu', dataIndex: 'start_time', key: 'start_time', render: (t) => dayjs(t).format('DD/MM/YYYY HH:mm') },
     { title: 'Kết thúc', dataIndex: 'end_time', key: 'end_time', render: (t) => dayjs(t).format('DD/MM/YYYY HH:mm') },
@@ -386,7 +420,29 @@ export default function GeneralManagement() {
         { key: '1', label: 'Chi nhánh', children: <Table dataSource={branches} columns={branchColumns} rowKey="id" loading={loading} /> },
         { key: '4', label: 'Thương hiệu', children: <Table dataSource={brands} columns={brandColumns} rowKey="id" loading={loading} /> },
         { key: '5', label: 'Khách hàng', children: <Table dataSource={customers} columns={customerColumns} rowKey="id" loading={loading} /> },
-        { key: '2', label: 'Sản phẩm', children: <Table dataSource={products} columns={productColumns} rowKey="id" loading={loading} /> },
+        { key: '2', label: 'Sản phẩm', children: (
+          <>
+            <Input.Search
+              allowClear
+              placeholder="Tìm theo tên sản phẩm…"
+              // Tìm ở MÁY CHỦ. Lọc phía client vô nghĩa khi client chỉ giữ 20 dòng.
+              onSearch={(v) => { setProductSearch(v); loadProducts(1, productPage.pageSize, v); }}
+              style={{ maxWidth: 360, marginBottom: 12 }}
+            />
+            <Table
+              dataSource={products} columns={productColumns} rowKey="id" loading={loading}
+              pagination={{
+                current: productPage.current,
+                pageSize: productPage.pageSize,
+                total: productPage.total,
+                showSizeChanger: true,
+                pageSizeOptions: [20, 50, 100],
+                showTotal: (t) => `${t.toLocaleString('vi-VN')} sản phẩm`,
+                onChange: (pg, size) => loadProducts(pg, size, productSearch),
+              }}
+            />
+          </>
+        ) },
         { key: '3', label: 'Mã giảm (Flash Sale)', children: (
           <div>
             <div style={{ background: '#faf5ff', padding: 20, borderRadius: 12, marginBottom: 20, border: '1px solid #e9d5ff' }}>
@@ -598,11 +654,21 @@ export default function GeneralManagement() {
                     allowClear
                     showSearch 
                     placeholder="Chọn sản phẩm" 
-                    filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())} 
-                    options={products.map(p => ({ value: p.id, label: p.name }))} 
+                    // filterOption={false}: để MÁY CHỦ lọc. Giữ mặc định thì antd
+                    // chỉ lọc trong đám options đang có, mà đó chỉ là kết quả của
+                    // lần tìm gần nhất — người dùng gõ tiếp sẽ thấy danh sách rỗng.
+                    filterOption={false}
+                    onSearch={(kw) => {
+                      if (!kw) return;
+                      api.b2b.getProducts({ page: 1, limit: 30, search: kw })
+                        .then(r => setProductOptions((r.data || []).map(p => ({ value: p.id, label: p.name, category_id: p.category_id }))))
+                        .catch(console.error);
+                    }}
+                    notFoundContent={<span style={{ color: '#999' }}>Gõ để tìm sản phẩm</span>}
+                    options={productOptions.length ? productOptions : products.map(p => ({ value: p.id, label: p.name, category_id: p.category_id }))}
                     onChange={(val) => {
                       if (val) {
-                        const prod = products.find(p => p.id === val);
+                        const prod = [...productOptions, ...products].find(p => (p.value ?? p.id) === val);
                         if (prod && prod.category_id) {
                           formFlashSale.setFieldsValue({ category_id: prod.category_id });
                         }

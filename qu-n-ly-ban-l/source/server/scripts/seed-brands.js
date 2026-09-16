@@ -213,7 +213,9 @@ async function main() {
     return null;
   };
 
-  const randPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const { createRng } = require('./lib/rng');
+  const rng = createRng('seed-brands');
+  const randPick = (arr) => arr[Math.floor(rng() * arr.length)];
   const ALL_BRAND_IDS = NEW_BRANDS.map(b => b.id);
 
   let totalUpdated = 0;

@@ -157,21 +157,58 @@ router.delete('/brands/:id', async (req, res) => {
 });
 
 // Products
+/**
+ * Danh sách sản phẩm cho khu quản trị — CÓ PHÂN TRANG.
+ *
+ * Bản cũ trả VỀ TOÀN BỘ catalog. Khi kho còn ~50.000 sản phẩm thì nó nặng
+ * nhưng sống được; với 600.000 thì Node dựng 600.000 object rồi `.map()` tạo
+ * thêm một bản sao nữa — tràn heap và TIẾN TRÌNH CHẾT. Không phải một trang
+ * lỗi: cả máy chủ sập, mọi người dùng nhận 502 cho tới khi container khởi
+ * động lại.
+ *
+ * Trình duyệt cũng không khá hơn: antd Table và Select không render nổi
+ * 600.000 dòng. Nên phân trang ở đây là bắt buộc cả hai phía.
+ *
+ * Ba chế độ:
+ *   ?page=&limit=   phân trang cho bảng
+ *   ?search=        tìm theo tên, lọc trong SQL chứ không tải hết về rồi lọc
+ *   ?ids=1,2,3      tra đúng vài sản phẩm (bảng flash sale cần tên theo id)
+ */
 router.get('/products', async (req, res) => {
   try {
-    // Admin table/dropdowns need the full catalog, but never read description/variants
-    // (only the product detail page does) — dropping them here cuts the ~50k-row
-    // payload significantly without changing what the UI can render.
-    const products = await prisma.product.findMany({
-      where: { is_deleted: false },
-      orderBy: { id: 'desc' },
-      select: {
-        id: true, name: true, price: true, original_price: true, category_id: true,
-        brand_id: true, stock: true, rating: true, sold: true, image: true, images: true,
-        branch_ids: true, is_banner: true, is_deleted: true, created_at: true
-      }
-    });
-    res.json(products.map(p => ({ ...p, id: Number(p.id) })));
+    const page   = Math.max(1, Number(req.query.page) || 1);
+    // Trần 100: tham số do client gửi, không được để client tự quyết định
+    // nạp bao nhiêu vào bộ nhớ máy chủ.
+    const limit  = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const search = String(req.query.search || '').trim();
+
+    const where = { is_deleted: false };
+    if (search) where.name = { contains: search, mode: 'insensitive' };
+
+    if (req.query.ids) {
+      const ids = String(req.query.ids).split(',')
+        .map(x => x.trim()).filter(x => /^\d+$/.test(x)).slice(0, 200)
+        .map(x => BigInt(x));
+      if (ids.length === 0) return res.json({ data: [], total: 0, page: 1, limit });
+      where.id = { in: ids };
+    }
+
+    const select = {
+      id: true, name: true, price: true, original_price: true, category_id: true,
+      brand_id: true, stock: true, rating: true, sold: true, image: true, images: true,
+      branch_ids: true, is_banner: true, is_deleted: true, created_at: true,
+    };
+
+    const [total, products] = await Promise.all([
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where, orderBy: { id: 'desc' },
+        skip: req.query.ids ? 0 : (page - 1) * limit,
+        take: limit, select,
+      }),
+    ]);
+
+    res.json({ data: products.map(p => ({ ...p, id: Number(p.id) })), total, page, limit });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -124,7 +124,15 @@ export const api = {
     updateBrand: (id, data) => request(`/b2b/brands/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteBrand: (id) => request(`/b2b/brands/${id}`, { method: 'DELETE' }),
     
-    getProducts: () => request('/b2b/products'),
+    // Có phân trang: /b2b/products trả { data, total, page, limit }, KHÔNG phải
+    // mảng. Trả cả catalog 600.000 sản phẩm làm tràn heap của Node và treo
+    // trình duyệt — xem chú thích ở routes/b2b.js.
+    getProducts: ({ page = 1, limit = 20, search = '' } = {}) =>
+      request('/b2b/products?' + new URLSearchParams({ page, limit, ...(search ? { search } : {}) })),
+    // Tra tên vài sản phẩm theo id (bảng flash sale cần), tối đa 200 id.
+    getProductsByIds: (ids) =>
+      ids.length ? request('/b2b/products?' + new URLSearchParams({ ids: ids.join(','), limit: 100 }))
+                 : Promise.resolve({ data: [], total: 0 }),
     addProduct: (data) => request('/b2b/products', { method: 'POST', body: JSON.stringify(data) }),
     updateProduct: (id, data) => request(`/b2b/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
     deleteProduct: (id) => request(`/b2b/products/${id}`, { method: 'DELETE' }),

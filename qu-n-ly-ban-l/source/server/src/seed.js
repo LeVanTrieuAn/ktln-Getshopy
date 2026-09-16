@@ -2,6 +2,11 @@ const { PrismaClient } = require('@prisma/client');
 const fs = require('fs/promises');
 const path = require('path');
 
+// Mốc thời gian cố định cho dữ liệu seed — `new Date()` khiến mỗi lần seed ra
+// một mốc khác, flash sale lệch và biểu đồ theo thời gian không so sánh được
+// giữa hai lần chạy. Xem scripts/lib/rng.js.
+const { seedBaseDate } = require('../scripts/lib/rng');
+
 const prisma = new PrismaClient();
 const dbPath = path.join(__dirname, '../db.json');
 
@@ -140,11 +145,22 @@ async function main() {
     for (const fsItem of data.flash_sales) {
       const existing = await prisma.flashSale.findFirst({ where: { title: fsItem.title } });
       if (!existing) {
+        // db.json ghi end_time là một mốc cố định đã trôi qua, nên mọi flash
+        // sale sinh ra đều có end_time TRƯỚC start_time — luôn hết hạn, và
+        // trang chủ không bao giờ hiện được mục Flash Sale. Không có lỗi nào
+        // báo ra: route chỉ lặng lẽ trả null.
+        // Mốc trong db.json vô lý thì lấy một năm kể từ start.
+        const start = seedBaseDate();
+        const declared = new Date(fsItem.end_time);
+        const end = declared > start
+          ? declared
+          : new Date(start.getTime() + 365 * 24 * 60 * 60 * 1000);
+
         await prisma.flashSale.create({
           data: {
             title: fsItem.title,
-            start_time: new Date(),
-            end_time: new Date(fsItem.end_time),
+            start_time: start,
+            end_time: end,
             discount_percent: fsItem.discount_percent || 50,
           }
         });

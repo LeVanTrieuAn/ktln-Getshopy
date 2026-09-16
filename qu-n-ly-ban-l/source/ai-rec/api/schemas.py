@@ -30,3 +30,11 @@ class HealthResponse(BaseModel):
     products: int = Field(..., description="Tổng số sản phẩm trong mô hình")
     interactions: int = Field(..., description="Tổng số tương tác giao dịch")
     version: str = Field(..., example="0.1.0")
+    # ── Thông tin vòng đời model ────────────────────────────────────────
+    # Thêm ở cuối và đều có giá trị mặc định: bên gọi cũ (server Node) đọc theo
+    # tên trường nên thêm trường mới không làm hỏng gì.
+    model_version: int = Field(0, description="Số thứ tự bản train, tăng sau mỗi lần swap")
+    trained_at: str | None = Field(None, description="Thời điểm train xong (UTC)")
+    data_source: str | None = Field(None, description="clickhouse | csv | disk")
+    cached_customers: int = Field(0, description="Số khách đã có gợi ý tính sẵn")
+    last_error: str | None = Field(None, description="Lỗi của lần train gần nhất, nếu có")

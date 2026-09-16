@@ -15,7 +15,7 @@ from api.schemas import (
     HealthResponse,
 )
 from api.service import CFModelService
-from config import DEFAULT_TOP_K
+from config import DEFAULT_TOP_K, TRAIN_INITIAL_DELAY_SECONDS, TRAIN_INTERVAL_SECONDS
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,13 +26,24 @@ logger = logging.getLogger("recommendation_api")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Lifespan context manager: Load Collaborative Filtering model into memory on startup."""
-    logger.info("Initializing Collaborative Filtering recommendation engine...")
+    """Nạp model đã lưu rồi bật vòng train nền.
+
+    initialize() chỉ đọc file trên đĩa nên trả về gần như tức thì — API phục
+    vụ được ngay. Việc lấy dữ liệu mới từ warehouse và train lại nằm hết trong
+    tác vụ nền, vì train đồng bộ ở đây sẽ giữ cổng chưa mở cho tới khi xong,
+    healthcheck của Docker hết giờ và container bị khai tử giữa chừng.
+    """
+    logger.info("Khởi động engine gợi ý...")
     service = CFModelService.get_instance()
     service.initialize()
-    logger.info("Recommendation engine startup complete and ready for inference.")
+    await service.start_background_training()
+    logger.info(
+        "Sẵn sàng. Vòng train nền chạy mỗi %ds (lần đầu sau %ds).",
+        TRAIN_INTERVAL_SECONDS, TRAIN_INITIAL_DELAY_SECONDS,
+    )
     yield
-    logger.info("Shutting down Recommendation API service.")
+    await service.stop_background_training()
+    logger.info("Đã dừng dịch vụ gợi ý.")
 
 
 app = FastAPI(

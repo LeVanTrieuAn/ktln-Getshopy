@@ -131,5 +131,11 @@ CREATE TABLE IF NOT EXISTS analytics.user_events
 ENGINE = MergeTree()
 PARTITION BY toYYYYMM(event_time)
 ORDER BY (event_type, session_id, event_time)
-TTL event_time + INTERVAL 90 DAY   -- Tự dọn dữ liệu cũ hơn 90 ngày
+-- toDateTime() là bắt buộc: ClickHouse chỉ nhận DateTime hoặc Date trong biểu
+-- thức TTL, còn event_time là DateTime64(3). Thiếu ép kiểu thì CREATE TABLE
+-- ném BAD_TTL_EXPRESSION và BẢNG KHÔNG BAO GIỜ ĐƯỢC TẠO — mọi endpoint
+-- Behavior Analytics trả 500 "Unknown table expression identifier".
+-- Lỗi nằm im vì file này chạy qua /docker-entrypoint-initdb.d, nơi không ai
+-- đọc log trừ khi đi tìm.
+TTL toDateTime(event_time) + INTERVAL 90 DAY   -- tự dọn dữ liệu cũ hơn 90 ngày
 SETTINGS index_granularity = 8192;

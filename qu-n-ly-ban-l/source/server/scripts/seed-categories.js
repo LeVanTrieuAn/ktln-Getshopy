@@ -102,7 +102,9 @@ const OLD_TO_NEW_MAP = {
 };
 
 const ALL_NEW_CHILD_IDS = CHILD_CATEGORIES.map(c => c.id);
-const randPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const { createRng } = require('./lib/rng');
+const rng = createRng('seed-categories');
+const randPick = (arr) => arr[Math.floor(rng() * arr.length)];
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN
