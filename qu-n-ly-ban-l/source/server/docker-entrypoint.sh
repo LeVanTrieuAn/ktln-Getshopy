@@ -32,7 +32,7 @@ until ./node_modules/.bin/prisma db push --skip-generate; do
 done
 
 echo "Seeding baseline application data..."
-# Chỉ seed nếu chưa có dữ liệu (kiểm tra bảng User) — tránh duplicate và tăng tốc restart
+# Chá»‰ seed náº¿u chÆ°a cÃ³ dá»¯ liá»‡u (kiá»ƒm tra báº£ng User) â€” trÃ¡nh duplicate vÃ  tÄƒng tá»‘c restart
 USER_COUNT=$(node -e "
   const { PrismaClient } = require('@prisma/client');
   const p = new PrismaClient();
@@ -40,9 +40,9 @@ USER_COUNT=$(node -e "
 " 2>/dev/null || echo "0")
 
 if [ "$USER_COUNT" = "0" ]; then
-  echo "══════════════════════════════════════════════════════════"
-  echo "  No existing data found — running FULL seed pipeline..."
-  echo "══════════════════════════════════════════════════════════"
+  echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
+  echo "  No existing data found â€” running FULL seed pipeline..."
+  echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 
   # Step 1: Baseline seed (users, branches, basic categories/brands from db.json)
   echo ""
@@ -65,11 +65,11 @@ if [ "$USER_COUNT" = "0" ]; then
   node scripts/fill-600k.js
 
   echo ""
-  echo "══════════════════════════════════════════════════════════"
-  echo "  ✅ Full seed pipeline completed!"
-  echo "══════════════════════════════════════════════════════════"
+  echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
+  echo "  âœ… Full seed pipeline completed!"
+  echo "â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•"
 else
-  echo "Data already seeded ($USER_COUNT users found) — skipping seed."
+  echo "Data already seeded ($USER_COUNT users found) â€” skipping seed."
 fi
 
 exec "$@"

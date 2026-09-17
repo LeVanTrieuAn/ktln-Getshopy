@@ -251,3 +251,8 @@ p {
   height: 300vh;              /* 100vh hero + 200vh GSAP pin scroll budget */
   overflow-anchor: none;      /* prevent scroll-anchor shift */
 }
+
+/* Override Ant Design Spinner Color to Sync Theme */
+.ant-spin-dot-item {
+  background-color: var(--text-main) !important;
+}

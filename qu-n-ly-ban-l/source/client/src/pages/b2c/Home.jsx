@@ -33,12 +33,7 @@ import fbxTablet  from '../../assets/Ipad+Pro(2024).fbx';
 import fbxAdapter from '../../assets/power_adapterr.fbx';
 import fbxWatch   from '../../assets/smartwatch.fbx';
 
-// Pre-generated PNG snapshots (chạy: node scripts/snapshot-fbx.cjs để tạo file này)
-import snapPhone   from '../../assets/snapshot_phone.png';
-import snapLaptop  from '../../assets/snapshot_laptop.png';
-import snapTablet  from '../../assets/snapshot_tablet.png';
-import snapAdapter from '../../assets/snapshot_adapter.png';
-import snapWatch   from '../../assets/snapshot_watch.png';
+
 
 // ─── Preload all FBX assets — start fetching immediately in background ───────
 preloadFBX(fbxPhone);
@@ -56,7 +51,7 @@ const CATEGORY_CARDS = [
     linkText: 'Khám phá danh mục →',
     image: '/images/commerce/cat_phone.jpg',
     fbxModel: fbxPhone,
-    snapshotImage: snapPhone,
+
     type: 'category',
     categoryKey: 'cat-phone'
   },
@@ -67,7 +62,7 @@ const CATEGORY_CARDS = [
     linkText: 'Khám phá danh mục →',
     image: '/images/commerce/cat_laptop.jpg',
     fbxModel: fbxLaptop,
-    snapshotImage: snapLaptop,
+
     type: 'category',
     categoryKey: 'cat-laptop'
   },
@@ -78,7 +73,7 @@ const CATEGORY_CARDS = [
     linkText: 'Khám phá danh mục →',
     image: '/images/commerce/cat_tablet.jpg',
     fbxModel: fbxTablet,
-    snapshotImage: snapTablet,
+
     type: 'category',
     categoryKey: 'cat-tablet'
   },
@@ -89,7 +84,7 @@ const CATEGORY_CARDS = [
     linkText: 'Khám phá danh mục →',
     image: '/images/commerce/cat_phone_case.jpg',
     fbxModel: fbxAdapter,
-    snapshotImage: snapAdapter,
+
     initialRotation: [0, Math.PI / 2, 0], // Mặt trước có pin
     type: 'category',
     categoryKey: 'cat-mobile-acc'
@@ -101,7 +96,7 @@ const CATEGORY_CARDS = [
     linkText: 'Khám phá danh mục →',
     image: '/images/commerce/cat_smartwatch.jpg',
     fbxModel: fbxWatch,
-    snapshotImage: snapWatch,
+
     initialRotation: [-Math.PI / 2, 0, 0], // FBX Z-up → Y-up correction
     type: 'category',
     categoryKey: 'cat-watch'
@@ -600,7 +595,7 @@ export default function Home() {
                   <Suspense fallback={null}>
                     <Category3DModel
                       fbxUrl={cat.fbxModel}
-                      snapshotImage={cat.snapshotImage}
+
                       isDark={isDark}
                       isHovered={hoveredCard === cat.id}
                       height={220}

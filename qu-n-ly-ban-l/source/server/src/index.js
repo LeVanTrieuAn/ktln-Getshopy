@@ -33,6 +33,33 @@ const JWT_SECRET = process.env.JWT_SECRET || 'istore_secret';
 
 app.use(cors());
 app.use(morgan('dev'));
+
+// ─── AI PROXY (MUST be before express.json() — proxy needs raw body stream) ──
+const { createProxyMiddleware } = require('http-proxy-middleware');
+const AI_BOT_URL = process.env.AI_BOT_URL || 'http://localhost:3001';
+
+const aiProxy = createProxyMiddleware({
+  target: AI_BOT_URL,
+  changeOrigin: true,
+  timeout: 120000,       // 2 phút — LLM cold start có thể lâu
+  proxyTimeout: 120000,
+  onError: (err, req, res) => {
+    console.error('[AI Proxy] Error:', err.message);
+    if (!res.headersSent) {
+      res.status(502).json({
+        error: 'AI Bot service unavailable',
+        text: 'Dạ hệ thống AI đang bảo trì, anh/chị vui lòng thử lại sau ít phút nhé ạ!',
+      });
+    }
+  },
+});
+
+// Forward AI paths BEFORE body parser — use app.all to preserve full path
+app.all('/api/b2c/chat', aiProxy);
+app.all('/api/ai/smart-search', aiProxy);
+app.all('/api/b2c/visual-search', aiProxy);
+app.all('/api/ai/smart-search-image', aiProxy);
+
 app.use(express.json());
 
 // ─── RATE LIMITING ────────────────────────────────────────────
@@ -827,32 +854,9 @@ app.post('/api/b2c/checkout', async (req, res) => {
   }
 });
 
-// ─── AI SERVICES (tách thành container riêng: ai-bot) ────────────────────────
-// Proxy tất cả request AI (chat, search) sang container ai-bot
-const { createProxyMiddleware } = require('http-proxy-middleware');
-const AI_BOT_URL = process.env.AI_BOT_URL || 'http://localhost:3001';
-
-const aiProxy = createProxyMiddleware({
-  target: AI_BOT_URL,
-  changeOrigin: true,
-  timeout: 120000,       // 2 phút — LLM cold start có thể lâu
-  proxyTimeout: 120000,
-  onError: (err, req, res) => {
-    console.error('[AI Proxy] Error:', err.message);
-    if (!res.headersSent) {
-      res.status(502).json({
-        error: 'AI Bot service unavailable',
-        text: 'Dạ hệ thống AI đang bảo trì, anh/chị vui lòng thử lại sau ít phút nhé ạ!',
-      });
-    }
-  },
-});
-
-// Forward các path AI sang container ai-bot
-app.use('/api/b2c/chat', aiProxy);
-app.use('/api/ai/smart-search', aiProxy);
-app.use('/api/b2c/visual-search', aiProxy);
-app.use('/api/ai/smart-search-image', aiProxy);
+// ─── AI SERVICES ─────────────────────────────────────────────────────────────
+// AI proxy đã được đăng ký ở đầu file (trước express.json()) để tránh body bị consume
+// Xem phần "AI PROXY" ở trên dòng app.use(express.json())
 
 // Recommendation vẫn ở server (gọi ai-rec container qua HTTP trong RecommendationService)
 const recommendationRouter = require('./routes/recommendation');

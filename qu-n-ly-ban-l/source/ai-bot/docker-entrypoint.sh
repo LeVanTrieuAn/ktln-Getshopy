@@ -7,7 +7,7 @@ set -eu
 : "${POSTGRES_USER:=getshopy}"
 : "${POSTGRES_PASSWORD:=getshopy_dev_password}"
 
-# Build DATABASE_URL nếu chưa có
+# Build DATABASE_URL náº¿u chÆ°a cÃ³
 if [ -z "${DATABASE_URL:-}" ]; then
   DATABASE_URL="postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?schema=public"
   export DATABASE_URL
@@ -18,7 +18,7 @@ if [ -z "${DIRECT_URL:-}" ]; then
   export DIRECT_URL
 fi
 
-# Chờ PostgreSQL sẵn sàng (không push schema — server container đã làm)
+# Chá» PostgreSQL sáºµn sÃ ng (khÃ´ng push schema â€” server container Ä‘Ã£ lÃ m)
 echo "Waiting for PostgreSQL to be ready..."
 attempt=0
 until ./node_modules/.bin/prisma db pull --force 2>/dev/null || [ "$attempt" -ge 10 ]; do
@@ -27,5 +27,5 @@ until ./node_modules/.bin/prisma db pull --force 2>/dev/null || [ "$attempt" -ge
   sleep 2
 done
 
-echo "✅ AI Bot starting..."
+echo "âœ… AI Bot starting..."
 exec "$@"
