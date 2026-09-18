@@ -140,9 +140,9 @@ function preClassify(message) {
     return { intent: 'SEARCH_PRODUCT', score: 0.92, source: 'rule' };
   }
 
-  // ── Hỏi có sản phẩm không / tìm sản phẩm cụ thể ─────────────────────────
-  if (/co\s+.{2,30}\s+(khong|nao|gì)/.test(norm) ||
-      /(tim|can mua|muon mua|dang can|can tim|cho minh|ban co|shop co|shop ban|cho xem|minh xem).{2,40}(khong|duoc khong|ko|k\b|iphone|samsung|dien thoai|laptop|may tinh|tai nghe|airpods|tablet|dong ho|smartphone)/.test(norm)) {
+  // ── "tìm X" standalone — fix: .{0,40} thay vì .{2,40} để bắt "tìm iPhone" (1 space) ─
+  if (/^tim\s+(iphone|samsung|xiaomi|oppo|vivo|realme|laptop|may tinh|tai nghe|airpods|dien thoai|smartphone|tablet|dong ho|loa|apple|sony|logitech|anker|dell|hp|asus|lenovo)/.test(norm) ||
+      /(tim|can mua|muon mua|dang can|can tim|cho minh|ban co|shop co|shop ban|cho xem|minh xem).{0,40}(khong|duoc khong|ko|k\b|iphone|samsung|dien thoai|laptop|may tinh|tai nghe|airpods|tablet|dong ho|smartphone)/.test(norm)) {
     return { intent: 'SEARCH_PRODUCT', score: 0.88, source: 'rule' };
   }
 

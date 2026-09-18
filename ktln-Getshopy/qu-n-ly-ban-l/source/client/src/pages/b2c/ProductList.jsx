@@ -351,7 +351,7 @@ export default function ProductList() {
   // Filters state
   const [brands, setBrands] = useState([]);
   const [brandSearch, setBrandSearch] = useState('');
-  const [minPrice, setMinPrice] = useState(100000);
+  const [minPrice, setMinPrice] = useState(0);
   const [maxPrice, setMaxPrice] = useState(50000000);
   const [appliedMinPrice, setAppliedMinPrice] = useState(null);
   const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);

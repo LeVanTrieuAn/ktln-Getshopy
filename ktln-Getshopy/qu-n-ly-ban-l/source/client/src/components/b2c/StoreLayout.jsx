@@ -527,6 +527,12 @@ export default function StoreLayout() {
                   value={searchKeyword}
                   onChange={e => { setSearchKeyword(e.target.value); setShowSearchDropdown(true); }}
                   onFocus={() => searchKeyword && setShowSearchDropdown(true)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter' && searchKeyword.trim()) {
+                      navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
+                      setShowSearchDropdown(false);
+                    }
+                  }}
                   style={{
                     flex: 1, border: 'none', background: 'transparent', outline: 'none',
                     fontSize: 13, color: isDark ? '#ffffff' : '#18181b',

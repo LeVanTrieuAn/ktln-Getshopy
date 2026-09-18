@@ -156,16 +156,16 @@ async function buildContext(intent, message, history = []) {
       case 'ASK_SPECS':
       case 'ASK_ACCESSORIES':
       case 'SEARCH_CATEGORY': {
-        // Bước 1: Trích ngân sách nếu có (ưu tiên effectiveMessage)
-        const budgetMatch = effectiveMessage.match(/(\d+[\d.,]*)\s*(triệu|tr\b|củ|k\b|nghìn)/i);
+        // Bước 1: Trích ngân sách nếu có — chạy trên norm để handle cả có dấu lẫn không dấu
+        const budgetMatch = norm.match(/(\d+[\d.,]*)\s*(trieu|tr\b|cu\b|k\b|nghin)/);
         let priceFilter = {};
         if (budgetMatch) {
           const unit = budgetMatch[2].toLowerCase();
           const val  = parseFloat(budgetMatch[1].replace(',', '.'));
-          const vnd  = (unit === 'k' || unit === 'nghìn') ? val * 1_000 : val * 1_000_000;
-          priceFilter = /duoi|dưới/.test(norm)
-            ? { lte: vnd }
-            : { lte: vnd * 1.3, gte: vnd * 0.7 };
+          const vnd  = (unit === 'k' || unit === 'nghin') ? val * 1_000 : val * 1_000_000;
+          priceFilter = /duoi/.test(norm)
+            ? { lte: Math.round(vnd) }
+            : { lte: Math.round(vnd * 1.3), gte: Math.round(vnd * 0.7) };
         }
 
         // Bước 2: Detect brand từ KnowledgeCache (67 brands + aliases)
@@ -240,24 +240,41 @@ async function buildContext(intent, message, history = []) {
           });
         }
 
-        // Fallback cuối: nếu brand/category filter quá chặt → bỏ brand
+        // Fallback 2: brand quá chặt → bỏ brand, giữ category + price
         if (products.length === 0 && detectedBrandId) {
-          delete baseWhere.brand_id;
+          const withoutBrand = { ...baseWhere };
+          delete withoutBrand.brand_id;
           products = await prisma.product.findMany({
-            where: baseWhere,
+            where: withoutBrand,
             orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
             take: 4,
           });
         }
 
-        // Fallback cuối cùng: top bán chạy toàn cửa hàng
-        if (products.length === 0) {
+        // Fallback 3: price quá chặt → nới ±30%, giữ category
+        if (products.length === 0 && Object.keys(priceFilter).length > 0) {
+          const relaxed = { ...baseWhere };
+          delete relaxed.brand_id;
+          if (priceFilter.lte) relaxed.price = { lte: priceFilter.lte * 1.3, gte: priceFilter.lte * 0.4 };
+          else if (priceFilter.gte) relaxed.price = { gte: priceFilter.gte * 0.7 };
           products = await prisma.product.findMany({
-            where: { is_deleted: false, stock: { gt: 0 } },
+            where: relaxed,
+            orderBy: [{ price: 'asc' }],
+            take: 4,
+          });
+        }
+
+        // Fallback 4: không tìm được gì → top bán chạy TRONG CÙNG CATEGORY
+        if (products.length === 0) {
+          const catFallback = detectedCatId
+            ? { ...categoryFilter, is_deleted: false, stock: { gt: 0 } }
+            : { is_deleted: false, stock: { gt: 0 } };
+          products = await prisma.product.findMany({
+            where: catFallback,
             orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
             take: 4,
           });
-          link = '/shop';
+          link = detectedCatId ? `/shop?category=${detectedCatId}` : '/shop';
         } else {
           link = detectedCatId ? `/shop?category=${detectedCatId}` : (products[0] ? `/product/${products[0].id}` : '/shop');
         }

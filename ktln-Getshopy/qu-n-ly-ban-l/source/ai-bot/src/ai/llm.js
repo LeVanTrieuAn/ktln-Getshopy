@@ -128,8 +128,9 @@ async function generateChatResponse({ intent, context, message, history = [] }) 
     { role: 'user',   content: context.effectiveMessage || message },
   ];
 
-  // Retry tối đa 2 lần — xử lý model cold start (503)
-  const MAX_RETRIES = 2;
+  // Retry tối đa 1 lần — failfast để tránh user chờ quá lâu
+  // Nếu LLM không trả lời trong 20s → fallback handler ngay
+  const MAX_RETRIES = 1;
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
@@ -145,18 +146,18 @@ async function generateChatResponse({ intent, context, message, history = [] }) 
           model:       HF_LLM_MODEL,
           messages,
           temperature: 0.7,
-          max_tokens:  400,
+          max_tokens:  150,   // Giảm từ 400 → 150: 2-3 câu ngắn gọn, sinh nhanh hơn
           top_p:       0.9,
           stream:      false,
         }),
-        signal: AbortSignal.timeout(60_000), // 60s — đủ cho cold start
+        signal: AbortSignal.timeout(20_000), // 20s — failfast, route có race timeout bao ngoài
       });
 
-      // Model đang warm-up (503) — chờ và retry
+      // Model đang warm-up (503) — báo log, không chờ lâu
       if (response.status === 503) {
         const errData = await response.json().catch(() => ({}));
-        const waitMs  = Math.min((errData.estimated_time || 20) * 1000, 40_000);
-        console.log(`[LLM] Model đang load, chờ ${Math.round(waitMs / 1000)}s...`);
+        const waitMs  = Math.min((errData.estimated_time || 10) * 1000, 8_000); // tối đa 8s
+        console.log(`[LLM] Model đang load, chờ ${Math.round(waitMs / 1000)}s (capped 8s)...`);
         if (attempt < MAX_RETRIES) {
           await sleep(waitMs);
           continue;

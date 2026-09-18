@@ -125,8 +125,9 @@ export default function AIChatbot() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState([
-    { sender: 'ai', text: 'Xin chào! Tôi là Trợ lý ảo Getshopy\nBạn có thể **nhắn tin** hoặc **gửi ảnh sản phẩm** để tôi tìm sản phẩm tương tự trong cửa hàng nhé!' }
+    { sender: 'ai', text: 'Dạ Getshopy xin chào ạ! 👋 Em có thể giúp anh/chị tìm sản phẩm, tư vấn giá, hoặc hỗ trợ đơn hàng. Hỏi ngay nhé! 😊' },
   ]);
+
   const [inputValue, setInputValue] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -155,12 +156,19 @@ export default function AIChatbot() {
     setMessages(prev => [...prev, { sender: 'user', text: userMsg }]);
     setInputValue('');
     setIsTyping(true);
+
+    // AbortController: tự động hủy request sau 28s
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 28_000);
+
     try {
       const response = await fetch(`${API_BASE}/b2c/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userMsg, history: messages.slice(-5) }),
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
       if (!response.ok) throw new Error('API Error');
       const data = await response.json();
       setMessages(prev => [...prev, {
@@ -169,10 +177,15 @@ export default function AIChatbot() {
         link: data.link,
         products: data.products || [],
       }]);
-    } catch {
+    } catch (err) {
+      clearTimeout(timeoutId);
+      const isTimeout = err.name === 'AbortError';
       setMessages(prev => [...prev, {
         sender: 'ai',
-        text: 'Xin lỗi, Trợ lý AI đang bận. Vui lòng thử lại sau giây lát.',
+        text: isTimeout
+          ? 'Dạ AI đang bận xử lý, phản hồi hơi chậm ạ! Anh/chị thử lại sau vài giây nhé. Hoặc tìm kiếm trực tiếp trên trang Shop! 🛍️'
+          : 'Xin lỗi, Trợ lý AI đang gặp sự cố. Vui lòng thử lại sau giây lát.',
+        link: isTimeout ? '/shop' : null,
       }]);
     } finally {
       setIsTyping(false);
