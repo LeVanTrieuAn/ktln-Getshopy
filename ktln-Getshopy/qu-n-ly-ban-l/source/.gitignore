@@ -49,6 +49,36 @@ data/clickhouse/
 *.local
 .cache/
 
+# ── Debug / Test / Diagnostic scripts (không commit vào repo) ────
+# Các file này thường chứa secret hardcode hoặc chỉ dùng một lần
+server/scripts/debug-*.js
+server/scripts/test-*.js
+server/scripts/diag-*.js
+
+# ── One-off data scripts (seed, migrate, fix, fill) ──────────────
+# Giữ lại những script quan trọng (seed-products-inventory.js, simulate-payment.sh)
+# bằng cách thêm exception (!) bên dưới nếu cần
+server/scripts/fix-*.js
+server/scripts/fill-*.js
+server/scripts/mega-*.js
+server/scripts/migrate-brands-*.js
+server/scripts/migrate-product-*.js
+server/scripts/migrate-to-local.js
+server/scripts/crawl-*.js
+server/scripts/analyze-*.js
+server/scripts/rename-*.js
+server/scripts/replace-*.js
+server/scripts/scale-*.js
+server/scripts/update-*.js
+server/scripts/pro-rename.js
+server/scripts/import-real-only.js
+server/scripts/merge-nothing.js
+server/scripts/reassign-*.js
+server/scripts/set-branch-*.js
+server/scripts/final-*.js
+server/scripts/ensure-*.js
+server/scripts/delete-*.js
+
 # ── AI / ML Models & Datasets ────────────────────────────────────
 ai-rec/data/
 ai-rec/output/
