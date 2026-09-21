@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Row, Col, Card, Typography, Menu, Divider, Tag, Steps, Button, Input, message, Spin, Modal, Form, Empty } from 'antd';
-import { SketchOutlined, CrownOutlined, StarOutlined, TrophyOutlined, GiftOutlined } from '@ant-design/icons';
+import { SketchOutlined, CrownOutlined, StarOutlined, TrophyOutlined, GiftOutlined, GoogleOutlined, LockOutlined, CloseOutlined, SafetyCertificateFilled } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
@@ -9,14 +9,18 @@ import OrderTrackingMap from '../../components/b2c/OrderTrackingMap';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import ReactDOMServer from 'react-dom/server';
+import { EnvironmentFilled } from '@ant-design/icons';
 
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25,41],
-    iconAnchor: [12,41]
+const DefaultIcon = L.divIcon({
+  html: ReactDOMServer.renderToString(
+    <div style={{ color: '#ef4444', fontSize: '28px', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+      <EnvironmentFilled />
+    </div>
+  ),
+  className: 'custom-leaflet-icon',
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 
@@ -25,18 +29,21 @@ const { Title, Text } = Typography;
 const MapResizer = () => {
   const map = useMap();
   useEffect(() => {
-    const timer1 = setTimeout(() => map.invalidateSize(), 100);
-    const timer2 = setTimeout(() => map.invalidateSize(), 400);
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    // Invalidate size periodically to ensure it catches modal animations
+    const interval = setInterval(() => {
+      map.invalidateSize();
+    }, 100);
+    setTimeout(() => {
+      clearInterval(interval);
+      map.invalidateSize();
+    }, 1500);
+    return () => clearInterval(interval);
   }, [map]);
   return null;
 };
 
 export default function Account() {
-  const { isDark, wishlist, toggleWishlist, t, b2cUser, user, b2cLogout, logout } = useApp();
+  const { isDark, wishlist, toggleWishlist, t, b2cUser, user, b2cLogout, logout, openAuthModal } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
@@ -49,6 +56,11 @@ export default function Account() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [mapPosition, setMapPosition] = useState([10.762622, 106.660172]); // Default HCMC
   const [form] = Form.useForm();
+  
+  // Password Setting State
+  const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
+  const [passwordForm] = Form.useForm();
+  const [settingPassword, setSettingPassword] = useState(false);
 
   const LocationMarker = () => {
     useMapEvents({
@@ -101,6 +113,24 @@ export default function Account() {
   const handleDeleteAddress = (id) => {
     setAddresses(addresses.filter(a => a.id !== id));
     message.success('Đã xoá địa chỉ');
+  };
+
+  const handleSetPassword = async (values) => {
+    try {
+      setSettingPassword(true);
+      const res = await api.b2c.setPassword(values.new_password);
+      if (res.success) {
+        message.success('Đã thiết lập mật khẩu thành công! Bây giờ bạn có thể đăng nhập bằng Email.');
+        setIsPasswordModalOpen(false);
+        passwordForm.resetFields();
+        // Update user state manually if possible or force reload
+        if (currentUser) currentUser.has_password = true;
+      }
+    } catch (err) {
+      message.error(err.message || 'Lỗi khi thiết lập mật khẩu');
+    } finally {
+      setSettingPassword(false);
+    }
   };
 
   // Trạng thái THANH TOÁN là trục riêng, không lẫn với trạng thái GIAO HÀNG.
@@ -527,28 +557,30 @@ export default function Account() {
                                     </tbody>
                                   </table>
 
-                                  <div style="display: flex; justify-content: flex-end;">
-                                    <table style="width: 300px;">
+                                  <table style="width: 100%; margin-top: 20px;">
                                       <tr>
-                                        <td style="padding: 8px 0; color: #71717a;">Tạm tính:</td>
-                                        <td style="padding: 8px 0; text-align: right; font-weight: bold;">${order.subTotal?.toLocaleString('vi-VN') || 0} đ</td>
+                                        <td style="width: 55%;"></td>
+                                        <td style="width: 25%; padding: 8px 0; color: #71717a; font-size: 14px;">Tạm tính:</td>
+                                        <td style="width: 20%; padding: 8px 0; text-align: right; font-weight: bold; font-size: 15px;">${order.subTotal?.toLocaleString('vi-VN') || 0} đ</td>
                                       </tr>
                                       <tr>
-                                        <td style="padding: 8px 0; color: #71717a;">Phí vận chuyển:</td>
-                                        <td style="padding: 8px 0; text-align: right; font-weight: bold;">${order.shippingFee?.toLocaleString('vi-VN') || 0} đ</td>
+                                        <td></td>
+                                        <td style="padding: 8px 0; color: #71717a; font-size: 14px;">Phí vận chuyển:</td>
+                                        <td style="padding: 8px 0; text-align: right; font-weight: bold; font-size: 15px;">${order.shippingFee?.toLocaleString('vi-VN') || 0} đ</td>
                                       </tr>
                                       ${order.discount > 0 ? `
                                       <tr>
-                                        <td style="padding: 8px 0; color: #ef4444;">Giảm giá:</td>
-                                        <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #ef4444;">-${order.discount?.toLocaleString('vi-VN')} đ</td>
+                                        <td></td>
+                                        <td style="padding: 8px 0; color: #ef4444; font-size: 14px;">Giảm giá:</td>
+                                        <td style="padding: 8px 0; text-align: right; font-weight: bold; color: #ef4444; font-size: 15px;">-${order.discount?.toLocaleString('vi-VN')} đ</td>
                                       </tr>
                                       ` : ''}
-                                      <tr style="border-top: 2px solid #18181b;">
-                                        <td style="padding: 16px 0; font-size: 16px; font-weight: bold;">TỔNG CỘNG:</td>
-                                        <td style="padding: 16px 0; text-align: right; font-size: 18px; font-weight: bold; color: #18181b;">${order.total?.toLocaleString('vi-VN') || 0} đ</td>
+                                      <tr>
+                                        <td style="border-top: 2px solid #18181b; padding-top: 16px;"></td>
+                                        <td style="border-top: 2px solid #18181b; padding-top: 16px; font-size: 16px; font-weight: bold; color: #18181b;">TỔNG CỘNG:</td>
+                                        <td style="border-top: 2px solid #18181b; padding-top: 16px; text-align: right; font-size: 22px; font-weight: 900; color: #ef4444;">${order.total?.toLocaleString('vi-VN') || 0} đ</td>
                                       </tr>
-                                    </table>
-                                  </div>
+                                  </table>
                                 </div>
                               `;
                               const opt = {
@@ -595,37 +627,169 @@ export default function Account() {
               <div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
                   <div>
-                    <Title level={3} style={{ color: isDark ? '#fff' : '#18181b', margin: 0, fontWeight: 700 }}>Hồ sơ cá nhân</Title>
+                    <Title level={3} style={{ color: isDark ? '#fff' : '#18181b', margin: 0, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 12 }}>
+                      Hồ sơ cá nhân
+                      {currentUser?.provider?.includes('google') && (
+                        <Tag color="success" style={{ margin: 0, fontSize: 13, padding: '2px 8px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          <GoogleOutlined /> Đã liên kết Google
+                        </Tag>
+                      )}
+                    </Title>
                     <div style={{ fontSize: 14, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 4 }}>Thông tin tài khoản đăng nhập của bạn</div>
                   </div>
-                  <Button 
-                    danger 
-                    onClick={handleLogout}
-                    style={{ borderRadius: 10, fontWeight: 600 }}
-                  >
-                    Đăng xuất
-                  </Button>
+                  {currentUser && (
+                    <Button 
+                      danger 
+                      onClick={handleLogout}
+                      style={{ borderRadius: 10, fontWeight: 600 }}
+                    >
+                      Đăng xuất
+                    </Button>
+                  )}
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
-                  <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
-                    <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Họ và tên</div>
-                    <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.name}</div>
+                {!currentUser ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
+                    <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 12, color: isDark ? '#fff' : '#18181b' }}>Vui lòng đăng nhập để xem hồ sơ cá nhân</div>
+                    <Button type="primary" onClick={() => openAuthModal()} style={{ background: '#18181b', borderColor: '#18181b', borderRadius: 10, fontWeight: 600, height: 40, padding: '0 24px' }}>
+                      Đăng nhập / Đăng ký
+                    </Button>
                   </div>
-                  <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
-                    <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Địa chỉ email</div>
-                    <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.email}</div>
-                  </div>
-                  <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
-                    <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Số điện thoại</div>
-                    <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.phone}</div>
-                  </div>
-                  <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
-                    <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Hạng thành viên</div>
-                    <div style={{ color: getTierStyle(mockUser.tier).color, fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                      {getTierStyle(mockUser.tier).icon} {mockUser.tier} <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 14 }}>({points} điểm)</span>
+                ) : (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
+                    <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
+                      <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Họ và tên</div>
+                      <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.name}</div>
+                    </div>
+                    <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
+                      <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Địa chỉ email</div>
+                      <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.email}</div>
+                    </div>
+                    <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
+                      <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Số điện thoại</div>
+                      <div style={{ color: isDark ? '#fff' : '#18181b', fontWeight: 600, fontSize: 16 }}>{mockUser.phone}</div>
+                    </div>
+                    <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
+                      <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Hạng thành viên</div>
+                      <div style={{ color: getTierStyle(mockUser.tier).color, fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {getTierStyle(mockUser.tier).icon} {mockUser.tier} <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 14 }}>({points} điểm)</span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+                  
+                {/* Password & Linking Section */}
+                {currentUser && (
+                  <div style={{ marginTop: 24, padding: 24, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: isDark ? '#fff' : '#18181b', marginBottom: 16 }}>Bảo mật & Liên kết</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: isDark ? '#fff' : '#18181b' }}>Đăng nhập bằng Email</div>
+                        <div style={{ fontSize: 13, color: isDark ? '#a1a1aa' : '#71717a' }}>Sử dụng mật khẩu để đăng nhập trực tiếp</div>
+                      </div>
+                      {currentUser?.has_password ? (
+                        <Tag color="success" style={{ margin: 0, padding: '4px 12px', borderRadius: 6, fontWeight: 600 }}>Đã thiết lập mật khẩu</Tag>
+                      ) : (
+                        <Button type="primary" onClick={() => setIsPasswordModalOpen(true)} style={{ background: '#18181b', borderColor: '#18181b', borderRadius: 8, fontWeight: 600 }}>
+                          Thiết lập mật khẩu
+                        </Button>
+                      )}
+                    </div>
+                    
+                    <Divider style={{ margin: '16px 0', borderColor: isDark ? '#3f3f46' : '#e4e4e7' }} />
+                    
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+                      <div>
+                        <div style={{ fontWeight: 600, color: isDark ? '#fff' : '#18181b' }}>Đăng nhập qua Google</div>
+                        <div style={{ fontSize: 13, color: isDark ? '#a1a1aa' : '#71717a' }}>Đăng nhập nhanh không cần mật khẩu</div>
+                      </div>
+                      {currentUser?.provider?.includes('google') ? (
+                        <Tag color="success" style={{ margin: 0, padding: '4px 12px', borderRadius: 6, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <GoogleOutlined /> Đã liên kết Google
+                        </Tag>
+                      ) : (
+                        <Button onClick={() => message.info('Vui lòng đăng xuất và dùng nút Google để liên kết tài khoản này')} style={{ borderRadius: 8, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <GoogleOutlined /> Liên kết Google
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                <Modal
+                  open={isPasswordModalOpen}
+                  onCancel={() => setIsPasswordModalOpen(false)}
+                  footer={null}
+                  centered
+                  width={420}
+                  closeIcon={<span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 16, marginTop: 4, marginRight: 4 }}><CloseOutlined /></span>}
+                  styles={{ 
+                    content: { 
+                      padding: 0, 
+                      borderRadius: 16, 
+                      overflow: 'hidden', 
+                      background: isDark ? '#18181b' : '#ffffff',
+                      border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`
+                    } 
+                  }}
+                >
+                  <div style={{ padding: '36px 32px 32px', background: isDark ? 'linear-gradient(180deg, rgba(39,39,42,0.4) 0%, rgba(24,24,27,0) 100%)' : 'linear-gradient(180deg, rgba(244,244,245,0.6) 0%, rgba(255,255,255,0) 100%)' }}>
+                    <div style={{ textAlign: 'center', marginBottom: 28 }}>
+                      <div style={{ width: 56, height: 56, borderRadius: '50%', background: isDark ? '#27272a' : '#f4f4f5', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px', color: isDark ? '#fff' : '#18181b', fontSize: 24, boxShadow: isDark ? '0 4px 20px rgba(0,0,0,0.2)' : '0 4px 20px rgba(0,0,0,0.05)' }}>
+                        <SafetyCertificateFilled style={{ color: isDark ? '#fff' : '#18181b' }} />
+                      </div>
+                      <div style={{ fontSize: 24, fontWeight: 700, color: isDark ? '#fff' : '#18181b', marginBottom: 8, letterSpacing: '-0.02em' }}>Thiết lập mật khẩu</div>
+                      <div style={{ fontSize: 14.5, color: isDark ? '#a1a1aa' : '#71717a', lineHeight: 1.5 }}>
+                        Tạo mật khẩu để đăng nhập trực tiếp bằng địa chỉ Email này cho những lần sau.
+                      </div>
+                    </div>
+
+                    <Form form={passwordForm} layout="vertical" onFinish={handleSetPassword} requiredMark={false}>
+                      <Form.Item 
+                        name="new_password" 
+                        label={<span style={{ fontWeight: 600, color: isDark ? '#e4e4e7' : '#3f3f46', fontSize: 14 }}>Mật khẩu mới</span>} 
+                        rules={[
+                          { required: true, message: 'Vui lòng nhập mật khẩu mới' },
+                          { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự' }
+                        ]}
+                      >
+                        <Input.Password 
+                          size="large" 
+                          placeholder="Nhập mật khẩu mới" 
+                          prefix={<LockOutlined style={{ color: isDark ? '#a1a1aa' : '#a1a1aa', marginRight: 8 }} />}
+                          style={{ borderRadius: 10, padding: '8px 12px' }} 
+                        />
+                      </Form.Item>
+                      
+                      <Form.Item 
+                        name="confirm_password" 
+                        label={<span style={{ fontWeight: 600, color: isDark ? '#e4e4e7' : '#3f3f46', fontSize: 14 }}>Xác nhận mật khẩu</span>} 
+                        dependencies={['new_password']}
+                        rules={[
+                          { required: true, message: 'Vui lòng xác nhận mật khẩu' },
+                          ({ getFieldValue }) => ({
+                            validator(_, value) {
+                              if (!value || getFieldValue('new_password') === value) {
+                                return Promise.resolve();
+                              }
+                              return Promise.reject(new Error('Hai mật khẩu không khớp!'));
+                            },
+                          }),
+                        ]}
+                      >
+                        <Input.Password 
+                          size="large" 
+                          placeholder="Nhập lại mật khẩu" 
+                          prefix={<LockOutlined style={{ color: isDark ? '#a1a1aa' : '#a1a1aa', marginRight: 8 }} />}
+                          style={{ borderRadius: 10, padding: '8px 12px' }} 
+                        />
+                      </Form.Item>
+
+                      <Button type="primary" htmlType="submit" size="large" loading={settingPassword} style={{ width: '100%', background: isDark ? '#fff' : '#18181b', color: isDark ? '#18181b' : '#fff', borderColor: isDark ? '#fff' : '#18181b', borderRadius: 10, fontWeight: 700, marginTop: 12, height: 48, fontSize: 16 }}>
+                        Lưu mật khẩu
+                      </Button>
+                    </Form>
+                  </div>
+                </Modal>
               </div>
             )}
             
@@ -724,8 +888,8 @@ export default function Account() {
                     </div>
                     <div style={{ flex: '1 1 340px' }}>
                       <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 14 }}>Ghim vị trí trên bản đồ</div>
-                      <div style={{ height: 380, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8' }}>
-                        <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+                      <div style={{ height: 380, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
+                        <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
                           <TileLayer
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

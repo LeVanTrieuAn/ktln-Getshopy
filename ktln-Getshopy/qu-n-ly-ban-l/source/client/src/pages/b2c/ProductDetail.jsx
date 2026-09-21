@@ -11,7 +11,7 @@ import {
   DashboardOutlined, SoundOutlined, EyeOutlined, GlobalOutlined,
   UnorderedListOutlined, ControlOutlined, FundOutlined, AlertOutlined,
   ThunderboltFilled, StarOutlined, AppstoreOutlined,
-  ExperimentOutlined, ClockCircleOutlined, AimOutlined,
+  ExperimentOutlined, ClockCircleOutlined, AimOutlined, LoadingOutlined
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../../services/api';
@@ -1078,11 +1078,11 @@ function SpecTable({ specs, isDark }) {
             >
               <span style={{
                 width: 34, height: 34, borderRadius: 10,
-                background: 'linear-gradient(135deg, #10b981, #047857)',
+                background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontSize: 16, flexShrink: 0,
               }}>{icon}</span>
-              <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: isDark ? '#10b981' : '#047857' }}>
+              <span style={{ flex: 1, fontSize: 15, fontWeight: 700, color: isDark ? '#fff' : '#18181b' }}>
                 {label}
               </span>
               <span style={{
@@ -1169,21 +1169,21 @@ function ProductTabs({ product, specs, highlights, description, isDark,
               padding: '18px 20px', border: 'none', cursor: 'pointer',
               background: 'transparent', position: 'relative', outline: 'none',
               fontSize: 14.5, fontWeight: isActive ? 700 : 500,
-              color: isActive ? '#10b981' : (isDark ? '#94a3b8' : '#64748b'),
+              color: isActive ? (isDark ? '#fff' : '#18181b') : (isDark ? '#94a3b8' : '#64748b'),
               transition: 'color 0.25s ease', whiteSpace: 'nowrap', flexShrink: 0,
             }}>
               <span style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 width: 26, height: 26, borderRadius: 8,
-                background: isActive ? 'rgba(16,185,129,0.12)' : 'transparent',
-                color: isActive ? '#10b981' : 'inherit', fontSize: 13,
+                background: isActive ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent',
+                color: isActive ? (isDark ? '#fff' : '#18181b') : 'inherit', fontSize: 13,
                 transition: 'all 0.25s ease',
               }}>{tab.icon}</span>
               {tab.label}
               <span style={{
                 position: 'absolute', bottom: 0, left: 16, right: 16, height: 2,
                 borderRadius: '2px 2px 0 0',
-                background: isActive ? 'linear-gradient(90deg, #10b981, #047857)' : 'transparent',
+                background: isActive ? (isDark ? '#fff' : '#18181b') : 'transparent',
                 transition: 'transform 0.3s ease, background 0.3s ease',
                 transform: isActive ? 'scaleX(1)' : 'scaleX(0)',
               }} />
@@ -1212,7 +1212,7 @@ function ProductTabs({ product, specs, highlights, description, isDark,
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <span style={{
                   width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                  background: 'linear-gradient(135deg, #10b981, #047857)',
+                  background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontSize: 16,
                 }}><AppstoreOutlined /></span>
@@ -1238,18 +1238,18 @@ function ProductTabs({ product, specs, highlights, description, isDark,
               {highlights.map((h, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '18px 22px', borderRadius: 16,
-                  background: isDark ? 'rgba(16,185,129,0.06)' : 'linear-gradient(135deg, rgba(16,185,129,0.05), rgba(4,120,87,0.04))',
-                  border: `1px solid ${isDark ? 'rgba(16,185,129,0.18)' : 'rgba(16,185,129,0.2)'}`,
+                  background: isDark ? 'rgba(255,255,255,0.04)' : '#f4f4f5',
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : '#e4e4e7'}`,
                   transition: 'transform 0.2s, box-shadow 0.2s', cursor: 'default',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(16,185,129,0.15)'; }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.08)'; }}
                 onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = ''; }}
                 >
                   <span style={{
                     width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                    background: 'linear-gradient(135deg, #10b981, #047857)',
+                    background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: 18, boxShadow: '0 4px 12px rgba(16,185,129,0.3)',
+                    color: '#fff', fontSize: 18, boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                   }}>{h.icon}</span>
                   <span style={{ fontSize: 14, color: isDark ? '#cbd5e1' : '#334155', lineHeight: 1.5, fontWeight: 500 }}>{h.text}</span>
                 </div>
@@ -1268,7 +1268,7 @@ function ProductTabs({ product, specs, highlights, description, isDark,
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
               {[
-                { icon: <SafetyCertificateOutlined />, color: '#10b981', bg: 'rgba(16,185,129,0.1)',  title: 'Bảo hành chính hãng', desc: '12–24 tháng tại hệ thống' },
+                { icon: <SafetyCertificateOutlined />, color: isDark ? '#fff' : '#18181b', bg: 'rgba(16,185,129,0.1)',  title: 'Bảo hành chính hãng', desc: '12–24 tháng tại hệ thống' },
                 { icon: <ReloadOutlined />,            color: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  title: 'Đổi trả miễn phí',   desc: '30 ngày nếu lỗi nhà sản xuất' },
                 { icon: <CarOutlined />,               color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', title: 'Giao hàng nhanh',     desc: 'Giao trong 2–4 giờ nội thành' },
                 { icon: <GiftOutlined />,              color: '#8b5cf6', bg: 'rgba(139,92,246,0.1)', title: 'Quà tặng kèm',        desc: 'Phụ kiện chính hãng, hộp đẹp' },
@@ -1314,9 +1314,9 @@ function ProductTabs({ product, specs, highlights, description, isDark,
             }}>
               <div style={{ textAlign: 'center', flexShrink: 0 }}>
                 <div style={{ fontSize: 64, fontWeight: 900, color: '#f59e0b', lineHeight: 1, textShadow: '0 2px 8px rgba(245,158,11,0.3)' }}>
-                  {(product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : (product?.rating || 5)).toFixed(1)}
+                  {product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length).toFixed(1) : '0.0'}
                 </div>
-                <Rate disabled value={product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : (product?.rating || 5)} style={{ fontSize: 18, color: '#f59e0b' }} />
+                <Rate disabled value={product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : 0} style={{ fontSize: 18, color: '#f59e0b' }} />
                 <div style={{ fontSize: 13, color: isDark ? '#78716c' : '#92400e', marginTop: 6, fontWeight: 500 }}>
                   {product.reviews?.length || 0} đánh giá
                 </div>
@@ -1357,7 +1357,7 @@ function ProductTabs({ product, specs, highlights, description, isDark,
                   <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
                     <Button type="primary" loading={submittingReview} onClick={submitReview}
                       style={{
-                        background: 'linear-gradient(135deg, #10b981, #047857)',
+                        background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
                         borderColor: 'transparent', borderRadius: 10,
                         fontWeight: 600, height: 38, paddingInline: 24,
                       }}>
@@ -1432,6 +1432,7 @@ export default function ProductDetail() {
   const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed, b2cUser, openAuthModal } = useApp();
   const navigate = useNavigate();
   const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
+  const avgRating = product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : 0;
 
   // Auto-track product view with dwell time + scroll depth
   useProductViewTracker(product);
@@ -1512,7 +1513,7 @@ export default function ProductDetail() {
     return () => { if (ws && ws.readyState === 1) ws.close(); };
   }, [id]);
 
-  if (loading) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" /></div>;
+  if (loading) return <div style={{ textAlign: 'center', marginTop: 100 }}><Spin size="large" indicator={<LoadingOutlined style={{ fontSize: 40, color: isDark ? '#fff' : '#18181b' }} spin />} /></div>;
   if (!product) return <div style={{ textAlign: 'center', marginTop: 100, color: '#fff' }}>Sản phẩm không tồn tại</div>;
 
   const activeVariant = product?.variants?.find(v => v.id === selectedVariantId);
@@ -1555,8 +1556,7 @@ export default function ProductDetail() {
   };
   const handleBuyNow = () => {
     const pToAdd = getProductToAdd();
-    addToCart(pToAdd, quantity, false);
-    toggleSelectAll(true);
+    addToCart(pToAdd, quantity, false, true);
     trackAddToCart(product, quantity);
 
     if (!b2cUser && !localStorage.getItem('b2c_token')) {
@@ -1628,7 +1628,7 @@ export default function ProductDetail() {
                 {allImages.map((img, idx) => (
                   <div key={idx} onClick={() => { setMainImage(img); if (carouselRef.current) carouselRef.current.goTo(idx); }}
                     style={{ width: 80, height: 80, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
-                      border: mainImage === img ? '2px solid #10b981' : (isDark ? '2px solid #333' : '2px solid #eee'),
+                      border: mainImage === img ? (isDark ? '2px solid #fff' : '2px solid #18181b') : (isDark ? '2px solid #333' : '2px solid #eee'),
                       padding: 8, background: isDark ? '#111' : '#fff' }}>
                     <img src={img} width={64} height={64} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="thumb"
                       onError={(e) => { e.target.onerror = null; e.target.src = getFallback(product.category_id); }} />
@@ -1646,9 +1646,9 @@ export default function ProductDetail() {
               ].map((b, i) => (
                 <div key={i} style={{
                   display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 10,
-                  background: isDark ? 'rgba(16,185,129,0.07)' : 'rgba(16,185,129,0.06)',
-                  border: isDark ? '1px solid rgba(16,185,129,0.15)' : '1px solid rgba(16,185,129,0.15)',
-                  fontSize: 12, color: isDark ? '#10b981' : '#047857', fontWeight: 500,
+                  background: isDark ? 'rgba(255,255,255,0.05)' : '#f4f4f5',
+                  border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #e4e4e7',
+                  fontSize: 12, color: isDark ? '#fff' : '#18181b', fontWeight: 500,
                 }}>
                   <span style={{ fontSize: 16 }}>{b.icon}</span> {b.text}
                 </div>
@@ -1674,7 +1674,7 @@ export default function ProductDetail() {
             </Title>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <Rate disabled value={product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : (product?.rating || 5)} style={{ fontSize: 14, color: '#facc15' }} />
+              <Rate disabled value={avgRating} style={{ fontSize: 14, color: '#facc15' }} />
               <span style={{ color: isDark ? '#aaa' : '#666', fontSize: 13 }}>({product.reviews?.length || 0} đánh giá)</span>
               <Divider type="vertical" />
               <span style={{ color: isDark ? '#aaa' : '#666', fontSize: 13 }}>Đã bán: <strong>{product.sold?.toLocaleString('vi-VN')}</strong></span>
@@ -1682,11 +1682,11 @@ export default function ProductDetail() {
 
             {/* Price */}
             <div style={{
-              background: isDark ? 'rgba(16,185,129,0.08)' : 'rgba(16,185,129,0.05)',
-              border: '1px solid rgba(16,185,129,0.2)', borderRadius: 16,
+              background: isDark ? 'rgba(255,255,255,0.03)' : '#f9f9f9',
+              border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e4e4e7', borderRadius: 16,
               padding: '16px 24px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16
             }}>
-              <span style={{ fontSize: 36, fontWeight: 800, color: '#10b981' }}>
+              <span style={{ fontSize: 36, fontWeight: 800, color: isDark ? '#fff' : '#18181b' }}>
                 {currentPrice.toLocaleString('vi-VN')} đ
               </span>
               {product.original_price > currentPrice && (
@@ -1694,7 +1694,7 @@ export default function ProductDetail() {
                   <div style={{ fontSize: 16, color: isDark ? 'rgba(255,255,255,0.4)' : '#999', textDecoration: 'line-through' }}>
                     {product.original_price.toLocaleString('vi-VN')} đ
                   </div>
-                  <div style={{ fontSize: 13, color: '#10b981', fontWeight: 600 }}>
+                  <div style={{ fontSize: 13, color: isDark ? '#fff' : '#18181b', fontWeight: 600 }}>
                     Tiết kiệm {(product.original_price - currentPrice).toLocaleString('vi-VN')} đ
                   </div>
                 </div>
@@ -1748,9 +1748,9 @@ export default function ProductDetail() {
                     <Button key={v.id} size="large" onClick={() => setSelectedVariantId(v.id)}
                       style={{
                         height: 'auto', padding: '8px 16px', borderRadius: 10,
-                        borderColor: selectedVariantId === v.id ? '#10b981' : (isDark ? '#444' : '#d9d9d9'),
-                        color: selectedVariantId === v.id ? '#10b981' : (isDark ? '#fff' : '#000'),
-                        background: selectedVariantId === v.id ? 'rgba(16,185,129,0.1)' : 'transparent',
+                        borderColor: selectedVariantId === v.id ? (isDark ? '#fff' : '#18181b') : (isDark ? '#444' : '#d9d9d9'),
+                        color: selectedVariantId === v.id ? (isDark ? '#fff' : '#18181b') : (isDark ? '#fff' : '#000'),
+                        background: selectedVariantId === v.id ? (isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)') : 'transparent',
                         fontWeight: selectedVariantId === v.id ? 700 : 400,
                         display: 'flex', flexDirection: 'column', alignItems: 'flex-start',
                       }}>
@@ -1849,7 +1849,7 @@ export default function ProductDetail() {
               </div>
 
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', color: isDark ? '#ccc' : '#555', fontSize: 14 }}>
-                <CheckCircleOutlined style={{ color: '#10b981' }} />
+                <CheckCircleOutlined style={{ color: isDark ? '#fff' : '#18181b' }} />
                 {t('product.in_stock')}: <strong>{currentStock}</strong> {t('product.items')}
               </div>
             </div>
@@ -1873,7 +1873,7 @@ export default function ProductDetail() {
               </Button>
               <Button type="primary" size="large" icon={<ThunderboltOutlined />}
                 onClick={handleBuyNow} disabled={currentStock <= 0}
-                style={{ height: 56, borderRadius: 16, fontSize: 15, fontWeight: 700, flex: 1, background: 'linear-gradient(135deg, #10b981, #047857)', border: 'none' }}>
+                style={{ height: 56, borderRadius: 16, fontSize: 15, fontWeight: 700, flex: 1, background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b', border: 'none' }}>
                 {t('product.buy_now')}
               </Button>
             </div>
@@ -1923,8 +1923,8 @@ export default function ProductDetail() {
                     </div>
                   }>
                   <div style={{ fontWeight: 700, fontSize: 15, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                  <div style={{ color: '#10b981', fontSize: 18, fontWeight: 800, marginBottom: 12 }}>{p.price.toLocaleString('vi-VN')} đ</div>
-                  <Button type="primary" style={{ width: '100%', background: 'linear-gradient(135deg, #10b981, #047857)', border: 'none', borderRadius: 8 }}
+                  <div style={{ color: isDark ? '#fff' : '#18181b', fontSize: 18, fontWeight: 800, marginBottom: 12 }}>{p.price.toLocaleString('vi-VN')} đ</div>
+                  <Button type="primary" style={{ width: '100%', background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b', border: 'none', borderRadius: 8 }}
                     onClick={(e) => {
                       e.stopPropagation();
                       const pToAdd = { ...p };
@@ -1963,7 +1963,7 @@ export default function ProductDetail() {
                     </div>
                   }>
                   <div style={{ fontWeight: 700, fontSize: 14, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                  <div style={{ color: '#10b981', fontSize: 16, fontWeight: 800 }}>{p.price?.toLocaleString('vi-VN')} đ</div>
+                  <div style={{ color: isDark ? '#fff' : '#18181b', fontSize: 16, fontWeight: 800 }}>{p.price?.toLocaleString('vi-VN')} đ</div>
                 </Card>
               </Col>
             ))}

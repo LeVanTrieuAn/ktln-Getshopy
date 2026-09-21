@@ -672,7 +672,14 @@ export default function StoreLayout() {
                       { key: 'compare', title: 'So sánh thiết bị', desc: 'Đối chiếu thông số kỹ thuật', icon: <SwapOutlined style={{ fontSize: 14 }} />, path: '/compare' },
                       { key: 'account', title: 'Đơn hàng & Tài khoản', desc: 'Lịch sử mua sắm & tích điểm', icon: <UserOutlined style={{ fontSize: 14 }} />, path: '/account' },
                     ].map(item => (
-                      <div key={item.key} onClick={() => { setPagesOpen(false); navigate(item.path); }} className="dropdown-menu-card-item"
+                      <div key={item.key} onClick={() => { 
+                          setPagesOpen(false); 
+                          if (item.key === 'account' && !currentUser && !localStorage.getItem('b2c_token')) {
+                            if (typeof openAuthModal === 'function') openAuthModal();
+                          } else {
+                            navigate(item.path); 
+                          }
+                        }} className="dropdown-menu-card-item"
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}>
                         <div style={{ width: 30, height: 30, borderRadius: 7, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: isDark ? 'rgba(255,255,255,0.7)' : '#52525b' }}>{item.icon}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>

@@ -142,7 +142,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onToggleFavorite(p.id);
+            onToggleFavorite(p);
           }}
           title={isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           style={{
@@ -344,7 +344,10 @@ export default function ProductList() {
   const [activeCategories, setActiveCategories] = useState([]);
   const [brandList, setBrandList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState(() => {
+    const initSort = new URLSearchParams(window.location.search).get('sort');
+    return initSort === 'bestseller' ? 'best_selling' : (initSort || 'newest');
+  });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -356,8 +359,7 @@ export default function ProductList() {
   const [appliedMinPrice, setAppliedMinPrice] = useState(null);
   const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
 
-  // Wishlist state (local + remote synced)
-  const [wishlistIds, setWishlistIds] = useState([]);
+  // Wishlist state is managed by AppContext
 
   // Modals state
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -371,7 +373,7 @@ export default function ProductList() {
   const [aiSearchDone, setAiSearchDone] = useState(false);
 
   const { addToCart } = useCart();
-  const { isDark, t, selectedBranch, b2cUser } = useApp();
+  const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist, openAuthModal } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const { trackCategoryView, trackSearchQuery } = useTracking();
@@ -387,38 +389,26 @@ export default function ProductList() {
     }
   }, [categoryFilter]);
 
+  // Watch URL for changes and update sort state
+  useEffect(() => {
+    const qSort = new URLSearchParams(location.search).get('sort');
+    if (qSort === 'bestseller') {
+      setSort('best_selling');
+    }
+  }, [location.search]);
+
   useEffect(() => {
     setAiResults([]); setAiHint(''); setAiSearchDone(false);
   }, [searchQuery]);
 
-  // Load wishlist
-  useEffect(() => {
-    if (b2cUser?.id) {
-      api.b2c.getWishlist(b2cUser.id)
-        .then(res => {
-          if (Array.isArray(res)) setWishlistIds(res.map(item => item.product_id || item.id));
-        })
-        .catch(() => {});
+  const handleToggleFavorite = (p) => {
+    if (!b2cUser && !localStorage.getItem('b2c_token')) {
+      if (typeof openAuthModal === 'function') openAuthModal();
+      return;
     }
-  }, [b2cUser]);
-
-  const handleToggleFavorite = async (productId) => {
-    const isFav = wishlistIds.includes(productId);
-    if (isFav) {
-      setWishlistIds(prev => prev.filter(id => id !== productId));
-      message.info('Đã xoá khỏi danh sách yêu thích');
-    } else {
-      setWishlistIds(prev => [...prev, productId]);
-      message.success('Đã thêm vào danh sách yêu thích');
-    }
-
-    if (b2cUser?.id) {
-      try {
-        await api.b2c.toggleWishlist(b2cUser.id, productId);
-      } catch (err) {
-        console.warn('Wishlist sync err:', err);
-      }
-    }
+    toggleWishlist(p);
+    const isWished = wishlist?.some(w => w.id === p.id);
+    message.success(isWished ? 'Đã xoá khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích');
   };
 
   // Main data loader
@@ -1238,7 +1228,7 @@ export default function ProductList() {
                         isDark={isDark}
                         navigate={navigate}
                         addToCart={addToCart}
-                        isFavorited={wishlistIds.includes(p.id)}
+                        isFavorited={wishlist?.some(w => w.id === p.id)}
                         onToggleFavorite={handleToggleFavorite}
                       />
                     ))}
@@ -1268,7 +1258,7 @@ export default function ProductList() {
                     isDark={isDark}
                     navigate={navigate}
                     addToCart={addToCart}
-                    isFavorited={wishlistIds.includes(p.id)}
+                    isFavorited={wishlist?.some(w => w.id === p.id)}
                     onToggleFavorite={handleToggleFavorite}
                   />
                 ) : (

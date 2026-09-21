@@ -149,6 +149,7 @@ export const api = {
     register: (data) => request('/b2c/auth/register', { method: 'POST', body: JSON.stringify(data) }),
     login: (email, password) => request('/b2c/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     socialLogin: (data) => request('/b2c/auth/social', { method: 'POST', body: JSON.stringify(data) }),
+    setPassword: (new_password) => request('/b2c/auth/set-password', { method: 'POST', body: JSON.stringify({ new_password }) }),
     
     // Wishlist
     getWishlist: () => request('/b2c/wishlist'),

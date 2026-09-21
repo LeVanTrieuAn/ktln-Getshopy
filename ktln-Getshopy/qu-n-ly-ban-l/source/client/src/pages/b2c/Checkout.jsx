@@ -1,17 +1,21 @@
 import { useState, useEffect } from 'react';
-import { Row, Col, Typography, Form, Input, Button, Divider, message, Select, Space, Checkbox, Modal } from 'antd';
+import { Row, Col, Typography, Form, Input, Button, Divider, message, Select, Space, Checkbox, Modal, ConfigProvider } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import icon from 'leaflet/dist/images/marker-icon.png';
-import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+import ReactDOMServer from 'react-dom/server';
+import { EnvironmentFilled } from '@ant-design/icons';
 
-let DefaultIcon = L.icon({
-    iconUrl: icon,
-    shadowUrl: iconShadow,
-    iconSize: [25,41],
-    iconAnchor: [12,41]
+const DefaultIcon = L.divIcon({
+  html: ReactDOMServer.renderToString(
+    <div style={{ color: '#ef4444', fontSize: '28px', textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+      <EnvironmentFilled />
+    </div>
+  ),
+  className: 'custom-leaflet-icon',
+  iconSize: [28, 28],
+  iconAnchor: [14, 28],
 });
 L.Marker.prototype.options.icon = DefaultIcon;
 import { api } from '../../services/api';
@@ -25,12 +29,15 @@ const { Title, Text } = Typography;
 const MapResizer = () => {
   const map = useMap();
   useEffect(() => {
-    const timer1 = setTimeout(() => map.invalidateSize(), 100);
-    const timer2 = setTimeout(() => map.invalidateSize(), 400);
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-    };
+    // Invalidate size periodically to ensure it catches modal animations
+    const interval = setInterval(() => {
+      map.invalidateSize();
+    }, 100);
+    setTimeout(() => {
+      clearInterval(interval);
+      map.invalidateSize();
+    }, 1500);
+    return () => clearInterval(interval);
   }, [map]);
   return null;
 };
@@ -96,7 +103,7 @@ export default function Checkout() {
   const checkoutItems = selectedCartItems.length > 0 ? selectedCartItems : cart;
   const subTotal = checkoutItems.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
   
-  const [province, setProvince] = useState(null);
+  const province = Form.useWatch('province', form);
   const [voucherCode, setVoucherCode] = useState('');
   const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [discount, setDiscount] = useState(0);
@@ -145,10 +152,11 @@ export default function Checkout() {
         address: `${addr.street}, ${addr.ward}, ${addr.district}`
       });
       const provStr = (addr.province || '').toLowerCase();
-      if (provStr.includes('hồ chí minh') || provStr.includes('hcm')) setProvince('HCM');
-      else if (provStr.includes('hà nội') || provStr.includes('hn')) setProvince('HN');
-      else if (provStr.includes('đà nẵng') || provStr.includes('dn')) setProvince('DN');
-      else setProvince('OTHER');
+      let detectedProvince = 'OTHER';
+      if (provStr.includes('hồ chí minh') || provStr.includes('hcm')) detectedProvince = 'HCM';
+      else if (provStr.includes('hà nội') || provStr.includes('hn')) detectedProvince = 'HN';
+      else if (provStr.includes('đà nẵng') || provStr.includes('dn')) detectedProvince = 'DN';
+      form.setFieldsValue({ province: detectedProvince });
     }
   };
 
@@ -176,7 +184,7 @@ export default function Checkout() {
     try {
       const orderPayload = {
         items: checkoutItems,
-        customer_info: { ...values, province, email: b2cUser?.email || values.email },
+        customer_info: { ...values, province, district: values.district, ward: values.ward, email: b2cUser?.email || values.email },
         payment_method: paymentMethod,
         subTotal,
         shippingFee,
@@ -217,7 +225,7 @@ export default function Checkout() {
       const common = {
         id: res.order_id,
         items: [...checkoutItems],
-        customer_info: { ...values, province, email: b2cUser?.email || values.email },
+        customer_info: { ...values, province, district: values.district, ward: values.ward, email: b2cUser?.email || values.email },
         // Dùng số SERVER tính, không dùng số client tự cộng — hai bên có thể
         // lệch khi giá vừa đổi hoặc voucher/điểm bị server tính lại.
         subTotal: res.pricing?.subTotal ?? subTotal,
@@ -494,54 +502,49 @@ export default function Checkout() {
             </div>
           )}
 
-          <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false}>
-            <Row gutter={16}>
+          <style>{`
+            /* Khắc phục lỗi nền xanh của Autofill trên Chrome và đồng bộ chiều cao */
+            .checkout-form input:-webkit-autofill,
+            .checkout-form input:-webkit-autofill:hover, 
+            .checkout-form input:-webkit-autofill:focus, 
+            .checkout-form input:-webkit-autofill:active{
+                -webkit-box-shadow: 0 0 0 1000px ${isDark ? '#202024' : '#f4f4f5'} inset !important;
+                -webkit-text-fill-color: ${isDark ? '#fff' : '#000'} !important;
+                transition: background-color 5000s ease-in-out 0s;
+            }
+            .checkout-form .ant-input,
+            .checkout-form .ant-select-selector {
+                height: 45px !important;
+                display: flex !important;
+                align-items: center;
+                padding-top: 0 !important;
+                padding-bottom: 0 !important;
+            }
+            .checkout-form .ant-select-selection-item {
+                line-height: 43px !important;
+            }
+            .checkout-form .ant-form-item-label > label {
+                height: auto !important;
+            }
+          `}</style>
+          <ConfigProvider theme={{ components: { Input: { borderRadius: 10, colorBgContainer: isDark ? '#202024' : '#f4f4f5', colorBorder: isDark ? '#27272a' : '#e4e4e7', colorText: isDark ? '#fff' : '#000', controlHeightLG: 45 }, Select: { borderRadius: 10, colorBgContainer: isDark ? '#202024' : '#f4f4f5', colorBorder: isDark ? '#27272a' : '#e4e4e7', colorText: isDark ? '#fff' : '#000', controlHeightLG: 45 } } }}>
+            <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false} className="checkout-form">
+              <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item name="full_name" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Họ và tên</span>} rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}>
-                  <Input size="large" style={{ borderRadius: 10, background: isDark ? '#202024' : '#f4f4f5', border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, color: isDark ? '#fff' : '#000' }} />
+                  <Input size="large" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
                 <Form.Item name="phone" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Số điện thoại</span>} rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}>
-                  <Input size="large" style={{ borderRadius: 10, background: isDark ? '#202024' : '#f4f4f5', border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, color: isDark ? '#fff' : '#000' }} />
+                  <Input size="large" />
                 </Form.Item>
               </Col>
-              <Col xs={24}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>
-                    Địa chỉ nhận hàng (Số nhà, đường...) <span style={{ color: '#ef4444' }}>*</span>
-                  </span>
-                  <button 
-                    type="button" 
-                    onClick={() => setIsMapModalOpen(true)} 
-                    style={{ 
-                      background: 'none', 
-                      border: 'none', 
-                      padding: 0, 
-                      color: isDark ? '#ffffff' : '#18181b', 
-                      cursor: 'pointer', 
-                      fontWeight: 600, 
-                      fontSize: 13,
-                      textDecoration: 'underline'
-                    }}
-                  >
-                    Chọn vị trí trên bản đồ
-                  </button>
-                </div>
-                <Form.Item name="address" rules={[{ required: true, message: 'Vui lòng nhập địa chỉ cụ thể' }]}>
-                  <Input size="large" placeholder="Nhập địa chỉ hoặc chọn trên bản đồ..." style={{ borderRadius: 10, background: isDark ? '#202024' : '#f4f4f5', border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, color: isDark ? '#fff' : '#000' }} />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={12}>
-                <div style={{ marginBottom: 24 }}>
-                  <div style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500, marginBottom: 8 }}>
-                    Tỉnh / Thành phố <span style={{ color: '#ef4444' }}>*</span>
-                  </div>
+              <Col xs={24} md={8}>
+                <Form.Item name="province" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Tỉnh / Thành phố <span style={{ color: '#ef4444' }}>*</span></span>} rules={[{ required: true, message: 'Chọn tỉnh/thành' }]}>
                   <Select 
                     size="large" 
                     placeholder="Chọn Tỉnh/Thành phố" 
-                    value={province}
-                    onChange={setProvince}
                     style={{ width: '100%' }}
                     options={[
                       { value: 'HCM', label: 'Hồ Chí Minh' },
@@ -550,11 +553,47 @@ export default function Checkout() {
                       { value: 'OTHER', label: 'Tỉnh/Thành khác' }
                     ]}
                   />
-                </div>
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item name="district" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Quận / Huyện</span>} rules={[{ required: true, message: 'Nhập quận/huyện' }]}>
+                  <Input size="large" placeholder="Ví dụ: Quận 1" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={8}>
+                <Form.Item name="ward" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Phường / Xã</span>} rules={[{ required: true, message: 'Nhập phường/xã' }]}>
+                  <Input size="large" placeholder="Ví dụ: Phường Bến Nghé" />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item 
+                  name="address" 
+                  rules={[{ required: true, message: 'Vui lòng nhập địa chỉ cụ thể' }]}
+                  label={
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', minWidth: 200 }}>
+                      <span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>
+                        Số nhà, tên đường <span style={{ color: '#ef4444' }}>*</span>
+                      </span>
+                      <button 
+                        type="button" 
+                        onClick={() => setIsMapModalOpen(true)} 
+                        style={{ 
+                          background: 'none', border: 'none', padding: 0, 
+                          color: isDark ? '#ffffff' : '#18181b', 
+                          cursor: 'pointer', fontWeight: 600, fontSize: 13, textDecoration: 'underline', marginLeft: 8
+                        }}
+                      >
+                        Chọn trên bản đồ
+                      </button>
+                    </div>
+                  }
+                >
+                  <Input size="large" placeholder="Số nhà, tên đường hoặc toạ độ..." />
+                </Form.Item>
               </Col>
               <Col xs={24} md={12}>
                 <Form.Item name="email" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Email nhận thông báo đơn hàng</span>}>
-                  <Input size="large" placeholder="email@example.com" style={{ borderRadius: 10, background: isDark ? '#202024' : '#f4f4f5', border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, color: isDark ? '#fff' : '#000' }} />
+                  <Input size="large" placeholder="email@example.com" />
                 </Form.Item>
               </Col>
             </Row>
@@ -666,20 +705,23 @@ export default function Checkout() {
               {b2cUser || localStorage.getItem('b2c_token') ? 'Xác nhận đặt hàng' : 'Đăng nhập để đặt hàng'}
             </Button>
           </Form>
+          </ConfigProvider>
 
           <Modal
             title={<span style={{ fontWeight: 700, fontSize: 18 }}>Ghim vị trí trên bản đồ</span>}
             open={isMapModalOpen}
             onCancel={() => setIsMapModalOpen(false)}
+            centered
             footer={[
               <Button key="ok" type="primary" onClick={() => setIsMapModalOpen(false)} style={{ background: '#18181b', borderColor: '#18181b', borderRadius: 8, fontWeight: 600 }}>
                 Xác nhận vị trí
               </Button>
             ]}
-            width={700}
+            width={1000}
+            styles={{ body: { paddingTop: 20 } }}
           >
-            <div style={{ height: 400, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', marginTop: 16 }}>
-              <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%' }}>
+            <div style={{ height: 550, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
+              <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

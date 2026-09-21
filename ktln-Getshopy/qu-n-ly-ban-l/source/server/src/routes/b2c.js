@@ -439,6 +439,19 @@ router.get('/orders/me', authB2C, async (req, res) => {
       include: { items: true },
     });
 
+    const productIds = [];
+    orders.forEach(o => o.items.forEach(i => productIds.push(i.product_id)));
+    
+    const products = await prisma.product.findMany({
+      where: { id: { in: [...new Set(productIds)] } },
+      select: { id: true, image: true, images: true, variants: true }
+    });
+    
+    const productMap = {};
+    products.forEach(p => {
+       productMap[p.id.toString()] = p;
+    });
+
     // Chuẩn hoá cho client: BigInt không serialize được sang JSON, và giữ tên
     // trường `items` để phần hiển thị cũ không phải sửa.
     const data = orders.map(o => ({
@@ -455,15 +468,24 @@ router.get('/orders/me', authB2C, async (req, res) => {
       discount: o.discount,
       total: o.total,
       customer: o.customer,
-      items: o.items.map(i => ({
-        id: Number(i.id),
-        product_id: Number(i.product_id),
-        name: i.product_name,
-        quantity: i.quantity,
-        price: i.unit_price,
-        net_amount: i.net_amount,
-        variant_id: i.variant_id,
-      })),
+      items: o.items.map(i => {
+        const product = productMap[i.product_id.toString()];
+        let image = product?.image || (product?.images && product.images[0]) || '';
+        if (i.variant_id && product?.variants) {
+          const variant = (product.variants || []).find(v => String(v.id) === String(i.variant_id));
+          if (variant && variant.image) image = variant.image;
+        }
+        return {
+          id: Number(i.id),
+          product_id: Number(i.product_id),
+          name: i.product_name,
+          quantity: i.quantity,
+          price: i.unit_price,
+          net_amount: i.net_amount,
+          variant_id: i.variant_id,
+          image: image
+        };
+      }),
     }));
 
     res.json(data);
@@ -523,7 +545,7 @@ router.post('/auth/register', async (req, res) => {
     const token = jwt.sign({ id: Number(newUser.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = newUser;
     
-    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
+    res.json({ token, user: { ...userWithoutPass, has_password: true, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -537,9 +559,9 @@ router.post('/auth/login', async (req, res) => {
     const user = await prisma.b2CCustomer.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Email hoặc mật khẩu không chính xác' });
     
-    const provider = user.provider || 'local';
-    if (provider !== 'local') {
-      return res.status(400).json({ error: `Tài khoản này được liên kết với ${provider}. Vui lòng đăng nhập bằng ${provider}.` });
+    if (!user.password_hash) {
+      const providerStr = user.provider === 'google' ? 'Google' : user.provider;
+      return res.status(400).json({ error: `Tài khoản này được đăng ký qua ${providerStr} và chưa có mật khẩu. Vui lòng đăng nhập bằng ${providerStr}.` });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
@@ -548,7 +570,7 @@ router.post('/auth/login', async (req, res) => {
     const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
     
-    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
+    res.json({ token, user: { ...userWithoutPass, has_password: true, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -636,29 +658,58 @@ router.post('/auth/social', async (req, res) => {
           provider: 'google',
         },
       });
-    } else if (user.provider !== 'google') {
+    } else if (!user.provider?.includes('google')) {
       // Email đã đăng ký bằng mật khẩu, giờ đăng nhập bằng Google. Gộp làm một
       // tài khoản là đúng: Google đã xác minh chủ sở hữu email chính là người
       // này. Nhưng KHÔNG xoá password_hash — chủ tài khoản vẫn đăng nhập bằng
       // mật khẩu như cũ được.
+      let newProvider = user.provider || '';
+      if (!newProvider.includes('google')) {
+        newProvider = newProvider === 'local' ? 'local,google' : (newProvider ? newProvider + ',google' : 'google');
+      }
       user = await prisma.b2CCustomer.update({
         where: { email },
-        data: { provider: 'google', avatar: user.avatar || avatar },
+        data: { provider: newProvider, avatar: user.avatar || avatar },
       });
     }
 
     const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
 
-    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
+    res.json({ token, user: { ...userWithoutPass, has_password: !!user.password_hash, id: Number(userWithoutPass.id) } });
   } catch (err) {
     console.error('[auth/social]', err);
     res.status(500).json({ error: 'Không đăng nhập được, vui lòng thử lại' });
   }
 });
 
-// NOTE: /recommendations endpoint đã được chuyển sang routes/recommendation.js
-//       sử dụng services/RecommendationService.js
+// Set Password
+router.post('/auth/set-password', authB2C, async (req, res) => {
+  try {
+    const { new_password } = req.body;
+    if (!new_password) return res.status(400).json({ error: 'Vui lòng cung cấp mật khẩu mới' });
+
+    const password_hash = await bcrypt.hash(new_password, 10);
+    let user = await prisma.b2CCustomer.findUnique({ where: { id: req.b2cUser.id } });
+    
+    if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
+
+    let newProvider = user.provider || '';
+    if (!newProvider.includes('local')) {
+      newProvider = newProvider ? newProvider + ',local' : 'local';
+    }
+
+    user = await prisma.b2CCustomer.update({
+      where: { id: req.b2cUser.id },
+      data: { password_hash, provider: newProvider }
+    });
+
+    const { password_hash: _, ...userWithoutPass } = user;
+    res.json({ success: true, user: { ...userWithoutPass, has_password: true, id: Number(userWithoutPass.id) } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 module.exports = router;
 
