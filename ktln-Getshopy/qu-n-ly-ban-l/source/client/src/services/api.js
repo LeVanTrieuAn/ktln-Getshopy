@@ -164,10 +164,12 @@ export const api = {
     },
     getBrands: () => request('/b2c/brands'),
     getFlashSales: () => request('/b2c/flash-sales'),
-    getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = []) => {
+    getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = [], minPrice = null, maxPrice = null) => {
       const params = { category_id, search, sort, page, limit };
       if (branch_id && branch_id !== 'undefined') params.branch_id = branch_id;
       if (brands && brands.length > 0) params.brand_ids = brands.join(',');
+      if (minPrice !== null && minPrice !== undefined) params.min_price = minPrice;
+      if (maxPrice !== null && maxPrice !== undefined) params.max_price = maxPrice;
       return request('/b2c/products?' + new URLSearchParams(params));
     },
     getProductDetails: (id) => request(`/b2c/products/${id}`),

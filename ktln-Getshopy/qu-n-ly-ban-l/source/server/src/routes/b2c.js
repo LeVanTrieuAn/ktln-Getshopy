@@ -180,10 +180,12 @@ async function getCategoryDescendants(rootId) {
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
-    const { category_id, brand_ids, search, sort, branch_id, page = 1, limit = 12 } = req.query;
+    const { category_id, brand_ids, search, sort, branch_id, page = 1, limit = 12, min_price, max_price } = req.query;
     const pageNumber = parseInt(page, 10) || 1;
     const limitNumber = parseInt(limit, 10) || 12;
     const skip = (pageNumber - 1) * limitNumber;
+    const parsedMinPrice = min_price ? parseFloat(min_price) : null;
+    const parsedMaxPrice = max_price ? parseFloat(max_price) : null;
 
     // Parse multi-brand: brand_ids=br-apple,br-samsung  OR  brand_ids=br-apple
     const brandIdList = brand_ids && brand_ids !== 'ALL'
@@ -200,6 +202,13 @@ router.get('/products', async (req, res) => {
 
     if (brandIdList.length === 1) where.brand_id = brandIdList[0];
     else if (brandIdList.length > 1) where.brand_id = { in: brandIdList };
+
+    // Price range filter
+    if (parsedMinPrice !== null || parsedMaxPrice !== null) {
+      where.price = {};
+      if (parsedMinPrice !== null) where.price.gte = parsedMinPrice;
+      if (parsedMaxPrice !== null) where.price.lte = parsedMaxPrice;
+    }
     
     // Handle multi-word search correctly using AND for each token
     if (search) {
@@ -265,6 +274,16 @@ router.get('/products', async (req, res) => {
           params.push(`%${t}%`);
           conditions.push(`name ILIKE $${params.length}`);
         });
+      }
+
+      // Price range for raw SQL
+      if (parsedMinPrice !== null) {
+        params.push(parsedMinPrice);
+        conditions.push(`price >= $${params.length}`);
+      }
+      if (parsedMaxPrice !== null) {
+        params.push(parsedMaxPrice);
+        conditions.push(`price <= $${params.length}`);
       }
 
       const whereSQL = conditions.join(' AND ');

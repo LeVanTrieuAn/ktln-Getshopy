@@ -1,4 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+const Category3DModel = lazy(() => import('../../components/b2c/Category3DModel'));
+
+// FBX model URLs
+import computerFbx  from '../../assets/COMPUTER.fbx';
+import ipadFbx      from '../../assets/Ipad+Pro(2024).fbx';
+import iphoneFbx    from '../../assets/iPhone13ProMax.fbx';
+import adapterFbx   from '../../assets/power_adapterr.fbx';
+import watchFbx     from '../../assets/smartwatch.fbx';
 import { useNavigate } from 'react-router-dom';
 import { message, Spin, Modal, Input } from 'antd';
 import {
@@ -71,18 +79,30 @@ const CATEGORY_CARDS = [
   {
     id: 'all-categories',
     title: 'Tất cả danh mục',
-    description: 'Khám phá toàn bộ 49+ danh mục thiết bị và phụ kiện công nghệ đa dạng tại GetShopy.',
+    description: 'Khám phá toàn bộ 34 danh mục thiết bị và phụ kiện công nghệ đa dạng tại GetShopy.',
     linkText: 'Xem tất cả danh mục ↗',
-    image: '/images/commerce/cat_all.jpg',
+    image: '',
     type: 'modal',
     categoryKey: 'ALL'
   }
 ];
 
+// Map category id -> FBX url
+const CATEGORY_FBX = {
+  'cat-phone':      iphoneFbx,
+  'cat-laptop':     computerFbx,
+  'cat-tablet':     ipadFbx,
+  'cat-mobile-acc': adapterFbx,
+  'cat-watch':      watchFbx,
+};
+
 export default function Home() {
   const { isDark, selectedBranch, b2cUser } = useApp();
   const { addToCart } = useCart();
   const navigate = useNavigate();
+
+  // Per-card hover state for 3D rotation
+  const [hoveredCard, setHoveredCard] = useState(null);
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -410,7 +430,6 @@ export default function Home() {
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-            {/* Primary Dark Pill Button */}
             <button
               onClick={scrollToCatalog}
               style={{
@@ -430,8 +449,6 @@ export default function Home() {
             >
               Browse products
             </button>
-
-            {/* Secondary Outline Pill Button */}
             <button
               onClick={() => {
                 const el = document.getElementById('footer-section');
@@ -457,7 +474,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right Column: Hero Smartphone with Fluted Glass */}
+        {/* Right Column: Hero image */}
         <div style={{
           flex: '1 1 480px',
           display: 'flex',
@@ -477,12 +494,7 @@ export default function Home() {
             <img
               src="/images/commerce/hero_tech_phone.jpg"
               alt="High-quality tech gadgets"
-              style={{
-                width: '100%',
-                height: 'auto',
-                display: 'block',
-                objectFit: 'cover',
-              }}
+              style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
             />
           </div>
         </div>
@@ -493,120 +505,140 @@ export default function Home() {
          ══════════════════════════════════════════════════════════════════ */}
       <section style={{ maxWidth: 1320, margin: '0 auto 80px', padding: '0 24px' }}>
         <div className="commerce-categories-grid">
-          {CATEGORY_CARDS.map(cat => (
-            <div
-              key={cat.id}
-              onClick={() => handleCategoryClick(cat)}
-              className="commerce-category-card"
-              style={{
-                background: isDark ? '#121722' : '#f5f5f7',
-                borderRadius: 28,
-                padding: '40px 36px',
-                height: 380,
-                position: 'relative',
-                overflow: 'hidden',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'space-between',
-                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-                border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.02)',
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-5px)';
-                e.currentTarget.style.boxShadow = isDark ? '0 16px 40px rgba(0,0,0,0.5)' : '0 16px 36px rgba(0,0,0,0.06)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              {/* Card Header Content */}
-              <div style={{ zIndex: 2, maxWidth: '62%' }}>
-                <h3 style={{
-                  fontSize: 24,
-                  fontWeight: 600,
-                  margin: '0 0 10px 0',
-                  color: isDark ? '#ffffff' : '#111111',
-                  letterSpacing: '-0.02em',
-                }}>
-                  {cat.title}
-                </h3>
-                <p style={{
-                  fontSize: 13,
-                  lineHeight: 1.5,
-                  color: isDark ? 'rgba(255, 255, 255, 0.62)' : '#71717a',
-                  margin: 0,
-                }}>
-                  {cat.description}
-                </p>
-              </div>
-
-              {/* Category Image with multiply blend mode to eliminate white border box */}
-              <div style={{
-                position: 'absolute',
-                right: 12,
-                bottom: 12,
-                width: '58%',
-                height: '220px',
-                display: 'flex',
-                alignItems: 'flex-end',
-                justifyContent: 'flex-end',
-                pointerEvents: 'none',
-              }}>
-                <img
-                  src={cat.image}
-                  alt={cat.title}
-                  loading="lazy"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
-                    objectFit: 'contain',
-                    mixBlendMode: isDark ? 'normal' : 'multiply',
-                    transition: 'transform 0.35s ease',
-                    filter: isDark ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))' : 'drop-shadow(0 10px 20px rgba(0,0,0,0.04))',
-                  }}
-                />
-              </div>
-
-              {/* Button at bottom left */}
-              <div style={{ zIndex: 3 }}>
-                <button
-                  style={{
-                    fontSize: 13,
+          {CATEGORY_CARDS.map(cat => {
+            const fbxUrl = CATEGORY_FBX[cat.id];
+            const isHovered = hoveredCard === cat.id;
+            return (
+              <div
+                key={cat.id}
+                onClick={() => handleCategoryClick(cat)}
+                className="commerce-category-card"
+                style={{
+                  background: isDark ? '#121722' : '#f5f5f7',
+                  borderRadius: 28,
+                  padding: '40px 36px',
+                  height: 380,
+                  position: 'relative',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                  border: isDark ? '1px solid rgba(255,255,255,0.05)' : '1px solid rgba(0,0,0,0.02)',
+                }}
+                onMouseEnter={e => {
+                  setHoveredCard(cat.id);
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = isDark ? '0 16px 40px rgba(0,0,0,0.5)' : '0 16px 36px rgba(0,0,0,0.06)';
+                }}
+                onMouseLeave={e => {
+                  setHoveredCard(null);
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                {/* Card Header Content */}
+                <div style={{ zIndex: 2, maxWidth: '62%' }}>
+                  <h3 style={{
+                    fontSize: 24,
                     fontWeight: 600,
+                    margin: '0 0 10px 0',
                     color: isDark ? '#ffffff' : '#111111',
-                    background: 'transparent',
-                    border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}`,
-                    borderRadius: 9999,
-                    padding: '8px 18px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 7,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    backdropFilter: 'blur(8px)',
-                    WebkitBackdropFilter: 'blur(8px)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)';
-                    e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)';
-                    e.currentTarget.style.gap = '10px';
-                    e.stopPropagation();
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
-                    e.currentTarget.style.gap = '7px';
-                  }}
-                  onClick={e => { e.stopPropagation(); handleCategoryClick(cat); }}
-                >
-                  {cat.type === 'modal' ? 'Xem tất cả' : 'Khám phá'}
-                  <ArrowRightOutlined style={{ fontSize: 11 }} />
-                </button>
+                    letterSpacing: '-0.02em',
+                  }}>
+                    {cat.title}
+                  </h3>
+                  <p style={{
+                    fontSize: 13,
+                    lineHeight: 1.5,
+                    color: isDark ? 'rgba(255, 255, 255, 0.62)' : '#71717a',
+                    margin: 0,
+                  }}>
+                    {cat.description}
+                  </p>
+                </div>
+
+                {/* 3D model or fallback image */}
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  bottom: 48,
+                  width: '58%',
+                  height: '220px',
+                  pointerEvents: 'none',
+                }}>
+                  {fbxUrl ? (
+                    <Suspense fallback={
+                      cat.image ? <img src={cat.image} alt={cat.title} loading="lazy" style={{
+                        maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
+                        mixBlendMode: isDark ? 'normal' : 'multiply',
+                      }} /> : null
+                    }>
+                      <Category3DModel
+                        fbxUrl={fbxUrl}
+                        isDark={isDark}
+                        isHovered={isHovered}
+                        height={220}
+                        autoRotateSpeed={0.006}
+                      />
+                    </Suspense>
+                  ) : cat.image ? (
+                    <img
+                      src={cat.image}
+                      alt={cat.title}
+                      loading="lazy"
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '100%',
+                        objectFit: 'contain',
+                        mixBlendMode: isDark ? 'normal' : 'multiply',
+                        transition: 'transform 0.35s ease',
+                        filter: isDark ? 'drop-shadow(0 10px 20px rgba(0,0,0,0.5))' : 'drop-shadow(0 10px 20px rgba(0,0,0,0.04))',
+                      }}
+                    />
+                  ) : null}
+                </div>
+
+                {/* Button at bottom left */}
+                <div style={{ zIndex: 3 }}>
+                  <button
+                    style={{
+                      fontSize: 13,
+                      fontWeight: 600,
+                      color: isDark ? '#ffffff' : '#111111',
+                      background: 'transparent',
+                      border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}`,
+                      borderRadius: 9999,
+                      padding: '8px 18px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 7,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.07)';
+                      e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.45)';
+                      e.currentTarget.style.gap = '10px';
+                      e.stopPropagation();
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderColor = isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)';
+                      e.currentTarget.style.gap = '7px';
+                    }}
+                    onClick={e => { e.stopPropagation(); handleCategoryClick(cat); }}
+                  >
+                    {cat.type === 'modal' ? 'Xem tất cả' : 'Khám phá'}
+                    <ArrowRightOutlined style={{ fontSize: 11 }} />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
 

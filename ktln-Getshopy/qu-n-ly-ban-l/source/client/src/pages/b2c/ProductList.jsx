@@ -91,7 +91,7 @@ function SkeletonCard({ isDark }) {
 }
 
 // ── Product Card (No Rating, Pill Price Button, Heart Wishlist) ─────
-function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite }) {
+function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite, onBeforeNavigate }) {
   const [hovered, setHovered] = useState(false);
   const [added, setAdded] = useState(false);
   const discount = p.original_price > p.price
@@ -115,7 +115,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/product/${p.id}`)}
+      onClick={() => { if (onBeforeNavigate) onBeforeNavigate(); navigate(`/product/${p.id}`); }}
       style={{
         borderRadius: 24,
         overflow: 'hidden',
@@ -341,28 +341,57 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
 
 // ── Main Component ───────────────────────────────────────────────
 export default function ProductList() {
+  // ── Hooks cần ở trên để có location trước khi khởi tạo state ──────────────
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { addToCart } = useCart();
+  const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist, openAuthModal } = useApp();
+  const { trackCategoryView, trackSearchQuery } = useTracking();
+
+  const queryParams = new URLSearchParams(location.search);
+  const categoryFilter = queryParams.get('category') || 'ALL';
+  const searchQuery = queryParams.get('search') || '';
+
+  // ── Lazy-init: đọc sessionStorage đồng bộ trước render đầu tiên ─────────────
+  // Không cần useEffect restore nữa → chỉ 1 lần fetch, không flash sai data
+  const [_savedFilters] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('productListFilters');
+      if (!raw) return {};
+      sessionStorage.removeItem('productListFilters'); // xóa ngay sau khi đọc
+      return JSON.parse(raw);
+    } catch { return {}; }
+  });
+  // Chỉ dùng saved state nếu đang quay lại đúng context (cùng category + search)
+  const _r = (_savedFilters.categoryFilter === categoryFilter && _savedFilters.searchQuery === searchQuery)
+    ? _savedFilters : {};
+
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
   const [totalAllProducts, setTotalAllProducts] = useState(0); // tổng toàn DB, không filter
-  const [currentPage, setCurrentPage] = useState(1);
+  const [currentPage, setCurrentPage] = useState(_r.currentPage || 1);
   const [categories, setCategories] = useState([]);
   const [activeCategories, setActiveCategories] = useState([]);
   const [brandList, setBrandList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState(() => {
+    if (_r.sort) return _r.sort;
     const initSort = new URLSearchParams(window.location.search).get('sort');
     return initSort === 'bestseller' ? 'best_selling' : (initSort || 'newest');
   });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Filters state
-  const [brands, setBrands] = useState([]);
+  // Filters state — khởi tạo từ saved state nếu có
+  const [brands, setBrands] = useState(_r.brands || []);
   const [brandSearch, setBrandSearch] = useState('');
-  const [minPrice, setMinPrice] = useState(0);
-  const [maxPrice, setMaxPrice] = useState(50000000);
-  const [appliedMinPrice, setAppliedMinPrice] = useState(null);
-  const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
+  const [minPrice, setMinPrice] = useState(_r.minPrice ?? 0);
+  const [maxPrice, setMaxPrice] = useState(_r.maxPrice ?? 100000000);
+  const [appliedMinPrice, setAppliedMinPrice] = useState(_r.appliedMinPrice ?? null);
+  const [appliedMaxPrice, setAppliedMaxPrice] = useState(_r.appliedMaxPrice ?? null);
+  // filterKey: tăng mỗi lần bấm "Áp dụng giá" — đảm bảo useEffect luôn chạy lại
+  // dù min hoặc max không đổi giữa 2 lần apply liên tiếp
+  const [filterKey, setFilterKey] = useState(0);
 
   // Wishlist state is managed by AppContext
 
@@ -377,15 +406,7 @@ export default function ProductList() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSearchDone, setAiSearchDone] = useState(false);
 
-  const { addToCart } = useCart();
-  const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist, openAuthModal } = useApp();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { trackCategoryView, trackSearchQuery } = useTracking();
-
-  const queryParams = new URLSearchParams(location.search);
-  const categoryFilter = queryParams.get('category') || 'ALL';
-  const searchQuery = queryParams.get('search') || '';
+  // (hooks đã khai báo ở trên)
 
   // Track category views
   useEffect(() => {
@@ -416,23 +437,31 @@ export default function ProductList() {
     message.success(isWished ? 'Đã xoá khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích');
   };
 
+  // ── Persist filter state in sessionStorage ────────────────────────
+  // Save state before navigating to product detail
+  const saveFilterState = () => {
+    const state = {
+      currentPage, sort, brands, minPrice, maxPrice,
+      appliedMinPrice, appliedMaxPrice, categoryFilter, searchQuery,
+    };
+    sessionStorage.setItem('productListFilters', JSON.stringify(state));
+  };
+
+  // Restore useEffect đã được thay thế bằng lazy useState init ở trên
+
   // Main data loader
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
         let [prodData, catData, brandData, activeCatData] = await Promise.all([
-          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands),
+          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands, appliedMinPrice, appliedMaxPrice),
           api.b2c.getCategories(),
           api.b2c.getBrands(),
           api.b2c.getActiveCategories(selectedBranch?.id || ''),
         ]);
 
-        let allProds = prodData.data || [];
-        if (appliedMinPrice !== null) allProds = allProds.filter(p => p.price >= appliedMinPrice);
-        if (appliedMaxPrice !== null) allProds = allProds.filter(p => p.price <= appliedMaxPrice);
-
-        setProducts(allProds);
+        setProducts(prodData.data || []);
         setTotalProducts(prodData.total || 0);
         setTotalAllProducts(prodData.totalAll || prodData.total || 0);
         setCategories(catData || []);
@@ -443,7 +472,7 @@ export default function ProductList() {
           trackSearchQuery(searchQuery, prodData.total || 0);
         }
 
-        if (allProds.length === 0 && searchQuery.trim()) {
+        if ((prodData.data || []).length === 0 && searchQuery.trim()) {
           setIsAiLoading(true);
           setAiSearchDone(false);
           try {
@@ -462,17 +491,18 @@ export default function ProductList() {
       }
     }
     load();
-  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, currentPage]);
+  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, currentPage, filterKey]);
 
   const applyPriceFilter = () => {
     setAppliedMinPrice(minPrice);
     setAppliedMaxPrice(maxPrice);
     setCurrentPage(1);
+    setFilterKey(k => k + 1); // luôn force re-fetch dù giá trị không đổi
   };
 
   const clearAllFilters = () => {
     setMinPrice(0);
-    setMaxPrice(50000000);
+    setMaxPrice(100000000);
     setAppliedMinPrice(null);
     setAppliedMaxPrice(null);
     setBrands([]);
@@ -804,8 +834,8 @@ export default function ProductList() {
                 {(appliedMinPrice !== null || appliedMaxPrice !== null) && (
                   <button
                     onClick={() => {
-                      setMinPrice(100000);
-                      setMaxPrice(50000000);
+                      setMinPrice(0);
+                      setMaxPrice(100000000);
                       setAppliedMinPrice(null);
                       setAppliedMaxPrice(null);
                       setCurrentPage(1);
@@ -822,15 +852,15 @@ export default function ProductList() {
 
               <div style={{ fontSize: 12, color: subCol, marginBottom: 18 }}>
                 {appliedMinPrice !== null || appliedMaxPrice !== null
-                  ? `${(appliedMinPrice || 100000).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 50000000).toLocaleString('vi-VN')} đ`
+                  ? `${(appliedMinPrice || 0).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 100000000).toLocaleString('vi-VN')} đ`
                   : 'Lọc theo ngân sách sản phẩm'}
               </div>
 
               {/* Clean Range Slider (No Histogram / Chart) */}
               <Slider
                 range
-                min={100000}
-                max={50000000}
+                min={0}
+                max={100000000}
                 step={100000}
                 value={[minPrice, maxPrice]}
                 onChange={([valMin, valMax]) => {
@@ -852,8 +882,8 @@ export default function ProductList() {
               {/* Price Pill Values */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
                 <InputNumber
-                  min={100000}
-                  max={50000000}
+                  min={0}
+                  max={100000000}
                   step={100000}
                   value={minPrice}
                   onChange={v => { if (v !== null) setMinPrice(v) }}
@@ -873,8 +903,8 @@ export default function ProductList() {
                 />
                 <span style={{ color: subCol, fontSize: 12 }}>—</span>
                 <InputNumber
-                  min={100000}
-                  max={50000000}
+                  min={0}
+                  max={100000000}
                   step={100000}
                   value={maxPrice}
                   onChange={v => { if (v !== null) setMaxPrice(v) }}
@@ -1357,6 +1387,7 @@ export default function ProductList() {
                         addToCart={addToCart}
                         isFavorited={wishlist?.some(w => w.id === p.id)}
                         onToggleFavorite={handleToggleFavorite}
+                        onBeforeNavigate={saveFilterState}
                       />
                     ))}
                   </div>
@@ -1413,13 +1444,14 @@ export default function ProductList() {
                       addToCart={addToCart}
                       isFavorited={wishlist?.some(w => w.id === p.id)}
                       onToggleFavorite={handleToggleFavorite}
+                      onBeforeNavigate={saveFilterState}
                     />
                   </div>
                 ) : (
                   // List View (No Rating, Pill Price Button)
                   <div
                     key={p.id}
-                    onClick={() => navigate(`/product/${p.id}`)}
+                    onClick={() => { saveFilterState(); navigate(`/product/${p.id}`); }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
