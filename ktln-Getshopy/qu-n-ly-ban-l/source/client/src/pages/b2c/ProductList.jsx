@@ -22,8 +22,12 @@ import {
   HomeOutlined,
   WifiOutlined,
   DesktopOutlined,
-  InboxOutlined
+  InboxOutlined,
+  FireOutlined,
+  TrophyOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
+
 
 const CAT_ICON_MAP = {
   'cat-phone': <MobileOutlined />,
@@ -339,6 +343,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
 export default function ProductList() {
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
+  const [totalAllProducts, setTotalAllProducts] = useState(0); // tổng toàn DB, không filter
   const [currentPage, setCurrentPage] = useState(1);
   const [categories, setCategories] = useState([]);
   const [activeCategories, setActiveCategories] = useState([]);
@@ -429,6 +434,7 @@ export default function ProductList() {
 
         setProducts(allProds);
         setTotalProducts(prodData.total || 0);
+        setTotalAllProducts(prodData.totalAll || prodData.total || 0);
         setCategories(catData || []);
         setBrandList(brandData || []);
         setActiveCategories(activeCatData || []);
@@ -1019,6 +1025,125 @@ export default function ProductList() {
         {/* ── Right Column: Products List ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
+          {/* ─── Bestseller Hero Banner — full-width, above toolbar ─── */}
+          {sort === 'best_selling' && (
+            <div
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: 20,
+                marginBottom: 20,
+                padding: '24px 28px',
+                width: '100%',
+                boxSizing: 'border-box',
+                background: isDark
+                  ? 'linear-gradient(135deg, #18181b 0%, #27272a 60%, #1c1917 100%)'
+                  : '#ffffff',
+                border: isDark
+                  ? '1px solid rgba(255,255,255,0.08)'
+                  : '1px solid #e4e4e7',
+                boxShadow: isDark
+                  ? '0 16px 48px -8px rgba(0,0,0,0.5)'
+                  : '0 4px 24px -4px rgba(0,0,0,0.08)',
+              }}
+            >
+              {isDark && (
+                <>
+                  <div style={{
+                    position: 'absolute', top: -60, right: -60,
+                    width: 260, height: 260, borderRadius: '50%',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    pointerEvents: 'none',
+                  }} />
+                  <div style={{
+                    position: 'absolute', top: -30, right: -30,
+                    width: 160, height: 160, borderRadius: '50%',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    pointerEvents: 'none',
+                  }} />
+                </>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+                {/* Trophy icon */}
+                <div style={{
+                  width: 56, height: 56, borderRadius: 16, flexShrink: 0,
+                  background: isDark ? 'rgba(251,191,36,0.12)' : 'rgba(251,191,36,0.1)',
+                  border: isDark ? '1px solid rgba(251,191,36,0.2)' : '1px solid rgba(251,191,36,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <TrophyOutlined style={{ fontSize: 26, color: '#f59e0b' }} />
+                </div>
+
+                {/* Center — flex:1 kéo full width còn lại */}
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 10, fontWeight: 700, letterSpacing: 1.5,
+                    textTransform: 'uppercase',
+                    color: isDark ? 'rgba(255,255,255,0.4)' : '#a1a1aa',
+                    marginBottom: 5,
+                  }}>
+                    <RiseOutlined style={{ fontSize: 9 }} />
+                    Dựa trên dữ liệu bán hàng thực tế
+                  </div>
+                  <div style={{
+                    fontSize: 22, fontWeight: 800,
+                    color: isDark ? '#ffffff' : '#18181b',
+                    lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 8,
+                  }}>
+                    Top Bán Chạy Nhất
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                    fontSize: 12.5,
+                    color: isDark ? 'rgba(255,255,255,0.5)' : '#71717a',
+                  }}>
+                    <ShoppingOutlined style={{
+                      fontSize: 13,
+                      color: isDark ? 'rgba(255,255,255,0.35)' : '#a1a1aa',
+                    }} />
+                    <span>
+                      Xếp hạng theo trường&nbsp;
+                      <code style={{
+                        fontSize: 11, fontWeight: 700,
+                        padding: '1px 7px', borderRadius: 5,
+                        background: isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5',
+                        color: isDark ? '#fbbf24' : '#a16207',
+                        fontFamily: 'ui-monospace, monospace',
+                      }}>sold</code>
+                      &nbsp;— tổng số lượt mua tích lũy từ các đơn hàng hoàn thành
+                    </span>
+                  </div>
+                </div>
+
+                {/* Product count pill */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 18px', borderRadius: 14, flexShrink: 0,
+                  background: isDark ? 'rgba(251,191,36,0.1)' : 'rgba(251,191,36,0.08)',
+                  border: isDark ? '1px solid rgba(251,191,36,0.2)' : '1px solid rgba(251,191,36,0.3)',
+                }}>
+                  <FireOutlined style={{ color: '#f59e0b', fontSize: 16 }} />
+                  <div>
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: 1,
+                      textTransform: 'uppercase',
+                      color: isDark ? 'rgba(255,255,255,0.4)' : '#a16207',
+                      marginBottom: 1,
+                    }}>Sản phẩm</div>
+                    <div style={{
+                      fontSize: 20, fontWeight: 900,
+                      color: isDark ? '#fbbf24' : '#d97706',
+                      lineHeight: 1,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>{totalAllProducts.toLocaleString('vi-VN')}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Toolbar Header */}
           <div style={{
             display: 'flex',
@@ -1029,8 +1154,8 @@ export default function ProductList() {
             gap: 12,
           }}>
             <div>
-              <Title level={3} style={{ color: textCol, margin: 0, fontWeight: 700, fontSize: 22 }}>
-                {searchQuery ? `Kết quả: "${searchQuery}"` : activeCatName}
+            <Title level={3} style={{ color: textCol, margin: 0, fontWeight: 700, fontSize: 22 }}>
+                {sort === 'best_selling' ? 'Top bán chạy' : (searchQuery ? `Kết quả: "${searchQuery}"` : activeCatName)}
               </Title>
               {!loading && (
                 <Text style={{ color: subCol, fontSize: 13 }}>
@@ -1038,6 +1163,8 @@ export default function ProductList() {
                 </Text>
               )}
             </div>
+
+
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {/* Filter toggle */}
@@ -1250,17 +1377,44 @@ export default function ProductList() {
                 : '1fr',
               gap: viewMode === 'grid' ? 24 : 16,
             }}>
-              {products.map(p => (
+              {products.map((p, idx) => (
                 viewMode === 'grid' ? (
-                  <ProductCard
-                    key={p.id}
-                    p={p}
-                    isDark={isDark}
-                    navigate={navigate}
-                    addToCart={addToCart}
-                    isFavorited={wishlist?.some(w => w.id === p.id)}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
+                  <div key={p.id} style={{ position: 'relative' }}>
+                    {sort === 'best_selling' && idx < 3 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 14,
+                        left: 14,
+                        zIndex: 10,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '5px 11px',
+                        borderRadius: 10,
+                        fontWeight: 800,
+                        fontSize: 12,
+                        letterSpacing: 0.4,
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                        ...(idx === 0
+                          ? { background: 'linear-gradient(135deg,#b45309,#fbbf24)', color: '#fff' }
+                          : idx === 1
+                          ? { background: 'linear-gradient(135deg,#52525b,#d4d4d8)', color: '#18181b' }
+                          : { background: 'linear-gradient(135deg,#92400e,#d97706)', color: '#fff' }
+                        ),
+                      }}>
+                        <TrophyOutlined style={{ fontSize: 11 }} />
+                        #{idx + 1}
+                      </div>
+                    )}
+                    <ProductCard
+                      p={p}
+                      isDark={isDark}
+                      navigate={navigate}
+                      addToCart={addToCart}
+                      isFavorited={wishlist?.some(w => w.id === p.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                    />
+                  </div>
                 ) : (
                   // List View (No Rating, Pill Price Button)
                   <div

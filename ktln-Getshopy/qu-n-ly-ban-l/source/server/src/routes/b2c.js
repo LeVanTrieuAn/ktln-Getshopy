@@ -309,9 +309,16 @@ router.get('/products', async (req, res) => {
     const fsItems = await getActiveFlashSaleItems();
     products = products.map(p => applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems));
 
+    // totalAll: tổng sản phẩm toàn DB (không filter), cache 5 phút
+    // Dùng cho banner "Bán chạy nhất" để luôn hiển thị tổng thật (600,000)
+    const totalAll = await cached('products:total_all', 300, () =>
+      prisma.product.count({ where: { is_deleted: false } })
+    );
+
     res.json({
       data: products,
       total,
+      totalAll,
       page: pageNumber,
       limit: limitNumber,
       totalPages: Math.ceil(total / limitNumber)
@@ -513,11 +520,34 @@ router.post('/products/:id/reviews', async (req, res) => {
       }
     });
 
-    res.json({ success: true, review: { ...newReview, product_id: Number(newReview.product_id) } });
+    // Tính lại Product.rating = AVG thực từ toàn bộ reviews
+    // (Sản phẩm chưa có review nào → rating = 0, không phải null)
+    const agg = await prisma.review.aggregate({
+      where: { product_id: BigInt(id) },
+      _avg: { rating: true },
+      _count: { id: true },
+    });
+
+    const newRating = agg._avg.rating
+      ? Math.round(agg._avg.rating * 10) / 10
+      : 0;
+
+    await prisma.product.update({
+      where: { id: BigInt(id) },
+      data: { rating: newRating },
+    });
+
+    res.json({
+      success: true,
+      review: { ...newReview, product_id: Number(newReview.product_id) },
+      product_rating: newRating,
+      review_count: agg._count.id,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 
 // --- AUTHENTICATION ---
 

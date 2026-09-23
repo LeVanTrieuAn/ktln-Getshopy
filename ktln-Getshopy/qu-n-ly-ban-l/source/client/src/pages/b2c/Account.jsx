@@ -888,8 +888,14 @@ export default function Account() {
                     </div>
                     <div style={{ flex: '1 1 340px' }}>
                       <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 14 }}>Ghim vị trí trên bản đồ</div>
-                      <div style={{ height: 380, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
-                        <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                      <div style={{ height: 380, borderRadius: 14, overflow: 'hidden', border: `1px solid ${isDark ? '#3f3f46' : '#d4d4d8'}`, position: 'relative', zIndex: 0 }}>
+                        <MapContainer
+                          center={mapPosition}
+                          zoom={13}
+                          scrollWheelZoom={true}
+                          style={{ height: '100%', width: '100%', zIndex: 0 }}
+                          whenCreated={(mapInstance) => { setTimeout(() => mapInstance.invalidateSize(), 300); }}
+                        >
                           <TileLayer
                             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

@@ -1078,7 +1078,7 @@ function SpecTable({ specs, isDark }) {
             >
               <span style={{
                 width: 34, height: 34, borderRadius: 10,
-                background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
+                background: isDark ? '#3f3f46' : '#e4e4e7',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 color: '#fff', fontSize: 16, flexShrink: 0,
               }}>{icon}</span>
@@ -1212,7 +1212,7 @@ function ProductTabs({ product, specs, highlights, description, isDark,
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <span style={{
                   width: 36, height: 36, borderRadius: 10, flexShrink: 0,
-                  background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
+                  background: isDark ? '#3f3f46' : '#e4e4e7',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   color: '#fff', fontSize: 16,
                 }}><AppstoreOutlined /></span>
@@ -1247,7 +1247,7 @@ function ProductTabs({ product, specs, highlights, description, isDark,
                 >
                   <span style={{
                     width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-                    background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b',
+                    background: isDark ? '#3f3f46' : '#e4e4e7',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     color: '#fff', fontSize: 18, boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                   }}>{h.icon}</span>
@@ -1860,7 +1860,14 @@ export default function ProductDetail() {
             <div style={{ display: 'flex', gap: 12 }}>
               <Button type="default" size="large"
                 icon={isWished ? <HeartFilled style={{ color: '#ef4444' }} /> : <HeartOutlined />}
-                onClick={() => { toggleWishlist(product); message.success(isWished ? 'Đã bỏ yêu thích' : 'Đã thêm vào yêu thích'); }}
+                onClick={() => {
+                  toggleWishlist(product);
+                  if (!isWished) {
+                    // Chỉ track khi ADD (không track khi remove)
+                    trackAddToWishlist(product, { pageSource: 'detail' });
+                  }
+                  message.success(isWished ? 'Đã bỏ yêu thích' : 'Đã thêm vào yêu thích');
+                }}
                 style={{ height: 56, width: 56, borderRadius: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', borderColor: isWished ? '#ef4444' : (isDark ? '#444' : '#d9d9d9') }} />
               <Button type="default" size="large"
                 icon={<SwapOutlined style={{ color: isCompared ? '#8b5cf6' : undefined }} />}
