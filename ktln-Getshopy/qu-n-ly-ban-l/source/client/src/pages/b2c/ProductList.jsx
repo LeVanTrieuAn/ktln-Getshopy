@@ -68,6 +68,13 @@ function getFallback(categoryId) {
   if (c.startsWith('cat-cam') || c.startsWith('c6')) return FALLBACK_BY_CAT.camera;
   return FALLBACK_BY_CAT.default;
 }
+/** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB (vd: /assets/speaker.jpg) */
+function getSafeImageUrl(url, categoryId) {
+  if (!url) return getFallback(categoryId);
+  // Bỏ qua relative path hoặc URL không có protocol (dữ liệu cũ)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return getFallback(categoryId);
+  return url;
+}
 
 const { Title, Text } = Typography;
 
@@ -220,7 +227,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
 
         <img
           alt={p.name}
-          src={p.image}
+          src={getSafeImageUrl(p.image, p.category_id)}
           loading="lazy"
           style={{
             maxWidth: '85%',

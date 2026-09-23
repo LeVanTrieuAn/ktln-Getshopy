@@ -15,6 +15,28 @@ import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
 import { FBXLoader } from 'three-stdlib';
 import * as THREE from 'three';
 
+// ─── Patch TextureLoader để tránh 404 từ texture nhúng trong FBX ─────────────
+// FBX files lưu tên texture gốc (vd: speaker.jpg, Wallpaper.jpeg, Lens.png).
+// Three.js cố tải chúng từ /assets/ → 404. Ta override load() để dùng
+// 1×1 white canvas texture thay thế khi URL không phải http(s).
+(function patchFBXTextureLoader() {
+  const OrigLoad = THREE.TextureLoader.prototype.load;
+  THREE.TextureLoader.prototype.load = function (url, onLoad, onProgress, onError) {
+    // Nếu URL là relative path (tên file từ FBX nội bộ) → trả texture trắng
+    if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/') && !url.startsWith('blob:') && !url.startsWith('data:')) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1; canvas.height = 1;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = 'rgba(255,255,255,0)';
+      ctx.fillRect(0, 0, 1, 1);
+      const tex = new THREE.CanvasTexture(canvas);
+      if (onLoad) onLoad(tex);
+      return tex;
+    }
+    return OrigLoad.call(this, url, onLoad, onProgress, onError);
+  };
+})();
+
 // ─── Preload helper ──────────────────────────────────────────────────────────
 // eslint-disable-next-line react-refresh/only-export-components
 export function preloadFBX(url) {

@@ -1458,6 +1458,12 @@ export default function ProductDetail() {
     if (c.startsWith('cat-laptop-acc')) return 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format';
     return 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format';
   }
+  /** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB (vd: /assets/speaker.jpg) */
+  function getSafeImageUrl(url, categoryId) {
+    if (!url) return getFallback(categoryId);
+    if (!url.startsWith('http://') && !url.startsWith('https://')) return getFallback(categoryId);
+    return url;
+  }
 
   useEffect(() => {
     // Safely parse JSON fields that may be double-encoded strings from DB
@@ -1522,7 +1528,9 @@ export default function ProductDetail() {
   const isWished      = Array.isArray(wishlist) && wishlist.some(p => p.id === product.id);
   const isCompared    = Array.isArray(compareList) && compareList.some(p => p.id === product.id);
   const safeRecentlyViewed = Array.isArray(recentlyViewed) ? recentlyViewed : [];
-  const allImages     = [...new Set([product.image, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean))];
+  const allImages     = [...new Set([product.image, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean))]
+    .map(url => getSafeImageUrl(url, product.category_id))
+    .filter((url, i, arr) => arr.indexOf(url) === i); // dedup sau khi map
 
   // Generate rich specs
   const specs       = generateSpecs(product);
