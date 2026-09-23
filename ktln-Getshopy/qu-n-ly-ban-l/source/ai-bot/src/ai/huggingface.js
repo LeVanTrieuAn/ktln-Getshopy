@@ -79,17 +79,25 @@ const INTENT_LABELS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Model mặc định cho zero-shot classification.
- * Hỗ trợ đa ngôn ngữ bao gồm tiếng Việt.
- * 
- * Kế hoạch future: Thay bằng model fine-tuned của Getshopy
- * sau khi training hoàn tất trên Hugging Face Hub.
- * Ví dụ: 'your-hf-username/getshopy-intent-classifier'
+ * Chain model cho zero-shot classification — thử lần lượt, skip nếu bị deprecated/503.
+ * Tất cả đều hỗ trợ đa ngôn ngữ (tiếng Việt).
+ *
+ * Refs:
+ *  [1] MoritzLaurer/mDeBERTa-v3-base-mnli-xnli — HuggingFace Model Hub
+ *  [2] joeddav/xlm-roberta-large-xnli — HuggingFace Model Hub
+ *  [3] MoritzLaurer/deberta-v3-large-zeroshot-v2 — HuggingFace Model Hub
  */
-const DEFAULT_MODEL = process.env.HF_MODEL || 'MoritzLaurer/mDeBERTa-v3-base-mnli-xnli';
+const CLASSIFICATION_MODELS = (
+  process.env.HF_CLASSIFICATION_MODELS ||
+  'MoritzLaurer/mDeBERTa-v3-base-mnli-xnli' // default nếu không set env
+).split(',').map(s => s.trim()).filter(Boolean);
+
+/** @deprecated Use CLASSIFICATION_MODELS[0] — kept for backward compat */
+const DEFAULT_MODEL = CLASSIFICATION_MODELS[0];
 
 /** Confidence threshold — Dưới ngưỡng này → fallback UNKNOWN */
 const CONFIDENCE_THRESHOLD = parseFloat(process.env.HF_CONFIDENCE_THRESHOLD || '0.35');
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RULE-BASED PRE-CLASSIFIER (Xử lý trước khi gọi API)
@@ -141,7 +149,7 @@ function preClassify(message) {
   }
 
   // ── "tìm X" standalone — fix: .{0,40} thay vì .{2,40} để bắt "tìm iPhone" (1 space) ─
-  if (/^tim\s+(iphone|samsung|xiaomi|oppo|vivo|realme|laptop|may tinh|tai nghe|airpods|dien thoai|smartphone|tablet|dong ho|loa|apple|sony|logitech|anker|dell|hp|asus|lenovo)/.test(norm) ||
+  if (/^tim\s+(iphone|samsung|xiaomi|oppo|vivo|realme|laptop|may tinh|tai nghe|airpods|dien thoai|smartphone|tablet|dong ho|smartwatch|smart watch|loa|apple|sony|jbl|logitech|razer|anker|dell|hp|asus|lenovo|chuot|ban phim|camera|o cung|the nho|usb)/.test(norm) ||
       /(tim|can mua|muon mua|dang can|can tim|cho minh|ban co|shop co|shop ban|cho xem|minh xem).{0,40}(khong|duoc khong|ko|k\b|iphone|samsung|dien thoai|laptop|may tinh|tai nghe|airpods|tablet|dong ho|smartphone)/.test(norm)) {
     return { intent: 'SEARCH_PRODUCT', score: 0.88, source: 'rule' };
   }
@@ -162,19 +170,21 @@ function preClassify(message) {
     return { intent: 'ASK_RECOMMEND', score: 0.90, source: 'rule' };
   }
 
-  // ── So sánh sản phẩm ──────────────────────────────────────────────────────
-  if (/(so sanh|khac nhau|khac gi|hay la|vs\b|versus|con nao hon|cai nao hon|between|hay|hoac)/.test(norm) &&
-      /(dien thoai|laptop|may tinh|iphone|samsung|tai nghe|may tinh bang|may anh)/.test(norm)) {
-    return { intent: 'COMPARE_PRODUCT', score: 0.90, source: 'rule' };
-  }
-
   // ── Hàng bán chạy / mới nhất ──────────────────────────────────────────────
   if (/(ban chay|pho bien|hot nhat|ban nhieu|bestseller|best seller|nhieu nguoi mua|moi nhat|moi ve|hang moi|san pham moi|new arrival|vua ra|moi ra mat)/.test(norm)) {
     if (/moi|new|vua ra|moi ra/.test(norm)) return { intent: 'ASK_NEW_ARRIVAL', score: 0.90, source: 'rule' };
     return { intent: 'ASK_BEST_SELLER', score: 0.90, source: 'rule' };
   }
 
-  // ── Kiểm tra tồn kho ──────────────────────────────────────────────────────
+  // ── Kiểm tra tồn kho ────────────────────────────────────
+
+  // ── So sánh sản phẩm ──────────────────────────────────────────────────────
+  if (/(so sanh|khac nhau|khac gi|hay la|vs\b|versus|con nao hon|cai nao hon|between|\bhay\b|hoac)/.test(norm) &&
+      /(dien thoai|laptop|may tinh|iphone|samsung|tai nghe|may tinh bang|may anh)/.test(norm)) {
+    return { intent: 'COMPARE_PRODUCT', score: 0.90, source: 'rule' };
+  }
+
+  // ── Kiểm tra tồn kho ────────────────────────────────────────────
   if (/(con hang|con khong|con may cai|het hang|out of stock|in stock|ton kho|con san pham|con do khong|available)/.test(norm)) {
     return { intent: 'CHECK_STOCK', score: 0.92, source: 'rule' };
   }

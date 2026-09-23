@@ -376,16 +376,25 @@ async function buildContext(intent, message, history = []) {
       // ── Sản phẩm bán chạy (nâng cấp: category-aware) ──────────────────────
       case 'ASK_BEST_SELLER': {
         const catId = KC.detectCategory(message);
+        const brandId = KC.detectBrand(message); // FIX: brand filter
         const baseWhere = { is_deleted: false };
         if (catId) {
           const expandedIds = KC.expandCategoryIds(catId);
           baseWhere.category_id = expandedIds.length === 1 ? expandedIds[0] : { in: expandedIds };
         }
+        if (brandId) baseWhere.brand_id = brandId; // FIX: filter by brand
         products = await prisma.product.findMany({
           where: baseWhere,
           orderBy: { sold: 'desc' },
           take: 4,
         });
+        // Fallback: brand quá chặt → bỏ brand
+        if (products.length === 0 && brandId) {
+          const wb = { ...baseWhere };
+          delete wb.brand_id;
+          products = await prisma.product.findMany({ where: wb, orderBy: { sold: 'desc' }, take: 4 });
+        }
+        if (products[0]) link = '/shop?' + (brandId ? 'brand=' + brandId : catId ? 'category=' + catId : '');
         break;
       }
 
@@ -606,8 +615,24 @@ async function chat({ message, history = [], req }) {
   const sessionId = req?.ip || req?.headers?.['x-forwarded-for'] || 'default';
 
   // ── BƯỚC 1: Phân loại intent (mDeBERTa + rule-based) ──────────────────
-  const { intent, score, source } = await classifyIntent(message);
+  let { intent, score, source } = await classifyIntent(message);
   console.log(`[Chat] "${message.slice(0,50)}" → ${intent} (${score.toFixed?.(3) ?? score}, ${source})`);
+
+  // FIX: Brand/Category-intent override — GREETING/UNKNOWN + brand|category → SEARCH_PRODUCT
+  if (['GREETING', 'UNKNOWN', 'GENERAL_INFO'].includes(intent) || score < 0.65) {
+    const _n = removeDiacritics(message).toLowerCase();
+    const _ob = KC.detectBrand(message);
+    const _oc = KC.detectCategory(message);
+    const _hasSearchVerb = /(tim|xem|mua|co gi|ban co|shop co|san pham|cho xem|gia|bao nhieu|nao tot|ban chay|co|gi|hay|dang|muon|can)/.test(_n);
+    if (_ob && _hasSearchVerb) {
+      intent = 'SEARCH_PRODUCT'; source = 'brand-override';
+      console.log(`[Chat] Brand-override: ${_ob} → SEARCH_PRODUCT`);
+    } else if (_oc) {
+      // Category-override: đồng hồ, smartwatch, máy tính, laptop... không có brand → SEARCH_PRODUCT
+      intent = 'SEARCH_PRODUCT'; source = 'category-override';
+      console.log(`[Chat] Category-override: ${_oc} → SEARCH_PRODUCT`);
+    }
+  }
 
   // ── BƯỚC 2: Query DB theo intent để lấy context thực (truyền history để xử lý follow-up) ──
   const context = await buildContext(intent, message, history);

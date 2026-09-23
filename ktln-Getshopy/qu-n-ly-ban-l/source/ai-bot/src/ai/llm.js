@@ -21,8 +21,24 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const HF_API_KEY   = process.env.HF_API_KEY;
-// Qwen2.5-7B-Instruct — hoạt động miễn phí qua featherless-ai provider
-const HF_LLM_MODEL = process.env.HF_LLM_MODEL || 'Qwen/Qwen2.5-7B-Instruct';
+/**
+ * Chain LLM models cho text generation (featherless-ai provider).
+ * Thử lần lượt nếu model bị deprecated/timeout.
+ *
+ * Refs:
+ *  [1] meta-llama/Llama-3.1-8B-Instruct — HuggingFace Model Hub (CONFIRMED working)
+ *  [2] Qwen/Qwen2.5-7B-Instruct — featherless-ai (timeout 2025-09, monitor)
+ *  [3] Qwen/Qwen2.5-3B-Instruct — lighter fallback
+ */
+/**
+ * Đọc LLM model chain từ env var HF_LLM_MODELS.
+ * Format: tên model phân tách bằng dấu phẩy.
+ */
+const LLM_MODELS = (
+  process.env.HF_LLM_MODELS ||
+  'meta-llama/Llama-3.1-8B-Instruct' // default nếu không set env
+).split(',').map(s => s.trim()).filter(Boolean);
+const HF_LLM_MODEL = LLM_MODELS[0]; // backward compat
 
 /**
  * HuggingFace Inference Router — featherless-ai provider.
@@ -64,7 +80,7 @@ VAI TRÒ: Tư vấn mua sắm thông minh, thân thiện.
 
 !!! NGÔN NGỮ BẮT BUỘC: CHỈ DÙNG TIẾNG VIỆT. TUYỆT ĐỐI KHÔNG dùng tiếng Trung, tiếng Anh hay bất kỳ ngôn ngữ nào khác. Xưng "em", gọi khách "anh/chị". !!!
 
-67 THƯƠNG HIỆU: Apple, Samsung, OPPO, Xiaomi, vivo, realme, HONOR, Motorola, Huawei, Acer, Asus, Dell, HP, Lenovo, MSI, Microsoft, Sony, JBL, Marshall, Shokz, Anker, Baseus, Ugreen, Razer, Corsair, Logitech, Akko, Dareu, Dahua, EZVIZ, Imou, Kingston, SanDisk, Seagate, TP-Link, Wacom, Insta360, và nhiều hãng khác.
+33 THƯƠNG HIỆU: Apple, Samsung, OPPO, Xiaomi, Vivo, realme, HONOR, Motorola, Infinix, TECNO, Huawei, Acer, Asus, Dell, HP, Lenovo, Sony, JBL, Marshall, Baseus, Ugreen, Razer, Logitech, Dahua, EZVIZ, Imou, TP-Link, Kingston, SanDisk, Seagate, Amazfit, TOTOLINK, ESR.
 
 8 DANH MỤC CHÍNH: Điện thoại, Laptop, Tablet, Smartwatch, Phụ kiện di động, Phụ kiện laptop/PC, Thiết bị nghe nhìn & lưu trữ, Camera.
 
@@ -132,71 +148,87 @@ async function generateChatResponse({ intent, context, message, history = [] }) 
   // Nếu LLM không trả lời trong 20s → fallback handler ngay
   const MAX_RETRIES = 1;
 
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      console.log(`[LLM] Calling HF ${HF_LLM_MODEL} (attempt ${attempt}/${MAX_RETRIES})...`);
+  // Thử lần lượt qua LLM_MODELS — nếu model timeout/deprecated, chuyển sang tiếp theo
+  for (let mi = 0; mi < LLM_MODELS.length; mi++) {
+    const currentModel = LLM_MODELS[mi];
+    if (mi > 0) console.log(`[LLM] Thử fallback LLM model [${mi}]: ${currentModel}`);
 
-      const response = await fetch(HF_LLM_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model:       HF_LLM_MODEL,
-          messages,
-          temperature: 0.7,
-          max_tokens:  150,   // Giảm từ 400 → 150: 2-3 câu ngắn gọn, sinh nhanh hơn
-          top_p:       0.9,
-          stream:      false,
-        }),
-        signal: AbortSignal.timeout(20_000), // 20s — failfast, route có race timeout bao ngoài
-      });
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[LLM] Calling ${currentModel} (attempt ${attempt}/${MAX_RETRIES})...`);
 
-      // Model đang warm-up (503) — báo log, không chờ lâu
-      if (response.status === 503) {
-        const errData = await response.json().catch(() => ({}));
-        const waitMs  = Math.min((errData.estimated_time || 10) * 1000, 8_000); // tối đa 8s
-        console.log(`[LLM] Model đang load, chờ ${Math.round(waitMs / 1000)}s (capped 8s)...`);
-        if (attempt < MAX_RETRIES) {
-          await sleep(waitMs);
-          continue;
+        const response = await fetch(HF_LLM_URL, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${HF_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model:       currentModel,
+            messages,
+            temperature: 0.7,
+            max_tokens:  150,
+            top_p:       0.9,
+            stream:      false,
+          }),
+          signal: AbortSignal.timeout(20_000),
+        });
+
+        // Model bị deprecated / không hỗ trợ → skip sang model tiếp
+        if (response.status === 400 || response.status === 404 || response.status === 410) {
+          const errText = await response.text().catch(() => '');
+          console.warn(`[LLM] Model ${currentModel} not available (${response.status}): ${errText.slice(0,80)}`);
+          break; // thử model tiếp
         }
-        return null;
+
+        // Model đang warm-up (503) — chờ rồi retry
+        if (response.status === 503) {
+          const errData = await response.json().catch(() => ({}));
+          const waitMs  = Math.min((errData.estimated_time || 10) * 1000, 8_000);
+          console.log(`[LLM] Model đang load, chờ ${Math.round(waitMs / 1000)}s...`);
+          if (attempt < MAX_RETRIES) { await sleep(waitMs); continue; }
+          break;
+        }
+
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '');
+          console.error(`[LLM] HTTP ${response.status}:`, errText.slice(0, 200));
+          break;
+        }
+
+        const data    = await response.json();
+        const content = data?.choices?.[0]?.message?.content?.trim();
+
+        if (!content) {
+          console.warn('[LLM] Response rỗng — thử model tiếp.');
+          break;
+        }
+
+        // Guard: phát hiện tiếng Trung → retry hoặc skip model
+        if (containsChinese(content)) {
+          console.warn(`[LLM] ⚠️ Response tiếng Trung (${content.slice(0,30)}...) — retry`);
+          if (attempt < MAX_RETRIES) { await sleep(1000); continue; }
+          break;
+        }
+
+        if (mi > 0) console.log(`[LLM] Fallback model ${currentModel} thành công!`);
+        console.log(`[LLM] ✅ ${currentModel.split('/')[1]} generated ${content.length} chars, intent=${intent}`);
+        return content;
+
+      } catch (err) {
+        const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
+        if (isTimeout) {
+          console.warn(`[LLM] Model ${currentModel} timeout — thử model tiếp`);
+          break; // timeout → skip sang model tiếp luôn, không retry
+        }
+        console.error(`[LLM] Attempt ${attempt} lỗi: ${err.message}`);
+        if (attempt < MAX_RETRIES) await sleep(4000 * attempt);
       }
-
-      if (!response.ok) {
-        const errText = await response.text().catch(() => '');
-        console.error(`[LLM] HF Error ${response.status}:`, errText.slice(0, 200));
-        return null;
-      }
-
-      const data    = await response.json();
-      const content = data?.choices?.[0]?.message?.content?.trim();
-
-      if (!content) {
-        console.warn('[LLM] HF trả về nội dung rỗng.');
-        return null;
-      }
-
-      // Guard: phát hiện tiếng Trung → retry hoặc fallback
-      if (containsChinese(content)) {
-        console.warn(`[LLM] ⚠️ Response chứa tiếng Trung (${content.slice(0,30)}...) — retry`);
-        if (attempt < MAX_RETRIES) { await sleep(1000); continue; }
-        return null; // sẽ dùng fallback handler
-      }
-
-      console.log(`[LLM] ✅ HF Qwen generated ${content.length} chars, intent=${intent}`);
-      return content;
-
-    } catch (err) {
-      const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-      console.error(`[LLM] Attempt ${attempt} thất bại (${isTimeout ? 'timeout' : err.message})`);
-      if (attempt < MAX_RETRIES) await sleep(4000 * attempt);
     }
   }
 
-  console.warn('[LLM] Tất cả retry thất bại — dùng fallback handler.');
+  console.warn('[LLM] Tất cả LLM models đều thất bại — dùng fallback handler.');
+  return null;
   return null;
 }
 

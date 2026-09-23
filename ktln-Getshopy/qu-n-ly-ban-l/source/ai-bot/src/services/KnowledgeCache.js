@@ -37,6 +37,7 @@ let _refreshPromise = null;
 // BRAND ALIAS MAP — Từ khóa phổ biến → brand_id
 // Bao gồm tên model, biệt danh, viết tắt, typo phổ biến
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── 33 thương hiệu thực tế trong DB (theo SEED_DOCUMENTATION.md) ───────────
 const BRAND_KEYWORD_ALIASES = {
   // Apple
   'iphone': 'br-apple', 'macbook': 'br-apple', 'ipad': 'br-apple',
@@ -47,8 +48,8 @@ const BRAND_KEYWORD_ALIASES = {
   // Samsung
   'samsung': 'br-samsung', 'galaxy': 'br-samsung', 'galaxy tab': 'br-samsung',
   'galaxy watch': 'br-samsung', 'galaxy buds': 'br-samsung', 'galaxy book': 'br-samsung',
-  'galaxy fold': 'br-samsung', 'galaxy flip': 'br-samsung', 'galaxy s': 'br-samsung',
-  'galaxy a': 'br-samsung', 'galaxy z': 'br-samsung',
+  'galaxy fold': 'br-samsung', 'galaxy flip': 'br-samsung',
+  'galaxy s': 'br-samsung', 'galaxy a': 'br-samsung', 'galaxy z': 'br-samsung',
 
   // Xiaomi
   'xiaomi': 'br-xiaomi', 'redmi': 'br-xiaomi', 'poco': 'br-xiaomi',
@@ -60,142 +61,133 @@ const BRAND_KEYWORD_ALIASES = {
   'vivo': 'br-vivo',
   'honor': 'br-honor',
 
+  // Motorola
+  'motorola': 'br-motorola', 'moto': 'br-motorola',
+
+  // Infinix / TECNO — chưa có sản phẩm trong DB hiện tại, alias giữ lại nhưng không resolve được
+  // 'infinix': 'br-infinix',
+  // 'tecno': 'br-tecno',
+
+  // MSI + Anker — vẫn có sản phẩm trong DB (legacy seed)
+  'msi': 'br-msi', 'msi gaming': 'br-msi', 'msi laptop': 'br-msi',
+  'anker': 'br-anker',
+
   // Laptop brands
-  'acer': 'br-acer', 'aspire': 'br-acer', 'nitro': 'br-acer', 'predator': 'br-acer', 'swift': 'br-acer',
-  'asus': 'br-asus', 'zenbook': 'br-asus', 'vivobook': 'br-asus', 'rog': 'br-asus', 'tuf': 'br-asus',
-  'dell': 'br-dell', 'inspiron': 'br-dell', 'latitude': 'br-dell', 'xps': 'br-dell', 'alienware': 'br-dell', 'vostro': 'br-dell',
-  'hp': 'br-hp', 'pavilion': 'br-hp', 'envy': 'br-hp', 'spectre': 'br-hp', 'omen': 'br-hp', 'victus': 'br-hp', 'elitebook': 'br-hp',
-  'lenovo': 'br-lenovo', 'thinkpad': 'br-lenovo', 'ideapad': 'br-lenovo', 'yoga': 'br-lenovo', 'legion': 'br-lenovo', 'thinkbook': 'br-lenovo',
-  'msi': 'br-msi', 'stealth': 'br-msi', 'raider': 'br-msi', 'katana': 'br-msi', 'cyborg': 'br-msi',
-  'microsoft': 'br-microsoft', 'surface': 'br-microsoft',
-  'machenike': 'br-machenike',
+  'acer': 'br-acer', 'aspire': 'br-acer', 'nitro': 'br-acer',
+  'predator': 'br-acer', 'swift': 'br-acer',
+  'asus': 'br-asus', 'zenbook': 'br-asus', 'vivobook': 'br-asus',
+  'rog': 'br-asus', 'tuf': 'br-asus',
+  'dell': 'br-dell', 'inspiron': 'br-dell', 'latitude': 'br-dell',
+  'xps': 'br-dell', 'alienware': 'br-dell', 'vostro': 'br-dell',
+  'hp': 'br-hp', 'pavilion': 'br-hp', 'envy': 'br-hp',
+  'spectre': 'br-hp', 'omen': 'br-hp', 'victus': 'br-hp', 'elitebook': 'br-hp',
+  'lenovo': 'br-lenovo', 'thinkpad': 'br-lenovo', 'ideapad': 'br-lenovo',
+  'yoga': 'br-lenovo', 'legion': 'br-lenovo', 'thinkbook': 'br-lenovo',
 
   // Smartwatch
   'amazfit': 'br-amazfit',
   'huawei': 'br-huawei', 'huawei watch': 'br-huawei', 'matepad': 'br-huawei',
 
-  // Audio
+  // Audio (Sony DB id = br-sony-audio)
   'jbl': 'br-jbl',
-  'sony': 'br-sony', 'wh-1000xm': 'br-sony', 'wf-1000xm': 'br-sony', 'xm5': 'br-sony', 'xm4': 'br-sony',
+  'sony': 'br-sony-audio', 'wh-1000xm': 'br-sony-audio', 'wf-1000xm': 'br-sony-audio',
+  'xm5': 'br-sony-audio', 'xm4': 'br-sony-audio',
   'marshall': 'br-marshall',
-  'shokz': 'br-shokz', 'openrun': 'br-shokz',
-  'boya': 'br-boya',
-  'havit': 'br-havit',
 
   // Accessories
-  'anker': 'br-anker', 'soundcore': 'br-anker',
   'baseus': 'br-baseus',
   'ugreen': 'br-ugreen',
-  'xmobile': 'br-xmobile',
-  'innostyle': 'br-innostyle',
-  'orico': 'br-orico',
-  'tomtoc': 'br-tomtoc',
-  'tucano': 'br-tucano',
+  'esr': 'br-esr',           // miếng dán màn hình
 
   // Gaming peripherals
-  'razer': 'br-razer', 'deathadder': 'br-razer', 'blackwidow': 'br-razer', 'kraken': 'br-razer',
-  'corsair': 'br-corsair',
-  'logitech': 'br-logitech', 'mx master': 'br-logitech', 'mx keys': 'br-logitech', 'g pro': 'br-logitech',
-  'akko': 'br-akko',
-  'dareu': 'br-dareu',
-  'rapoo': 'br-rapoo',
+  'razer': 'br-razer', 'deathadder': 'br-razer',
+  'blackwidow': 'br-razer', 'kraken': 'br-razer',
+  'logitech': 'br-logitech', 'mx master': 'br-logitech',
+  'mx keys': 'br-logitech', 'g pro': 'br-logitech',
 
   // Camera / Security
   'dahua': 'br-dahua',
   'ezviz': 'br-ezviz',
   'imou': 'br-imou',
-  'tiandy': 'br-tiandy',
-  'insta360': 'br-insta360',
+  'tp-link': 'br-tp-link', 'tplink': 'br-tp-link', 'tp link': 'br-tp-link',
 
   // Storage
   'kingston': 'br-kingston',
   'sandisk': 'br-sandisk',
   'seagate': 'br-seagate',
-  'kioxia': 'br-kioxia',
-  'adata': 'br-adata',
 
   // Network
-  'tp-link': 'br-tplink', 'tplink': 'br-tplink', 'tp link': 'br-tplink',
   'totolink': 'br-totolink',
-
-  // Others
-  'philips': 'br-philips',
-  'motorola': 'br-motorola', 'moto': 'br-motorola',
-  'singpc': 'br-singpc',
-  'wacom': 'br-wacom',
-  'wanbo': 'br-wanbo',
-  'ulanzi': 'br-ulanzi',
-  'jcpal': 'br-jcpal',
-  'kidcare': 'br-kidcare',
-  'hyperwork': 'br-hyperwork',
-  'hyperspace': 'br-hyperspace',
-  'hydrus': 'br-hydrus',
-  'eroc': 'br-eroc',
-  'alpha works': 'br-alpha-works',
-  'ava+': 'br-avaplus', 'ava plus': 'br-avaplus',
-  'hyundai audio': 'br-hyundai-audio', 'hyundai': 'br-hyundai-audio',
-  'topo designs': 'br-topo-designs',
-  'thonet vander': 'br-thonet-vander', 'thonet': 'br-thonet-vander',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// CATEGORY KEYWORD → CATEGORY ID mapping (49 categories)
+// CATEGORY KEYWORD → CATEGORY ID mapping
+// 34 danh mục thực tế: 8 root + 26 leaf (theo SEED_DOCUMENTATION.md)
 // ─────────────────────────────────────────────────────────────────────────────
 const CATEGORY_KEYWORD_TO_ID = {
   // ── Cấp 1 (cha) ──────────────────────────────────────────────
-  'dien thoai': 'cat-phone', 'smartphone': 'cat-phone', 'phone': 'cat-phone', 'android': 'cat-phone', 'ios': 'cat-phone',
+  'dien thoai': 'cat-phone', 'smartphone': 'cat-phone', 'phone': 'cat-phone',
+  'android': 'cat-phone', 'ios': 'cat-phone',
   'laptop': 'cat-laptop', 'may tinh xach tay': 'cat-laptop', 'notebook': 'cat-laptop',
-  'tablet': 'cat-tablet', 'may tinh bang': 'cat-tablet',
+  'may tinh': 'cat-laptop', 'computer': 'cat-laptop', 'pc': 'cat-laptop', // FIX: 'máy tính' → laptop
+  'tablet': 'cat-tablet', 'may tinh bang': 'cat-tablet', 'ipad': 'cat-tablet',
   'smartwatch': 'cat-watch', 'dong ho thong minh': 'cat-watch', 'dong ho': 'cat-watch',
+  'watch': 'cat-watch', 'apple watch': 'cat-watch', 'smart watch': 'cat-watch', // FIX: more watch aliases
 
-  // ── Phụ kiện di động (cat-mobile-acc) ─────────────────────────
-  'sac du phong': 'cat-mobile-acc-powerbank', 'pin du phong': 'cat-mobile-acc-powerbank', 'powerbank': 'cat-mobile-acc-powerbank',
-  'sac': 'cat-mobile-acc-charger', 'cap sac': 'cat-mobile-acc-charger', 'cu sac': 'cat-mobile-acc-charger', 'sac nhanh': 'cat-mobile-acc-charger', 'cap': 'cat-mobile-acc-charger',
-  'op lung': 'cat-mobile-acc-case-phone', 'op lung dien thoai': 'cat-mobile-acc-case-phone', 'case': 'cat-mobile-acc-case-phone',
-  'op lung may tinh bang': 'cat-mobile-acc-case-tablet', 'op lung tablet': 'cat-mobile-acc-case-tablet', 'bao da tablet': 'cat-mobile-acc-case-tablet',
-  'mieng dan': 'cat-mobile-acc-screen', 'cuong luc': 'cat-mobile-acc-screen', 'kinh cuong luc': 'cat-mobile-acc-screen',
+  // ── Phụ kiện di động — 7 sub-cat tồn tại ─────────────────────
+  // (đã xóa: powerbank, case-phone, strap, pen, lens)
+  'sac du phong': 'cat-mobile-acc-charger', 'pin du phong': 'cat-mobile-acc-charger',
+  'powerbank': 'cat-mobile-acc-charger',          // → gần nhất là charger
+  'sac': 'cat-mobile-acc-charger', 'cap sac': 'cat-mobile-acc-charger',
+  'cu sac': 'cat-mobile-acc-charger', 'sac nhanh': 'cat-mobile-acc-charger',
+  'cap': 'cat-mobile-acc-charger',
+  'op lung may tinh bang': 'cat-mobile-acc-case-tablet',
+  'op lung tablet': 'cat-mobile-acc-case-tablet', 'bao da tablet': 'cat-mobile-acc-case-tablet',
+  'mieng dan': 'cat-mobile-acc-screen', 'cuong luc': 'cat-mobile-acc-screen',
+  'kinh cuong luc': 'cat-mobile-acc-screen',
   'mieng dan camera': 'cat-mobile-acc-cam-cover',
   'tui dung airpods': 'cat-mobile-acc-airpods-case', 'case airpods': 'cat-mobile-acc-airpods-case',
   'quat mini': 'cat-mobile-acc-fan', 'quat cam tay': 'cat-mobile-acc-fan',
-  'but tablet': 'cat-mobile-acc-pen', 'but cam ung': 'cat-mobile-acc-pen', 'apple pencil': 'cat-mobile-acc-pen',
-  'gia do': 'cat-mobile-acc-stand', 'gia do dien thoai': 'cat-mobile-acc-stand', 'gia do laptop': 'cat-mobile-acc-stand', 'de dien thoai': 'cat-mobile-acc-stand',
-  'day deo': 'cat-mobile-acc-strap', 'day deo dien thoai': 'cat-mobile-acc-strap',
-  'ong kinh dien thoai': 'cat-mobile-acc-lens', 'lens dien thoai': 'cat-mobile-acc-lens',
+  'gia do': 'cat-mobile-acc-stand', 'gia do dien thoai': 'cat-mobile-acc-stand',
+  'gia do laptop': 'cat-mobile-acc-stand', 'de dien thoai': 'cat-mobile-acc-stand',
 
-  // ── Phụ kiện laptop, PC (cat-laptop-acc) ──────────────────────
-  'hub': 'cat-laptop-acc-hub', 'cap chuyen doi': 'cat-laptop-acc-hub', 'dongle': 'cat-laptop-acc-hub', 'usb-c hub': 'cat-laptop-acc-hub', 'adapter': 'cat-laptop-acc-hub',
-  'chuot': 'cat-laptop-acc-mouse', 'chuot may tinh': 'cat-laptop-acc-mouse', 'chuot khong day': 'cat-laptop-acc-mouse', 'mouse': 'cat-laptop-acc-mouse',
-  'ban phim': 'cat-laptop-acc-keyboard', 'ban phim co': 'cat-laptop-acc-keyboard', 'keyboard': 'cat-laptop-acc-keyboard',
-  'router': 'cat-laptop-acc-router', 'wifi': 'cat-laptop-acc-router', 'bo phat wifi': 'cat-laptop-acc-router', 'mesh': 'cat-laptop-acc-router', 'thiet bi mang': 'cat-laptop-acc-router',
-  'balo': 'cat-laptop-acc-bag', 'tui chong soc': 'cat-laptop-acc-bag', 'balo laptop': 'cat-laptop-acc-bag', 'tui laptop': 'cat-laptop-acc-bag',
+  // ── Phụ kiện laptop, PC — 6 sub-cat tồn tại ──────────────────
+  // (đã xóa: hub, router, keyboard-cover, software, monitor-stand)
+  'chuot': 'cat-laptop-acc-mouse', 'chuot may tinh': 'cat-laptop-acc-mouse',
+  'chuot khong day': 'cat-laptop-acc-mouse', 'mouse': 'cat-laptop-acc-mouse',
+  'ban phim': 'cat-laptop-acc-keyboard', 'ban phim co': 'cat-laptop-acc-keyboard',
+  'keyboard': 'cat-laptop-acc-keyboard',
+  'balo': 'cat-laptop-acc-bag', 'tui chong soc': 'cat-laptop-acc-bag',
+  'balo laptop': 'cat-laptop-acc-bag', 'tui laptop': 'cat-laptop-acc-bag',
   'tui dung phu kien': 'cat-laptop-acc-pouch', 'tui phu kien': 'cat-laptop-acc-pouch',
-  'phu phim': 'cat-laptop-acc-keyboard-cover', 'phu phim laptop': 'cat-laptop-acc-keyboard-cover',
-  'phan mem': 'cat-laptop-acc-software', 'software': 'cat-laptop-acc-software', 'office': 'cat-laptop-acc-software', 'windows': 'cat-laptop-acc-software',
-  'gia treo man hinh': 'cat-laptop-acc-monitor-stand', 'arm monitor': 'cat-laptop-acc-monitor-stand',
-  'lot chuot': 'cat-laptop-acc-mousepad', 'mieng lot chuot': 'cat-laptop-acc-mousepad', 'mousepad': 'cat-laptop-acc-mousepad',
+  'lot chuot': 'cat-laptop-acc-mousepad', 'mieng lot chuot': 'cat-laptop-acc-mousepad',
+  'mousepad': 'cat-laptop-acc-mousepad',
   'bang ve dien tu': 'cat-laptop-acc-drawing', 'bang ve': 'cat-laptop-acc-drawing',
 
-  // ── Thiết bị nghe nhìn (cat-av) ──────────────────────────────
-  'tai nghe bluetooth': 'cat-av-bt-earphone', 'tai nghe true wireless': 'cat-av-bt-earphone', 'tws': 'cat-av-bt-earphone', 'earbuds': 'cat-av-bt-earphone',
+  // ── Thiết bị nghe nhìn — 10 sub-cat tồn tại ─────────────────
+  // (đã xóa: smartglass)
+  'tai nghe bluetooth': 'cat-av-bt-earphone', 'tai nghe true wireless': 'cat-av-bt-earphone',
+  'tws': 'cat-av-bt-earphone', 'earbuds': 'cat-av-bt-earphone',
   'tai nghe day': 'cat-av-wire-earphone', 'tai nghe co day': 'cat-av-wire-earphone',
-  'tai nghe chup tai': 'cat-av-headphone', 'headphone': 'cat-av-headphone', 'tai nghe over ear': 'cat-av-headphone', 'tai nghe chong on': 'cat-av-headphone',
+  'tai nghe chup tai': 'cat-av-headphone', 'headphone': 'cat-av-headphone',
+  'tai nghe over ear': 'cat-av-headphone', 'tai nghe chong on': 'cat-av-headphone',
   'tai nghe the thao': 'cat-av-sport-earphone', 'tai nghe chay bo': 'cat-av-sport-earphone',
   'tai nghe': 'cat-av-bt-earphone', // default → bluetooth
-  'loa': 'cat-av-speaker', 'loa bluetooth': 'cat-av-speaker', 'loa di dong': 'cat-av-speaker', 'speaker': 'cat-av-speaker',
-  'micro': 'cat-av-mic', 'mic': 'cat-av-mic', 'microphone': 'cat-av-mic', 'mic thu am': 'cat-av-mic',
+  'loa': 'cat-av-speaker', 'loa bluetooth': 'cat-av-speaker',
+  'loa di dong': 'cat-av-speaker', 'speaker': 'cat-av-speaker',
+  'micro': 'cat-av-mic', 'mic': 'cat-av-mic', 'microphone': 'cat-av-mic',
+  'mic thu am': 'cat-av-mic',
   'may chieu': 'cat-av-projector', 'projector': 'cat-av-projector',
-  'kinh thong minh': 'cat-av-smartglass', 'smart glass': 'cat-av-smartglass',
-  'o cung': 'cat-av-hdd', 'hdd': 'cat-av-hdd', 'ssd': 'cat-av-hdd', 'o cung di dong': 'cat-av-hdd',
-  'the nho': 'cat-av-sdcard', 'sd card': 'cat-av-sdcard', 'microsd': 'cat-av-sdcard', 'the nho 128gb': 'cat-av-sdcard',
+  'o cung': 'cat-av-hdd', 'hdd': 'cat-av-hdd', 'ssd': 'cat-av-hdd',
+  'o cung di dong': 'cat-av-hdd',
+  'the nho': 'cat-av-sdcard', 'sd card': 'cat-av-sdcard', 'microsd': 'cat-av-sdcard',
   'usb': 'cat-av-usb', 'usb flash': 'cat-av-usb',
 
-  // ── Camera (cat-camera) ──────────────────────────────────────
+  // ── Camera — 3 sub-cat tồn tại ───────────────────────────────
+  // (đã xóa: outdoor, solar, 4g, webcam)
   'camera': 'cat-camera', 'camera giam sat': 'cat-cam-security',
-  'camera trong nha': 'cat-cam-indoor', 'camera ngoai troi': 'cat-cam-outdoor',
-  'camera nang luong mat troi': 'cat-cam-solar', 'camera solar': 'cat-cam-solar',
-  'camera 4g': 'cat-cam-4g',
+  'camera trong nha': 'cat-cam-indoor', 'camera ip': 'cat-cam-indoor',
   'chuong cua camera': 'cat-cam-doorbell', 'chuong cua': 'cat-cam-doorbell',
-  'webcam': 'cat-cam-webcam',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

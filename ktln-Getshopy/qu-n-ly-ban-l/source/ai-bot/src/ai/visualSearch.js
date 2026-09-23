@@ -23,8 +23,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 const GOOGLE_AI_KEY   = process.env.GOOGLE_AI_KEY;
-const GEMINI_MODEL    = 'gemini-3.6-flash';
+
+/**
+ * Chain Gemini models cho Visual Search — thử lần lượt nếu model 503/timeout.
+ *
+ * Refs:
+ *  [1] gemini-3.5-flash   — Google AI Studio (CONFIRMED working, 9/2025)
+ *  [2] gemini-3.6-flash   — Google AI Studio (available but may timeout under load)
+ *  [3] gemini-3-flash-preview — Google AI Studio (CONFIRMED working, stable fallback)
+ */
+const GEMINI_MODELS = (
+  process.env.GEMINI_MODELS ||
+  'gemini-3.5-flash' // default nếu không set env
+).split(',').map(s => s.trim()).filter(Boolean);
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+
 
 /** Danh sách danh mục sản phẩm THỰC TẾ của cửa hàng (8 cha + 41 con) */
 const STORE_CATEGORIES = [
@@ -142,12 +155,17 @@ Chỉ trả về JSON.`;
 
   const MAX_RETRIES = 2;
 
+  // Thử lần lượt qua GEMINI_MODELS — nếu model 503/timeout, chuyển sang tiếp theo
+  for (let mi = 0; mi < GEMINI_MODELS.length; mi++) {
+    const model = GEMINI_MODELS[mi];
+    if (mi > 0) console.log(`[VisualSearch] Thử fallback Gemini model [${mi}]: ${model}`);
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      console.log(`[VisualSearch] Gọi Gemini Vision (attempt ${attempt}/${MAX_RETRIES})...`);
+      console.log(`[VisualSearch] Gọi ${model} (attempt ${attempt}/${MAX_RETRIES})...`);
 
       const response = await fetch(
-        `${GEMINI_BASE_URL}/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_AI_KEY}`,
+        `${GEMINI_BASE_URL}/models/${model}:generateContent?key=${GOOGLE_AI_KEY}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -156,11 +174,22 @@ Chỉ trả về JSON.`;
         }
       );
 
+      // Model deprecated/not available → thử model tiếp
+      if (response.status === 404 || response.status === 410) {
+        console.warn(`[VisualSearch] Model ${model} unavailable (${response.status}) — thử tiếp`);
+        break;
+      }
+      // High demand → retry hoặc thử model tiếp
+      if (response.status === 503) {
+        console.warn(`[VisualSearch] Model ${model} 503 overloaded`);
+        if (attempt < MAX_RETRIES) { await sleep(2000); continue; }
+        break;
+      }
       if (!response.ok) {
         const errText = await response.text().catch(() => '');
         console.error(`[VisualSearch] Gemini HTTP ${response.status}:`, errText.slice(0, 200));
         if (attempt < MAX_RETRIES) { await sleep(2000); continue; }
-        return { caption: null, analysis: null };
+        break;
       }
 
       const data = await response.json();
@@ -169,7 +198,7 @@ Chỉ trả về JSON.`;
       if (!content) {
         console.warn('[VisualSearch] Gemini trả về nội dung rỗng.');
         if (attempt < MAX_RETRIES) { await sleep(2000); continue; }
-        return { caption: null, analysis: null };
+        break; // thử model tiếp
       }
 
       // Parse JSON — xử lý markdown fence và JSON bị cắt
@@ -182,7 +211,7 @@ Chỉ trả về JSON.`;
       if (jsonStart === -1) {
         console.warn('[VisualSearch] Không tìm thấy JSON:', rawJson.slice(0, 100));
         if (attempt < MAX_RETRIES) { await sleep(1000); continue; }
-        return { caption: null, analysis: null };
+        break; // thử model tiếp
       }
       // Nếu JSON bị cắt — thêm đóng ngoặc để parse được
       let jsonStr = rawJson.slice(jsonStart);
@@ -197,7 +226,7 @@ Chỉ trả về JSON.`;
       } catch (parseErr) {
         console.warn('[VisualSearch] JSON parse lỗi, thử lại:', parseErr.message.slice(0, 60));
         if (attempt < MAX_RETRIES) { await sleep(1000); continue; }
-        return { caption: null, analysis: null };
+        break; // thử model tiếp
       }
       if (!Array.isArray(result.keywords)) result.keywords = [];
 
@@ -220,6 +249,7 @@ Chỉ trả về JSON.`;
     }
   }
 
+  } // end model loop
   return { caption: null, analysis: null };
 }
 
