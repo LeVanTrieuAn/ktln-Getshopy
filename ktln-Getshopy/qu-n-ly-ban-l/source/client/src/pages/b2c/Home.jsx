@@ -150,7 +150,7 @@ export default function Home() {
     async function loadRecommendations() {
       try {
         setLoadingRec(true);
-        const recData = await api.recommendation.get(b2cUser?.email || '');
+        const recData = await api.recommendation.get();
         if (ignore) return;
         if (Array.isArray(recData) && recData.length > 0) {
           setRecommendedProducts(recData.slice(0, 8));

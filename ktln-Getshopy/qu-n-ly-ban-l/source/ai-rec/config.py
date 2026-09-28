@@ -55,12 +55,35 @@ CLICKHOUSE_TABLE = os.getenv("CLICKHOUSE_TABLE", "serving.processed_data_for_AI_
 # một cặp (khách, sản phẩm) sẽ hiện ra nhiều lần với số lượng khác nhau.
 # Quantity > 0 lọc ngay ở nguồn: dòng 0 là bia mộ của cặp đã bị huỷ, và model
 # cũng loại chúng ở bước làm sạch — kéo về chỉ tốn băng thông.
+# Không còn FINAL ở đây: nguồn giờ là VIEW, và view đã FINAL sẵn bên trong,
+# đồng thời đã lọc sản phẩm quá ít người mua. Thêm FINAL lên view là lỗi cú pháp.
 TRAINING_QUERY = (
-    f"SELECT CustomerID, ProductID, Quantity "
-    f"FROM {CLICKHOUSE_TABLE} FINAL "
+    f"SELECT CustomerID, ProductID, Quantity, "
+    # Số ngày kể từ lần mua gần nhất — tính ở ClickHouse để khỏi phải thống
+    # nhất múi giờ giữa hai hệ.
+    f"dateDiff('day', LastPurchasedAt, now()) AS DaysSince "
+    f"FROM {CLICKHOUSE_TABLE} "
     f"WHERE Quantity > 0 "
     f"FORMAT TabSeparatedWithNames"
 )
+
+# ==============================================================================
+# Giảm trọng số theo thời gian (time decay)
+# ==============================================================================
+# Quantity cộng dồn TOÀN BỘ lịch sử, nên một đơn ba tháng trước nặng ngang đơn
+# hôm qua và gợi ý không theo kịp sở thích đang đổi.
+#
+# Trọng số:  w = Quantity * 0.5 ** (số ngày / HALF_LIFE)
+#   mua hôm nay           -> giữ nguyên  100%
+#   mua đúng HALF_LIFE ngày ->            50%
+#   mua gấp đôi HALF_LIFE  ->            25%
+#
+# Chọn hàm mũ chứ không trừ tuyến tính: trừ tuyến tính sẽ về 0 rồi âm, còn hàm
+# mũ giảm dần và luôn dương — món mua rất lâu vẫn còn chút ảnh hưởng thay vì
+# biến mất đột ngột.
+#
+# HALF_LIFE = 0 để TẮT hẳn, quay lại hành vi cũ.
+RECENCY_HALF_LIFE_DAYS = float(os.getenv("RECENCY_HALF_LIFE_DAYS", "30"))
 
 # ==============================================================================
 # Chu kỳ train lại

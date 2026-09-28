@@ -101,13 +101,16 @@ export const api = {
   },
 
   // ─── AI Recommendation ─────────────────────────────────────
+  // KHÔNG gửi email/customerId: server lấy danh tính từ Bearer token mà
+  // request() đã tự gắn. Bản trước gửi email, nhưng server không hề tra khách
+  // theo email — nên nhánh Collaborative Filtering không bao giờ chạy.
   recommendation: {
-    get: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
+    get: () => request('/b2c/recommendations'),
   },
 
   // ─── AI APIs (backward compat aliases) ──────────────────────
   ai: {
-    getRecommendations: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
+    getRecommendations: () => request('/b2c/recommendations'),
     getCampaignSuggestions: () => request('/b2b/campaign-suggestions'),
     smartSearch: (query) => request('/ai/smart-search', { method: 'POST', body: JSON.stringify({ query }) }),
     visualSearch: (imageBase64) => request('/b2c/visual-search', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),

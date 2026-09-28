@@ -9,8 +9,18 @@ models:
       - name: paid_revenue
         tests: [not_null]
 
+  - name: pairs_customer_product
+    description: "Bảng cơ sở: mọi cặp (khách, sản phẩm). Append-only ReplacingMergeTree — ĐỌC PHẢI KÈM FINAL. AI-Rec không đọc bảng này."
+    columns:
+      - name: CustomerID
+        tests: [not_null]
+      - name: ProductID
+        tests: [not_null]
+      - name: Quantity
+        tests: [not_null]
+
   - name: processed_data_for_AI_rec
-    description: "Tương tác khách-sản phẩm cho CF. Tên cột viết HOA theo contract với AI-rec."
+    description: "View AI-Rec đọc. Đã FINAL sẵn và đã lọc sản phẩm quá ít người mua (var min_buyers_per_product)."
     columns:
       - name: CustomerID
         tests: [not_null]

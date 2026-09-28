@@ -1,0 +1,123 @@
+---
+title: KLTN — Kiến trúc toàn hệ thống và luồng dữ liệu (happy case)
+---
+flowchart TB
+
+%% ══ ① GIAO DIỆN ═══════════════════════════════════════════════════
+subgraph L1["① GIAO DIỆN — React 19 · Vite 6 · Ant Design 5 · Nginx :3000"]
+    direction LR
+    FE_CHK["Checkout.jsx<br/>giỏ hàng → đặt đơn"]
+    FE_QR["PaymentQRModal.jsx<br/>QR · đếm ngược · polling 3s"]
+    FE_HOME["Home.jsx<br/>'Dành riêng cho bạn' — 8 SP"]
+end
+
+%% ══ NGOÀI HỆ THỐNG ════════════════════════════════════════════════
+subgraph EXT["NGOÀI HỆ THỐNG"]
+    direction LR
+    BANK["Ngân hàng<br/>app quét QR"]
+    SEPAY["SePay<br/>biến động số dư"]
+    CFD["cloudflared tunnel<br/>URL công khai"]
+end
+
+%% ══ ② ỨNG DỤNG ════════════════════════════════════════════════════
+subgraph L2["② ỨNG DỤNG — Node.js · Express 5 · Prisma 5 · :8080"]
+    direction LR
+    SV_CHK["checkoutService<br/>pricing · inventory<br/>paymentRef · vietqr"]
+    SV_WHK["routes/payment.js<br/>webhookService<br/>HMAC · 2 tầng idempotency"]
+    SV_REC["RecommendationService<br/>customer_id LẤY TỪ TOKEN"]
+    REDIS[("Redis 7<br/>read-through cache")]
+end
+
+%% ══ ③ OLTP ════════════════════════════════════════════════════════
+subgraph L3["③ TÁC NGHIỆP (OLTP)"]
+    PG[("PostgreSQL 16 · wal_level=logical<br/>Order · OrderItem · PaymentTransaction · Product")]
+end
+
+%% ══ ④ THU NHẬN ════════════════════════════════════════════════════
+subgraph L4["④ THU NHẬN — CDC streaming"]
+    direction LR
+    DBZ["Debezium Postgres 2.5.4<br/>đọc WAL · pgoutput"]
+    KFK["Kafka 7.4.0<br/>cdc_prod.public.Order/OrderItem<br/>key = PK ⇒ đúng thứ tự"]
+    SNK["Confluent S3 Sink 10.5.13<br/>Parquet · flush 1000 · xoay 15s"]
+end
+
+%% ══ ⑤ LAKE ════════════════════════════════════════════════════════
+subgraph L5["⑤ DATA LAKE — Bronze"]
+    MIO[("MinIO · bucket data-lake<br/>topics/&lt;topic&gt;/year=/month=/day=/*.parquet<br/>bất biến, chỉ ghi thêm")]
+end
+
+%% ══ ⑥ KHO DỮ LIỆU ═════════════════════════════════════════════════
+subgraph L6["⑥ KHO DỮ LIỆU — ClickHouse 24.8 · dbt-core 1.8.9 · ofelia mỗi 5 phút"]
+    direction TB
+    STG["staging.stg_orders · stg_order_items<br/>VIEW đọc Parquet qua s3()"]
+    FCT["warehouse.fact_orders_detail<br/>ReplacingMergeTree(_event_ts,_is_deleted)"]
+    PAIR["serving.pairs_customer_product<br/>append-only"]
+    VAI["serving.processed_data_for_AI_rec<br/>VIEW · FINAL sẵn · lọc SP &lt;3 người mua"]
+    MART["serving.mart_revenue<br/>paid_revenue"]
+    DIMS["masterdata.dim_*<br/>đường tắt postgresql()"]
+    AUD["audit.checksum_orders<br/>đối soát 3 tầng"]
+    STG --> FCT --> PAIR --> VAI
+    FCT --> MART
+    FCT -.-> AUD
+    DIMS -.->|"lọc is_deleted"| PAIR
+end
+
+%% ══ ⑦ AI-REC ══════════════════════════════════════════════════════
+subgraph L7["⑦ AI RECOMMENDATION — FastAPI · scikit-learn · scipy :8000"]
+    direction TB
+    FETCH["clickhouse.py — HTTP POST<br/>user ai_rec chỉ đọc"]
+    FIT["fit() — item-based CF<br/>sparse CSR → L2-normalize<br/>time decay 0.5^(ngày/30)"]
+    PRE["_precompute()<br/>top-20 mọi khách · trần 60s"]
+    subgraph SWAP["ĐỔI BẢN — v1 phục vụ suốt lúc v2 đang dựng"]
+        direction LR
+        B1["ModelBundle v1<br/>model + cache<br/>ĐANG PHỤC VỤ"]
+        B2["ModelBundle v2<br/>dựng xong hoàn chỉnh"]
+        B2 -.->|"self._bundle = new_bundle<br/>1 phép gán, atomic (GIL)"| B1
+    end
+    FETCH --> FIT --> PRE --> B2
+end
+
+%% ══ ⑧ KHAI THÁC KHÁC ══════════════════════════════════════════════
+subgraph L8["⑧ KHAI THÁC KHÁC"]
+    direction LR
+    ADMIN["Admin Dashboard<br/>view analytics.sale_orders"]
+    MTB["Metabase"]
+end
+
+%% ══ LUỒNG HAPPY CASE ══════════════════════════════════════════════
+FE_CHK  -->|"❶ POST /b2c/checkout"| SV_CHK
+SV_CHK  -->|"❷ 1 transaction"| PG
+SV_CHK  -->|"❸ QR + TTL"| FE_QR
+FE_QR   -.->|"❹ poll 3s"| SV_WHK
+FE_QR   -->|"❺ quét QR"| BANK
+BANK    -->|"❻ tiền vào"| SEPAY
+SEPAY   -->|"❼ webhook"| CFD
+CFD     -->|"❽ POST /payment/webhook/sepay"| SV_WHK
+SV_WHK  -->|"❾ đối soát → PAID"| PG
+PG      -->|"❿ WAL"| DBZ
+DBZ     -->|"⓫ envelope CDC"| KFK
+KFK     -->|"⓬ consume"| SNK
+SNK     -->|"⓭ Parquet"| MIO
+MIO     -->|"⓮ s3()"| STG
+PG      -.->|"masterdata"| DIMS
+PG      -.->|"nguồn đối soát"| AUD
+VAI     -->|"⓯ train mỗi 300s"| FETCH
+SV_REC  -->|"⓳ Prisma: chi tiết SP"| PG
+FE_HOME -->|"⓰ GET /b2c/recommendations<br/>Bearer token → ⓴ trả 8 SP"| SV_REC
+SV_REC  -->|"⓱ /recommend/customer/{id} · timeout 3s<br/>→ ⓲ top-K đọc từ cache bản đang phục vụ"| B1
+SV_REC  -.-> REDIS
+MART    --> ADMIN
+DIMS    --> ADMIN
+MART    --> MTB
+
+%% ══ MÀU ═══════════════════════════════════════════════════════════
+classDef ecom    fill:#e8f0fe,stroke:#4c6ef5,color:#1a1a1a
+classDef bigdata fill:#e7f5e9,stroke:#2f9e44,color:#1a1a1a
+classDef ai      fill:#fff4e6,stroke:#e8590c,color:#1a1a1a
+classDef ext     fill:#f1f3f5,stroke:#868e96,color:#1a1a1a
+classDef store   fill:#f3e8fd,stroke:#7048e8,color:#1a1a1a
+class FE_CHK,FE_QR,FE_HOME,SV_CHK,SV_WHK,SV_REC ecom
+class DBZ,KFK,SNK,STG,FCT,PAIR,VAI,MART,DIMS,AUD bigdata
+class FETCH,FIT,PRE,B1,B2 ai
+class BANK,SEPAY,CFD ext
+class PG,MIO,REDIS store

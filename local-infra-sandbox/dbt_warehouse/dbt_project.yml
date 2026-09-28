@@ -15,6 +15,11 @@ vars:
   # Tiền tố topic Kafka do Debezium đặt (topic.prefix trong connector config)
   cdc_prefix: "{{ env_var('CDC_TOPIC_PREFIX', 'cdc_prod') }}"
 
+  # Sản phẩm phải có ít nhất bằng này người mua KHÁC NHAU mới vào tập train.
+  # Thấp quá thì món một-người-mua thổi cosine lên và chiếm top gợi ý; cao quá
+  # thì hàng mới về không bao giờ được gợi ý (cold start phía sản phẩm).
+  min_buyers_per_product: 3
+
 models:
   dbt_warehouse:
     # Kéo THẲNG từ Postgres, không qua CDC — dimension thay đổi rất ít

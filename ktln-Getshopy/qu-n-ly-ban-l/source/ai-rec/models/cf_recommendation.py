@@ -220,10 +220,33 @@ class CollaborativeFiltering:
         return self.df
 
     @staticmethod
+    def _apply_recency(df: pd.DataFrame) -> pd.DataFrame:
+        """Giảm trọng số tương tác theo thời gian: w = Quantity * 0.5^(ngày/half_life).
+
+        Không có cột DaysSince, hoặc half-life <= 0, thì trả nguyên df — hành vi
+        cũ. Nhờ vậy tắt tính năng chỉ cần đặt RECENCY_HALF_LIFE_DAYS=0, không
+        phải sửa code.
+
+        Ghi vào chính cột Quantity chứ không thêm cột mới: toàn bộ đường dựng
+        ma trận, tính độ phổ biến và metadata phía sau đều đọc "Quantity", thêm
+        cột thứ hai là mở đường cho hai chỗ dùng hai giá trị khác nhau.
+        """
+        from config import RECENCY_HALF_LIFE_DAYS as HL
+
+        if HL <= 0 or "DaysSince" not in df.columns:
+            return df
+
+        out = df.copy()
+        days = pd.to_numeric(out["DaysSince"], errors="coerce").fillna(0).clip(lower=0)
+        out["Quantity"] = out["Quantity"].astype("float32") * (0.5 ** (days / HL))
+        return out
+
+    @staticmethod
     def _create_user_item_matrix(df: pd.DataFrame) -> SparseUserItemMatrix:
         # ======================================================================
         # Tạo ma trận User-Item dạng Sparse CSR hiệu năng cao
         # ======================================================================
+        df = CollaborativeFiltering._apply_recency(df)
         interactions = (
             df.groupby(["CustomerID", "ProductID"], as_index=False)["Quantity"]
             .sum()
@@ -322,8 +345,10 @@ class CollaborativeFiltering:
         if self.customer_metadata is None:
             self.customer_metadata = self._create_customer_metadata(cleaned)
 
-        # 4. Tính toán độ phổ biến của từng item để làm cold-start fallback
-        interactions = cleaned.groupby("ProductID")["Quantity"].sum()
+        # 4. Tính toán độ phổ biến của từng item để làm cold-start fallback.
+        #    Dùng CÙNG trọng số đã giảm theo thời gian: nếu không, khách mới vào
+        #    vẫn được quảng bá món bán chạy từ năm ngoái.
+        interactions = self._apply_recency(cleaned).groupby("ProductID")["Quantity"].sum()
         self.popular_items = interactions.reindex(
             self.user_item_matrix.columns, fill_value=0.0
         ).sort_values(ascending=False)

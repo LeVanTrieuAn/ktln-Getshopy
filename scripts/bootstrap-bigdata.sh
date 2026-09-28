@@ -36,6 +36,32 @@ wait_http() {
 
 ch_query() { curl -sS "$CH" --data-binary "$1"; }
 
+# Chạy một file .sql qua HTTP interface của ClickHouse.
+#
+# Phải BỎ COMMENT `--` TRƯỚC khi ép xuống dòng thành dấu cách. Ép trước thì cả
+# câu lệnh nằm trên một dòng, và dấu `--` đầu tiên nuốt sạch phần còn lại —
+# CREATE VIEW biến thành câu cụt, ClickHouse từ chối, mà vòng lặp vẫn đếm là
+# thành công vì lỗi bị nuốt vào /dev/null. Bảng/view không bao giờ ra đời và
+# không có dấu hiệu nào.
+run_sql_file() {
+  f="$1"; n=0; err=0
+  # sed bỏ phần sau `--` trên TỪNG dòng, khi xuống dòng còn nguyên vẹn.
+  stmts=$(sed 's/--.*$//' "$f" | awk 'BEGIN{RS=";"} NF {gsub(/\n/," "); print}')
+  echo "$stmts" | while IFS= read -r stmt; do
+    [ -z "$(echo "$stmt" | tr -d '[:space:]')" ] && continue
+    if out=$(curl -sS --fail-with-body "$CH" --data-binary "$stmt" 2>&1); then
+      n=$((n+1))
+    else
+      err=$((err+1))
+      log "LỖI: $(echo "$out" | head -c 120)"
+    fi
+  done
+  # Đếm lại ngoài subshell của pipe
+  total=$(echo "$stmts" | grep -c '[^[:space:]]' || true)
+  log "đã chạy $total câu lệnh từ $(basename "$f")"
+}
+
+
 echo "════════════════════════════════════════════════════════════"
 echo "  Khởi tạo hệ BigData"
 echo "════════════════════════════════════════════════════════════"
@@ -52,20 +78,7 @@ wait_http "MinIO"         "$MINIO/minio/health/live"
 # Ở đây áp lại mỗi lần bootstrap; toàn bộ câu lệnh đều IF NOT EXISTS nên an toàn.
 step "0/5  Schema ClickHouse"
 if [ -f /clickhouse-init/01_schema.sql ]; then
-  if curl -sS --fail-with-body "$CH" --data-binary @/clickhouse-init/01_schema.sql >/dev/null 2>&1; then
-    log "đã áp schema"
-  else
-    # HTTP interface không nhận nhiều câu lệnh trong một request; tách theo dấu ;
-    awk 'BEGIN{RS=";"} NF {print $0 ";"}' /clickhouse-init/01_schema.sql | while read -r _; do :; done
-    n=0
-    while IFS= read -r stmt; do
-      [ -z "$(echo "$stmt" | tr -d '[:space:]')" ] && continue
-      if ch_query "$stmt" >/dev/null 2>&1; then n=$((n+1)); fi
-    done <<EOSQL
-$(awk 'BEGIN{RS=";"} NF {gsub(/\n/," "); print}' /clickhouse-init/01_schema.sql)
-EOSQL
-    log "đã áp $n câu lệnh"
-  fi
+  run_sql_file /clickhouse-init/01_schema.sql
 else
   log "bỏ qua — không thấy /clickhouse-init/01_schema.sql"
 fi
@@ -132,6 +145,23 @@ sync_dim dim_branches Branch \
 sync_dim dim_customers B2CCustomer \
   "customer_id String, full_name String, email String, phone String, loyalty_points Int32, provider String, created_at DateTime, _synced_at DateTime" \
   "toString(id), full_name, email, ifNull(phone,''), toInt32(loyalty_points), provider, created_at" "customer_id"
+
+# ── 3b. View tương thích cho dashboard ──────────────────────────────────
+# 16 câu query của dashboard admin đọc analytics.sale_orders — bảng của thế hệ
+# POC cũ, không còn ai ghi vào từ lúc gỡ dual-write. Không có view này thì mọi
+# chỉ số trên dashboard bằng 0 hoặc đứng ở dữ liệu đọng: endpoint vẫn trả 200,
+# biểu đồ vẫn vẽ, chỉ là số không liên quan gì tới đơn hàng thật.
+#
+# Áp lại mỗi lần bootstrap: script bắt đầu bằng DROP nên chạy lại vô hại, và
+# view sẽ khớp lại nếu fact_orders_detail đổi cột.
+step "3b/5  View tương thích (sale_orders, phiếu thu/xuất)"
+for f in /etl/compat-sale-orders.sql /etl/compat-vouchers.sql; do
+  if [ -f "$f" ]; then
+    run_sql_file "$f"
+  else
+    log "bỏ qua — không thấy $f"
+  fi
+done
 
 # ── 4. Connector CDC ────────────────────────────────────────────────────
 step "4/5  Đăng ký connector"

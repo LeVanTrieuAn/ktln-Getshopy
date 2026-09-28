@@ -19,6 +19,8 @@ from config import (
 logger = logging.getLogger(__name__)
 
 REQUIRED_COLUMNS = ["CustomerID", "ProductID", "Quantity"]
+# Không bắt buộc: thiếu thì coi như mọi lần mua đều mới tinh (không giảm trọng số).
+OPTIONAL_COLUMNS = ["DaysSince"]
 
 
 class ClickHouseUnavailable(RuntimeError):
