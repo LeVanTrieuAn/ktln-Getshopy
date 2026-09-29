@@ -427,6 +427,12 @@ export default function StoreLayout() {
           from { opacity: 0; transform: translateY(6px); }
           to   { opacity: 1; transform: translateY(0); }
         }
+
+        /* Page-level fade-in — dùng cho navigate trực tiếp (ProductDetail) */
+        @keyframes pageIn {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
       `}</style>
 
       {/* Dải cảm ứng sát mép trái — chuột chạm vào là sidebar trượt ra.
@@ -620,7 +626,7 @@ export default function StoreLayout() {
               overlayStyle={{ zIndex: 1050 }}
               dropdownRender={() => (
                 <div style={{
-                  width: 480,
+                  width: 560,
                   background: isDark ? '#111827' : '#ffffff',
                   borderRadius: 18,
                   boxShadow: isDark

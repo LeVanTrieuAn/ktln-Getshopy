@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import useRevealOnScroll, { revealStyle } from '../../hooks/useRevealOnScroll';
 import { Row, Col, Typography, Button, Spin, Breadcrumb, Tabs, Divider, Tag, Rate, Avatar, List, Card, Input, message, Carousel } from 'antd';
 import {
   ShoppingCartOutlined, ThunderboltOutlined, CheckCircleOutlined, SafetyCertificateOutlined,
@@ -1435,9 +1434,6 @@ export default function ProductDetail() {
   const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
   const avgRating = product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : 0;
 
-  // Scroll reveal
-  const [detailRef, detailVis] = useRevealOnScroll({ threshold: 0.05 });
-
   // Auto-track product view with dwell time + scroll depth
   useProductViewTracker(product);
 
@@ -1606,7 +1602,9 @@ export default function ProductDetail() {
   const handleMouseLeave = () => { setZoomScale(1); setTransformOrigin('center center'); };
 
   return (
-    <div ref={detailRef} style={{ padding: '100px 48px 48px', maxWidth: 1400, margin: '0 auto', ...revealStyle(detailVis) }}>
+    // key={product.id} buộc React unmount/remount div mới mỗi lần đổi sản phẩm
+    // → animation pageIn chạy lại từ đầu, không bị kẹt ở opacity:0
+    <div key={product.id} style={{ padding: '100px 48px 48px', maxWidth: 1400, margin: '0 auto', animation: 'pageIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
       <Breadcrumb style={{ marginBottom: 24, fontSize: 14 }} items={[
         { title: <span onClick={() => navigate('/')} style={{ cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>{t('nav.home')}</span> },
         { title: <span style={{ color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>{t(`home.category_${product.category_id}`)}</span> },
