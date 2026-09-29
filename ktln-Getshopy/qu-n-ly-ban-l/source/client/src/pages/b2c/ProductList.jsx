@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import useRevealOnScroll, { revealStyle } from '../../hooks/useRevealOnScroll';
 import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select, Popover, InputNumber } from 'antd';
 import {
   ShoppingOutlined,
@@ -354,6 +355,9 @@ export default function ProductList() {
   const { addToCart } = useCart();
   const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist, openAuthModal } = useApp();
   const { trackCategoryView, trackSearchQuery } = useTracking();
+
+  // Scroll reveal
+  const [gridRef, gridVis] = useRevealOnScroll({ threshold: 0.05 });
 
   const queryParams = new URLSearchParams(location.search);
   const categoryFilter = queryParams.get('category') || 'ALL';
@@ -779,12 +783,13 @@ export default function ProductList() {
       </div>
 
       {/* ── 2. Main Layout (Sidebar + Products Grid) ── */}
-      <div style={{
+      <div ref={gridRef} style={{
         display: 'flex',
         maxWidth: 1400,
         margin: '0 auto',
         padding: '32px 32px 64px',
         gap: 32,
+        ...revealStyle(gridVis),
       }}>
 
         {/* ── Left Sidebar Filter ── */}

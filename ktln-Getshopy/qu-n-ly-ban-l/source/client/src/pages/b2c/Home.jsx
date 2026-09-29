@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
+import useRevealOnScroll, { revealStyle } from '../../hooks/useRevealOnScroll';
 const Category3DModel = lazy(() => import('../../components/b2c/Category3DModel'));
 
 // FBX model URLs
@@ -100,6 +101,12 @@ export default function Home() {
   const { isDark, selectedBranch, b2cUser } = useApp();
   const { addToCart } = useCart();
   const navigate = useNavigate();
+
+  // Scroll reveal hooks (IntersectionObserver — one-shot)
+  const [heroRef, heroVis] = useRevealOnScroll({ threshold: 0.1 });
+  const [catRef, catVis] = useRevealOnScroll({ threshold: 0.08 });
+  const [recRef, recVis] = useRevealOnScroll({ threshold: 0.08 });
+  const [newRef, newVis] = useRevealOnScroll({ threshold: 0.08 });
 
   // Per-card hover state for 3D rotation
   const [hoveredCard, setHoveredCard] = useState(null);
@@ -406,8 +413,8 @@ export default function Home() {
         flexWrap: 'wrap',
         gap: 40,
       }}>
-        {/* Left Column: Heading + Description + Buttons */}
-        <div style={{ flex: '1 1 480px', maxWidth: 580 }}>
+        {/* Left Column: Heading + Description + Buttons — with reveal */}
+        <div ref={heroRef} style={{ flex: '1 1 480px', maxWidth: 580 }}>
           <h1 style={{
             fontSize: 'clamp(38px, 4.4vw, 56px)',
             fontWeight: 600,
@@ -415,6 +422,7 @@ export default function Home() {
             letterSpacing: '-0.025em',
             color: isDark ? '#ffffff' : '#111111',
             margin: '0 0 20px 0',
+            ...revealStyle(heroVis, { delay: 0 }),
           }}>
             High-quality tech<br />gadgets & accessories
           </h1>
@@ -425,11 +433,12 @@ export default function Home() {
             color: isDark ? 'rgba(255, 255, 255, 0.62)' : '#71717a',
             maxWidth: 440,
             margin: '0 0 34px 0',
+            ...revealStyle(heroVis, { delay: 120 }),
           }}>
             Sem sit amet adipiscing ullamcorper adipiscing adipiscing duis convallis tincidunt senectus enim blandit elit egestas.
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', ...revealStyle(heroVis, { delay: 220 }) }}>
             <button
               onClick={scrollToCatalog}
               style={{
@@ -503,7 +512,7 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════════════════
            2. 6 CATEGORY CARDS SECTION: 3 Columns x 2 Rows
          ══════════════════════════════════════════════════════════════════ */}
-      <section style={{ maxWidth: 1320, margin: '0 auto 80px', padding: '0 24px' }}>
+      <section ref={catRef} style={{ maxWidth: 1320, margin: '0 auto 80px', padding: '0 24px', ...revealStyle(catVis) }}>
         <div className="commerce-categories-grid">
           {CATEGORY_CARDS.map(cat => {
             const fbxUrl = CATEGORY_FBX[cat.id];
@@ -646,10 +655,11 @@ export default function Home() {
            3. PHẦN "DÀNH RIÊNG CHO BẠN" (Đặt trước, nổi bật hơn Sản phẩm mới)
               Load đúng 8 sản phẩm theo đúng mẫu reference
          ══════════════════════════════════════════════════════════════════ */}
-      <section style={{
+      <section ref={recRef} style={{
         maxWidth: 1320,
         margin: '0 auto 70px',
         padding: '0 24px',
+        ...revealStyle(recVis),
       }}>
         {/* Header Bar matching reference template line */}
         <div style={{
@@ -695,10 +705,11 @@ export default function Home() {
       {/* ══════════════════════════════════════════════════════════════════
            4. PHẦN "SẢN PHẨM MỚI" (Load đúng 8 sản phẩm, theo mẫu reference)
          ══════════════════════════════════════════════════════════════════ */}
-      <section id="catalog" style={{
+      <section id="catalog" ref={newRef} style={{
         maxWidth: 1320,
         margin: '0 auto 80px',
         padding: '0 24px',
+        ...revealStyle(newVis),
       }}>
         {/* Header Bar matching reference template */}
         <div style={{
