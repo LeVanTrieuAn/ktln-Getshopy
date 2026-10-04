@@ -37,6 +37,21 @@ models:
     #
     # Thay bằng test riêng đọc kèm FINAL: tests/unique_ai_rec_pair_after_final.sql
 
+  - name: purchase_events_for_AI_rec
+    description: "Lịch sử mua theo đơn cho kênh mua lại của AI-Rec. Một dòng cho mỗi (khách, món, đơn); cùng điều kiện 'một lần mua' với pairs_customer_product, không lọc ngưỡng số người mua."
+    columns:
+      - name: CustomerID
+        tests: [not_null]
+      - name: ProductID
+        tests: [not_null]
+      - name: OrderID
+        tests: [not_null]
+      - name: OrderedAt
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [CustomerID, ProductID, OrderID]
+
   - name: product_features
     description: "Đặc trưng content-based (nhóm, hãng, tầm giá) của các món đại diện mỗi ô + mọi món đã bán."
     columns:

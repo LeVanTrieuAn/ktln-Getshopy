@@ -86,7 +86,19 @@ TRAINING_QUERY = (
 # biến mất đột ngột.
 #
 # HALF_LIFE = 0 để TẮT hẳn, quay lại hành vi cũ.
-RECENCY_HALF_LIFE_DAYS = float(os.getenv("RECENCY_HALF_LIFE_DAYS", "30"))
+#
+# 7 ngày: CHỌN TRÊN VALIDATION (01/10/2026) trong lưới khai báo trước {7, 10, 14,
+# 30, 60} — dùng chung cho ma trận CF, kênh mua lại và độ phổ biến. 7 là CẬN DƯỚI
+# của lưới, đặt theo miền trước khi đo (đồ điện tử không đổi gu theo ngày):
+# validation còn muốn ngắn hơn chỉ vì dữ liệu tổng hợp đổi gu đột ngột đầu tháng 9.
+# Có dữ liệu thật thì phải chọn lại. Bản trước 01/10 chạy 30.
+RECENCY_HALF_LIFE_DAYS = float(os.getenv("RECENCY_HALF_LIFE_DAYS", "7"))
+
+# Thang của trọng số trong ma trận CF, sau khi đã giảm theo thời gian:
+#   "linear" -> giữ nguyên số lượng (bản trước 01/10)
+#   "log"    -> log(1 + ·) (Hu et al., 2008): mua 10 cái không nặng gấp 10 lần mua 1 cái
+# Half-life và thang được chọn CÙNG LÚC trên validation (evaluation/benchmark.py).
+CF_INPUT_SCALE = os.getenv("CF_INPUT_SCALE", "log")
 
 # ==============================================================================
 # Chu kỳ train lại
@@ -137,17 +149,30 @@ PREFERENCE_SIGNALS_QUERY = (
 
 # final = α·CF + (1−α)·CB + γ·mua_lại,  α = n/(n + k)  — xem models/hybrid.py.
 #
-# k = 0: CHỌN TRÊN VALIDATION (evaluation/README.md §Kết quả). Khách đã mua dùng
-#   thuần CF cho phần khám phá — content-based không giúp khách có lịch sử trên
-#   dữ liệu hiện tại; khách mới (n = 0) vẫn dùng thuần content-based vì α(0) = 0.
-# γ: QUYẾT ĐỊNH SẢN PHẨM, không phải kết quả tinh chỉnh. Validation chọn γ = 10
-#   (tối đa NDCG tổng thể) nhưng khi đó ~9/10 ô là món khách đã mua, khám phá
-#   gần bằng 0. γ = 1 là mặc định TẠM (~2,5/10 ô là món đã mua) chờ chốt — bảng
-#   đánh đổi trong README đánh giá.
+# k và γ: CHỌN TRÊN VALIDATION (01/10/2026) theo luật khai báo trước — tối đa
+#   NDCG@10 tổng thể với ràng buộc 2–3 món khách đã mua trong 10 gợi ý. Ràng buộc
+#   là QUYẾT ĐỊNH SẢN PHẨM (chốt 01/10): không ràng buộc thì validation chọn γ = 5,
+#   khi đó phần lớn ô là món đã mua và khám phá gần bằng 0.
+# k = 0: khách đã mua dùng thuần CF cho phần khám phá — content-based không giúp
+#   khách có lịch sử trên dữ liệu hiện tại; khách mới (n = 0) vẫn dùng thuần
+#   content-based vì α(0) = 0.
 HYBRID_CF_SHRINK_K = float(os.getenv("HYBRID_CF_SHRINK_K", "0"))
 HYBRID_REPEAT_WEIGHT = float(os.getenv("HYBRID_REPEAT_WEIGHT", "1"))
 # Cho phép gợi ý lại món đã mua (quyết định sản phẩm: áp cho MỌI sản phẩm).
 HYBRID_ALLOW_REPEAT = os.getenv("HYBRID_ALLOW_REPEAT", "1") not in ("0", "false", "False")
+# Kênh mua lại (chọn trên validation 01/10/2026: "order_freq"):
+#   "order_freq" -> tần suất ĐƠN đã giảm theo thời gian (models/repeat.py). Cần
+#                   bảng serving.purchase_events_for_AI_rec; bảng lỗi/thiếu thì tự
+#                   rơi về "cf_weight" và /health báo repeat_model = false.
+#   "cf_weight"  -> cách cũ (bản trước 01/10): trọng số của món trong ma trận CF.
+REPEAT_SCORE = os.getenv("REPEAT_SCORE", "order_freq")
+PURCHASE_EVENTS_TABLE = os.getenv("PURCHASE_EVENTS_TABLE", "serving.purchase_events_for_AI_rec")
+PURCHASE_EVENTS_QUERY = (
+    # Một dòng cho mỗi (khách, món, đơn). Số ngày tính ở ClickHouse, cùng cách
+    # với TRAINING_QUERY, để hai kênh già đi theo cùng một đồng hồ.
+    f"SELECT CustomerID, ProductID, dateDiff('day', OrderedAt, now()) AS DaysSince "
+    f"FROM {PURCHASE_EVENTS_TABLE} FORMAT TabSeparatedWithNames"
+)
 # Một lựa chọn onboarding nặng bằng bấy nhiêu lần mua khi dựng hồ sơ nội dung.
 # CHƯA tinh chỉnh được: cần dữ liệu onboarding thật để đo (xem README đánh giá).
 CB_ONBOARDING_PSEUDO_COUNT = float(os.getenv("CB_ONBOARDING_PSEUDO_COUNT", "1"))

@@ -15,6 +15,7 @@ from config import (
     CLICKHOUSE_USER,
     PREFERENCE_SIGNALS_QUERY,
     PRODUCT_FEATURES_QUERY,
+    PURCHASE_EVENTS_QUERY,
     TRAINING_QUERY,
 )
 
@@ -97,6 +98,17 @@ def fetch_product_features() -> pd.DataFrame:
     )
     _require(df, ["ProductID", "ParentCategory", "Brand", "PriceBand"], "Bảng đặc trưng")
     logger.info("Đã lấy đặc trưng của %d sản phẩm ứng viên.", len(df))
+    return df
+
+
+def fetch_purchase_events() -> pd.DataFrame:
+    """Lịch sử mua theo đơn cho kênh mua lại (serving.purchase_events_for_AI_rec)."""
+    df = _query(
+        PURCHASE_EVENTS_QUERY,
+        dtype={"CustomerID": "string", "ProductID": "string", "DaysSince": "int32"},
+    )
+    _require(df, ["CustomerID", "ProductID", "DaysSince"], "Lịch sử mua theo đơn")
+    logger.info("Đã lấy %d lượt mua (theo đơn) của %d khách.", len(df), df["CustomerID"].nunique())
     return df
 
 

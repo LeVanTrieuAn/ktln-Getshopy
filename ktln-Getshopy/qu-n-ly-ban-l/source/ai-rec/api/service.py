@@ -26,6 +26,7 @@ from config import (
     PRECOMPUTE_BUDGET_SECONDS,
     PRECOMPUTE_ENABLED,
     PRECOMPUTE_TOP_K,
+    REPEAT_SCORE,
     TRAIN_INITIAL_DELAY_SECONDS,
     TRAIN_INTERVAL_SECONDS,
 )
@@ -35,8 +36,8 @@ from models.hybrid import HybridParams, HybridRecommender, build_recommender
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "Hybrid: Item-based CF + Content-based"
-API_VERSION = "0.3.0"
+MODEL_NAME = "Hybrid: Item-based CF + Content-based + Repeat"
+API_VERSION = "0.4.0"
 
 
 def current_params() -> HybridParams:
@@ -164,7 +165,8 @@ class CFModelService:
             try:
                 if path == HYBRID_MODEL_PATH:
                     old = HybridRecommender.load(path)
-                    return HybridRecommender(old.cf, old.cb, current_params())
+                    return HybridRecommender(old.cf, old.cb, current_params(),
+                                             getattr(old, "repeat", None))
                 cf = CollaborativeFiltering(model_path=path).load_model()
                 return HybridRecommender(cf, None, current_params())
             except Exception as exc:                  # noqa: BLE001
@@ -223,10 +225,13 @@ class CFModelService:
         cf = CollaborativeFiltering(model_path=MODEL_PATH)
         cf.fit(df)
 
-        features, signals = self._load_content()
+        errors: list[str] = []
+        features, signals = self._load_content(errors)
+        events = self._load_purchase_events(errors)
         model = build_recommender(
             cf, features, signals, current_params(),
             onboarding_pseudo_count=CB_ONBOARDING_PSEUDO_COUNT,
+            purchase_events=events,
         )
 
         cache = (
@@ -252,9 +257,11 @@ class CFModelService:
         # lý do phải dựng xong hẳn rồi mới gán, thay vì sửa dần model đang chạy.
         previous = self._bundle
         self._bundle = new_bundle
-        # Lỗi của lượt này (vd. thiếu bảng đặc trưng) đã ghi trong _load_content;
-        # lượt thành công trọn vẹn mới được xoá lỗi cũ.
-        if new_bundle.stats.get("content_based"):
+        # Lượt này thiếu nguồn nào (bảng đặc trưng, lịch sử theo đơn) thì giữ lỗi
+        # đó cho /health; chỉ lượt đủ mọi nguồn mới xoá lỗi cũ.
+        if errors:
+            self._last_error = " | ".join(errors)
+        elif new_bundle.stats.get("content_based"):
             self._last_error = None
 
         # Bản cũ được giải phóng khi request cuối cùng đang cầm nó kết thúc.
@@ -290,7 +297,7 @@ class CFModelService:
         except FileNotFoundError:
             return None, "none"
 
-    def _load_content(self) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+    def _load_content(self, errors: list[str]) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
         """Đặc trưng sản phẩm + sở thích onboarding. Lỗi thì chạy thuần CF.
 
         Hai nguồn độc lập: thiếu sở thích (chưa ai làm onboarding, bảng chưa
@@ -304,13 +311,29 @@ class CFModelService:
         try:
             features = clickhouse.fetch_product_features()
         except clickhouse.ClickHouseUnavailable as exc:
-            self._last_error = f"Không lấy được đặc trưng sản phẩm: {exc}"
-            logger.warning("%s — chạy thuần CF, KHÔNG lọc được 'không quan tâm'.", self._last_error)
+            errors.append(f"Không lấy được đặc trưng sản phẩm: {exc}")
+            logger.warning("%s — chạy thuần CF, KHÔNG lọc được 'không quan tâm'.", errors[-1])
         try:
             signals = clickhouse.fetch_preference_signals()
         except clickhouse.ClickHouseUnavailable as exc:
             logger.warning("Không lấy được sở thích onboarding: %s", exc)
         return features, signals
+
+    def _load_purchase_events(self, errors: list[str]) -> pd.DataFrame | None:
+        """Lịch sử mua theo đơn cho kênh mua lại. Lỗi thì rơi về kênh cũ.
+
+        Rơi về chứ không dừng train: kênh cũ (trọng số ma trận CF) vẫn gợi ý
+        mua lại được, chỉ kém hơn. Nhưng phải hiện ở /health — đang chạy khác
+        cấu hình đã chọn trên validation là điều bên vận hành cần biết.
+        """
+        if REPEAT_SCORE != "order_freq" or not clickhouse.is_configured():
+            return None
+        try:
+            return clickhouse.fetch_purchase_events()
+        except clickhouse.ClickHouseUnavailable as exc:
+            errors.append(f"Không lấy được lịch sử mua theo đơn, kênh mua lại dùng cách cũ: {exc}")
+            logger.warning("%s", errors[-1])
+            return None
 
     def _persist(self, model: HybridRecommender) -> None:
         """Ghi model ra đĩa để lần khởi động sau phục vụ được ngay.
@@ -353,6 +376,7 @@ class CFModelService:
             candidates=bundle.stats.get("candidates", 0),
             onboarded_customers=bundle.stats.get("onboarded_customers", 0),
             content_based=bool(bundle.stats.get("content_based", 0)),
+            repeat_model=bool(bundle.stats.get("repeat_model", 0)),
             last_error=self._last_error,
         )
 

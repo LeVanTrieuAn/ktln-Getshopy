@@ -45,4 +45,7 @@ class HealthResponse(BaseModel):
     candidates: int = Field(0, description="Số món ứng viên (đang bán, có đặc trưng)")
     onboarded_customers: int = Field(0, description="Số khách có tín hiệu onboarding")
     content_based: bool = Field(False, description="False = đang chạy thuần CF (thiếu bảng đặc trưng)")
+    repeat_model: bool = Field(
+        False, description="True = kênh mua lại theo tần suất đơn; False = cách cũ (trọng số ma trận CF)"
+    )
     last_error: str | None = Field(None, description="Lỗi của lần train gần nhất, nếu có")

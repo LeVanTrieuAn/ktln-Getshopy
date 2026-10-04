@@ -5,9 +5,10 @@
 
   ĉf  : điểm Item-CF (Sarwar et al., 2001) CHỈ trên món CHƯA mua — kênh khám phá
   ĉb  : điểm content-based (models/content_based.py)
-  rêp : trọng số mua đã giảm theo thời gian của chính món đó — kênh mua lại.
-        Độ gần đây và tần suất là hai tín hiệu mạnh nhất của việc mua lặp lại
-        (Anderson et al., 2014).
+  rêp : kênh mua lại. Có RepeatModel (lịch sử theo đơn) thì là tần suất đơn đã
+        giảm theo thời gian (models/repeat.py); không có thì rơi về cách cũ —
+        trọng số của món trong ma trận CF. Độ gần đây và tần suất là hai tín hiệu
+        mạnh nhất của việc mua lặp lại (Anderson et al., 2014).
   Mỗi kênh chuẩn hoá về [0, 1] theo giá trị lớn nhất CỦA KHÁCH ĐÓ, để α và γ so
   "món tốt nhất của kênh này" với "món tốt nhất của kênh kia".
 
@@ -46,6 +47,7 @@ import pandas as pd
 
 from models.cf_recommendation import CollaborativeFiltering, SparseUserItemMatrix
 from models.content_based import ContentBasedModel
+from models.repeat import RepeatModel
 
 ARTIFACT_FORMAT = 1
 
@@ -95,11 +97,13 @@ class HybridRecommender:
         cf: CollaborativeFiltering,
         cb: ContentBasedModel | None,
         params: HybridParams,
+        repeat: RepeatModel | None = None,
     ) -> None:
         if not isinstance(cf.user_item_matrix, SparseUserItemMatrix):
             raise ValueError("HybridRecommender cần CF đã fit trên ma trận thưa.")
         self.cf = cf
         self.params = params
+        self.repeat = repeat
         # Không có đặc trưng (dbt chưa dựng bảng, ClickHouse lỗi) thì chạy thuần
         # CF trên catalog của CF — không lọc được "không quan tâm", và health báo ra.
         self.cb = cb if cb is not None and len(cb.item_ids) else None
@@ -113,6 +117,7 @@ class HybridRecommender:
             self.item_ids = pd.Index(cf.user_item_matrix.columns, dtype="string")
             catalog_sold = np.zeros(len(self.item_ids), dtype=np.float32)
         pos = {pid: i for i, pid in enumerate(self.item_ids)}
+        self._pos = pos
         n = len(self.item_ids)
 
         # Cột j của ma trận CF -> chỉ số ứng viên (-1 nếu không còn là ứng viên)
@@ -141,24 +146,36 @@ class HybridRecommender:
         rep_hat = np.zeros(n, dtype=np.float32)
         purchased = np.zeros(n, dtype=bool)
 
+        # getattr: artifact lưu trước khi có kênh này không mang thuộc tính repeat
+        repeat = getattr(self, "repeat", None)
         uim = self.cf.user_item_matrix
         uidx = uim._user_map.get(str(customer_id))
-        if uidx is None:
-            return cf_hat, rep_hat, purchased, 0
+        n_u = 0
+        if uidx is not None:
+            row = uim.mat[uidx]
+            items_j, weights = row.indices, row.data
+            norm = self.cf.item_similarity.item_user_norm
+            scores = np.asarray(norm.dot(norm[items_j].T.dot(weights))).ravel()
+            scores[items_j] = 0.0  # CF là kênh khám phá; món đã mua để kênh mua lại lo
 
-        row = uim.mat[uidx]
-        items_j, weights = row.indices, row.data
-        norm = self.cf.item_similarity.item_user_norm
-        scores = np.asarray(norm.dot(norm[items_j].T.dot(weights))).ravel()
-        scores[items_j] = 0.0  # CF là kênh khám phá; món đã mua để kênh mua lại lo
+            mapped = self._cf_to_cand >= 0
+            cf_hat[self._cf_to_cand[mapped]] = scores[mapped]
+            cand = self._cf_to_cand[items_j]
+            keep = cand >= 0
+            purchased[cand[keep]] = True
+            if repeat is None:
+                rep_hat[cand[keep]] = weights[keep]
+            n_u = len(items_j)
 
-        mapped = self._cf_to_cand >= 0
-        cf_hat[self._cf_to_cand[mapped]] = scores[mapped]
-        cand = self._cf_to_cand[items_j]
-        keep = cand >= 0
-        rep_hat[cand[keep]] = weights[keep]
-        purchased[cand[keep]] = True
-        return _unit_max(cf_hat), _unit_max(rep_hat), purchased, len(items_j)
+        if repeat is not None:
+            # Phủ cả món dưới ngưỡng số người mua của CF (không có trong ma trận
+            # CF) — ngưỡng đó là chuyện của cosine, không phải của mua lại.
+            items, values = repeat.scores(customer_id)
+            idx = np.fromiter((self._pos.get(str(p), -1) for p in items), dtype=np.int64, count=len(items))
+            keep = idx >= 0
+            rep_hat[idx[keep]] = values[keep]
+            purchased[idx[keep]] = True
+        return _unit_max(cf_hat), _unit_max(rep_hat), purchased, n_u
 
     def components(self, customer_id: str) -> dict[str, np.ndarray | int]:
         """Các kênh điểm CHƯA nhân trọng số (mỗi kênh đã về [0, 1]).
@@ -218,6 +235,9 @@ class HybridRecommender:
         users = set(map(str, self.cf.user_item_matrix.index))
         if self.cb is not None:
             users |= self.cb.onboarded_customers
+        repeat = getattr(self, "repeat", None)
+        if repeat is not None:
+            users |= repeat.customers()
         return sorted(users)
 
     def summary(self) -> dict[str, int]:
@@ -225,6 +245,8 @@ class HybridRecommender:
         stats["candidates"] = len(self.item_ids)
         stats["onboarded_customers"] = len(self.cb.onboarded_customers) if self.cb else 0
         stats["content_based"] = int(self.cb is not None)
+        repeat = getattr(self, "repeat", None)
+        stats["repeat_model"] = int(repeat is not None)
         return stats
 
     # ── Lưu / nạp ────────────────────────────────────────────────────────
@@ -253,11 +275,20 @@ def build_recommender(
     signals: pd.DataFrame | None,
     params: HybridParams,
     onboarding_pseudo_count: float = 1.0,
+    purchase_events: pd.DataFrame | None = None,
 ) -> HybridRecommender:
-    """CF đã fit + bảng đặc trưng + tín hiệu onboarding -> một bản hybrid hoàn chỉnh."""
+    """CF đã fit + bảng đặc trưng + tín hiệu onboarding (+ lịch sử mua theo đơn)
+    -> một bản hybrid hoàn chỉnh.
+
+    purchase_events None/rỗng -> kênh mua lại theo cách cũ (trọng số ma trận CF).
+    Half-life của kênh mua lại dùng CHUNG half-life của CF đã fit.
+    """
     cb = None
     if features is not None and not features.empty:
         cb = ContentBasedModel(onboarding_pseudo_count=onboarding_pseudo_count).fit(
             features, interactions=cf_interactions(cf), signals=signals
         )
-    return HybridRecommender(cf, cb, params)
+    repeat = None
+    if purchase_events is not None and not purchase_events.empty:
+        repeat = RepeatModel(cf.resolved_half_life()).fit(purchase_events)
+    return HybridRecommender(cf, cb, params, repeat)
