@@ -953,3 +953,50 @@ Kiểm chứng:
 
 Dữ liệu hành vi THẬT vẫn chưa có — cần người dùng thật hoặc bộ sinh v2 chế độ live (§16.4);
 `CF_BEHAVIOR_MODE` vẫn tắt.
+
+## 18. MinIO: build từ mã nguồn — image chính thức không còn kéo được (04/10)
+
+Triệu chứng: `docker compose up` trên máy mới hỏng ở bước kéo MinIO. Máy chính không thấy lỗi vì
+còn image cũ trong cache, nên lỗi chỉ lộ ra ở máy khác hoặc sau khi dọn image.
+
+Nguyên nhân: MinIO ngừng phát hành bản cộng đồng dựng sẵn — README chính thức: "The MinIO
+community edition is now distributed as source code only", repo archive từ 25/04/2026
+(https://github.com/minio/minio). Kiểm ngày 04/10: `quay.io/minio/minio` và `quay.io/minio/mc`
+trả `no such manifest`, Docker Hub trả `denied`, binary trên `dl.min.io` trả HTTP 410. Bootstrap
+còn hỏng thêm một chỗ: `COPY --from=quay.io/minio/mc` khi build image.
+
+Sửa (đã chọn giữa: build từ nguồn / ghim image cache / image bên thứ ba):
+- `local-infra-sandbox/minio/Dockerfile`: build từ mã nguồn chính thức, ghim
+  `RELEASE.2025-09-07T16-13-09Z` (kiểm commit `07c3a429…` sau khi clone) và go1.24.6 — đúng bản
+  volume `minio_data` đang dùng. Compose chuyển `minio` sang `build:`; healthcheck đổi từ
+  `mc ready local` sang `curl /minio/health/ready`.
+- Bootstrap bỏ hẳn `mc`: kiểm/tạo bucket bằng S3 API, `curl --aws-sigv4` tự ký SigV4. Luồng giữ
+  như cũ (sai khoá / mất kết nối thì dừng, tạo bucket hỏng thì đi tiếp) nhưng nay báo lý do.
+- `.env.example` bỏ `MINIO_VERSION` (không còn tác dụng).
+
+Kiểm chứng:
+- `minio --version` của bản tự build trùng từng chữ với binary chính thức trong image cũ:
+  `RELEASE.2025-09-07T16-13-09Z (commit-id=07c3a429bfed…)`, `Runtime: go1.24.6 linux/arm64`.
+- Thử `curl --aws-sigv4` trên MinIO tạm: bucket chưa có 404, tạo 200, đã có 200, tạo lại 409,
+  sai khoá 403.
+- `docker compose up -d` cả hệ: không còn lỗi pull; MinIO healthy; bootstrap thoát 0 ("bucket
+  'data-lake' đã có" — xác thực đúng bằng khoá thật); hai connector RUNNING.
+- Volume giữ nguyên deployment (`format.json` cùng id); object 57 → 68 (sink ghi thêm parquet
+  mới). ClickHouse đọc qua view `s3()`, tách theo nguồn file:
+  - parquet CŨ trên volume (13/09 → 29/09): 3.521 bản ghi `Order` / 3.510 mã đơn — riêng phần
+    cũ đã đủ cả 3.509 đơn đang có trong Postgres (+1 đơn ghi nhận phụ dưới đây);
+  - parquet MỚI: 3.509 bản ghi — Debezium chụp lại toàn bộ bảng vì container Kafka được tạo lại
+    (offset connector mất theo).
+- Sau lake: `dbt build` PASS=68 / ERROR=0; `fact_orders_detail` 6.262 dòng / 3.509 đơn, khớp
+  đúng Postgres (`OrderItem` 6.262 / `Order` 3.509) — bản chụp trùng được khử, không đếm đôi;
+  `serving.customer_product_events` 1.246 cặp (như §17); AI-Rec `/health` ok; Kafka Connect
+  0 dòng ERROR.
+
+Đánh đổi / hạn chế:
+- Lần build đầu mất ~20 phút (bước `go build`, Docker 10 CPU / 8 GB), mỗi máy một lần.
+- Bản cộng đồng không còn bản vá bảo mật — chấp nhận cho môi trường dev của khoá luận; triển
+  khai thật cần kho S3 còn được bảo trì.
+
+Ghi nhận phụ (có từ trước, không do thay đổi này): lake còn đơn `ORD-1789311006027` (13/09,
+PENDING_PAYMENT → CANCELLED) mà Postgres không còn, và CDC không có sự kiện xoá — nhiều khả năng
+bị xoá lúc Debezium không chạy. Đơn đã huỷ nên không ảnh hưởng mart doanh thu.
