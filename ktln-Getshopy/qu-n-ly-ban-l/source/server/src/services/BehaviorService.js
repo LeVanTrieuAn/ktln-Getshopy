@@ -51,11 +51,15 @@ const VALID_EVENT_TYPES = new Set([
   // loại này thì không đo được CTR online, và không tách được lượt xem do chính
   // hệ gợi ý gây ra — train lại trên các lượt xem đó là vòng tự củng cố.
   'rec_impression', 'rec_click',
+  // Ghép phiên: client gửi ngay sau đăng nhập, customer_id lấy từ TOKEN. dbt dùng nó để gán
+  // các sự kiện ẩn danh trước lúc đăng nhập trong cùng session_id cho khách
+  // (warehouse.user_events_stitched).
+  'identify',
 ]);
 
 const VALID_DEVICE_TYPES = new Set(['mobile', 'desktop', 'tablet']);
 const VALID_REFERRERS = new Set(['direct', 'search', 'chatbot', 'recommendation', 'category', 'flash_sale']);
-const VALID_PAGE_SOURCES = new Set(['home', 'category', 'search', 'detail', 'cart', 'checkout', 'wishlist']);
+const VALID_PAGE_SOURCES = new Set(['home', 'category', 'search', 'detail', 'cart', 'checkout', 'wishlist', 'compare']);
 
 // Trọng số cho mỗi loại event (phục vụ user profiling)
 const EVENT_WEIGHTS = {
@@ -71,6 +75,7 @@ const EVENT_WEIGHTS = {
   checkout_abandon: -0.5,
   rec_impression: 0,   // được hiển thị ≠ quan tâm
   rec_click: 1,
+  identify: 0,         // chỉ để ghép phiên
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

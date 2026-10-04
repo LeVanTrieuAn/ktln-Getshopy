@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Row, Col, Typography, Form, Input, Button, Divider, message, Select, Space, Checkbox, Modal } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -17,7 +17,7 @@ L.Marker.prototype.options.icon = DefaultIcon;
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
-import { useTracking } from '../../hooks/useTracking';
+import { flushOnExit, useTracking } from '../../hooks/useTracking';
 import PaymentQRModal from '../../components/b2c/PaymentQRModal';
 
 const { Title, Text } = Typography;
@@ -40,7 +40,7 @@ export default function Checkout() {
   const { isDark, b2cUser, openAuthModal } = useApp();
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const { trackPurchase } = useTracking();
+  const { trackPurchase, trackCheckoutAbandon } = useTracking();
 
   // Yêu cầu đăng nhập khi vào trang thanh toán
   useEffect(() => {
@@ -95,6 +95,35 @@ export default function Checkout() {
   const selectedCartItems = cart.filter(item => item.selected);
   const checkoutItems = selectedCartItems.length > 0 ? selectedCartItems : cart;
   const subTotal = checkoutItems.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
+
+  // ── Bỏ dở thanh toán ────────────────────────────────────────────────
+  // Rời màn này (chuyển trang, đóng tab) khi còn hàng mà CHƯA đặt đơn -> checkout_abandon.
+  // Ghi trễ một nhịp: StrictMode (dev) chạy mount -> unmount -> mount, lần mount thứ hai
+  // huỷ lần ghi đang chờ của lần unmount thử — không có thì mỗi lần vào trang sinh một
+  // sự kiện bỏ dở giả.
+  const orderPlacedRef = useRef(false);
+  const abandonItemsRef = useRef([]);
+  abandonItemsRef.current = checkoutItems;
+  const pendingAbandonRef = useRef(null);
+  useEffect(() => {
+    if (pendingAbandonRef.current) {
+      clearTimeout(pendingAbandonRef.current);
+      pendingAbandonRef.current = null;
+    }
+    let reported = false;
+    const report = () => {
+      if (reported || orderPlacedRef.current || abandonItemsRef.current.length === 0) return;
+      reported = true;
+      trackCheckoutAbandon(abandonItemsRef.current, 'checkout');
+    };
+    const onPageHide = () => { report(); flushOnExit(); };
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      pendingAbandonRef.current = setTimeout(report, 0);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   const [province, setProvince] = useState(null);
   const [voucherCode, setVoucherCode] = useState('');
@@ -186,6 +215,7 @@ export default function Checkout() {
         pointsUsed: usePoints ? maxPointsToUse : 0
       };
       const res = await api.b2c.checkout(orderPayload);
+      orderPlacedRef.current = true;   // đã đặt đơn -> rời trang không còn là bỏ dở
       
       // Điểm thưởng giờ do SERVER quản lý trong LoyaltyTransaction.
       // Trước đây client tự cộng/trừ localStorage['b2c_points'] — sửa DevTools

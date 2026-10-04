@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { message } from 'antd';
+import { currentPageSource, useTracking } from '../hooks/useTracking';
 
 message.config({
   maxCount: 1,
@@ -10,6 +11,10 @@ const CartContext = createContext();
 
 export function CartProvider({ children }) {
   const [cartOpen, setCartOpen] = useState(false);
+  // Ghi hành vi giỏ hàng TẠI ĐÂY, không ở từng trang: addToCart được gọi từ 7 chỗ
+  // (thẻ sản phẩm ở trang chủ/danh sách, chi tiết, so sánh...) — trước 04/10 chỉ 2 chỗ
+  // ở trang chi tiết có ghi, mọi lần thêm giỏ từ thẻ sản phẩm bị mất.
+  const { trackAddToCart, trackRemoveFromCart } = useTracking();
 
   const [cart, setCart] = useState(() => {
     const saved = localStorage.getItem('b2c_cart');
@@ -86,6 +91,9 @@ export function CartProvider({ children }) {
       }];
     });
 
+    // Ngoài setCart: hàm cập nhật state phải thuần — StrictMode gọi nó hai lần.
+    trackAddToCart({ ...product, price: safePrice }, numQty, { pageSource: currentPageSource() });
+
     const prodTitle = product.name ? ` "${product.name}"` : '';
     message.destroy();
     message.success(`Đã thêm${prodTitle} vào giỏ hàng`);
@@ -107,7 +115,13 @@ export function CartProvider({ children }) {
   };
 
   const removeFromCart = (id, variantId) => {
-    setCart(prev => prev.filter(item => 
+    // Bỏ khỏi giỏ là tín hiệu "không còn muốn" — lấy thông tin món từ giỏ HIỆN TẠI để ghi.
+    // Chỉ ghi ở đây (người dùng chủ động bỏ); xoá giỏ sau khi đặt đơn đi qua
+    // removeItemsFromCart và KHÔNG phải tín hiệu bỏ.
+    const removed = cart.find(item =>
+      String(item.id) === String(id) && (item.selectedVariant?.id || null) === (variantId || null));
+    if (removed) trackRemoveFromCart(removed);
+    setCart(prev => prev.filter(item =>
       !(String(item.id) === String(id) && (item.selectedVariant?.id || null) === (variantId || null))
     ));
     message.info('Đã xóa sản phẩm khỏi giỏ hàng');

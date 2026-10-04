@@ -232,7 +232,10 @@ export default function Home() {
       name: item.name,
       price: item.price,
       image: item.image,
-      stock: item.stock || 99
+      stock: item.stock || 99,
+      // Cho sự kiện add_to_cart (CartContext ghi) — dashboard hành vi thống kê theo danh mục/hãng
+      category_id: item.category_id,
+      brand_id: item.brand_id,
     });
     setAddedItemMap(prev => ({ ...prev, [item.id]: true }));
     setTimeout(() => {

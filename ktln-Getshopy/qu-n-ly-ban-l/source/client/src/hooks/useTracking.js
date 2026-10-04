@@ -7,11 +7,24 @@
  * React hook để thu thập hành vi người dùng (implicit feedback).
  *
  * Chức năng:
- *   - Auto-generate session_id (UUID lưu localStorage)
+ *   - Auto-generate session_id (UUID lưu sessionStorage — 1 phiên = 1 tab)
  *   - Auto-detect device_type (mobile/desktop/tablet)
  *   - Buffer events và gửi batch mỗi 5 giây
- *   - Gửi remaining events khi rời trang (beforeunload)
+ *   - Gửi remaining events khi rời trang (pagehide / tab ẩn, fetch keepalive kèm token)
  *   - Tích hợp sẵn dwell_time + scroll_depth tracking cho ProductDetail
+ *
+ * Nơi ghi từng loại sự kiện (01/10–04/10/2026):
+ *   product_view      useProductViewTracker — trang chi tiết
+ *   add_to_cart       CartContext.addToCart — MỌI đường thêm giỏ (thẻ sản phẩm, chi tiết, so sánh)
+ *   remove_from_cart  CartContext.removeFromCart — ngăn giỏ hàng
+ *   add_to_wishlist   AppContext.toggleWishlist — mọi nút yêu thích
+ *   category_view, search_query   ProductList
+ *   purchase, checkout_abandon    Checkout
+ *   review_submit     trang chi tiết
+ *   rec_impression, rec_click     ô "Dành riêng cho bạn" (Home)
+ *   identify          AppContext.b2cLogin — ghép phiên ẩn danh vào khách (dbt user_events_stitched)
+ *   Đặt ở context dùng chung thay vì từng trang: mỗi hành động ghi ĐÚNG MỘT lần, kể cả khi
+ *   sau này thêm nút mới.
  *
  * Usage:
  *   const { trackEvent, trackProductView, trackAddToCart, ... } = useTracking();
@@ -32,6 +45,33 @@ function getSessionId() {
     sessionStorage.setItem('gs_session_id', sid);
   }
   return sid;
+}
+
+/**
+ * Đăng xuất: mở phiên mới. Phiên cũ đã gắn với khách vừa đăng xuất (qua sự kiện
+ * identify) — giữ nguyên thì người dùng KẾ TIẾP trên cùng tab bị dbt gán nhầm hành vi
+ * sang khách đó. Gửi nốt buffer TRƯỚC khi đổi để sự kiện cũ đi kèm token cũ.
+ */
+export function resetSession() {
+  flushOnExit();
+  sessionStorage.removeItem('gs_session_id');
+}
+
+/**
+ * Nguồn trang suy từ URL — cho sự kiện phát từ chỗ dùng chung (giỏ hàng, yêu thích),
+ * nơi không biết trang nào gọi. Giá trị khớp VALID_PAGE_SOURCES phía server.
+ */
+export function currentPageSource() {
+  const { pathname, search } = window.location;
+  if (pathname === '/' || pathname === '') return 'home';
+  if (pathname.startsWith('/product/')) return 'detail';
+  if (pathname.startsWith('/checkout')) return 'checkout';
+  if (pathname.startsWith('/compare')) return 'compare';
+  if (pathname.startsWith('/account')) return 'wishlist';
+  if (pathname.startsWith('/shop') || pathname.startsWith('/products')) {
+    return new URLSearchParams(search).get('search') ? 'search' : 'category';
+  }
+  return '';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

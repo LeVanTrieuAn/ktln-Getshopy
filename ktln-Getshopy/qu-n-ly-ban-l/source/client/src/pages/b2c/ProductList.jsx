@@ -142,7 +142,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
         <div
           onClick={(e) => {
             e.stopPropagation();
-            onToggleFavorite(p.id);
+            onToggleFavorite(p);
           }}
           title={isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           style={{
@@ -356,8 +356,6 @@ export default function ProductList() {
   const [appliedMinPrice, setAppliedMinPrice] = useState(null);
   const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
 
-  // Wishlist state (local + remote synced)
-  const [wishlistIds, setWishlistIds] = useState([]);
 
   // Modals state
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -371,7 +369,7 @@ export default function ProductList() {
   const [aiSearchDone, setAiSearchDone] = useState(false);
 
   const { addToCart } = useCart();
-  const { isDark, t, selectedBranch, b2cUser } = useApp();
+  const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
   const { trackCategoryView, trackSearchQuery } = useTracking();
@@ -391,34 +389,16 @@ export default function ProductList() {
     setAiResults([]); setAiHint(''); setAiSearchDone(false);
   }, [searchQuery]);
 
-  // Load wishlist
-  useEffect(() => {
-    if (b2cUser?.id) {
-      api.b2c.getWishlist(b2cUser.id)
-        .then(res => {
-          if (Array.isArray(res)) setWishlistIds(res.map(item => item.product_id || item.id));
-        })
-        .catch(() => {});
-    }
-  }, [b2cUser]);
+  // Yêu thích: dùng CHUNG danh sách và hàm của AppContext (đồng bộ server bằng token, ghi
+  // sự kiện add_to_wishlist, khớp với các trang khác). Trước 04/10 trang này giữ danh
+  // sách riêng và gọi api.b2c.toggleWishlist(b2cUser.id, productId) — hàm chỉ nhận
+  // product_id, nên MÃ KHÁCH bị gửi làm mã món: bấm yêu thích ở đây bật/tắt nhầm món khác.
+  const isFavorited = (id) => wishlist.some(w => String(w.id) === String(id));
 
-  const handleToggleFavorite = async (productId) => {
-    const isFav = wishlistIds.includes(productId);
-    if (isFav) {
-      setWishlistIds(prev => prev.filter(id => id !== productId));
-      message.info('Đã xoá khỏi danh sách yêu thích');
-    } else {
-      setWishlistIds(prev => [...prev, productId]);
-      message.success('Đã thêm vào danh sách yêu thích');
-    }
-
-    if (b2cUser?.id) {
-      try {
-        await api.b2c.toggleWishlist(b2cUser.id, productId);
-      } catch (err) {
-        console.warn('Wishlist sync err:', err);
-      }
-    }
+  const handleToggleFavorite = (product) => {
+    if (isFavorited(product.id)) message.info('Đã xoá khỏi danh sách yêu thích');
+    else message.success('Đã thêm vào danh sách yêu thích');
+    toggleWishlist(product);
   };
 
   // Main data loader
@@ -1238,7 +1218,7 @@ export default function ProductList() {
                         isDark={isDark}
                         navigate={navigate}
                         addToCart={addToCart}
-                        isFavorited={wishlistIds.includes(p.id)}
+                        isFavorited={isFavorited(p.id)}
                         onToggleFavorite={handleToggleFavorite}
                       />
                     ))}
@@ -1268,7 +1248,7 @@ export default function ProductList() {
                     isDark={isDark}
                     navigate={navigate}
                     addToCart={addToCart}
-                    isFavorited={wishlistIds.includes(p.id)}
+                    isFavorited={isFavorited(p.id)}
                     onToggleFavorite={handleToggleFavorite}
                   />
                 ) : (
