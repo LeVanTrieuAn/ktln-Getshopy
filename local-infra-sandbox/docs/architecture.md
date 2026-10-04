@@ -676,10 +676,11 @@ Ecom. Warehouse chỉ nói chuyện với hai hệ.
 | 10 | Mỗi nhánh chỉ thấy **một nửa** dữ liệu | S3 Sink và ClickHouse Kafka engine dùng **chung** consumer group ⇒ Kafka chia partition cho hai bên | Tách group: `clickhouse-realtime` riêng | ✅ |
 | 11 | dbt tạo bảng ở `default_warehouse` thay vì `warehouse` | Mặc định dbt ghép `target.schema + '_' + schema`; với ClickHouse thì `schema` **chính là database** | Ghi đè macro `generate_schema_name` | ✅ |
 | 12 | Debezium không bắt được bảng nào, không báo lỗi | Prisma tạo bảng **PascalCase có nháy kép**; `table.include.list` viết sai hoa/thường | Khai đúng `public.Order,public.OrderItem` | ✅ |
-| 13 | `docker pull minio/minio` trả `pull access denied` | MinIO đã gỡ image khỏi Docker Hub công khai | Dùng registry chính thức `quay.io/minio/minio` | ✅ |
+| 13 | `docker pull minio/minio` trả `pull access denied` | MinIO đã gỡ image khỏi Docker Hub công khai | Dùng registry chính thức `quay.io/minio/minio` — **hết hiệu lực**, quay.io cũng gỡ sau đó, xem #17 | ↪ #17 |
 | 14 | Connector đăng ký lỗi ngay từ đầu | Postgres chưa bật `wal_level = logical` | Đặt vào `command` của service `postgres`; bootstrap chờ health rồi mới đăng ký | ✅ |
 | 15 | Báo cáo doanh thu thổi phồng | Dashboard lọc `order_status = 'CONFIRMED'`, nhưng đơn COD vừa đặt cũng mang trạng thái này trong khi chưa thu đồng nào | View `analytics.sale_orders` map `status` từ `payment_status`; `mart_revenue` tách `paid_revenue` khỏi `gross_revenue` | ✅ |
 | 16 | Masterdata: nguồn đổi kiểu một cột là bảng đích im lặng đổi theo | `DROP + CREATE AS SELECT` để `SELECT` suy ra kiểu | `CREATE IF NOT EXISTS` với lược đồ **tường minh** + `TRUNCATE` | ✅ |
+| 17 | `docker compose up` trên máy mới hỏng ở MinIO: `quay.io/minio/minio` trả `no such manifest`, build `bootstrap` hỏng ở `COPY --from=quay.io/minio/mc`. Máy còn image cũ trong cache thì vẫn chạy, nên lỗi không lộ ra ở máy chính | MinIO ngừng phát hành bản cộng đồng dựng sẵn: chỉ còn mã nguồn, repo archive từ 25/04/2026 ([README](https://github.com/minio/minio)); binary `dl.min.io` trả 410 | Build từ mã nguồn, ghim `RELEASE.2025-09-07T16-13-09Z` + go1.24.6 — đúng bản đang dùng, volume giữ nguyên (`local-infra-sandbox/minio/Dockerfile`); bootstrap bỏ `mc`, tạo bucket bằng `curl --aws-sigv4`. Hạn chế: bản cộng đồng hết bản vá bảo mật | ✅ |
 
 ---
 

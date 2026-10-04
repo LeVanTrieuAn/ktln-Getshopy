@@ -85,12 +85,23 @@ fi
 
 # ── 1. Bucket MinIO ─────────────────────────────────────────────────────
 step "1/5  Bucket MinIO"
-mc alias set lake "$MINIO" "$MINIO_ACCESS_KEY" "$MINIO_SECRET_KEY" >/dev/null 2>&1
-if mc ls "lake/$MINIO_BUCKET" >/dev/null 2>&1; then
-  log "bucket '$MINIO_BUCKET' đã có"
-else
-  mc mb "lake/$MINIO_BUCKET" >/dev/null && log "đã tạo bucket '$MINIO_BUCKET'"
-fi
+# Gọi thẳng S3 API, curl tự ký AWS SigV4 (region mặc định của MinIO: us-east-1).
+# Thay cho `mc` từ 04/10/2026 — image mc không còn kéo được (scripts/bootstrap/Dockerfile).
+# HEAD bucket: 200 = đã có, 404 = chưa có. Mã khác (403 sai khoá, 000 không kết
+# nối được) thì dừng, như `mc alias set` trước đây dưới `set -e` — nhưng có báo lý do.
+s3() {
+  curl -s -o /dev/null -w '%{http_code}' --aws-sigv4 "aws:amz:us-east-1:s3" \
+       --user "$MINIO_ACCESS_KEY:$MINIO_SECRET_KEY" "$@" || true
+}
+code=$(s3 -I "$MINIO/$MINIO_BUCKET")
+case "$code" in
+  200) log "bucket '$MINIO_BUCKET' đã có" ;;
+  404) code=$(s3 -X PUT "$MINIO/$MINIO_BUCKET")
+       if [ "$code" = 200 ]; then log "đã tạo bucket '$MINIO_BUCKET'"
+       else log "LỖI: tạo bucket '$MINIO_BUCKET' trả HTTP $code"; fi ;;
+  403) log "LỖI: MinIO từ chối khoá (HTTP 403) — kiểm MINIO_ACCESS_KEY / MINIO_SECRET_KEY trong .env"; exit 1 ;;
+  *)   log "LỖI: không kiểm được bucket '$MINIO_BUCKET' tại $MINIO (HTTP $code)"; exit 1 ;;
+esac
 
 # ── 2. User ClickHouse cho AI-Rec ───────────────────────────────────────
 step "2/5  User ClickHouse chỉ-đọc cho AI-Rec"
