@@ -2,3 +2,5 @@ psycopg2-binary>=2.9
 python-dotenv>=1.0
 # Chỉ cần khi dùng --seed-customers. Hash phải tương thích bcryptjs bên server.
 bcrypt>=4.0
+# Chỉ cần cho taste_simulator.py (bộ sinh v2, chế độ offline ghi CSV).
+numpy>=1.24

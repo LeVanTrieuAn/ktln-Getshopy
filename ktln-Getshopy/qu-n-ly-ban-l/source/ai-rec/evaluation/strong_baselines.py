@@ -91,11 +91,14 @@ class IALS(_MatrixScorer):
     def _solve(Y: np.ndarray, C: np.ndarray, Pm: np.ndarray, reg: float) -> np.ndarray:
         """Nghiệm đóng cho MỌI hàng một lượt: (YᵀY + Yᵀ(Cᵤ − I)Y + λI) xᵤ = Yᵀ Cᵤ pᵤ.
 
-        Giải theo lô (n × f × f) thay vì lặp từng hàng trong Python — cùng nghiệm,
-        nhanh hơn nhiều lần.
+        Chỉ ô có tương tác (c_ui ≠ 1) đóng góp vào Yᵀ(Cᵤ − I)Y — đúng mẹo tính của Hu et
+        al. (2008) — nên cộng ngoại tích y_i y_iᵀ theo các ô đó thay vì duyệt cả ma trận
+        dày. Cùng nghiệm; bản dày tốn khách × món × f² phép tính mỗi lượt.
         """
         f = Y.shape[1]
-        A = (Y.T @ Y)[None, :, :] + np.einsum("ui,if,ig->ufg", C - 1.0, Y, Y, optimize=True)
-        A += reg * np.eye(f)[None, :, :]
+        rows, cols = np.nonzero(C != 1.0)
+        w = C[rows, cols] - 1.0
+        A = np.broadcast_to(Y.T @ Y + reg * np.eye(f), (C.shape[0], f, f)).copy()
+        np.add.at(A, rows, Y[cols, :, None] * Y[cols, None, :] * w[:, None, None])
         b = (C * Pm) @ Y
         return np.linalg.solve(A, b[..., None])[..., 0]

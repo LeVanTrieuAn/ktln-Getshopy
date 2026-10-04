@@ -18,6 +18,10 @@ from api.schemas import (
 )
 from config import (
     CB_ONBOARDING_PSEUDO_COUNT,
+    CF_BEHAVIOR_CART_WEIGHT,
+    CF_BEHAVIOR_MODE,
+    CF_BEHAVIOR_VIEW_WEIGHT,
+    CF_BEHAVIOR_WISH_WEIGHT,
     HYBRID_ALLOW_REPEAT,
     HYBRID_CF_SHRINK_K,
     HYBRID_MODEL_PATH,
@@ -31,6 +35,7 @@ from config import (
     TRAIN_INTERVAL_SECONDS,
 )
 from data_source import clickhouse
+from models.behavior import BehaviorConfig
 from models.cf_recommendation import CollaborativeFiltering
 from models.hybrid import HybridParams, HybridRecommender, build_recommender
 
@@ -45,6 +50,15 @@ def current_params() -> HybridParams:
         cf_shrink_k=HYBRID_CF_SHRINK_K,
         repeat_weight=HYBRID_REPEAT_WEIGHT,
         allow_repeat=HYBRID_ALLOW_REPEAT,
+    )
+
+
+def current_behavior() -> BehaviorConfig:
+    return BehaviorConfig(
+        mode=CF_BEHAVIOR_MODE,
+        view_weight=CF_BEHAVIOR_VIEW_WEIGHT,
+        cart_weight=CF_BEHAVIOR_CART_WEIGHT,
+        wish_weight=CF_BEHAVIOR_WISH_WEIGHT,
     )
 
 
@@ -222,10 +236,12 @@ class CFModelService:
             logger.warning("Không có dữ liệu train ở chu kỳ này, giữ nguyên model cũ.")
             return None
 
-        cf = CollaborativeFiltering(model_path=MODEL_PATH)
-        cf.fit(df)
-
         errors: list[str] = []
+        behavior_cfg = current_behavior()
+        behavior = self._load_behavior(behavior_cfg, errors)
+        cf = CollaborativeFiltering(model_path=MODEL_PATH)
+        cf.fit(df, behavior=behavior, behavior_cfg=behavior_cfg)
+
         features, signals = self._load_content(errors)
         events = self._load_purchase_events(errors)
         model = build_recommender(
@@ -319,6 +335,17 @@ class CFModelService:
             logger.warning("Không lấy được sở thích onboarding: %s", exc)
         return features, signals
 
+    def _load_behavior(self, cfg: BehaviorConfig, errors: list[str]) -> pd.DataFrame | None:
+        """Tín hiệu hành vi phụ — chỉ khi bật. Lỗi thì train thuần theo đơn, báo ở /health."""
+        if not cfg.enabled or not clickhouse.is_configured():
+            return None
+        try:
+            return clickhouse.fetch_behavior()
+        except clickhouse.ClickHouseUnavailable as exc:
+            errors.append(f"Không lấy được tín hiệu hành vi, CF chỉ dùng đơn mua: {exc}")
+            logger.warning("%s", errors[-1])
+            return None
+
     def _load_purchase_events(self, errors: list[str]) -> pd.DataFrame | None:
         """Lịch sử mua theo đơn cho kênh mua lại. Lỗi thì rơi về kênh cũ.
 
@@ -377,6 +404,7 @@ class CFModelService:
             onboarded_customers=bundle.stats.get("onboarded_customers", 0),
             content_based=bool(bundle.stats.get("content_based", 0)),
             repeat_model=bool(bundle.stats.get("repeat_model", 0)),
+            behavior=bool(bundle.stats.get("behavior", 0)),
             last_error=self._last_error,
         )
 

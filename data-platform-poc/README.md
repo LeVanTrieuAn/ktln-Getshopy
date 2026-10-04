@@ -73,3 +73,29 @@ docker compose logs -f ai-rec                    # chờ "Bản train #N sẵn s
 
 Độ trễ toàn tuyến: tối đa ~10 phút (5 phút lịch dbt + 5 phút vòng train, hai
 nhịp độc lập không đồng bộ).
+
+## Bộ sinh v2 — `taste_simulator.py` (01/10/2026)
+
+`pos_simulator.py` ở trên đã sinh toàn bộ dữ liệu mua hiện có, nhưng có ba hạn chế cho việc
+đánh giá AI-Rec (chi tiết: `ai-rec/evaluation/README.md` §Hạn chế):
+- gu gắn với vị trí trong dòng RNG và bị rút lại ở mỗi lần chạy (5 lần chạy = 5 bộ gu);
+- ngày đặt lưu theo giờ máy nhưng pipeline coi là UTC, và có đơn ở tương lai;
+- hành vi (`seed-behavior-data.js`) không liên quan tới gu mua.
+
+`taste_simulator.py` sinh dữ liệu từ một mô hình gu ẩn tường minh:
+- gu theo danh mục/hãng/tầm giá cố định cho từng mã khách, cộng ái lực ẩn riêng;
+- gu trôi DẦN theo thời gian; mua lặp tuỳ loại hàng;
+- ngày UTC, không có ngày ở tương lai;
+- hành vi (xem, dwell, giỏ, yêu thích) sinh từ CÙNG gu, và onboarding có nhiễu.
+
+Mọi tham số là giả định của bộ sinh, được ghi kèm dữ liệu trong `sim_params.json`.
+
+```bash
+# Chế độ offline — chỉ ghi CSV cho benchmark, KHÔNG đụng DB
+docker run --rm -v "$PWD/data-platform-poc":/sim:ro \
+  -v "$PWD/ktln-Getshopy/qu-n-ly-ban-l/source/ai-rec/evaluation/data":/data \
+  kltn-ai-rec python /sim/taste_simulator.py --catalog /data/catalog_features.csv --out /data/sim
+```
+
+Chế độ ghi vào Postgres/ClickHouse chưa làm, vì cần reset dữ liệu live (backup → xoá đơn và
+event cũ → sinh lại → dựng lại CDC/warehouse). Việc này chờ duyệt.

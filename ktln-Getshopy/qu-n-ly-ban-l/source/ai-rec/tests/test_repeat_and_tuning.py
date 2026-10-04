@@ -162,6 +162,38 @@ class BenchmarkSelectionTests(unittest.TestCase):
         picked = self.bm.select_in_band(g, band=(2.0, 3.0))
         self.assertEqual(picked.params.repeat_weight, 0.5)
 
+    def test_behavior_row_must_beat_no_behavior_at_same_params(self) -> None:
+        cols = ["stage", "half_life", "scale", "repeat", "behavior_mode", "behavior_view_weight",
+                "allow_repeat", "k", "gamma", "NDCG", "Recall", "repeat_items"]
+        g = pd.DataFrame([
+            (1, 7.0, "log", "order_freq", "none", 0.5, True, 0.5, 1.0, 0.4469, 0.5, 3.01),   # ngoài dải
+            (1, 7.0, "log", "order_freq", "none", 0.5, True, 0.0, 1.0, 0.4368, 0.5, 2.84),
+            (2, 7.0, "log", "order_freq", "dwell", 0.5, True, 0.5, 1.0, 0.4456, 0.5, 3.00),  # thua none cùng k
+            (2, 7.0, "log", "order_freq", "count", 0.5, True, 0.0, 1.0, 0.4400, 0.5, 2.90),  # thắng none cùng k
+        ], columns=cols)
+        ok = self.bm._dominance(g)
+        self.assertEqual(ok.tolist(), [True, True, False, True])
+        picked = self.bm.select_in_band(g[ok], band=(2.0, 3.0))
+        self.assertEqual(picked.data.behavior.mode, "count")
+        # Không có bộ "count" thì chọn bộ không hành vi — KHÔNG phải "dwell" nhờ lọt ranh giới dải
+        self.assertEqual(self.bm.select_in_band(g[ok].iloc[:2], band=(2.0, 3.0)).data.behavior.mode, "none")
+
+    def test_controlled_ablation_keeps_stage1_params(self) -> None:
+        cols = ["stage", "half_life", "scale", "repeat", "behavior_mode", "behavior_view_weight",
+                "allow_repeat", "k", "gamma", "NDCG", "Recall", "repeat_items"]
+        g = pd.DataFrame([
+            (1, 7.0, "log", "order_freq", "none", 0.5, True, 0.0, 1.0, 0.43, 0.5, 2.8),
+            (2, 7.0, "log", "order_freq", "dwell", 0.5, True, 0.0, 1.0, 0.42, 0.5, 2.8),
+            (2, 7.0, "log", "order_freq", "dwell", 1.0, True, 0.0, 1.0, 0.44, 0.5, 2.8),
+            (2, 7.0, "log", "order_freq", "dwell", 1.0, True, 0.5, 1.0, 0.50, 0.5, 2.9),   # khác k -> không xét
+        ], columns=cols)
+        stage1 = self.bm.Tuned(self.bm.DataConfig(7.0, "log", "order_freq"),
+                               HybridParams(cf_shrink_k=0.0, repeat_weight=1.0, allow_repeat=True))
+        abl = self.bm._controlled_ablation(g, stage1)
+        self.assertEqual(set(abl), {"none", "dwell"})
+        self.assertEqual(abl["dwell"].data.behavior.view_weight, 1.0)
+        self.assertEqual(abl["dwell"].params.cf_shrink_k, 0.0)
+
     def test_purchase_events_frame_one_row_per_order(self) -> None:
         lines = pd.DataFrame(
             [("U", "X", 1, "O1", "2026-09-10 10:00:00"), ("U", "X", 2, "O1", "2026-09-10 10:00:00"),

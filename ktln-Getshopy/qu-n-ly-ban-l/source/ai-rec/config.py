@@ -173,6 +173,23 @@ PURCHASE_EVENTS_QUERY = (
     f"SELECT CustomerID, ProductID, dateDiff('day', OrderedAt, now()) AS DaysSince "
     f"FROM {PURCHASE_EVENTS_TABLE} FORMAT TabSeparatedWithNames"
 )
+# ==============================================================================
+# Tín hiệu hành vi phụ cho ma trận hồ sơ của CF — xem models/behavior.py
+# ==============================================================================
+# "none" | "count" | "dwell" | "dwell+cart". Chọn trên validation như mọi tham số khác.
+# Mặc định TẮT: hành vi đang có trong analytics.user_events là dữ liệu seed không liên
+# quan tới gu mua (evaluation/README.md §Hạn chế) — bật lên chỉ thêm nhiễu.
+CF_BEHAVIOR_MODE = os.getenv("CF_BEHAVIOR_MODE", "none")
+CF_BEHAVIOR_VIEW_WEIGHT = float(os.getenv("CF_BEHAVIOR_VIEW_WEIGHT", "0.5"))
+CF_BEHAVIOR_CART_WEIGHT = float(os.getenv("CF_BEHAVIOR_CART_WEIGHT", "1"))
+CF_BEHAVIOR_WISH_WEIGHT = float(os.getenv("CF_BEHAVIOR_WISH_WEIGHT", "0.5"))
+BEHAVIOR_TABLE = os.getenv("BEHAVIOR_TABLE", "serving.customer_product_events")
+BEHAVIOR_QUERY = (
+    f"SELECT CustomerID, ProductID, Views, DwellSec, Carts, Wishlists, "
+    f"dateDiff('day', LastEventAt, now()) AS DaysSince "
+    f"FROM {BEHAVIOR_TABLE} FORMAT TabSeparatedWithNames"
+)
+
 # Một lựa chọn onboarding nặng bằng bấy nhiêu lần mua khi dựng hồ sơ nội dung.
 # CHƯA tinh chỉnh được: cần dữ liệu onboarding thật để đo (xem README đánh giá).
 CB_ONBOARDING_PSEUDO_COUNT = float(os.getenv("CB_ONBOARDING_PSEUDO_COUNT", "1"))

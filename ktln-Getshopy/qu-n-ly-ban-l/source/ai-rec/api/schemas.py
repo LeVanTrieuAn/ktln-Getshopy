@@ -48,4 +48,7 @@ class HealthResponse(BaseModel):
     repeat_model: bool = Field(
         False, description="True = kênh mua lại theo tần suất đơn; False = cách cũ (trọng số ma trận CF)"
     )
+    behavior: bool = Field(
+        False, description="True = ma trận hồ sơ CF có tín hiệu hành vi phụ (xem/giỏ/yêu thích)"
+    )
     last_error: str | None = Field(None, description="Lỗi của lần train gần nhất, nếu có")

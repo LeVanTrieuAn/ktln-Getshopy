@@ -114,16 +114,16 @@ class HybridRecommender:
             self.item_ids = self.cb.item_ids
             catalog_sold = self.cb.catalog_sold
         else:
-            self.item_ids = pd.Index(cf.user_item_matrix.columns, dtype="string")
+            self.item_ids = pd.Index(cf.profile.columns, dtype="string")
             catalog_sold = np.zeros(len(self.item_ids), dtype=np.float32)
         pos = {pid: i for i, pid in enumerate(self.item_ids)}
         self._pos = pos
         n = len(self.item_ids)
 
-        # Cột j của ma trận CF -> chỉ số ứng viên (-1 nếu không còn là ứng viên)
-        self._cf_to_cand = np.array(
-            [pos.get(str(p), -1) for p in cf.user_item_matrix.columns], dtype=np.int64
-        )
+        # Cột j của ma trận HỒ SƠ (kênh CF) / ma trận MUA -> chỉ số ứng viên (-1 nếu
+        # không còn là ứng viên). Tắt hành vi phụ thì hai ma trận là một.
+        self._cf_to_cand = np.array([pos.get(str(p), -1) for p in cf.profile.columns], dtype=np.int64)
+        self._buy_to_cand = np.array([pos.get(str(p), -1) for p in cf.user_item_matrix.columns], dtype=np.int64)
 
         popularity = np.zeros(n, dtype=np.float64)
         if cf.popular_items is not None:
@@ -148,33 +148,43 @@ class HybridRecommender:
 
         # getattr: artifact lưu trước khi có kênh này không mang thuộc tính repeat
         repeat = getattr(self, "repeat", None)
-        uim = self.cf.user_item_matrix
-        uidx = uim._user_map.get(str(customer_id))
-        n_u = 0
-        if uidx is not None:
-            row = uim.mat[uidx]
-            items_j, weights = row.indices, row.data
-            norm = self.cf.item_similarity.item_user_norm
-            scores = np.asarray(norm.dot(norm[items_j].T.dot(weights))).ravel()
-            scores[items_j] = 0.0  # CF là kênh khám phá; món đã mua để kênh mua lại lo
+        cid = str(customer_id)
 
+        # Kênh CF — từ ma trận HỒ SƠ (mua + hành vi phụ nếu bật)
+        profile = self.cf.profile
+        pidx = profile._user_map.get(cid)
+        n_u = 0
+        if pidx is not None:
+            prow = profile.mat[pidx]
+            norm = self.cf.item_similarity.item_user_norm
+            scores = np.asarray(norm.dot(norm[prow.indices].T.dot(prow.data))).ravel()
             mapped = self._cf_to_cand >= 0
             cf_hat[self._cf_to_cand[mapped]] = scores[mapped]
-            cand = self._cf_to_cand[items_j]
+            n_u = len(prow.indices)
+
+        # Tập ĐÃ MUA — chỉ từ đơn, không bao giờ từ hành vi
+        uim = self.cf.user_item_matrix
+        uidx = uim._user_map.get(cid)
+        if uidx is not None:
+            row = uim.mat[uidx]
+            cand = self._buy_to_cand[row.indices]
             keep = cand >= 0
             purchased[cand[keep]] = True
             if repeat is None:
-                rep_hat[cand[keep]] = weights[keep]
-            n_u = len(items_j)
+                rep_hat[cand[keep]] = row.data[keep]
 
         if repeat is not None:
             # Phủ cả món dưới ngưỡng số người mua của CF (không có trong ma trận
             # CF) — ngưỡng đó là chuyện của cosine, không phải của mua lại.
-            items, values = repeat.scores(customer_id)
+            items, values = repeat.scores(cid)
             idx = np.fromiter((self._pos.get(str(p), -1) for p in items), dtype=np.int64, count=len(items))
             keep = idx >= 0
             rep_hat[idx[keep]] = values[keep]
             purchased[idx[keep]] = True
+
+        # CF là kênh KHÁM PHÁ: món đã mua để kênh mua lại lo. Món đã XEM mà chưa mua
+        # vẫn giữ điểm — đó là ứng viên tốt nhất, không được loại.
+        cf_hat[purchased] = 0.0
         return _unit_max(cf_hat), _unit_max(rep_hat), purchased, n_u
 
     def components(self, customer_id: str) -> dict[str, np.ndarray | int]:
@@ -232,7 +242,7 @@ class HybridRecommender:
 
     def known_customers(self) -> list[str]:
         """Khách có tín hiệu riêng (đã mua hoặc đã làm onboarding) — đáng tính sẵn."""
-        users = set(map(str, self.cf.user_item_matrix.index))
+        users = set(map(str, self.cf.user_item_matrix.index)) | set(map(str, self.cf.profile.index))
         if self.cb is not None:
             users |= self.cb.onboarded_customers
         repeat = getattr(self, "repeat", None)
@@ -247,6 +257,8 @@ class HybridRecommender:
         stats["content_based"] = int(self.cb is not None)
         repeat = getattr(self, "repeat", None)
         stats["repeat_model"] = int(repeat is not None)
+        stats["behavior"] = int(getattr(self.cf, "behavior", None) is not None and self.cf.behavior.enabled
+                                and stats.get("behavior_pairs", 0) > 0)
         return stats
 
     # ── Lưu / nạp ────────────────────────────────────────────────────────

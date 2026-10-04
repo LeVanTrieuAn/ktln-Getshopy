@@ -9,6 +9,7 @@ import httpx
 import pandas as pd
 
 from config import (
+    BEHAVIOR_QUERY,
     CLICKHOUSE_PASSWORD,
     CLICKHOUSE_TIMEOUT_SECONDS,
     CLICKHOUSE_URL,
@@ -109,6 +110,18 @@ def fetch_purchase_events() -> pd.DataFrame:
     )
     _require(df, ["CustomerID", "ProductID", "DaysSince"], "Lịch sử mua theo đơn")
     logger.info("Đã lấy %d lượt mua (theo đơn) của %d khách.", len(df), df["CustomerID"].nunique())
+    return df
+
+
+def fetch_behavior() -> pd.DataFrame:
+    """Tín hiệu hành vi theo cặp (khách, món) — serving.customer_product_events."""
+    df = _query(
+        BEHAVIOR_QUERY,
+        dtype={"CustomerID": "string", "ProductID": "string", "DaysSince": "int32"},
+    )
+    _require(df, ["CustomerID", "ProductID", "Views", "DwellSec", "Carts", "Wishlists", "DaysSince"],
+             "Tín hiệu hành vi")
+    logger.info("Đã lấy tín hiệu hành vi của %d cặp (khách, món).", len(df))
     return df
 
 

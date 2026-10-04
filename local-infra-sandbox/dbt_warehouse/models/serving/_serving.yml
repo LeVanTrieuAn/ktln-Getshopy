@@ -52,6 +52,17 @@ models:
       - dbt_utils.unique_combination_of_columns:
           combination_of_columns: [CustomerID, ProductID, OrderID]
 
+  - name: customer_product_events
+    description: "Tín hiệu hành vi phụ theo (khách, món) cho ma trận hồ sơ CF. Lượt xem từ ô gợi ý tách riêng (ViewsFromRec), không tính vào Views/DwellSec."
+    columns:
+      - name: CustomerID
+        tests: [not_null]
+      - name: ProductID
+        tests: [not_null]
+    tests:
+      - dbt_utils.unique_combination_of_columns:
+          combination_of_columns: [CustomerID, ProductID]
+
   - name: product_features
     description: "Đặc trưng content-based (nhóm, hãng, tầm giá) của các món đại diện mỗi ô + mọi món đã bán."
     columns:

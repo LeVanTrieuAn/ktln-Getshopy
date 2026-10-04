@@ -28,6 +28,12 @@ Giao thức
    NDCG@10 tổng thể với RÀNG BUỘC trung bình số món đã mua trong top-10 nằm trong
    REPEAT_BAND. Chế độ chỉ khám phá: tối đa NDCG@10 discovery. Chọn xong thì train
    lại trên 85% và đo MỘT lần trên test.
+   TẦNG 2 (chỉ khi có behavior_events.csv): tín hiệu hành vi phụ (BEHAVIOR_GRID) ×
+   half-life, giữ thang + kênh mua lại của tầng 1, chọn lại k/γ — tìm kiếm tuần tự theo
+   khối tham số. Bộ có hành vi chỉ HỢP LỆ nếu thắng bộ không hành vi ở cùng half-life,
+   k, γ (điều kiện trội — sửa 01/10 sau khi thấy ranh giới dải món cũ bị lợi dụng, xem
+   _dominance). So sánh loại bỏ CÓ KIỂM SOÁT: giữ mọi tham số của tầng 1, mỗi họ hành vi
+   (none / count / dwell / dwell+cart) chỉ chọn trọng số xem; đo trên test, ghép cặp với "none".
 4. TÁCH HAI BÀI TOÁN: phần lớn món khách mua ở giai đoạn test là món đã mua trước
    đó. Gộp chung thì một model "gợi ý lại đồ cũ" trông rất giỏi mà không khám phá
    được gì. Báo riêng:
@@ -37,7 +43,9 @@ Giao thức
    ý lại), Repeat-only. Model không thắng được Most-Popular thì chưa học được gì.
    Thêm ĐỐI CHỨNG MẠNH cho Item-CF: EASE^R (Steck, 2019) và iALS (Hu et al., 2008),
    tinh chỉnh trên validation y như CF — so với đối chứng không tinh chỉnh là so
-   lệch (Dacrema et al., 2019). Baseline dùng cùng half-life đã chọn.
+   lệch (Dacrema et al., 2019). Baseline dùng cùng half-life đã chọn. Có hành vi thì
+   thêm Viewed-only (món đã xem/bỏ giỏ mà chưa mua) — đối chứng ngây thơ của tín hiệu
+   hành vi.
 6. KHOẢNG TIN CẬY: bootstrap 95% theo khách (Efron & Tibshirani, 1993), và chênh
    lệch GHÉP CẶP trên cùng mẫu bootstrap — so với Item-CF cấu hình cũ, và riêng
    cấu hình đang chạy so với cấu hình cũ.
@@ -48,7 +56,8 @@ Giao thức
    Most-Popular với content-based dựng từ câu trả lời onboarding GIẢ LẬP. Câu trả
    lời giả lập lấy từ chính lịch sử TRAIN đã xoá của họ (2 danh mục, 3 hãng, 1
    tầm giá nhiều nhất) — tức giả định khách khai đúng gu thật của mình. Đây là
-   GIẢ ĐỊNH lạc quan; không có dữ liệu onboarding thật để thay.
+   GIẢ ĐỊNH lạc quan; không có dữ liệu onboarding thật để thay. Có hành vi thì thêm
+   biến thể khách mới ĐÃ duyệt (xem, yêu thích) nhưng chưa mua, không onboarding.
 9. ĐỘ NHẠY γ trên test (KHÔNG dùng để chọn tham số): đường đánh đổi giữa gợi ý
    lại đồ cũ và khám phá món mới.
 10. ĐỘ BỀN: so cấu hình đang chạy với cấu hình cũ trên HAI cửa sổ nằm TRƯỚC
@@ -106,10 +115,12 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from config import (  # noqa: E402
-    CB_ONBOARDING_PSEUDO_COUNT, CF_INPUT_SCALE, HYBRID_ALLOW_REPEAT, HYBRID_CF_SHRINK_K,
+    CB_ONBOARDING_PSEUDO_COUNT, CF_BEHAVIOR_CART_WEIGHT, CF_BEHAVIOR_MODE, CF_BEHAVIOR_VIEW_WEIGHT,
+    CF_BEHAVIOR_WISH_WEIGHT, CF_INPUT_SCALE, HYBRID_ALLOW_REPEAT, HYBRID_CF_SHRINK_K,
     HYBRID_REPEAT_WEIGHT, RECENCY_HALF_LIFE_DAYS, REPEAT_SCORE,
 )
 from evaluation.strong_baselines import EASE, IALS  # noqa: E402
+from models.behavior import BehaviorConfig, aggregate_events  # noqa: E402
 from models.cf_recommendation import CollaborativeFiltering  # noqa: E402
 from models.content_based import ContentBasedModel, build_candidates  # noqa: E402
 from models.hybrid import HybridParams, HybridRecommender, cf_interactions  # noqa: E402
@@ -141,6 +152,15 @@ EASE_GRID = (1.0, 5.0, 20.0, 50.0, 100.0, 250.0, 500.0)
 IALS_GRID = tuple((f, a, r) for f in (8, 16, 32) for a in (1.0, 10.0, 40.0) for r in (0.1, 1.0, 10.0))
 # Hai cửa sổ trước validation (theo tỉ lệ số đơn) để kiểm độ bền.
 ROBUST_WINDOWS = ((0.55, 0.625), (0.625, 0.70))
+# Tầng 2 (chỉ khi có behavior_events.csv): tín hiệu hành vi phụ × half-life, giữ thang và
+# kênh mua lại đã chọn ở tầng 1, chọn lại k/γ. Tìm kiếm tuần tự theo khối tham số — khai
+# báo trước 01/10/2026 để giới hạn chi phí (quét đủ tích Descartes là ×7 thời gian chạy).
+BEHAVIOR_GRID = (
+    BehaviorConfig("count", view_weight=0.5), BehaviorConfig("count", view_weight=1.0),
+    BehaviorConfig("dwell", view_weight=0.5), BehaviorConfig("dwell", view_weight=1.0),
+    BehaviorConfig("dwell+cart", view_weight=0.5), BehaviorConfig("dwell+cart", view_weight=1.0),
+)
+BEHAVIOR_MODES = ("none", "count", "dwell", "dwell+cart")
 
 SEGMENTS = ((0, 0, "0 (khách mới)"), (1, 2, "1–2"), (3, 5, "3–5"), (6, math.inf, "6+"))
 BOOTSTRAP_SAMPLES = 1000
@@ -156,9 +176,11 @@ class DataConfig:
     half_life: float
     scale: str       # "linear" | "log"
     repeat: str      # "cf_weight" | "order_freq"
+    behavior: BehaviorConfig = BehaviorConfig()
 
     def label(self) -> str:
-        return f"half-life {self.half_life:g} ngày, thang {self.scale}, mua lại {self.repeat}"
+        return (f"half-life {self.half_life:g} ngày, thang {self.scale}, mua lại {self.repeat}, "
+                f"hành vi phụ {self.behavior.label()}")
 
 
 @dataclass(frozen=True)
@@ -174,10 +196,13 @@ class Tuned:
 # Cấu hình đã phục vụ tới 30/09/2026 — mốc so sánh "trước/sau".
 OLD = Tuned(DataConfig(30.0, "linear", "cf_weight"), HybridParams(cf_shrink_k=0.0, repeat_weight=1.0, allow_repeat=True))
 DEPLOYED = Tuned(
-    DataConfig(RECENCY_HALF_LIFE_DAYS, CF_INPUT_SCALE, REPEAT_SCORE),
+    DataConfig(RECENCY_HALF_LIFE_DAYS, CF_INPUT_SCALE, REPEAT_SCORE,
+               BehaviorConfig(CF_BEHAVIOR_MODE, CF_BEHAVIOR_VIEW_WEIGHT, CF_BEHAVIOR_CART_WEIGHT,
+                              CF_BEHAVIOR_WISH_WEIGHT)),
     HybridParams(cf_shrink_k=HYBRID_CF_SHRINK_K, repeat_weight=HYBRID_REPEAT_WEIGHT, allow_repeat=HYBRID_ALLOW_REPEAT),
 )
 DEPLOYED_NAME = "Hybrid — cấu hình đang chạy"
+TUNED_NAME = "Hybrid — chọn trên validation"
 OLD_NAME = "Hybrid — cấu hình cũ (tới 30/09)"
 CF_OLD = "Item-CF — cấu hình cũ"
 CF_TUNED = "Item-CF (tinh chỉnh)"
@@ -224,6 +249,16 @@ METRICS = ("Precision", "Recall", "HitRate", "MAP", "NDCG")
 # ═════════════════════════════════════════════════════════════════════════════
 # Dữ liệu
 # ═════════════════════════════════════════════════════════════════════════════
+
+def load_events(data_dir: Path) -> pd.DataFrame | None:
+    """behavior_events.csv (tuỳ chọn): CustomerID, ProductID, EventType, EventTime, DwellMs, Referrer."""
+    path = data_dir / "behavior_events.csv"
+    if not path.exists():
+        return None
+    ev = pd.read_csv(path, dtype={"CustomerID": str, "ProductID": str, "EventType": str, "Referrer": str},
+                     parse_dates=["EventTime"])
+    return ev if len(ev) else None
+
 
 def load_inputs(data_dir: Path) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     lines = pd.read_csv(
@@ -297,13 +332,17 @@ class SplitState:
     n_candidates: int
     n_cf_items: int
     train_rows: int
+    behavior: pd.DataFrame | None = None   # tín hiệu hành vi tới mốc cắt (serving.customer_product_events)
 
 
 def build_split(lines_train: pd.DataFrame, cut: pd.Timestamp, catalog: pd.DataFrame,
-                signals: pd.DataFrame, data: DataConfig,
+                signals: pd.DataFrame, data: DataConfig, events: pd.DataFrame | None = None,
                 min_buyers: int = MIN_BUYERS, per_cell: int = CANDIDATES_PER_CELL) -> SplitState:
     frame = training_frame(lines_train, cut, min_buyers)
-    cf = CollaborativeFiltering(half_life_days=data.half_life, input_scale=data.scale).fit(frame)
+    # Chỉ sự kiện TRƯỚC mốc cắt — aggregate_events lọc theo `cut`
+    behavior = aggregate_events(events, cut) if events is not None else None
+    cf = CollaborativeFiltering(half_life_days=data.half_life, input_scale=data.scale).fit(
+        frame, behavior=behavior if data.behavior.enabled else None, behavior_cfg=data.behavior)
     units = lines_train.groupby("ProductID")["Quantity"].sum()
     candidates = build_candidates(catalog, units, per_cell)
     cb = ContentBasedModel(onboarding_pseudo_count=CB_ONBOARDING_PSEUDO_COUNT).fit(
@@ -315,7 +354,7 @@ def build_split(lines_train: pd.DataFrame, cut: pd.Timestamp, catalog: pd.DataFr
     return SplitState(
         cut=cut, data=data, cf=cf, hybrid=hybrid, history=ground_truth(lines_train),
         n_candidates=len(hybrid.item_ids), n_cf_items=len(cf.user_item_matrix.columns),
-        train_rows=len(frame),
+        train_rows=len(frame), behavior=behavior,
     )
 
 
@@ -363,12 +402,32 @@ def baselines(state: SplitState) -> dict[str, Recommender]:
         seen = set(items)
         return (items + [p for p in popular if p not in seen])[:n]
 
-    return {
+    out = {
         "Random (catalog CF)": random_rec,
         "Most-Popular (bỏ món đã mua)": popular_new,
         "Most-Popular (cả món đã mua)": popular_all,
         "Repeat-only": repeat_only,
     }
+
+    if state.behavior is not None and len(state.behavior):
+        # Đối chứng ngây thơ cho tín hiệu hành vi ("xem gần đây"): món khách đã xem /
+        # bỏ giỏ mà CHƯA mua, xếp theo (phút xem + lượt bỏ giỏ) đã giảm theo thời gian.
+        # Model dùng hành vi phải thắng được cách này mới chứng minh học được gì thêm.
+        b = state.behavior
+        hl = state.data.half_life
+        decay = 0.5 ** (b["DaysSince"].clip(lower=0) / hl) if hl > 0 else 1.0
+        score = (b["DwellSec"] / 60.0 + b["Carts"]) * decay
+        viewed = (b.assign(_s=score).sort_values(["CustomerID", "_s", "ProductID"], ascending=[True, False, True])
+                  .groupby("CustomerID")["ProductID"].agg(list).to_dict())
+
+        def viewed_only(cid: str, n: int) -> list[str]:
+            seen = state.history.get(cid, set())
+            items = [p for p in viewed.get(cid, []) if p not in seen]
+            taken = set(items)
+            return (items + [p for p in popular if p not in seen and p not in taken])[:n]
+
+        out["Viewed-only (xem/giỏ chưa mua)"] = viewed_only
+    return out
 
 
 def cf_recommender(state: SplitState) -> Recommender:
@@ -481,57 +540,120 @@ def bootstrap(per_user: dict[str, pd.DataFrame], reference: str, metric: str,
 
 _SCALE_ORDER = {s: i for i, s in enumerate(SCALE_GRID)}
 _REPEAT_ORDER = {s: i for i, s in enumerate(REPEAT_GRID)}
+_BEHAVIOR_ORDER = {m: i for i, m in enumerate(BEHAVIOR_MODES)}
 
 
 def _pick(sub: pd.DataFrame) -> Tuned:
     # Hoà điểm thì ưu tiên cấu hình đơn giản / thận trọng hơn: γ nhỏ, k lớn,
-    # half-life dài, thang tuyến tính, kênh mua lại cũ.
-    sub = sub.assign(_scale=sub["scale"].map(_SCALE_ORDER), _rep=sub["repeat"].map(_REPEAT_ORDER))
+    # half-life dài, thang tuyến tính, kênh mua lại cũ, không hành vi / trọng số nhỏ.
+    if "behavior_mode" not in sub.columns:
+        sub = sub.assign(behavior_mode="none", behavior_view_weight=BehaviorConfig().view_weight)
+    sub = sub.assign(_scale=sub["scale"].map(_SCALE_ORDER), _rep=sub["repeat"].map(_REPEAT_ORDER),
+                     _beh=sub["behavior_mode"].map(_BEHAVIOR_ORDER))
     sub = sub.sort_values(
-        ["NDCG", "Recall", "gamma", "k", "half_life", "_scale", "_rep"],
-        ascending=[False, False, True, False, False, True, True], kind="stable",
+        ["NDCG", "Recall", "gamma", "k", "half_life", "_scale", "_rep", "_beh", "behavior_view_weight"],
+        ascending=[False, False, True, False, False, True, True, True, True], kind="stable",
     )
     r = sub.iloc[0]
     return Tuned(
-        DataConfig(float(r["half_life"]), str(r["scale"]), str(r["repeat"])),
+        DataConfig(float(r["half_life"]), str(r["scale"]), str(r["repeat"]),
+                   BehaviorConfig(str(r["behavior_mode"]), view_weight=float(r["behavior_view_weight"]))),
         HybridParams(cf_shrink_k=float(r["k"]), repeat_weight=float(r["gamma"]), allow_repeat=bool(r["allow_repeat"])),
     )
 
 
+def _grid_rows(st: SplitState, truth: dict[str, set[str]], stage: int) -> list[dict]:
+    """Quét k × γ (có mua lại) và k (chỉ khám phá) trên một bộ dữ liệu vào đã fit."""
+    data = st.data
+    cache: dict[str, dict] = {}
+    rows = []
+    for allow_repeat in (True, False):
+        gammas = GAMMA_GRID if allow_repeat else (0.0,)
+        task = "overall" if allow_repeat else "discovery"
+        for k in K_GRID:
+            for g in gammas:
+                params = HybridParams(cf_shrink_k=k, repeat_weight=g, allow_repeat=allow_repeat)
+                res = evaluate(hybrid_recommender(st, params, cache), truth, st, (MAIN_K,), light=True)
+                m = res["per_k"][task][MAIN_K]
+                rows.append({
+                    "stage": stage, "half_life": data.half_life, "scale": data.scale, "repeat": data.repeat,
+                    "behavior_mode": data.behavior.mode, "behavior_view_weight": data.behavior.view_weight,
+                    "allow_repeat": allow_repeat, "k": k, "gamma": g, "task": task,
+                    "NDCG": m["NDCG"], "Recall": m["Recall"], "HitRate": m["HitRate"],
+                    "discovery_NDCG": res["per_k"]["discovery"][MAIN_K]["NDCG"],
+                    "repeat_items": res["repeat_items"],
+                })
+    logger.info("Lưới validation (tầng %d): xong %s", stage, data.label())
+    return rows
+
+
 def tune(train: pd.DataFrame, cut: pd.Timestamp, truth: dict[str, set[str]],
-         catalog: pd.DataFrame, signals: pd.DataFrame) -> dict:
+         catalog: pd.DataFrame, signals: pd.DataFrame, events: pd.DataFrame | None = None) -> dict:
     rows, states = [], {}
+    # ── Tầng 1: half-life × thang × kênh mua lại, chưa có hành vi phụ ────
     for hl in HL_GRID:
         for scale in SCALE_GRID:
             for rep in REPEAT_GRID:
                 data = DataConfig(hl, scale, rep)
-                st = states[data] = build_split(train, cut, catalog, signals, data)
-                cache: dict[str, dict] = {}
-                for allow_repeat in (True, False):
-                    gammas = GAMMA_GRID if allow_repeat else (0.0,)
-                    task = "overall" if allow_repeat else "discovery"
-                    for k in K_GRID:
-                        for g in gammas:
-                            params = HybridParams(cf_shrink_k=k, repeat_weight=g, allow_repeat=allow_repeat)
-                            res = evaluate(hybrid_recommender(st, params, cache), truth, st, (MAIN_K,), light=True)
-                            m = res["per_k"][task][MAIN_K]
-                            rows.append({
-                                "half_life": hl, "scale": scale, "repeat": rep,
-                                "allow_repeat": allow_repeat, "k": k, "gamma": g, "task": task,
-                                "NDCG": m["NDCG"], "Recall": m["Recall"], "HitRate": m["HitRate"],
-                                "discovery_NDCG": res["per_k"]["discovery"][MAIN_K]["NDCG"],
-                                "repeat_items": res["repeat_items"],
-                            })
-                logger.info("Lưới validation: xong %s", data.label())
+                st = states[data] = build_split(train, cut, catalog, signals, data, events)
+                rows += _grid_rows(st, truth, 1)
+    grid1 = pd.DataFrame(rows)
+    stage1 = select_in_band(grid1[grid1["allow_repeat"]])
+
+    # ── Tầng 2: hành vi phụ × half-life, giữ thang + kênh mua lại của tầng 1 ──
+    if events is not None:
+        for hl in HL_GRID:
+            for b in BEHAVIOR_GRID:
+                data = DataConfig(hl, stage1.data.scale, stage1.data.repeat, b)
+                st = states[data] = build_split(train, cut, catalog, signals, data, events)
+                rows += _grid_rows(st, truth, 2)
+
     grid = pd.DataFrame(rows)
-    prod_all = grid[grid["allow_repeat"]]
+    grid["eligible"] = _dominance(grid)
+    ok = grid[grid["eligible"]]
+    prod_ok = ok[ok["allow_repeat"]]
     return {
         "grid": grid,
-        "production": select_in_band(prod_all),
-        "unconstrained": _pick(prod_all),
-        "discovery": _pick(grid[~grid["allow_repeat"]]),
+        "stage1": stage1,
+        "production": select_in_band(prod_ok),
+        "unconstrained": _pick(prod_ok),
+        "discovery": _pick(ok[~ok["allow_repeat"]]),
+        "ablation": _controlled_ablation(grid, stage1),
         "states": states,
     }
+
+
+_DOMINANCE_KEY = ["half_life", "scale", "repeat", "allow_repeat", "k", "gamma"]
+
+
+def _dominance(grid: pd.DataFrame) -> pd.Series:
+    """Hàng CÓ hành vi phụ chỉ hợp lệ nếu NDCG validation CAO HƠN hàng không hành vi ở CÙNG
+    half-life, thang, kênh mua lại, chế độ, k, γ — tín hiệu phải tự chứng minh giá trị ở cùng
+    tham số trộn.
+
+    Sửa giao thức 01/10/2026, SAU khi quan sát: trên dữ liệu thật, tầng 2 chọn "dwell × 0,5,
+    k = 0,5" dù ở mọi k bộ không hành vi đều cao hơn — chỉ vì bộ không hành vi cùng k có 3,01 món
+    cũ/10 (ngoài dải 2–3) còn bộ có hành vi 3,00. Hành vi khi đó chỉ đẩy một cấu hình qua
+    ranh giới dải, không mang tín hiệu (README đánh giá §Kết quả)."""
+    if "behavior_mode" not in grid.columns:
+        return pd.Series(True, index=grid.index)
+    none = (grid[grid["behavior_mode"] == "none"][_DOMINANCE_KEY + ["NDCG"]]
+            .rename(columns={"NDCG": "_none"}).drop_duplicates(_DOMINANCE_KEY))
+    ref = grid[_DOMINANCE_KEY].merge(none, on=_DOMINANCE_KEY, how="left")["_none"].to_numpy()
+    ok = (grid["behavior_mode"].to_numpy() == "none") | (grid["NDCG"].to_numpy() > ref)
+    return pd.Series(ok, index=grid.index)
+
+
+def _controlled_ablation(grid: pd.DataFrame, stage1: Tuned) -> dict[str, Tuned]:
+    """So sánh loại bỏ CÓ KIỂM SOÁT: giữ nguyên half-life, thang, kênh mua lại, k, γ của cấu hình
+    tầng 1; mỗi họ hành vi chỉ chọn trọng số lượt xem tốt nhất trên validation. Chênh lệch trên
+    test khi đó chỉ đến từ tín hiệu hành vi."""
+    d, p = stage1.data, stage1.params
+    sub = grid[(grid["allow_repeat"] == p.allow_repeat) & (grid["half_life"] == d.half_life)
+               & (grid["scale"] == d.scale) & (grid["repeat"] == d.repeat)
+               & (grid["k"] == p.cf_shrink_k) & (grid["gamma"] == p.repeat_weight)]
+    return {m: _pick(sub[sub["behavior_mode"] == m]) for m in BEHAVIOR_MODES
+            if (sub["behavior_mode"] == m).any()}
 
 
 def select_in_band(prod_rows: pd.DataFrame, band: tuple[float, float] = REPEAT_BAND) -> Tuned:
@@ -552,8 +674,8 @@ def tune_strong(states: dict[DataConfig, SplitState], truth: dict[str, set[str]]
     tham số) trên validation theo NDCG@10 discovery."""
     rows = []
     for data, st in states.items():
-        if data.repeat != REPEAT_GRID[0]:
-            continue  # ba mô hình này không dùng kênh mua lại
+        if data.repeat != REPEAT_GRID[0] or data.behavior.enabled:
+            continue  # ba mô hình này chỉ dùng ma trận mua, không dùng kênh mua lại
         trials = [("Item-CF", {})]
         trials += [("EASE^R", {"lam": lam}) for lam in EASE_GRID]
         trials += [("iALS", {"factors": f, "alpha": a, "reg": r}) for f, a, r in IALS_GRID]
@@ -593,24 +715,41 @@ def simulate_onboarding(history: pd.DataFrame, catalog: pd.DataFrame) -> pd.Data
     return pd.DataFrame(rows, columns=["CustomerID", "Dimension", "Value", "Polarity"])
 
 
+BROWSE_ONLY = "Hybrid từ hành vi duyệt (chưa có đơn, không onboarding)"
+
+
 def cold_start(lines_train: pd.DataFrame, cut: pd.Timestamp, truth: dict[str, set[str]],
-               catalog: pd.DataFrame, data: DataConfig, folds: int = 5) -> dict:
+               catalog: pd.DataFrame, data: DataConfig, events: pd.DataFrame | None = None,
+               browse_data: DataConfig | None = None, folds: int = 5) -> dict:
+    """Khách mới mô phỏng. browse_data (khi có sự kiện hành vi): thêm biến thể khách
+    mới ĐÃ duyệt hàng (xem, yêu thích — bỏ giỏ và đơn) nhưng chưa mua, không onboarding."""
     users = np.array(sorted(truth))
     perm = np.random.default_rng(SEED).permutation(users)
     per_user: dict[str, list[tuple[str, dict]]] = {}
+    no_signals = pd.DataFrame(columns=["CustomerID", "Dimension", "Value", "Polarity"])
     for f in range(folds):
         held = set(perm[f::folds])
         rest = lines_train[~lines_train["CustomerID"].isin(held)]
         stated = simulate_onboarding(lines_train[lines_train["CustomerID"].isin(held)], catalog)
-        state = build_split(rest, cut, catalog, stated, data)
+        ev_rest = events[~events["CustomerID"].isin(held)] if events is not None else None
+        state = build_split(rest, cut, catalog, stated, data, ev_rest)
         popular = [str(p) for p in state.cf.popular_items.index]
         params = HybridParams(cf_shrink_k=5.0, repeat_weight=0.0, allow_repeat=True)  # n=0 -> α=0
+        state_b = None
+        if browse_data is not None and events is not None:
+            browse = events[events["CustomerID"].isin(held)
+                            & events["EventType"].isin(["product_view", "add_to_wishlist"])]
+            state_b = build_split(rest, cut, catalog, no_signals, browse_data, pd.concat([ev_rest, browse]))
+        params_b = HybridParams(cf_shrink_k=0.0, repeat_weight=0.0, allow_repeat=True)  # có hành vi -> α=1
         for u in sorted(held):
             recs = {
                 "Most-Popular": popular[:MAIN_K],
                 "Content-based từ onboarding giả lập": [
                     p for p, _, _ in state.hybrid.rank(state.hybrid.components(u), params, MAIN_K)],
             }
+            if state_b is not None:
+                recs[BROWSE_ONLY] = [p for p, _, _ in state_b.hybrid.rank(state_b.hybrid.components(u),
+                                                                           params_b, MAIN_K)]
             for name, ranked in recs.items():
                 per_user.setdefault(name, []).append((u, user_metrics(truth[u], ranked, MAIN_K)))
     frames = {n: pd.DataFrame([m for _, m in rows], index=[u for u, _ in rows], columns=METRICS)
@@ -667,7 +806,7 @@ def slot_sensitivity(state: SplitState, truth: dict[str, set[str]], discovery: H
 
 def robustness(lines: pd.DataFrame, before: pd.Timestamp, catalog: pd.DataFrame, signals: pd.DataFrame,
                specs: dict[str, tuple[str, DataConfig, HybridParams | None]],
-               pairs: dict[str, str]) -> dict:
+               pairs: dict[str, str], events: pd.DataFrame | None = None) -> dict:
     """specs: tên -> ("hybrid" | "cf", DataConfig, params). pairs: tên -> tên mốc so sánh.
     Mốc cửa sổ tính trên TOÀN BỘ đơn (cùng thang tỉ lệ với mốc validation/test), và
     mọi cửa sổ phải kết thúc trước `before` (= mốc validation). Gộp khách của các cửa
@@ -686,7 +825,7 @@ def robustness(lines: pd.DataFrame, before: pd.Timestamp, catalog: pd.DataFrame,
         caches: dict[DataConfig, dict] = {}
         for name, (kind, data, params) in specs.items():
             if data not in states:
-                states[data] = build_split(train, t0, catalog, signals, data)
+                states[data] = build_split(train, t0, catalog, signals, data, events)
                 caches[data] = {}
             st = states[data]
             rec = hybrid_recommender(st, params, caches[data]) if kind == "hybrid" else cf_recommender(st)
@@ -717,6 +856,8 @@ def robustness(lines: pd.DataFrame, before: pd.Timestamp, catalog: pd.DataFrame,
 def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
     started = time.monotonic()
     lines, catalog, signals = load_inputs(data_dir)
+    events = load_events(data_dir)
+    logger.info("Sự kiện hành vi: %s", f"{len(events)} dòng" if events is not None else "không có (bỏ tầng 2)")
     t_val, t_test = temporal_cuts(lines, val_frac, test_frac)
     train = lines[lines["OrderDate"] < t_val]
     val = lines[(lines["OrderDate"] >= t_val) & (lines["OrderDate"] < t_test)]
@@ -726,7 +867,7 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
 
     # ── Tinh chỉnh: train 70% -> validation ──────────────────────────────
     val_truth = ground_truth(val)
-    tuned = tune(train, t_val, val_truth, catalog, signals)
+    tuned = tune(train, t_val, val_truth, catalog, signals, events)
     strong = tune_strong(tuned.pop("states"), val_truth)
     logger.info("Chọn trên validation — production: %s", tuned["production"].label())
     logger.info("Chọn trên validation — discovery : %s", tuned["discovery"].label())
@@ -738,7 +879,7 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
 
     def state_for(data: DataConfig) -> SplitState:
         if data not in states:
-            states[data] = build_split(train_val, t_test, catalog, signals, data)
+            states[data] = build_split(train_val, t_test, catalog, signals, data, events)
             caches[data] = {}
         return states[data]
 
@@ -763,6 +904,11 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
     # Đúng cấu hình service đang chạy (config.py / biến môi trường) — con số này
     # mới là "năng lực của bản đang phục vụ".
     models[DEPLOYED_NAME] = hyb(DEPLOYED)
+    # Trên bộ dữ liệu khác (vd. mô phỏng) cấu hình chọn trên validation có thể khác bản đang
+    # chạy — báo riêng, và so với cấu hình cũ bằng CHÍNH cấu hình được chọn.
+    if not DEPLOYED == prod:
+        models[TUNED_NAME] = hyb(prod)
+    main_name = TUNED_NAME if TUNED_NAME in models else DEPLOYED_NAME
     results = {name: evaluate(rec, truth, st) for name, (rec, st) in models.items()}
 
     confidence = {
@@ -772,9 +918,38 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
     }
     vs_old = {
         task: bootstrap({OLD_NAME: results[OLD_NAME]["per_user"][task],
-                         DEPLOYED_NAME: results[DEPLOYED_NAME]["per_user"][task]}, OLD_NAME, "NDCG")
+                         main_name: results[main_name]["per_user"][task]}, OLD_NAME, "NDCG")
         for task in ("overall", "discovery", "repurchase")
     }
+
+    # So sánh loại bỏ tín hiệu hành vi (test, ghép cặp với họ "none")
+    ablation: dict = {}
+    if len(tuned["ablation"]) > 1:
+        abl_res = {}
+        for mode, t in tuned["ablation"].items():
+            rec, st = hyb(t)
+            abl_res[mode] = evaluate(rec, truth, st, (MAIN_K,), light=True)
+        ablation = {
+            "configs": {m: t.label() for m, t in tuned["ablation"].items()},
+            "metrics": {m: {task: r["per_k"][task][MAIN_K] for task in ("overall", "discovery", "repurchase")}
+                        for m, r in abl_res.items()},
+            "repeat_items": {m: r["repeat_items"] for m, r in abl_res.items()},
+            "confidence": {task: bootstrap({m: r["per_user"][task] for m, r in abl_res.items()}, "none", "NDCG")
+                           for task in ("overall", "discovery", "repurchase")},
+        }
+
+    # Cấu hình có hành vi tốt nhất trên validation — cho biến thể khách mới "đã duyệt, chưa mua"
+    browse_data = None
+    enabled = {m: t for m, t in tuned["ablation"].items() if m != "none"}
+    if enabled:
+        g = tuned["grid"]
+        def _val(t: Tuned) -> float:
+            row = g[(g["allow_repeat"]) & (g["half_life"] == t.data.half_life) & (g["scale"] == t.data.scale)
+                    & (g["repeat"] == t.data.repeat) & (g["behavior_mode"] == t.data.behavior.mode)
+                    & (g["behavior_view_weight"] == t.data.behavior.view_weight)
+                    & (g["k"] == t.params.cf_shrink_k) & (g["gamma"] == t.params.repeat_weight)]
+            return float(row["NDCG"].max()) if len(row) else -1.0
+        browse_data = max(enabled.values(), key=_val).data
 
     robust = robustness(
         lines, t_val, catalog, signals,
@@ -785,9 +960,10 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
             CF_TUNED: ("cf", strong["best"]["Item-CF"]["data"], None),
         },
         pairs={DEPLOYED_NAME: OLD_NAME, CF_TUNED: CF_OLD},
+        events=events,
     )
 
-    cold = cold_start(train_val, t_test, truth, catalog, prod.data)
+    cold = cold_start(train_val, t_test, truth, catalog, prod.data, events, browse_data)
     sensitivity = gamma_sensitivity(s_prod, truth, prod.params.cf_shrink_k)
     slots = slot_sensitivity(s_prod, truth, disc.params)
 
@@ -808,6 +984,7 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
         "candidates": s_prod.n_candidates,
         "catalog": len(catalog),
         "onboarded_customers": int(signals["CustomerID"].nunique()) if len(signals) else 0,
+        "behavior_events": int(len(events)) if events is not None else 0,
         "deployed_is_tuned": DEPLOYED == prod,
         "config": {"MIN_BUYERS": MIN_BUYERS, "CANDIDATES_PER_CELL": CANDIDATES_PER_CELL,
                    "CB_ONBOARDING_PSEUDO_COUNT": CB_ONBOARDING_PSEUDO_COUNT,
@@ -815,11 +992,12 @@ def run(data_dir: Path, val_frac: float, test_frac: float) -> dict:
                    "K_GRID": [str(k) for k in K_GRID], "GAMMA_GRID": list(GAMMA_GRID),
                    "REPEAT_BAND": list(REPEAT_BAND), "EASE_GRID": list(EASE_GRID),
                    "IALS_GRID": [list(x) for x in IALS_GRID], "ROBUST_WINDOWS": [list(w) for w in ROBUST_WINDOWS],
+                   "BEHAVIOR_GRID": [b.label() for b in BEHAVIOR_GRID],
                    "bootstrap_samples": BOOTSTRAP_SAMPLES, "seed": SEED},
     }
     return {"meta": meta, "tuned": tuned, "strong": strong, "results": results, "confidence": confidence,
-            "vs_old": vs_old, "robustness": robust, "cold_start": cold,
-            "gamma_sensitivity": sensitivity, "slot_sensitivity": slots}
+            "vs_old": vs_old, "vs_old_name": main_name, "ablation": ablation, "robustness": robust,
+            "cold_start": cold, "gamma_sensitivity": sensitivity, "slot_sensitivity": slots}
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -849,6 +1027,10 @@ def render_markdown(out: dict) -> str:
     lo, hi = meta["config"]["REPEAT_BAND"]
     L.append(f"- Luật chọn production (chốt trước khi đo): tối đa NDCG@10 tổng thể với {lo:g}–{hi:g} "
              f"món đã mua trong top-10 (trung bình trên validation).")
+    L.append(f"- Sự kiện hành vi: {meta['behavior_events']:,} dòng"
+             + (" — có tầng 2 (hành vi phụ × half-life, giữ thang + kênh mua lại của tầng 1)."
+                if meta["behavior_events"] else " — không có, bỏ tầng 2."))
+    L.append(f"- Tầng 1 chọn: `{tuned['stage1'].label()}`.")
     L.append(f"- Chọn trên validation — production: `{tuned['production'].label()}`.")
     L.append(f"- Chọn trên validation — chỉ khám phá: `{tuned['discovery'].label()}`.")
     L.append(f"- Không ràng buộc (tối đa NDCG tổng thể): `{tuned['unconstrained'].label()}`.")
@@ -871,15 +1053,16 @@ def render_markdown(out: dict) -> str:
                      f"{m['MAP']:.4f} | {m['NDCG']:.4f} | {ci} | {d} |")
         L.append("")
 
-    L.append(f"## Cấu hình đang chạy so với cấu hình cũ — test, NDCG@{MAIN_K}, ghép cặp\n")
-    L.append("| Bài toán | Cũ | Đang chạy | Δ (CI95) | n |")
+    main = out["vs_old_name"]
+    L.append(f"## `{main}` so với cấu hình cũ — test, NDCG@{MAIN_K}, ghép cặp\n")
+    L.append("| Bài toán | Cũ | Mới | Δ (CI95) | n |")
     L.append("|---|---|---|---|---|")
     for task, label in (("overall", "Tổng thể"), ("discovery", "Khám phá"), ("repurchase", "Mua lại")):
         b = out["vs_old"][task]
-        n = res[DEPLOYED_NAME]["per_k"][task][MAIN_K]["n_users"]
-        L.append(f"| {label} | {b[OLD_NAME]['mean']:.4f} | {b[DEPLOYED_NAME]['mean']:.4f} | {_ci(b[DEPLOYED_NAME])} | {n} |")
+        n = res[main]["per_k"][task][MAIN_K]["n_users"]
+        L.append(f"| {label} | {b[OLD_NAME]['mean']:.4f} | {b[main]['mean']:.4f} | {_ci(b[main])} | {n} |")
     L.append(f"\nSố món đã mua trong top-10: cũ {res[OLD_NAME]['repeat_items']:.1f} · "
-             f"đang chạy {res[DEPLOYED_NAME]['repeat_items']:.1f}.\n")
+             f"mới {res[main]['repeat_items']:.1f}.\n")
 
     table("overall", "Tổng thể (mọi món mua ở test)")
     table("discovery", "Discovery (chỉ món CHƯA từng mua)")
@@ -891,6 +1074,20 @@ def render_markdown(out: dict) -> str:
         L.append(f"| {name} | {m['Recall']:.4f} | {m['HitRate']:.4f} | {m['NDCG']:.4f} | {m['n_users']} | "
                  f"{r['repeat_items']:.1f} |")
     L.append("")
+
+    ab = out.get("ablation") or {}
+    if ab:
+        L.append(f"## Tín hiệu hành vi phụ — so sánh loại bỏ có kiểm soát trên test (NDCG@{MAIN_K}, ghép cặp với \"none\")\n")
+        L.append("Giữ nguyên half-life, thang, kênh mua lại, k, γ của tầng 1; mỗi họ chỉ chọn trọng số lượt xem "
+                 "trên validation — chênh lệch chỉ đến từ tín hiệu hành vi.\n")
+        L.append("| Họ | Cấu hình | Tổng thể | Δ | Khám phá | Δ | Mua lại | Món cũ/10 |")
+        L.append("|---|---|---|---|---|---|---|---|")
+        for m, label in ab["configs"].items():
+            mt = ab["metrics"][m]
+            co, cd = ab["confidence"]["overall"][m], ab["confidence"]["discovery"][m]
+            L.append(f"| {m} | `{label}` | {mt['overall']['NDCG']:.4f} | {_ci(co)} | {mt['discovery']['NDCG']:.4f} | "
+                     f"{_ci(cd)} | {mt['repurchase']['NDCG']:.4f} | {ab['repeat_items'][m]:.1f} |")
+        L.append("")
 
     rb = out["robustness"]
     L.append("## Độ bền — hai cửa sổ TRƯỚC validation (không đụng test, không trùng dữ liệu chọn tham số)\n")
@@ -963,6 +1160,11 @@ def render_markdown(out: dict) -> str:
 
     g = tuned["grid"]
     L.append("## Lưới tinh chỉnh trên validation\n")
+    n_out = int((~g["eligible"]).sum())
+    if n_out:
+        L.append(f"{n_out} bộ có hành vi phụ bị loại vì không thắng bộ không hành vi ở cùng half-life, k, γ "
+                 "(điều kiện trội). Các bảng dưới chỉ gồm bộ hợp lệ.\n")
+    g = g[g["eligible"]]
     band = g[g["allow_repeat"] & g["repeat_items"].between(lo, hi)]
     for title, sub in (
         (f"Production — trong dải {lo:g}–{hi:g} món cũ (mục tiêu: NDCG@10 tổng thể), 8 dòng tốt nhất", band),
@@ -971,11 +1173,12 @@ def render_markdown(out: dict) -> str:
     ):
         top = sub.sort_values("NDCG", ascending=False).head(8 if "Production" in title else 5)
         L.append(f"{title}\n")
-        L.append("| half-life | Thang | Mua lại | k | γ | NDCG@10 | NDCG discovery | Món cũ/10 |")
-        L.append("|---|---|---|---|---|---|---|---|")
+        L.append("| Tầng | half-life | Thang | Mua lại | Hành vi phụ | k | γ | NDCG@10 | NDCG discovery | Món cũ/10 |")
+        L.append("|---|---|---|---|---|---|---|---|---|---|")
         for _, r in top.iterrows():
-            L.append(f"| {r['half_life']:g} | {r['scale']} | {r['repeat']} | {r['k']:g} | {r['gamma']:g} | "
-                     f"{r['NDCG']:.4f} | {r['discovery_NDCG']:.4f} | {r['repeat_items']:.1f} |")
+            beh = BehaviorConfig(r["behavior_mode"], view_weight=float(r["behavior_view_weight"])).label()
+            L.append(f"| {int(r['stage'])} | {r['half_life']:g} | {r['scale']} | {r['repeat']} | {beh} | {r['k']:g} | "
+                     f"{r['gamma']:g} | {r['NDCG']:.4f} | {r['discovery_NDCG']:.4f} | {r['repeat_items']:.1f} |")
         L.append("")
     L.append("Hạn chế và cách đọc kết quả: xem `evaluation/README.md`.\n")
     return "\n".join(L)
@@ -990,6 +1193,8 @@ def to_json(out: dict) -> dict:
     return {
         "meta": out["meta"],
         "tuned": {k: _tuned_json(v) for k, v in tuned.items() if isinstance(v, Tuned)},
+        "tuned_ablation": {m: _tuned_json(t) for m, t in tuned.get("ablation", {}).items()},
+        "ablation": out.get("ablation", {}),
         "deployed": _tuned_json(DEPLOYED),
         "old": _tuned_json(OLD),
         "grid": tuned["grid"].replace({math.inf: "inf"}).to_dict(orient="records"),
