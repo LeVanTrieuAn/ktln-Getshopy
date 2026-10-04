@@ -232,11 +232,68 @@ Chỉ có `product_id` — client tự lấy tên, ảnh, giá từ API sản ph
 Cách này tránh gợi ý mang theo giá cũ đã lỗi thời, và giữ AI-Rec khỏi phải biết
 gì về hiển thị.
 
-### 4.5 Việc của mỗi bên
+### 4.5 Bổ sung 01/10/2026 — lịch sử mua theo đơn cho kênh mua lại
+
+`serving.purchase_events_for_AI_rec` (model dbt `models/serving/purchase_events_for_AI_rec.sql`):
+
+| Cột | Kiểu | Ý nghĩa |
+|---|---|---|
+| `CustomerID` | String | Mã khách |
+| `ProductID` | String | Mã sản phẩm |
+| `OrderID` | String | Mã đơn — một dòng cho mỗi (khách, món, đơn) |
+| `OrderedAt` | DateTime64 | Ngày đặt đơn |
+| `Quantity` | Int32 | Số lượng món đó trong đơn (> 0) |
+
+AI-Rec đọc:
+
+```sql
+SELECT CustomerID, ProductID, dateDiff('day', OrderedAt, now()) AS DaysSince
+FROM serving.purchase_events_for_AI_rec
+FORMAT TabSeparatedWithNames
+```
+
+- Cùng định nghĩa "một lần mua" với `pairs_customer_product` (FINAL, bỏ xoá, bỏ huỷ, chỉ
+  PAID, sản phẩm còn bán). KHÔNG lọc ngưỡng số người mua — ngưỡng đó chỉ dành cho CF.
+- Là BẢNG, không phải view: view trỏ vào `warehouse` bị từ chối với `ai_rec` (Code 497).
+- Quyền: `bootstrap-bigdata.sh` cấp `SELECT ON serving.*` cho `ai_rec_reader`, nên bảng mới
+  đọc được ngay. (§4.2 ở trên là bản cấp theo từng bảng lúc đầu; bản đang chạy cấp cả database.)
+- Half-life nằm phía AI-Rec (tinh chỉnh trên validation), warehouse không tính trọng số.
+- Thiếu bảng thì AI-Rec rơi về kênh mua lại cũ và `/health` báo `repeat_model: false`.
+- Nghiệm thu 01/10: 5.974 dòng · 234 khách · 78 món — khớp tuyệt đối với cách benchmark
+  dựng lại từ `order_lines.csv`; `dbt build` 6/6 PASS.
+
+### 4.6 Bổ sung 01/10/2026 — tín hiệu hành vi phụ
+
+`serving.customer_product_events` (model `models/serving/customer_product_events.sql`), đọc
+`analytics.user_events` qua view ghép phiên `warehouse.user_events_stitched`. Chốt 01/10: KHÔNG
+qua lakehouse, vì sự kiện do server Node ghi thẳng ClickHouse. Hệ quả: không có bản parquet lâu
+dài, và dữ liệu cũ hơn 90 ngày bị TTL xoá.
+
+Ghép phiên (bổ sung 04/10):
+- Client gửi `identify` ngay sau đăng nhập; server lấy `customer_id` từ token.
+- Phiên nào có ĐÚNG MỘT khách thì các sự kiện ẩn danh trong phiên (kể cả trước lúc đăng nhập)
+  được gán cho khách đó.
+- Phiên có từ hai khách trở lên thì không ghép.
+- Client đổi `session_id` khi đăng xuất.
+
+| Cột | Ý nghĩa |
+|---|---|
+| `CustomerID`, `ProductID` | Một dòng cho mỗi cặp — chỉ khách đã đăng nhập, món còn bán |
+| `Views` | Số lượt xem, KHÔNG gồm lượt xem do ô gợi ý dẫn tới |
+| `ViewsFromRec` | Lượt xem có `referrer = recommendation` — tách riêng, AI-Rec không dùng (tránh vòng tự củng cố) |
+| `DwellSec` | Tổng giây xem (mỗi lượt ≤ 600 s), cùng điều kiện với `Views` |
+| `Carts`, `Wishlists` | Số lần bỏ giỏ / yêu thích |
+| `LastEventAt` | Lần gần nhất (không tính lượt xem từ ô gợi ý) |
+
+AI-Rec đọc `... dateDiff('day', LastEventAt, now()) AS DaysSince`; trọng số theo loại và
+half-life nằm phía AI-Rec (`models/behavior.py`, chọn trên validation). Tắt mặc định
+(`CF_BEHAVIOR_MODE=none`) cho tới khi có hành vi thật — dữ liệu hiện có là seed.
+
+### 4.7 Việc của mỗi bên
 
 | Bên | Trách nhiệm |
 |---|---|
-| **Warehouse** | Bảng `processed_data_for_AI_rec` sạch, đúng 3 cột; user `ai_rec` chỉ đọc; endpoint hoạt động |
+| **Warehouse** | Bảng `processed_data_for_AI_rec` và `purchase_events_for_AI_rec` sạch, đúng cột; user `ai_rec` chỉ đọc; endpoint hoạt động |
 | **AI-Rec** | Tự đặt lịch gọi lấy dữ liệu, tự train lại, tự phục vụ API gợi ý |
 | **Client B2C** | Gọi API AI-Rec, tự lấy thông tin hiển thị sản phẩm từ Ecom |
 

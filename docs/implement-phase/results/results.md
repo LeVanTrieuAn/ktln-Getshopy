@@ -786,3 +786,170 @@ tổng thể thưởng việc gợi ý lại đồ cũ; mức gợi ý lại (γ
   không có thì không đo được content-based trên dữ liệu này.
 - `server/prisma/migrations/` đang bị gitignore: máy clone mới rơi về `db push`, lịch
   sử migration khác máy này. Có từ trước hôm nay.
+
+## 15. AI-Rec: tinh chỉnh time-decay, kênh mua lại theo đơn, vá tracking (01/10)
+
+### 15.1 Chẩn đoán lại dữ liệu
+
+- **Cú đổi gu có thật, do chính cách sinh dữ liệu.** 3.490 đơn POS đến từ 5 lần chạy
+  `pos_simulator.py` bằng tay (16–17/09), mỗi lần một `--seed` và một khoảng ngày riêng.
+  Chạy lại `build_orders` với đúng tham số tái tạo 3.490/3.490 đơn. Tập món trước/sau 10/09
+  của cùng khách: Jaccard trung vị 0,07. Bản 29/09 ghi "thời gian không mang thông tin" — sai,
+  đã đính chính ở `evaluation/README.md` và `ai-rec/doc/result-sep30.md`.
+- Gu có tương quan với HÃNG (id sinh theo từng hãng): tỉ trọng hãng nhiều nhất/khách trung vị
+  0,57, ngẫu nhiên ~0,36.
+- Ngày đơn POS lưu theo giờ máy (+07) nhưng pipeline coi là UTC; một phần đơn có ngày ở
+  tương lai so với lúc chạy. AI-Rec kẹp `DaysSince ≥ 0`.
+
+### 15.2 AI-Rec
+
+- `CollaborativeFiltering(half_life_days, input_scale)`: thang `log` (Hu et al., 2008).
+- Kênh mua lại mới `models/repeat.py`: tần suất ĐƠN đã giảm theo thời gian. Thiếu bảng thì
+  rơi về cách cũ, `/health` báo `repeat_model: false` + `last_error`.
+- Benchmark: lưới khai báo trước (half-life {7,10,14,30,60} — cận dưới 7 ngày là quyết định
+  miền; thang; kênh mua lại; k; γ) = 1.920 bộ; luật chọn production = tối đa NDCG tổng thể
+  với 2–3 món cũ/10 (quyết định sản phẩm 01/10); đối chứng mạnh EASE^R, iALS; kiểm độ bền trên
+  2 cửa sổ trước validation; so ghép cặp mới/cũ.
+- Mặc định mới trong `config.py` = cấu hình chọn trên validation: half-life 7, thang log,
+  mua lại `order_freq`, k = 0, γ = 1.
+- Test (đo một lần, NDCG@10, CI 95%): tổng thể 0,309 → 0,356 (+0,047 [+0,018; +0,074]);
+  khám phá 0,258 → 0,267 (+0,008, không có ý nghĩa); mua lại 0,264 → 0,332 (+0,068
+  [+0,029; +0,106]). Item-CF tinh chỉnh (0,377 khám phá) không thua EASE^R (0,359) / iALS
+  (0,373). Chi tiết: `ai-rec/evaluation/README.md`.
+- `tests/`: 31/31 pass (thêm 15 test).
+
+### 15.3 dbt
+
+- `serving.purchase_events_for_AI_rec` — BẢNG (quyền `ai_rec`), một dòng cho mỗi (khách, món,
+  đơn), cùng điều kiện "một lần mua" với `pairs_customer_product`. `dbt build` 6/6 PASS;
+  5.974 dòng · 234 khách · 78 món, khớp tuyệt đối với benchmark. Hợp đồng: §4.5
+  `data-contract-warehouse.md`.
+- AI-Rec đầu–cuối: chu kỳ train đầu (trước khi có bảng) rơi về kênh cũ và báo lỗi đúng; chu kỳ
+  sau nạp 5.974 lượt mua, `repeat_model: true`, `last_error` xoá.
+
+### 15.4 Ecom — tracking hành vi (tiền đề cho tín hiệu hành vi phụ)
+
+Cùng một họ lỗi: tin dữ liệu do client khai.
+
+| Chỗ | Trước | Sau |
+|---|---|---|
+| `POST /b2c/track` | `customer_id`, `event_time` lấy từ body | Khách từ token (`optionalAuthB2C`), giờ server |
+| Giờ sự kiện | Chuỗi UTC không hậu tố, cột `Asia/Ho_Chi_Minh` → lệch 7 giờ | ISO có `Z` + `date_time_input_format = best_effort` |
+| `GET /b2c/recently-viewed` | `customer_id` trên query → xem được lịch sử người khác; `session_id` nối thẳng vào SQL | Khách từ token; mọi chuỗi qua `query_params` |
+| `BehaviorService` (5 hàm) | Nối chuỗi vào SQL, có chỗ nối lại `session_id` đọc từ bảng (injection bậc hai) | Tham số hoá; số qua `_int()` có chặn biên |
+| `POST/GET /b2c/wishlist` | Đòi `customer_id` trong body/query → client thật luôn nhận 400, ai cũng sửa được wishlist người khác | `authB2C`, khách từ token |
+| Client `useTracking` | `sendBeacon` (không gửi được token); dwell tính cả lúc tab ẩn; mất lượt xem cuối khi đóng tab | `fetch keepalive` + token; dwell chỉ khi hiển thị; `pagehide` |
+| Ô "Dành riêng cho bạn" | Không ghi gì | `rec_impression` (món được hiển thị), `rec_click`; referrer `recommendation` qua router state |
+
+Kiểm chứng qua `localhost:3000/api`: không token + body giả `customer_id=1` → lưu `NULL`; token
+khách 5 + body giả `customer_id=1` → lưu `5`; `event_time` giả năm 2020 → giờ server, đúng giờ
+VN; `session_id=x' OR 1=1 -- ` → 200 `[]`; wishlist không token → 401, có token thêm/đọc/bỏ
+chạy. Hai event thử đã xoá.
+
+### 15.5 Còn mở
+
+- **`/api/b2b/*` không có middleware xác thực**: `routes/b2b.js`, `routes/aiAdmin`,
+  `routes/behavior-analytics.js` mount ở `index.js:819–827` không kèm `authMiddleware`. Chưa sửa —
+  đụng luồng trang admin, cần quyết định.
+- Tunnel `cloudflared` không chạy lúc 01/10 — webhook SePay không về được cho tới khi dựng lại
+  và khai URL mới bên SePay.
+- Pha 3 (sửa bộ sinh) và pha 4 (tín hiệu hành vi phụ) chờ chốt cách làm với dữ liệu đang có.
+
+## 16. Pha 3–4: bộ sinh v2 (offline) + tín hiệu hành vi phụ (01/10)
+
+Chốt 01/10: sinh dữ liệu OFFLINE trước (CSV cho benchmark, không đụng DB), reset dữ liệu live để
+sau; dbt đọc thẳng `analytics`; auth `/api/b2b/*` để sau.
+
+### 16.1 Bộ sinh v2 — `data-platform-poc/taste_simulator.py`
+
+- Gu ẩn cố định theo mã khách, xác định trên danh mục/hãng/tầm giá, cộng ái lực ẩn riêng
+  (phần chỉ CF học được).
+- Gu trôi DẦN theo thời gian (40% khách); mua lặp theo loại hàng.
+- Ngày UTC, không có ngày ở tương lai; 25% khách đăng ký giữa cửa sổ.
+- Hành vi sinh từ cùng gu: pha "xem trước khi mua", phiên duyệt, dwell theo mức hợp gu,
+  giỏ/yêu thích.
+- Onboarding có nhiễu (đúng 80%).
+- Mặc định: 500 khách · 639 món (2/ô) · 180 ngày · 90 ngày hành vi → 5.676 đơn, 71.357 sự kiện.
+  Chạy 3,4 giây. Tham số + đáp án gu: `sim_params.json`.
+
+### 16.2 AI-Rec
+
+- `models/behavior.py`: tín hiệu (xem / dwell / giỏ / yêu thích, giảm theo thời gian) chỉ vào
+  ma trận HỒ SƠ của CF. Tập "đã mua" vẫn chỉ từ đơn — món đã xem mà chưa mua vẫn được gợi ý;
+  khách chỉ có hành vi vẫn có gợi ý CF. Tắt thì kết quả giống hệt trước (có test).
+- Đường production: `serving.customer_product_events` (dbt, BẢNG, đọc `analytics.user_events`;
+  lượt xem từ ô gợi ý tách riêng) → `fetch_behavior()` → `CF_BEHAVIOR_MODE` (mặc định `none`).
+  `dbt build` 4/4 PASS; `ai_rec` đọc được; fit bật hành vi trên dữ liệu warehouse chạy đúng.
+- Benchmark tầng 2 (hành vi × half-life), baseline Viewed-only, khách mới "đã duyệt, chưa mua".
+- **Sửa luật chọn sau quan sát:** thêm điều kiện trội và ablation có kiểm soát. Lý do: hành vi
+  seed "thắng" chỉ nhờ lọt ranh giới dải món cũ (3,00 so với 3,01) — chi tiết ở README đánh giá.
+- iALS giải theo dạng thưa: cùng nghiệm (sai khác 2·10⁻¹⁶), nhanh ~8 lần.
+- `tests/`: 41/41 pass.
+
+### 16.3 Kết quả (chi tiết: `ai-rec/evaluation/README.md`)
+
+**Dữ liệu thật** (hành vi seed: 5/234 khách, 2/78 món trùng với dữ liệu đơn):
+- validation không chọn hành vi; cấu hình đang chạy TRÙNG cấu hình được chọn;
+- ablation có kiểm soát: hành vi làm giảm nhẹ (−0,002 đến −0,004 tổng thể).
+
+**Dữ liệu mô phỏng** (cấu hình chọn trên validation, so với cấu hình cũ):
+
+| Chỉ số (NDCG) | Cũ | Mới | Δ |
+|---|---|---|---|
+| Tổng thể | 0,197 | 0,357 | +0,160 [+0,142; +0,178] |
+| Khám phá | 0,021 | 0,176 | +0,154 |
+
+- Ablation hành vi: +0,086 đến +0,092 tổng thể, +0,138 đến +0,148 khám phá.
+- Khách mới chỉ có hành vi duyệt: 0,400 so với 0,099 của Most-Popular.
+
+**Giới hạn:** mô phỏng có tính vòng tròn — bộ sinh giả định "xem trước khi mua".
+
+**Phát hiện cần xử lý tiếp:**
+- Viewed-only thắng hybrid ở khám phá → thêm kênh "xem gần đây".
+- iALS thắng Item-CF trên dữ liệu thưa.
+- Half-life 7 hợp dữ liệu thật hiện tại nhưng kém trên dữ liệu trôi dần → phải chọn lại khi
+  reset dữ liệu.
+
+### 16.4 Còn mở
+
+- Reset dữ liệu live bằng bộ sinh v2 (backup → xoá đơn + event → sinh → dựng lại CDC/warehouse)
+  — cần duyệt; sau đó chạy lại benchmark và đổi `config.py` theo cấu hình được chọn.
+- Kênh "xem gần đây" cho hybrid; đánh giá iALS cho production.
+- `/api/b2b/*` chưa có xác thực (§15.5); tunnel `cloudflared` chưa dựng lại.
+
+## 17. Gắn nốt tracking hành vi phía client + ghép phiên (04/10)
+
+Rà lại 04/10: hook `useTracking` có 11 hàm, nhưng chỉ 6 loại sự kiện được gọi thật. Đã sửa:
+
+| Sự kiện | Trước | Sau |
+|---|---|---|
+| `add_to_cart` | Chỉ 2 nút ở trang chi tiết; 5 đường khác (thẻ sản phẩm trang chủ/danh sách, so sánh, món liên quan) mất | Ghi trong `CartContext.addToCart` — mọi đường, đúng một lần; bỏ lời gọi riêng ở trang chi tiết (tránh đếm đôi) |
+| `remove_from_cart` | Không ghi | `CartContext.removeFromCart` (ngăn giỏ); xoá giỏ sau khi đặt đơn KHÔNG tính |
+| `add_to_wishlist` | Import mà không gọi | `AppContext.toggleWishlist` — mọi nút yêu thích |
+| `checkout_abandon` | Không ghi | Rời `/checkout` (chuyển trang / đóng tab) khi còn hàng mà chưa đặt đơn; hoãn một nhịp để StrictMode không sinh sự kiện giả |
+| `identify` (mới) | — | Gửi sau `b2cLogin` kèm token → ghép phiên. Đăng xuất đổi `session_id` |
+| `page_source` | Cố định "detail" | Suy từ URL (`currentPageSource`); thêm giá trị `compare` phía server |
+
+Lỗi có sẵn được sửa kèm: `ProductList` gọi `api.b2c.toggleWishlist(b2cUser.id, productId)` —
+hàm chỉ nhận `product_id`, nên mã khách bị gửi làm mã món, bấm yêu thích ở trang danh sách bật/tắt
+nhầm món khác; trang này còn giữ danh sách yêu thích riêng, lệch với các trang khác. Nay dùng
+chung danh sách và hàm của `AppContext`.
+
+dbt: view `warehouse.user_events_stitched` (ở `warehouse`, `ai_rec` không đọc — dữ liệu mức sự
+kiện); `serving.customer_product_events` và `export_data.sh` đọc qua view này.
+
+Kiểm chứng:
+- `dbt build` 7/7 PASS; `vite build` trong image client qua.
+- API: sự kiện ẩn danh + `identify` cùng phiên → được ghép cho khách 5 (`stitched = 1`); phiên có
+  hai khách → không ghép.
+- Trình duyệt thật (Playwright headless, Chrome for Testing): trang chủ → `/shop` yêu thích + thêm
+  giỏ trên thẻ → bỏ giỏ trong ngăn giỏ → vào rồi rời `/checkout` → đăng nhập qua form. ClickHouse
+  nhận đủ `rec_impression`, `add_to_cart`, `add_to_wishlist`, `remove_from_cart`,
+  `checkout_abandon`, `identify`; năm sự kiện trước lúc đăng nhập được ghép cho khách; không có
+  lỗi JavaScript trên trang; `session_id` giữ nguyên qua đăng nhập.
+- Đăng xuất qua menu người dùng: `session_id` đổi, token bị xoá, không lỗi. (Request đọc sở thích
+  được giả lập TRONG trình duyệt thử để tránh chuyển sang onboarding — không ghi gì vào Postgres.)
+- Đã xoá 43 sự kiện thử (12 phiên); `customer_product_events` về lại 1.246 cặp / 20 khách.
+
+Dữ liệu hành vi THẬT vẫn chưa có — cần người dùng thật hoặc bộ sinh v2 chế độ live (§16.4);
+`CF_BEHAVIOR_MODE` vẫn tắt.

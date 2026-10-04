@@ -1,220 +1,114 @@
-# AI Recommendation System
+# AI-Rec — hệ gợi ý sản phẩm của GetShopy
 
-Hệ thống gợi ý sản phẩm thương mại điện tử sử dụng mô hình **Item-Based Collaborative Filtering (CF)** hiệu năng cao, tối ưu hóa ma trận thưa (Sparse CSR) và phục vụ qua giao diện dòng lệnh (**CLI**) cùng **FastAPI REST API**.
+Hybrid có trọng số gồm Item-based CF, content-based và kênh mua lại. Hỗ trợ thêm tín hiệu
+hành vi phụ (tuỳ chọn). Dữ liệu đọc từ warehouse ClickHouse (schema `serving`); mô hình train
+lại mỗi 5 phút và phục vụ qua FastAPI.
 
----
+- Đánh giá (giao thức, kết quả, hạn chế): [`evaluation/README.md`](evaluation/README.md)
+- Báo cáo hiện trạng: [`doc/result-sep30.md`](doc/result-sep30.md)
+- Hợp đồng dữ liệu với warehouse: `docs/implement-phase/implement-plan/data-contract-warehouse.md` §4
+
+> README bản trước (tới 13/09) mô tả CF thuần đọc `data/raw/*.csv`. Các con số trong đó
+> (600.000 × 50.000, "~18 MB", "~7 ms") thuộc bộ CSV cũ — không dùng cho hệ hiện tại.
+
+## Luồng dữ liệu
+
+```
+Postgres (Ecom) ──CDC Debezium/Kafka──▶ MinIO (parquet) ──▶ ClickHouse ──dbt──▶ serving.*
+analytics.user_events (server Node ghi thẳng) ────────────────────────dbt──▶ serving.customer_product_events
+                                                                                 │ HTTP, tài khoản ai_rec
+                                                                                 ▼ (chỉ SELECT serving)
+                     AI-Rec: fit CF → content-based → kênh mua lại → hybrid → tính sẵn top-20
+                                                                                 │ GET /api/v1/recommend/…
+                                                                                 ▼
+                     Server Node (danh tính từ token) ──▶ trang chủ "Dành riêng cho bạn" (8 ô)
+```
+
+| Bảng `serving` | Dùng cho |
+|---|---|
+| `processed_data_for_AI_rec` (view) | Ma trận mua của CF — cặp (khách, món), tổng số lượng, lần mua cuối; món ≥ 3 người mua |
+| `purchase_events_for_AI_rec` | Kênh mua lại — một dòng cho mỗi (khách, món, đơn) |
+| `product_features` | Content-based — danh mục gốc, hãng, tầm giá của 6.152 ứng viên |
+| `customer_preference_signals` | Onboarding — thích / "không quan tâm" (lọc cứng) |
+| `customer_product_events` | Tín hiệu hành vi phụ (tắt mặc định) |
+
+## Mô hình
+
+```
+final(u,i) = α_u · ĉf(u,i) + (1 − α_u) · ĉb(u,i) + γ · rêp(u,i),     α_u = n_u / (n_u + k)
+```
+
+| Thành phần | Chi tiết | Code |
+|---|---|---|
+| Item-CF (Sarwar et al., 2001) | Cosine trên ma trận hồ sơ, trọng số `Quantity · 0,5^(ngày/half-life)`, thang log (Hu et al., 2008) | `models/cf_recommendation.py` |
+| Content-based (Pazzani & Billsus, 2007) | Hồ sơ phân phối trên danh mục/hãng/tầm giá từ lịch sử mua + onboarding | `models/content_based.py` |
+| Kênh mua lại (Anderson et al., 2014; Bhagat et al., 2018) | Tần suất đơn đã giảm theo thời gian | `models/repeat.py` |
+| Tín hiệu hành vi phụ (Gao et al., 2019; Yi et al., 2014) | Xem / dwell / giỏ / yêu thích cộng vào ma trận HỒ SƠ; tập "đã mua" vẫn chỉ từ đơn | `models/behavior.py` |
+| Trộn (Burke, 2002) | Weighted hybrid; lọc cứng "không quan tâm" trên mọi kênh; mỗi gợi ý kèm `reason` | `models/hybrid.py` |
+
+Tham số đang chạy được chọn trên validation (01/10/2026), không đặt tay: half-life 7 ngày,
+thang log, kênh mua lại `order_freq`, k = 0, γ = 1 (2–3 món đã mua trong 10 gợi ý — quyết định
+sản phẩm), hành vi phụ tắt. Lý do và số đo: `evaluation/README.md`.
+
+## Cấu hình (biến môi trường)
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `CLICKHOUSE_URL`, `CLICKHOUSE_USER`, `CLICKHOUSE_PASSWORD` | —, `ai_rec`, — | Nguồn dữ liệu. Mật khẩu đặt trong `.env` ở gốc repo, KHÔNG ghi vào code |
+| `RECENCY_HALF_LIFE_DAYS` | `7` | Half-life (ngày); `0` = tắt giảm theo thời gian |
+| `CF_INPUT_SCALE` | `log` | `linear` \| `log` |
+| `REPEAT_SCORE` | `order_freq` | `order_freq` \| `cf_weight` (cách cũ) |
+| `HYBRID_CF_SHRINK_K`, `HYBRID_REPEAT_WEIGHT`, `HYBRID_ALLOW_REPEAT` | `0`, `1`, `1` | k, γ, cho gợi ý lại món đã mua |
+| `CF_BEHAVIOR_MODE` | `none` | `none` \| `count` \| `dwell` \| `dwell+cart`; trọng số: `CF_BEHAVIOR_VIEW_WEIGHT`, `_CART_WEIGHT`, `_WISH_WEIGHT` |
+| `CB_ONBOARDING_PSEUDO_COUNT` | `1` | Một lựa chọn onboarding nặng bằng bấy nhiêu lần mua |
+| `TRAIN_INTERVAL_SECONDS`, `PRECOMPUTE_TOP_K`, `PRECOMPUTE_BUDGET_SECONDS` | `300`, `20`, `60` | Chu kỳ train, số gợi ý tính sẵn, trần thời gian tính sẵn |
+
+Thiếu nguồn nào (bảng đặc trưng, lịch sử theo đơn, hành vi) thì service tự rơi về đường dự
+phòng và báo ở `/health` (`content_based`, `repeat_model`, `behavior`, `last_error`) — không
+im lặng.
+
+## API
+
+| Phương thức | Endpoint | Trả về |
+|---|---|---|
+| `GET` | `/health` | Trạng thái, số khách/món, bản train, nguồn đang dùng, lỗi gần nhất |
+| `GET` | `/api/v1/recommend/customer/{customer_id}?top_k=10` | `{customer_id, recommendations: [{product_id, reason}]}` — `reason ∈ cf, content, repeat, popular` |
+
+## Chạy
+
+```bash
+# Cả hệ (từ gốc repo): service ai-rec nằm trong docker-compose.yml gốc
+docker compose up -d --build ai-rec
+
+# Test (từ thư mục ai-rec/, không cần cài gì trên máy host)
+docker run --rm -v "$PWD":/app:ro -w /app -e PYTHONPATH=/app -e CLICKHOUSE_URL= \
+  kltn-ai-rec python -m unittest discover tests
+
+# Benchmark: xem evaluation/README.md
+```
+
+`main.py` là CLI cũ đọc `data/raw/*.csv` (thuần CF), giữ lại cho thí nghiệm cục bộ — service
+không dùng.
 
 ## Cấu trúc thư mục
 
 ```text
-.
-├── api/                              # Dịch vụ FastAPI, schemas và endpoints
-│   ├── main.py                       # Khởi tạo FastAPI app và cấu hình CORS/routes
-│   ├── schemas.py                    # Pydantic schemas cho request/response
-│   └── service.py                    # CFModelService quản lý vòng đời và cache model
-├── config.py                         # Cấu hình đường dẫn dữ liệu và output dùng chung
-├── data/                             # Thư mục chứa dữ liệu
-│   └── raw/                          # Dữ liệu nguồn thương mại điện tử
-│       ├── customers.csv             # Hồ sơ khách hàng (CustomerID, phân khúc, ngân sách)
-│       ├── orders.csv                # Lịch sử đơn hàng (InvoiceNo, CustomerID, ProductID, Quantity,...)
-│       └── products.csv              # Danh mục sản phẩm (ProductID, tên, category, brand, giá)
-├── doc/                              # Tài liệu phân tích kỹ thuật và toán học chi tiết
-├── models/                           # Module thuật toán AI Recommendation
-│   ├── __init__.py
-│   └── cf_recommendation.py          # Item-based Collaborative Filtering (Sparse CSR & Cosine Similarity)
-├── output/                           # Thư mục lưu trữ mô hình sau khi huấn luyện
-│   └── cf/                           # File mô hình đã nén (item_cf.joblib)
-├── tests/                            # Bộ kiểm thử tự động (Unit & Integration Tests)
-│   ├── test_api.py                   # Kiểm thử tích hợp toàn diện các endpoint FastAPI
-│   └── test_recommender.py           # Kiểm thử đơn vị quy trình huấn luyện và gợi ý
-├── Dockerfile                        # Đóng gói ứng dụng vào Docker container
-├── docker-compose.yml                # Cấu hình khởi chạy nhanh qua Docker Compose
-├── main.py                           # Điểm khởi chạy CLI (huấn luyện, tra cứu & gợi ý tương tác)
-├── pyproject.toml                    # Metadata cấu hình dự án
-├── requirements.txt                  # Danh sách thư viện phụ thuộc của dự án
-└── README.md                         # Tài liệu hướng dẫn sử dụng và kiến trúc hệ thống
+api/            FastAPI: main.py, schemas.py, service.py (vòng train nền, cache, đổi bản nguyên tử)
+data_source/    clickhouse.py — đọc các bảng serving qua HTTP
+models/         cf_recommendation.py, content_based.py, repeat.py, behavior.py, hybrid.py
+evaluation/     benchmark.py, strong_baselines.py (EASE^R, iALS), export_data.sh, results/
+tests/          unittest cho model, benchmark, API
+doc/            tài liệu nghiên cứu + báo cáo hiện trạng
+config.py       mọi tham số và truy vấn (đọc từ biến môi trường)
 ```
 
----
+## Tài liệu tham khảo
 
-## Cài đặt môi trường
-
-Yêu cầu Python 3.11–3.14. Khuyến nghị sử dụng Python 3.11 hoặc 3.12:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-```
-
----
-
-## Dữ liệu đầu vào
-
-Mô hình đọc dữ liệu từ thư mục `data/raw/` bao gồm 3 tệp chính:
-
-1. **`data/raw/orders.csv`** (Dữ liệu giao dịch đơn hàng):
-   ```csv
-   InvoiceNo,CustomerID,CustomerName,ProductID,ProductName,Category,Subcategory,Brand,UnitPrice,Quantity,InvoiceDate
-   INV183830,CUST_145340,Võ Anh Dũng,PROD_29955,Luma Máy lọc không khí...,Gia dụng,Chăm sóc không khí,Luma,2400000.0,2,2026-01-01 00:00:03
-   ```
-2. **`data/raw/products.csv`** (Danh mục sản phẩm):
-   ```csv
-   ProductID,ProductName,Category,Subcategory,Brand,ProductType,ProductDescription,FeatureTags,UnitPrice
-   PROD_00001,iPhone 15 Pro Max 256GB...,Điện thoại,Sản phẩm tiêu biểu,iPhone,Điện thoại,...,31990000.0
-   ```
-3. **`data/raw/customers.csv`** (Hồ sơ khách hàng):
-   ```csv
-   CustomerID,CustomerName,CustomerSegment,ShoppingNeed,PreferredCategories,BudgetTier,PurchasePropensity
-   CUST_00001,Lâm Thanh Vy,Người dùng di động,Nâng cấp điện thoại...,Điện thoại|Phụ kiện|Âm thanh,Cao cấp,1.25
-   ```
-
----
-
-## Huấn luyện mô hình (Training)
-
-Mô hình tự động nạp dữ liệu giao dịch từ `data/raw/orders.csv` kết hợp thông tin sản phẩm từ `products.csv` và khách hàng từ `customers.csv`. Sau khi huấn luyện xong, toàn bộ trọng số và ma trận thưa sẽ được lưu tại `output/cf/item_cf.joblib`.
-
-### 1. Lệnh huấn luyện (Train Command)
-
-* **Huấn luyện mô hình từ đầu (ghi đè kết quả cũ nếu có):**
-  ```bash
-  python main.py --retrain
-  ```
-
-* **Huấn luyện mô hình và in ngay gợi ý mẫu cho khách hàng:**
-  ```bash
-  python main.py --retrain --customer-id CUST_00001 --top-k 5
-  ```
-
-* **Huấn luyện trực tiếp bằng Python Code:**
-  ```python
-  from models import CollaborativeFiltering
-
-  # Khởi tạo và huấn luyện
-  model = CollaborativeFiltering()
-  model.train()         # Đọc tự động data/raw/ và tính toán ma trận thưa
-
-  # Lưu mô hình vào output/cf/item_cf.joblib
-  saved_path = model.save_model()
-  print(f"Mô hình đã được lưu tại: {saved_path}")
-
-  # Xem thống kê ma trận sau khi train
-  print(model.summary())
-  # {'customers': 600000, 'products': 50000, 'interactions': 1999846}
-  ```
-
----
-
-## Gợi ý sản phẩm (Recommendation / Inference)
-
-### 1. Lệnh gợi ý (Recommend Commands - CLI)
-
-Khi chạy gợi ý, hệ thống mặc định nạp mô hình từ `output/cf/item_cf.joblib` (nếu chưa có model sẽ tự động huấn luyện trước):
-
-* **Gợi ý Top-K theo mã khách hàng (`CustomerID`):**
-  ```bash
-  python main.py --customer-id CUST_00001 --top-k 5
-  ```
-  *(Thêm cờ `--load-model` nếu chỉ muốn nạp model từ đĩa: `python main.py --load-model --customer-id CUST_00001 --top-k 5`)*
-
-* **Tra cứu hóa đơn và gợi ý sản phẩm theo mã đơn (`InvoiceNo`):**
-  ```bash
-  python main.py --invoice-id INV183830 --top-k 5
-  ```
-
-* **Chạy phiên gợi ý tương tác liên tục (Interactive Mode):**
-  ```bash
-  python main.py --load-model
-  ```
-  *(Model chỉ nạp vào RAM một lần duy nhất, terminal sẽ chờ bạn nhập liên tục CustomerID hoặc InvoiceNo để xem kết quả. Gõ `quit` hoặc `exit` để thoát).*
-
-### 2. Gợi ý bằng Python Code
-
-```python
-from models import CollaborativeFiltering
-
-# Nạp mô hình đã train sẵn từ output/cf/item_cf.joblib
-model = CollaborativeFiltering().load_model()
-
-# 1. Lấy danh sách gợi ý cho CustomerID (trả về danh sách (product_id, score))
-recommendations = model.recommend("CUST_00001", top_k=5)
-for product_id, score in recommendations:
-    details = model.product_details(product_id)
-    print(f"- [{product_id}] {details.get('ProductName')}: Score {score:.4f}")
-
-# 2. Tra cứu đơn hàng và gợi ý theo InvoiceNo
-order_info, recommendations = model.recommend_by_invoice("INV183830", top_k=5)
-print(f"Đơn hàng của khách: {order_info['customer_id']}, Tổng tiền: {order_info['total_amount']:,.0f} VNĐ")
-```
-
-### 3. Gợi ý qua Web Service (FastAPI)
-
-* **Khởi động server API:**
-  ```bash
-  uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
-  ```
-  Tài liệu Swagger UI kiểm thử trực tiếp tại: `http://localhost:8000/docs`.
-
-* **Lệnh gọi API lấy gợi ý (cURL):**
-  ```bash
-  curl -X GET "http://localhost:8000/api/v1/recommend/customer/CUST_00001?top_k=5"
-  *Response trả về JSON chứa mã khách hàng và danh sách gợi ý `product_id`:*
-  ```json
-  {
-    "customer_id": "CUST_00001",
-    "recommendations": [
-      { "product_id": "PROD_34017" },
-      { "product_id": "PROD_40808" }
-    ]
-  }
-  ```
-
-
-* **Bảng các endpoints hỗ trợ:**
-
-  | Phương thức | Endpoint | Chức năng |
-  | :--- | :--- | :--- |
-  | `GET` | `/health` | Kiểm tra trạng thái hệ thống, model loaded và thống kê ma trận |
-  | `GET` | `/api/v1/recommend/customer/{customer_id}?top_k=10` | Gợi ý sản phẩm cá nhân hóa cho khách hàng |
-
-
----
-
-## Kiến trúc thuật toán & Cơ chế hoạt động
-
-Mô hình Item-based CF tại [`models/cf_recommendation.py`](models/cf_recommendation.py) áp dụng giải thuật **Item-Item Cosine Similarity** được tối ưu hóa cho dữ liệu lớn:
-
-1. **Ma trận thưa Sparse CSR (`SparseUserItemMatrix`)**:
-   - Chuyển đổi lịch sử tương tác thành ma trận `scipy.sparse.csr_matrix` ($600,000 \times 50,000$), chỉ tiêu tốn **~18 MB RAM** thay vì ma trận đặc (dense) tiêu tốn 240 GB RAM.
-2. **Tính Cosine Similarity tức thời (`ItemSimilarityMatrix`)**:
-   - Vector mỗi sản phẩm được chuẩn hóa L2-norm: $\mathbf{v}_i = \frac{\mathbf{r}_i}{\|\mathbf{r}_i\|_2}$.
-   - Khi gợi ý cho khách hàng có tập sản phẩm đã mua $P$ với trọng số $W$, điểm số cho tất cả sản phẩm ứng viên được tính bằng một phép nhân ma trận - vector thưa:
-     $$\mathbf{Score} = \mathbf{V} \cdot \left( \sum_{p \in P} w_p \mathbf{v}_p \right)$$
-   - Tốc độ tính toán chỉ mất **~7 mili-giây**, không cần lưu trước bảng tương đồng $50,000 \times 50,000$ (tiết kiệm 20 GB RAM).
-3. **Cơ chế Cold-Start Fallback**:
-   - Đối với khách hàng mới chưa có lịch sử mua hàng, hệ thống tự động gợi ý các sản phẩm có độ phổ biến cao nhất (`popular_items`) tính theo tổng sản lượng bán ra.
-
----
-
-## Kiểm thử tự động (Testing)
-
-Chạy toàn bộ unit tests và integration tests:
-
-```bash
-python -m unittest discover tests
-```
-
-Tất cả các bài test kiểm tra tính toàn vẹn của thuật toán, nạp/lưu model và các endpoint FastAPI.
-
----
-
-## Chạy với Docker
-
-Khởi chạy ứng dụng nhanh chóng bằng Docker Compose (đã mount sẵn `output/` và `data/`):
-
-```bash
-docker-compose up --build
-```
-Dịch vụ sẽ sẵn sàng phục vụ tại `http://localhost:8000`.
+- Anderson, A., Kumar, R., Tomkins, A., & Vassilvitskii, S. (2014). The dynamics of repeat consumption. *WWW '14*.
+- Bhagat, R., Muralidharan, S., Lobzhanidze, A., & Vishwanath, S. (2018). Buy It Again: Modeling repeat purchase recommendations. *KDD '18*.
+- Burke, R. (2002). Hybrid recommender systems: Survey and experiments. *UMUAI*, 12(4).
+- Gao, C., He, X., Gan, D., Chen, X., Feng, F., Li, Y., Chua, T.-S., & Jin, D. (2019). Neural multi-task recommendation from multi-behavior data. *ICDE '19*.
+- Hu, Y., Koren, Y., & Volinsky, C. (2008). Collaborative filtering for implicit feedback datasets. *ICDM '08*.
+- Pazzani, M. J., & Billsus, D. (2007). Content-based recommendation systems. *The Adaptive Web*, LNCS 4321.
+- Sarwar, B., Karypis, G., Konstan, J., & Riedl, J. (2001). Item-based collaborative filtering recommendation algorithms. *WWW '01*.
+- Yi, X., Hong, L., Zhong, E., Liu, N. N., & Rajan, S. (2014). Beyond clicks: Dwell time for personalization. *RecSys '14*.
