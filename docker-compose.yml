@@ -256,10 +256,11 @@ services:
     restart: unless-stopped
 
   minio:
-    # quay.io chứ không phải Docker Hub: MinIO đã gỡ image khỏi Docker Hub
-    # công khai, `docker pull minio/minio` trả "pull access denied".
-    # quay.io là registry chính thức MinIO vẫn phát hành.
-    image: quay.io/minio/minio:${MINIO_VERSION:-latest}
+    # Build từ mã nguồn, ghim RELEASE.2025-09-07T16-13-09Z: MinIO đã ngừng phát
+    # image bản cộng đồng — Docker Hub lẫn quay.io đều không kéo được nữa (04/10/2026).
+    # Lý do và nguồn: local-infra-sandbox/minio/Dockerfile.
+    build:
+      context: ./local-infra-sandbox/minio
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -270,7 +271,7 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:9000/minio/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 12
