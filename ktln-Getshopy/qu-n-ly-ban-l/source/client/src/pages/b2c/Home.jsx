@@ -20,6 +20,7 @@ import {
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
+import { useTracking } from '../../hooks/useTracking';
 
 // ─── 3D FBX Models (lazy-loaded) ──────────────────────────────────────────────
 const Category3DModel = lazy(() => import('../../components/b2c/Category3DModel'));
@@ -120,6 +121,7 @@ export default function Home() {
   const { isDark, selectedBranch, b2cUser } = useApp();
   const { addToCart } = useCart();
   const navigate = useNavigate();
+  const { trackEvent } = useTracking();
 
   // State
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,7 +155,16 @@ export default function Home() {
         const recData = await api.recommendation.get();
         if (ignore) return;
         if (Array.isArray(recData) && recData.length > 0) {
-          setRecommendedProducts(recData.slice(0, 8));
+          const shown = recData.slice(0, 8);
+          setRecommendedProducts(shown);
+          // Món nào được HIỂN THỊ trong ô gợi ý — mẫu số của CTR, và là cách tách
+          // lượt xem do chính hệ gợi ý gây ra. Chỉ ghi cho kết quả của endpoint
+          // gợi ý, không ghi cho danh sách bán chạy dự phòng phía client.
+          trackEvent('rec_impression', {
+            product_ids: shown.map(p => Number(p.id)),
+            page_source: 'home',
+            referrer: 'recommendation',
+          });
         } else {
           // Fallback to top rated/bestselling items
           const res = await api.b2c.getProducts('ALL', '', 'best_selling', selectedBranch?.id, 1, 8);
@@ -273,14 +284,15 @@ export default function Home() {
   }, [newestProducts, searchQuery]);
 
   // Helper renderer for product card matching reference template
-  const renderProductCard = (product) => {
+  // onOpen: thay hành vi mở sản phẩm mặc định (ô gợi ý cần ghi lượt bấm trước).
+  const renderProductCard = (product, onOpen) => {
     const catName = (product.category_name || product.Category?.name || 'TECHNOLOGY').toUpperCase();
     const formattedPrice = `${Math.round(product.price).toLocaleString('vi-VN')} đ`;
 
     return (
       <div
         key={product.id}
-        onClick={() => navigate(`/product/${product.id}`)}
+        onClick={() => (onOpen ? onOpen() : navigate(`/product/${product.id}`))}
         className="commerce-product-card"
         style={{
           cursor: 'pointer',
@@ -714,7 +726,18 @@ export default function Home() {
           </div>
         ) : (
           <div className="commerce-products-grid">
-            {recommendedProducts.slice(0, 8).map(product => renderProductCard(product))}
+            {recommendedProducts.slice(0, 8).map(product => renderProductCard(product, () => {
+              trackEvent('rec_click', {
+                product_id: Number(product.id),
+                category_id: product.category_id,
+                brand_id: product.brand_id,
+                price_at_event: product.price,
+                page_source: 'home',
+                referrer: 'recommendation',
+              });
+              // Trang sản phẩm đọc state này để gắn referrer cho lượt xem
+              navigate(`/product/${product.id}`, { state: { from: 'recommendation' } });
+            }))}
           </div>
         )}
       </section>

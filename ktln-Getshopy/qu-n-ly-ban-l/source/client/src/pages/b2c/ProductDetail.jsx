@@ -13,7 +13,7 @@ import {
   ThunderboltFilled, StarOutlined, AppstoreOutlined,
   ExperimentOutlined, ClockCircleOutlined, AimOutlined,
 } from '@ant-design/icons';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
@@ -1433,8 +1433,10 @@ export default function ProductDetail() {
   const navigate = useNavigate();
   const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
 
-  // Auto-track product view with dwell time + scroll depth
-  useProductViewTracker(product);
+  // Auto-track product view with dwell time + scroll depth. Nguồn dẫn tới trang
+  // (vd. ô gợi ý ở trang chủ) truyền qua router state — xem Home.jsx.
+  const location = useLocation();
+  useProductViewTracker(product, { referrer: location.state?.from });
 
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState('center center');

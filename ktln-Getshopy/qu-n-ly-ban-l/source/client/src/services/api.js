@@ -204,7 +204,8 @@ export const api = {
 
     // Behavior Tracking
     track: (events) => request('/b2c/track', { method: 'POST', body: JSON.stringify({ events }) }),
-    getRecentlyViewed: (sessionId, customerId) => request('/b2c/recently-viewed?' + new URLSearchParams({ session_id: sessionId, ...(customerId ? { customer_id: customerId } : {}) })),
+    // Khách lấy từ token (request() tự gắn), server bỏ qua customer_id trên query.
+    getRecentlyViewed: (sessionId) => request('/b2c/recently-viewed?' + new URLSearchParams({ session_id: sessionId })),
     getTrending: (hours = 24, limit = 10) => request('/b2c/trending?' + new URLSearchParams({ hours, limit })),
 
     // Wishlist
