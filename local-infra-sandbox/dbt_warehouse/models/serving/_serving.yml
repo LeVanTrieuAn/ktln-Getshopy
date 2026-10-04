@@ -36,3 +36,44 @@ models:
     # báo lỗi ở mọi lần chạy thứ hai trở đi.
     #
     # Thay bằng test riêng đọc kèm FINAL: tests/unique_ai_rec_pair_after_final.sql
+
+  - name: product_features
+    description: "Đặc trưng content-based (nhóm, hãng, tầm giá) của các món đại diện mỗi ô + mọi món đã bán."
+    columns:
+      - name: ProductID
+        tests: [unique, not_null]
+      - name: ParentCategory
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_categories')
+              field: category_id
+      - name: PriceBand
+        tests:
+          - accepted_values:
+              values: ['lt5', '5to15', '15to30', 'gt30']
+
+  - name: customer_preference_signals
+    description: "Sở thích onboarding dạng dài (CustomerID, Dimension, Value, Polarity) đã làm sạch."
+    columns:
+      - name: CustomerID
+        tests: [not_null]
+      - name: Dimension
+        tests:
+          - accepted_values:
+              values: ['category', 'brand', 'price_band']
+      - name: Polarity
+        tests:
+          - accepted_values:
+              values: [1, -1]
+              quote: false
+
+  - name: catalog_features
+    description: "Đặc trưng nội dung của MỌI sản phẩm đang bán (nguồn duy nhất của ParentCategory/PriceBand)."
+    columns:
+      - name: ProductID
+        tests: [unique, not_null]
+      - name: PriceBand
+        tests:
+          - accepted_values:
+              values: ['lt5', '5to15', '15to30', 'gt30']

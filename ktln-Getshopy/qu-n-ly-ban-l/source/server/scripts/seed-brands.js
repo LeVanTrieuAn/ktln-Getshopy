@@ -217,13 +217,15 @@ async function main() {
   const rng = createRng('seed-brands');
   const randPick = (arr) => arr[Math.floor(rng() * arr.length)];
   const ALL_BRAND_IDS = NEW_BRANDS.map(b => b.id);
+  const { ruleFor } = require('./lib/product-rules');
 
   let totalUpdated = 0;
   let cursor = undefined;
 
   while (true) {
     const products = await prisma.product.findMany({
-      select: { id: true, category_id: true },
+      // Cần cả `name` để suy hãng từ tên (xem scripts/lib/product-rules.js)
+      select: { id: true, category_id: true, name: true },
       take: 5000,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: 'asc' },
@@ -238,7 +240,9 @@ async function main() {
       const brandPool = catKey && CAT_BRAND_MAP[catKey]
         ? CAT_BRAND_MAP[catKey]
         : ALL_BRAND_IDS;
-      const newBrand = randPick(brandPool);
+      // Tên nói rõ hãng (iPhone -> Apple...) thì theo tên, không chọn bừa.
+      const rule = ruleFor(p.name);
+      const newBrand = rule && ALL_BRAND_IDS.includes(rule.brand) ? rule.brand : randPick(brandPool);
       if (!groupByBrand[newBrand]) groupByBrand[newBrand] = [];
       groupByBrand[newBrand].push(p.id);
     }

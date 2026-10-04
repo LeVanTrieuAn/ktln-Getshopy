@@ -30,6 +30,9 @@ TEST_DATA_PATH = PROCESSED_DATA_DIR / "test.csv"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 MODEL_DIR = OUTPUT_DIR / "cf"
 MODEL_PATH = MODEL_DIR / "item_cf.joblib"
+# Bản hybrid (CF + content-based + tham số trộn) — artifact service phục vụ.
+# item_cf.joblib chỉ còn là đường dự phòng khi nâng cấp từ bản thuần CF.
+HYBRID_MODEL_PATH = OUTPUT_DIR / "hybrid" / "recommender.joblib"
 
 
 
@@ -115,3 +118,36 @@ PRECOMPUTE_TOP_K = int(os.getenv("PRECOMPUTE_TOP_K", "20"))
 # Trần thời gian tính sẵn. Vượt thì dừng, phần khách còn lại rơi về tính tại
 # chỗ — thà cache một phần còn hơn để chu kỳ train tràn sang chu kỳ kế tiếp.
 PRECOMPUTE_BUDGET_SECONDS = float(os.getenv("PRECOMPUTE_BUDGET_SECONDS", "60"))
+
+# ==============================================================================
+# Content-based + hybrid
+# ==============================================================================
+# Đặc trưng sản phẩm và sở thích onboarding — cả hai do dbt dựng trong `serving`
+# (tài khoản ai_rec chỉ đọc được schema này). Xem models/content_based.py.
+PRODUCT_FEATURES_TABLE = os.getenv("PRODUCT_FEATURES_TABLE", "serving.product_features")
+PREFERENCE_SIGNALS_TABLE = os.getenv("PREFERENCE_SIGNALS_TABLE", "serving.customer_preference_signals")
+PRODUCT_FEATURES_QUERY = (
+    f"SELECT ProductID, ParentCategory, Brand, PriceBand, UnitsSold, CatalogSold, CellRank "
+    f"FROM {PRODUCT_FEATURES_TABLE} FORMAT TabSeparatedWithNames"
+)
+PREFERENCE_SIGNALS_QUERY = (
+    f"SELECT CustomerID, Dimension, Value, Polarity "
+    f"FROM {PREFERENCE_SIGNALS_TABLE} FORMAT TabSeparatedWithNames"
+)
+
+# final = α·CF + (1−α)·CB + γ·mua_lại,  α = n/(n + k)  — xem models/hybrid.py.
+#
+# k = 0: CHỌN TRÊN VALIDATION (evaluation/README.md §Kết quả). Khách đã mua dùng
+#   thuần CF cho phần khám phá — content-based không giúp khách có lịch sử trên
+#   dữ liệu hiện tại; khách mới (n = 0) vẫn dùng thuần content-based vì α(0) = 0.
+# γ: QUYẾT ĐỊNH SẢN PHẨM, không phải kết quả tinh chỉnh. Validation chọn γ = 10
+#   (tối đa NDCG tổng thể) nhưng khi đó ~9/10 ô là món khách đã mua, khám phá
+#   gần bằng 0. γ = 1 là mặc định TẠM (~2,5/10 ô là món đã mua) chờ chốt — bảng
+#   đánh đổi trong README đánh giá.
+HYBRID_CF_SHRINK_K = float(os.getenv("HYBRID_CF_SHRINK_K", "0"))
+HYBRID_REPEAT_WEIGHT = float(os.getenv("HYBRID_REPEAT_WEIGHT", "1"))
+# Cho phép gợi ý lại món đã mua (quyết định sản phẩm: áp cho MỌI sản phẩm).
+HYBRID_ALLOW_REPEAT = os.getenv("HYBRID_ALLOW_REPEAT", "1") not in ("0", "false", "False")
+# Một lựa chọn onboarding nặng bằng bấy nhiêu lần mua khi dựng hồ sơ nội dung.
+# CHƯA tinh chỉnh được: cần dữ liệu onboarding thật để đo (xem README đánh giá).
+CB_ONBOARDING_PSEUDO_COUNT = float(os.getenv("CB_ONBOARDING_PSEUDO_COUNT", "1"))

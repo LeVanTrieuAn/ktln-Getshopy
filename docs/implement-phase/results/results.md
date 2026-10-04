@@ -485,9 +485,18 @@ chưa cắm. Service chạy degraded, mọi gợi ý trả mảng rỗng.
 
 ### 12.1 Đổi `processed_data_for_AI_rec` sang append-only
 
-Bản cũ `materialized='table'`: mỗi lần dbt chạy là DROP rồi CREATE lại. Với
-chu kỳ 5 phút thì có một khoảng bảng không tồn tại hoặc rỗng — AI-Rec fetch
-đúng lúc đó sẽ train trên bảng trống và **xoá sạch model đang tốt**.
+Chuyển sang append-only + ReplacingMergeTree theo yêu cầu dedup theo `updated_at`.
+
+> **Đính chính (28/09).** Bản trước của mục này ghi lý do là *"`table` DROP rồi
+> CREATE lại, có khoảng bảng rỗng mà AI-Rec có thể đọc trúng"*. **Điều đó sai.**
+> Kiểm `system.query_log` cho thấy dbt-clickhouse dựng bảng `table` theo bốn
+> bước: `CREATE … __dbt_backup` → `INSERT` → **`EXCHANGE TABLES`** → `DROP` bản
+> cũ. Trên database engine `Atomic` (mặc định của ClickHouse 24.8), `EXCHANGE`
+> là thao tác nguyên tử — không có khoảnh khắc nào bảng rỗng.
+>
+> Lý do đúng để dùng incremental ở đây là **chi phí**: `table` dựng lại toàn bộ
+> tập cặp (khách, sản phẩm) mỗi 5 phút, còn incremental chỉ tính lại các cặp
+> vừa có đơn mới. Với bảng nhỏ như hiện tại thì chênh lệch không đáng kể.
 
 Bản mới:
 
@@ -600,3 +609,180 @@ là tự hết.
   Hiện rẻ (mili-giây) vì `fit()` chỉ dựng ma trận thưa và chuẩn hoá, **không**
   nhân ma trận item×item. Cần đo lại khi số tương tác lên hàng triệu.
 - Đỉnh bộ nhớ gấp đôi trong lúc đổi bản — chưa đo ở quy mô thật.
+
+---
+
+## 13. Sửa nạp tăng dần của `fact_orders_detail` (29/09)
+
+### 13.1 Triệu chứng
+
+Sửa snapshot hãng/danh mục của 335 dòng `OrderItem` (7 sản phẩm Apple bị gán
+sai hãng). Bản ghi `op=u` đi đủ Kafka → parquet → `staging.stg_order_items`,
+nhưng **fact vẫn giữ giá trị cũ**. Không có lỗi nào báo ra.
+
+### 13.2 Nguyên nhân — hai lỗi cùng họ
+
+**(1) Lọc hai nguồn riêng rẽ theo mốc.** Model cũ cắt cửa sổ `event_ts >= mốc`
+cho `stg_orders` và `stg_order_items` *độc lập*, rồi `LEFT JOIN`. Thay đổi một
+phía là mất:
+
+| Thay đổi | Cửa sổ Order | Cửa sổ OrderItem | Kết quả |
+|---|---|---|---|
+| chỉ dòng hàng (sửa snapshot) | trống | có | JOIN hụt → `WHERE` loại → **mất** |
+| chỉ đơn (PENDING → PAID) | có | trống | không có dòng nào để ghi → **mất** |
+
+Chạy lại logic cũ trên đúng dữ liệu lake của bài thử 13.4: 1 đơn + 1 dòng hàng
+trong cửa sổ → **0 dòng fact**.
+
+**(2) Một mốc chung cho hai nguồn.** Mốc cũ = `max(greatest(ts dòng hàng, ts đơn))`.
+Sink xả parquet của hai topic ở hai thời điểm khác nhau, nên nguồn đi trước kéo
+mốc vượt qua bản ghi của nguồn đi sau chưa kịp xuống MinIO → bản ghi đó **không
+bao giờ** được nạp. Không phải giả định: ngay sau full-refresh, mốc đơn là
+`01:52 29/09`, mốc dòng hàng là `17:40 28/09` — lệch 8 giờ.
+
+Comment cũ trong model ("lần chạy sau bắt được vì watermark chưa vượt qua nó")
+sai vì cả hai lý do trên.
+
+### 13.3 Bản sửa
+
+- **Theo đơn:** gom `changed` = đơn có bản ghi mới ở *bất kỳ* nguồn nào; với các
+  đơn đó lấy bản mới nhất của đơn và của **mọi** dòng hàng trên toàn bộ lịch sử.
+- **Mốc riêng từng nguồn:** thêm 2 cột `_order_event_ts`, `_item_event_ts`.
+  Mỗi topic có 1 partition, 1 task sink ghi theo thứ tự offset, và `ts_ms` của
+  Debezium là giờ connector xử lý nên tăng theo offset → bản ghi chưa xuống lake
+  luôn có `ts >=` mốc của chính nguồn đó.[^kafka-order]
+- `_event_ts` (version của ReplacingMergeTree) giữ nguyên công thức.
+- **Chặn bảng cũ:** bảng dựng trước bản sửa không có 2 cột mốc → model báo lỗi
+  kèm lệnh cần chạy, thay vì lỗi ClickHouse khó đọc. Máy khác kéo code về mà còn
+  volume cũ thì chạy **một lần**:
+  `docker compose --profile dbt run --rm dbt run --full-refresh --select fact_orders_detail+`
+
+[^kafka-order]: Kafka chỉ đảm bảo thứ tự *trong một partition* (Apache Kafka
+Documentation, §Design). `ts_ms` ở envelope là thời điểm connector xử lý sự kiện
+(Debezium PostgreSQL Connector Documentation, §Data change events).
+
+### 13.4 Kiểm chứng
+
+| Kiểm tra | Trước | Sau |
+|---|---|---|
+| Sản phẩm 1–7 trong fact `FINAL` | 6/7 sai hãng (anker, nokia, oppo, lg…) | 7/7 `br-apple`, đúng danh mục, khớp Postgres |
+| Số dòng / số đơn / tổng `net_amount` | 6262 / 3509 | 6262 / 3509 / 154 649 475 200 — khớp Postgres |
+| `audit.checksum_orders` | — | `KHỚP` cả 3 tầng |
+| Chỉ dòng hàng đổi (`quantity = quantity`) | logic cũ: 0 dòng | cả đơn ghi lại, `_item_event_ts` mới |
+| Chỉ đơn đổi (`status = status`) | logic cũ: 0 dòng | 3/3 dòng hàng ghi lại, `_order_event_ts` mới |
+| `dbt build` | — | 36/36 PASS |
+
+Bài thử dùng cập nhật không đổi giá trị (`SET x = x`) — Postgres vẫn ghi WAL
+nên Debezium vẫn phát `op=u`, dữ liệu không bị đụng.
+
+### 13.5 Đánh đổi và hạn chế
+
+- **Chi phí:** glob `s3()` không cắt tỉa theo thời gian nên mỗi lần chạy vốn đã
+  mở mọi file parquet; lọc theo `order_id` không tăng số file phải đọc (hiện 55
+  file, model chạy ~0,2 s). Khi lake lớn, hướng đúng là tầng trung gian đã dedup
+  (bảng ClickHouse) thay vì đọc lại parquet — chưa làm.
+- Mốc dùng `>=` nên mỗi lượt ghi lại vài đơn nằm đúng mốc (đo được 13 dòng /
+  lượt khi không có thay đổi). ReplacingMergeTree khử, job `ch-optimize` gộp.
+- **Xoá lẻ một `OrderItem` không lan tới fact:** bảng để `REPLICA IDENTITY
+  DEFAULT`, bản ghi xoá chỉ mang khoá chính, không có `order_id` để lần về đơn.
+- **Xoá cả đơn chỉ lan khi đọc `FINAL`:** bản xoá không có `date` nên rơi vào
+  partition `197001`, khác partition của bản gốc. `SELECT … FINAL` mặc định vẫn
+  khử trùng *xuyên* partition (đã thử trên bảng tạm: 0 dòng), nhưng merge nền và
+  `OPTIMIZE FINAL` chỉ gộp *trong* partition → bản gốc không bao giờ bị dọn vật
+  lý, và bật `do_not_merge_across_partitions_select_final=1` thì đơn đã xoá hiện
+  lại. Nghiệp vụ hiện chỉ huỷ đơn (đổi trạng thái), không xoá, nên chưa sửa.
+
+---
+
+## 14. Onboarding → content-based → benchmark trung thực (28–29/09)
+
+### 14.1 Sinh lại catalog cân bằng — `server/scripts/fill-600k.js`
+
+Catalog cũ không dùng được cho content-based:
+
+| Vấn đề | Nguyên nhân |
+|---|---|
+| 600.000 món mà chỉ 6 món là điện thoại/laptop/tablet, 0 đồng hồ | Chỉ lấy danh mục có `parent_id`; 4 nhóm thiết bị không có con nên bị loại |
+| `br-kamera` chiếm 41% | Hãng không có trong `BRAND_CAT_MAP` được coi là làm MỌI danh mục; 9 danh mục không hãng nào map |
+| Ốp lưng 40 triệu, laptop 200 nghìn | Giá rải đều 150k–50tr cho mọi danh mục → đặc trưng "tầm giá" vô nghĩa |
+
+Bản mới: thiết bị 40% (4 nhóm × 10%), phụ kiện/nghe nhìn/camera 60% (4 × 15%); trong
+nhóm chia đều cho danh mục lá, trong danh mục chia đều cho hãng; trần 10% mỗi hãng;
+giá log-uniform trong khoảng riêng từng danh mục (ƯỚC LƯỢNG cho dữ liệu tổng hợp,
+ghi rõ trong code); thiếu cấu hình thì dừng thay vì lấy ngẫu nhiên; `--dry-run`.
+
+Chỉ thay món CHƯA AI MUA: giữ 82 món có đơn (gồm 8 món flash sale), xoá 599.918 món +
+1.200.010 dòng tồn kho trong một transaction có chốt kiểm (backup trước:
+`backups/kltn-20260929-pre-catalog.dump`), sinh lại, `ensure-inventory.js`.
+Kết quả: đúng tỉ trọng từng nhóm, hãng lớn nhất Xiaomi 5,8%, 0 món thiếu tồn kho.
+
+- `analytics.user_events` (22.255 sự kiện, TẤT CẢ do `seed-behavior-data.js` sinh
+  ngày 17/09) trỏ vào món bị xoá → seed lại; script chuyển sang RNG có hạt giống.
+- `VACUUM` trên `Product` lỗi `No space left on device`: `/dev/shm` của container
+  Postgres mặc định 64 MB, VACUUM song song cần 67 MB. Chạy `VACUUM (PARALLEL 0)`.
+  Nên đặt `shm_size: 256mb` cho service postgres — chưa sửa compose.
+- Onboarding hiển thị tới 14 hãng/nhóm, xếp theo số bán rồi số mặt hàng: catalog mới
+  chia đều nên xếp theo số mặt hàng thì hoà gần hết và giấu mất hãng lớn.
+
+### 14.2 Hợp đồng dữ liệu mới cho AI-Rec (dbt)
+
+```
+Postgres CustomerPreference ─postgresql()─▶ masterdata.dim_customer_preferences
+                                                   │ làm sạch (bỏ skipped, trùng, mồ côi,
+                                                   ▼  vừa thích vừa ghét → giữ ghét)
+                                     serving.customer_preference_signals   (BẢNG)
+masterdata.dim_products/categories/brands ─▶ serving.catalog_features (600k, định nghĩa PriceBand)
+                                                   ▼ + doanh số, top 20/ô + mọi món đã bán
+                                     serving.product_features (6.152 ứng viên)
+```
+
+- `customer_preference_signals` phải là **bảng**: view thường của ClickHouse kiểm
+  quyền bảng gốc theo người gọi, `ai_rec` chỉ có quyền `serving` → Code 497. Cấp
+  thêm `masterdata` là mở cả `dim_customers` cho một dịch vụ không cần.
+- Tầm giá là var `price_bands` trong `dbt_project.yml`, phải khớp `PRICE_BANDS` của
+  `routes/onboarding.js` (ghi chú chéo ở cả hai nơi).
+- +15 test dbt (unique/not_null/accepted_values/relationships + test không mâu thuẫn); `dbt build` 55/55 PASS.
+
+### 14.3 AI-Rec: hybrid có trọng số
+
+`final = α·CF + (1−α)·CB + γ·mua_lại`, `α = n/(n+k)` — `models/hybrid.py`,
+`models/content_based.py`, nguồn trích trong docstring.
+
+- **Lọc cứng** danh mục/hãng "không quan tâm" trên MỌI kênh, kể cả CF và mua lại.
+- Chỉ gợi ý món còn bán (tập ứng viên từ `product_features`); thiếu bảng đặc trưng thì
+  chạy thuần CF và `/health` báo `content_based: false` + `last_error`.
+- Response thêm `reason` (`cf | content | repeat | popular`), mặc định rỗng — server
+  Node chỉ đọc `product_id` nên không phải sửa.
+- Artifact mới `output/hybrid/recommender.joblib` (ghi file tạm + `os.replace`); lần
+  đầu nâng cấp tự bọc `item_cf.joblib` cũ.
+- `tests/test_api.py` cũ đã hỏng từ trước (gọi `service.model` không còn tồn tại) —
+  viết lại; +10 test hybrid. 16/16 pass.
+
+Kiểm chứng đầu-cuối qua API thật: `user0001` (khách 32) lưu onboarding "không quan
+tâm `cat-mobile-acc`" bằng `PUT /api/b2c/me/preferences` → dbt → AI-Rec train lại →
+top-10 từ **7/10** món `cat-mobile-acc` còn **0/10**. Đã xoá bản ghi thử sau đó.
+
+### 14.4 Benchmark — `ai-rec/evaluation/`
+
+Giao thức, bảng kết quả, hạn chế: `ai-rec/evaluation/README.md`. Tóm tắt (NDCG@10):
+
+| | Most-Popular | Item-CF | Content-based | Đang chạy (k=0, γ=1) |
+|---|---|---|---|---|
+| Khám phá món mới | 0,141 | **0,350** | 0,123 | 0,258 |
+| Tổng thể | 0,149¹ | 0,156 | 0,057 | **0,309** |
+| Khách mới mô phỏng | 0,139 | — | **0,186**² | — |
+
+¹ bản gợi ý cả món đã mua · ² onboarding giả lập từ lịch sử thật (cận trên)
+
+Đọc đúng: CF học được cấu trúc đồng mua (gấp 2,5 lần Most-Popular). Content-based
+không giúp khách đã có lịch sử — **do bộ sinh dữ liệu**: gu khách là lát `product_id`
+liên tiếp, không theo danh mục/hãng/giá. 63,5% món ở test là món đã mua, nên chỉ số
+tổng thể thưởng việc gợi ý lại đồ cũ; mức gợi ý lại (γ) là quyết định sản phẩm.
+
+### 14.5 Chờ quyết định
+
+- Chính sách gợi ý lại (γ, hoặc chia ô cố định) và k — bảng đánh đổi ở README đánh giá.
+- Có sửa `pos_simulator.py` để khách mua theo sở thích danh mục/hãng/giá hay không —
+  không có thì không đo được content-based trên dữ liệu này.
+- `server/prisma/migrations/` đang bị gitignore: máy clone mới rơi về `db push`, lịch
+  sử migration khác máy này. Có từ trước hôm nay.

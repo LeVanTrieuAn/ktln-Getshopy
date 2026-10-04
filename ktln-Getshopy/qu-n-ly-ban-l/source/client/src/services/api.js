@@ -180,6 +180,14 @@ export const api = {
       return request('/b2c/products?' + new URLSearchParams(params));
     },
     getProductDetails: (id) => request(`/b2c/products/${id}`),
+
+    // ── Onboarding: thu sở thích tường minh cho AI-Rec ──────────────────────
+    // customer_id lấy từ token ở server, không gửi kèm.
+    getOnboardingOptions: () => request('/b2c/onboarding/options'),
+    // null = khách chưa từng thấy onboarding (khác với lỗi)
+    getMyPreferences: () => request('/b2c/me/preferences'),
+    saveMyPreferences: (data) => request('/b2c/me/preferences', { method: 'PUT', body: JSON.stringify(data) }),
+    skipOnboarding: () => request('/b2c/me/preferences/skip', { method: 'POST' }),
     checkout: (data) => request('/b2c/checkout', { method: 'POST', body: JSON.stringify(data) }),
     // Màn chờ thanh toán poll endpoint này. Chỉ trả trạng thái + thời gian còn
     // lại theo giờ server, không kèm thông tin nhạy cảm của đơn.

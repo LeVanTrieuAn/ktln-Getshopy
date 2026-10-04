@@ -1,4 +1,4 @@
-"""Vòng đời model Collaborative Filtering: train định kỳ, cache, phục vụ."""
+"""Vòng đời model gợi ý (hybrid CF + content-based): train định kỳ, cache, phục vụ."""
 
 from __future__ import annotations
 
@@ -17,6 +17,11 @@ from api.schemas import (
     RecommendationItem,
 )
 from config import (
+    CB_ONBOARDING_PSEUDO_COUNT,
+    HYBRID_ALLOW_REPEAT,
+    HYBRID_CF_SHRINK_K,
+    HYBRID_MODEL_PATH,
+    HYBRID_REPEAT_WEIGHT,
     MODEL_PATH,
     PRECOMPUTE_BUDGET_SECONDS,
     PRECOMPUTE_ENABLED,
@@ -26,11 +31,20 @@ from config import (
 )
 from data_source import clickhouse
 from models.cf_recommendation import CollaborativeFiltering
+from models.hybrid import HybridParams, HybridRecommender, build_recommender
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "Item-based Collaborative Filtering"
-API_VERSION = "0.2.0"
+MODEL_NAME = "Hybrid: Item-based CF + Content-based"
+API_VERSION = "0.3.0"
+
+
+def current_params() -> HybridParams:
+    return HybridParams(
+        cf_shrink_k=HYBRID_CF_SHRINK_K,
+        repeat_weight=HYBRID_REPEAT_WEIGHT,
+        allow_repeat=HYBRID_ALLOW_REPEAT,
+    )
 
 
 @dataclass
@@ -44,16 +58,17 @@ class ModelBundle:
     thì không tồn tại trạng thái lai đó.
     """
 
-    model: CollaborativeFiltering
-    cache: dict[str, list[str]] = field(default_factory=dict)
+    model: HybridRecommender
+    # khách -> [(product_id, lý do)]
+    cache: dict[str, list[tuple[str, str]]] = field(default_factory=dict)
     trained_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     source: str = "unknown"
     version: int = 0
     stats: dict[str, int] = field(default_factory=dict)
 
 
-def _precompute(model: CollaborativeFiltering, top_k: int, budget_s: float) -> dict[str, list[str]]:
-    """Tính sẵn top-K cho mọi khách đã có lịch sử mua.
+def _precompute(model: HybridRecommender, top_k: int, budget_s: float) -> dict[str, list[tuple[str, str]]]:
+    """Tính sẵn top-K cho mọi khách có tín hiệu riêng (đã mua hoặc đã làm onboarding).
 
     Vì sao lặp từng khách chứ không nhân ma trận một lần: ma trận điểm đầy đủ
     có kích thước (số khách x số sản phẩm). Với 600.000 sản phẩm thì chỉ 1.000
@@ -64,12 +79,9 @@ def _precompute(model: CollaborativeFiltering, top_k: int, budget_s: float) -> d
     Có trần thời gian: quá hạn thì dừng, phần khách còn lại rơi về tính tại
     chỗ. Thà cache một phần còn hơn để một chu kỳ train tràn sang chu kỳ sau.
     """
-    cache: dict[str, list[str]] = {}
-    if model.user_item_matrix is None:
-        return cache
-
+    cache: dict[str, list[tuple[str, str]]] = {}
     started = time.monotonic()
-    customers = list(model.user_item_matrix.index)
+    customers = model.known_customers()
     for i, customer_id in enumerate(customers):
         if time.monotonic() - started > budget_s:
             logger.warning(
@@ -79,7 +91,9 @@ def _precompute(model: CollaborativeFiltering, top_k: int, budget_s: float) -> d
             )
             break
         try:
-            cache[str(customer_id)] = [pid for pid, _ in model.recommend(str(customer_id), top_k=top_k)]
+            cache[str(customer_id)] = [
+                (pid, reason) for pid, _, reason in model.recommend(str(customer_id), top_k=top_k)
+            ]
         except Exception as exc:                      # noqa: BLE001
             # Một khách lỗi không được làm hỏng cả bản train.
             logger.debug("Bỏ qua khách %s khi tính sẵn: %s", customer_id, exc)
@@ -122,25 +136,41 @@ class CFModelService:
         if self._bundle is not None:
             return
 
-        if MODEL_PATH.exists():
-            try:
-                model = CollaborativeFiltering(model_path=MODEL_PATH)
-                model.load_model()
-                self._version += 1
-                self._bundle = ModelBundle(
-                    model=model,
-                    cache={},               # cache dựng lại ở lần train đầu tiên
-                    source="disk",
-                    version=self._version,
-                    stats=model.summary(),
-                )
-                logger.info("Nạp model từ đĩa: %s", model.summary())
-                return
-            except Exception as exc:                  # noqa: BLE001
-                # File hỏng (tiến trình chết giữa lúc ghi) không được chặn khởi động.
-                logger.warning("Không đọc được model trên đĩa (%s), sẽ train lại.", exc)
+        loaded = self._load_from_disk()
+        if loaded is not None:
+            self._version += 1
+            self._bundle = ModelBundle(
+                model=loaded,
+                cache={},               # cache dựng lại ở lần train đầu tiên
+                source="disk",
+                version=self._version,
+                stats=loaded.summary(),
+            )
+            logger.info("Nạp model từ đĩa: %s", loaded.summary())
+            return
 
         logger.info("Chưa có model. Phục vụ rỗng cho tới lần train nền đầu tiên.")
+
+    @staticmethod
+    def _load_from_disk() -> HybridRecommender | None:
+        """Bản hybrid nếu có; không thì bản thuần CF cũ (lúc vừa nâng cấp).
+
+        Tham số trộn lấy theo config HIỆN TẠI chứ không theo file: đổi k/γ qua
+        biến môi trường rồi khởi động lại là có hiệu lực ngay, không cần train.
+        """
+        for path in (HYBRID_MODEL_PATH, MODEL_PATH):
+            if not path.exists():
+                continue
+            try:
+                if path == HYBRID_MODEL_PATH:
+                    old = HybridRecommender.load(path)
+                    return HybridRecommender(old.cf, old.cb, current_params())
+                cf = CollaborativeFiltering(model_path=path).load_model()
+                return HybridRecommender(cf, None, current_params())
+            except Exception as exc:                  # noqa: BLE001
+                # File hỏng (tiến trình chết giữa lúc ghi) không được chặn khởi động.
+                logger.warning("Không đọc được model %s (%s), thử nguồn khác.", path, exc)
+        return None
 
     # ── Vòng train nền ───────────────────────────────────────────────────
 
@@ -190,8 +220,14 @@ class CFModelService:
             logger.warning("Không có dữ liệu train ở chu kỳ này, giữ nguyên model cũ.")
             return None
 
-        model = CollaborativeFiltering(model_path=MODEL_PATH)
-        model.fit(df)
+        cf = CollaborativeFiltering(model_path=MODEL_PATH)
+        cf.fit(df)
+
+        features, signals = self._load_content()
+        model = build_recommender(
+            cf, features, signals, current_params(),
+            onboarding_pseudo_count=CB_ONBOARDING_PSEUDO_COUNT,
+        )
 
         cache = (
             _precompute(model, PRECOMPUTE_TOP_K, PRECOMPUTE_BUDGET_SECONDS)
@@ -216,7 +252,10 @@ class CFModelService:
         # lý do phải dựng xong hẳn rồi mới gán, thay vì sửa dần model đang chạy.
         previous = self._bundle
         self._bundle = new_bundle
-        self._last_error = None
+        # Lỗi của lượt này (vd. thiếu bảng đặc trưng) đã ghi trong _load_content;
+        # lượt thành công trọn vẹn mới được xoá lỗi cũ.
+        if new_bundle.stats.get("content_based"):
+            self._last_error = None
 
         # Bản cũ được giải phóng khi request cuối cùng đang cầm nó kết thúc.
         # Không xoá tay bằng gc: tham chiếu do Python đếm, ép thu gom sớm chỉ
@@ -226,10 +265,12 @@ class CFModelService:
         self._persist(model)
 
         logger.info(
-            "Bản train #%d sẵn sàng sau %.1fs — %d khách, %d sản phẩm, %d tương tác, cache %d khách (nguồn: %s).",
+            "Bản train #%d sẵn sàng sau %.1fs — %d khách, %d sản phẩm CF, %d tương tác, "
+            "%d ứng viên, %d khách onboarding, cache %d khách (nguồn: %s).",
             new_bundle.version, time.monotonic() - started,
             new_bundle.stats["customers"], new_bundle.stats["products"],
-            new_bundle.stats["interactions"], len(cache), source,
+            new_bundle.stats["interactions"], new_bundle.stats["candidates"],
+            new_bundle.stats["onboarded_customers"], len(cache), source,
         )
         return new_bundle
 
@@ -249,7 +290,29 @@ class CFModelService:
         except FileNotFoundError:
             return None, "none"
 
-    def _persist(self, model: CollaborativeFiltering) -> None:
+    def _load_content(self) -> tuple[pd.DataFrame | None, pd.DataFrame | None]:
+        """Đặc trưng sản phẩm + sở thích onboarding. Lỗi thì chạy thuần CF.
+
+        Hai nguồn độc lập: thiếu sở thích (chưa ai làm onboarding, bảng chưa
+        dựng) vẫn dùng được đặc trưng cho hồ sơ từ lịch sử mua. Thiếu đặc trưng
+        thì mất cả content-based lẫn bộ lọc "không quan tâm" — ghi vào
+        last_error để /health báo ra, không im lặng.
+        """
+        if not clickhouse.is_configured():
+            return None, None
+        features = signals = None
+        try:
+            features = clickhouse.fetch_product_features()
+        except clickhouse.ClickHouseUnavailable as exc:
+            self._last_error = f"Không lấy được đặc trưng sản phẩm: {exc}"
+            logger.warning("%s — chạy thuần CF, KHÔNG lọc được 'không quan tâm'.", self._last_error)
+        try:
+            signals = clickhouse.fetch_preference_signals()
+        except clickhouse.ClickHouseUnavailable as exc:
+            logger.warning("Không lấy được sở thích onboarding: %s", exc)
+        return features, signals
+
+    def _persist(self, model: HybridRecommender) -> None:
         """Ghi model ra đĩa để lần khởi động sau phục vụ được ngay.
 
         Ghi ra file tạm rồi os.replace: đổi tên là thao tác nguyên tử trên cùng
@@ -258,13 +321,7 @@ class CFModelService:
         phải nó — hỏng im lặng.
         """
         try:
-            model.model_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = model.model_path.with_suffix(".joblib.tmp")
-            original = model.model_path
-            model.model_path = tmp
-            model.save_model()
-            model.model_path = original
-            os.replace(tmp, original)
+            model.save(HYBRID_MODEL_PATH)
         except Exception as exc:                      # noqa: BLE001
             # Không ghi được đĩa thì bản trong bộ nhớ vẫn dùng tốt.
             logger.warning("Không lưu được model ra đĩa: %s", exc)
@@ -293,6 +350,9 @@ class CFModelService:
             trained_at=bundle.trained_at.isoformat(),
             data_source=bundle.source,
             cached_customers=len(bundle.cache),
+            candidates=bundle.stats.get("candidates", 0),
+            onboarded_customers=bundle.stats.get("onboarded_customers", 0),
+            content_based=bool(bundle.stats.get("content_based", 0)),
             last_error=self._last_error,
         )
 
@@ -309,13 +369,13 @@ class CFModelService:
         cid = str(customer_id)
         cached = bundle.cache.get(cid)
         if cached is not None and len(cached) >= top_k:
-            product_ids = cached[:top_k]
+            items = cached[:top_k]
         else:
             # Không có trong cache (khách mới mua lần đầu, hoặc xin nhiều hơn
             # số đã tính sẵn) thì tính tại chỗ từ CHÍNH bản model này.
-            product_ids = [pid for pid, _ in bundle.model.recommend(cid, top_k=top_k)]
+            items = [(pid, reason) for pid, _, reason in bundle.model.recommend(cid, top_k=top_k)]
 
         return CustomerRecommendationResponse(
             customer_id=cid,
-            recommendations=[RecommendationItem(product_id=p) for p in product_ids],
+            recommendations=[RecommendationItem(product_id=p, reason=r) for p, r in items],
         )
