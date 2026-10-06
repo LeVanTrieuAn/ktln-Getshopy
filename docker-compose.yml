@@ -354,6 +354,50 @@ services:
       PG_SOURCE_USER: ${POSTGRES_USER:-getshopy}
       PG_SOURCE_PASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
 
+  # ── Seed dữ liệu — CHẠY TAY, tách khỏi `up` từ 04/10/2026 ─────────────────────
+  # `up` chỉ seed nền nhẹ (tài khoản, danh mục, hãng, voucher, tài khoản test).
+  # Hai bước nặng chạy khi cần; profile 'seed' nên `up -d` (kể cả --build) không đụng tới:
+  #
+  #   docker compose --profile seed run --rm seed-catalog   # 600k sản phẩm + tồn kho, 10–20 phút
+  #   docker compose --profile seed run --rm seed-data      # bộ demo: 40k khách · 3 triệu đơn
+  #   docker compose --profile seed run --rm seed-data demo_dataset.py --dry-run   # thử, KHÔNG ghi
+  #   docker compose --profile seed run --rm seed-data -m unittest discover -s tests -v
+  #
+  # seed-data CHỈ dành cho máy demo — rất nặng, xem README §Seed dữ liệu. Cả hai chỉ cần
+  # Postgres; ghi lúc cả stack đang chạy thì CDC đẩy đơn sang lake ngay khi ghi.
+  seed-catalog:
+    build:
+      context: ./ktln-Getshopy/qu-n-ly-ban-l/source/server
+    profiles: [seed]
+    env_file: [.env]
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
+      DIRECT_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
+    entrypoint: ["sh", "/app/scripts/seed-catalog.sh"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
+  seed-data:
+    build:
+      context: ./data-platform-poc
+    profiles: [seed]
+    environment:
+      # libpq tự đọc các biến PG* — không phải ghép chuỗi kết nối chứa mật khẩu
+      PGHOST: postgres
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER:-getshopy}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      PGDATABASE: ${POSTGRES_DB:-getshopy}
+      # Mật khẩu chung của khách demo — cùng biến với seed-demo.js; trống = 123456
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-}
+    volumes:
+      - ./data-platform-poc/out:/app/out          # manifest của lượt sinh (gitignore)
+    command: ["demo_dataset.py", "--manifest", "/app/out/demo_manifest.json"]
+    depends_on:
+      postgres: {condition: service_healthy}
+    restart: "no"
+
   # Scheduler gọi dbt theo lịch. Tách khỏi service `dbt` (chạy tay) để hai
   # cách dùng không giẫm chân nhau.
   #

@@ -1,0 +1,14 @@
+# Bí mật — KHÔNG bao giờ vào image (Dockerfile cũng chỉ COPY tường minh)
+.env
+.env-*
+.env.*
+!.env.example
+
+# Không cần cho bộ sinh
+legacy/
+logs/
+dbt_warehouse/
+out/
+*.json
+__pycache__/
+*.pyc

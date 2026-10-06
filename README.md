@@ -25,7 +25,8 @@ GetShopy là một hệ thống thương mại điện tử toàn diện bao g�
 ## 🚀 Khởi chạy
 
 Repo này là **private**. Toàn bộ hệ thống lên bằng **một lệnh** — không cần
-cài Node, không cần chạy migration, không cần seed tay.
+cài Node, không cần chạy migration. Dữ liệu lớn (600k sản phẩm, bộ demo 3 triệu
+đơn) là **lệnh riêng**, chạy khi cần — xem [2b. Seed dữ liệu](#2b-seed-dữ-liệu-chạy-riêng).
 
 ### 1. Xin file `.env`
 
@@ -44,11 +45,13 @@ thay vì chạy tiếp với mật khẩu rỗng rồi hỏng ở chỗ không l
 docker compose up -d --build
 ```
 
-Thế thôi. Lần đầu mất **10–20 phút**: build image, rồi seed 600.000 sản phẩm
-và 1,2 triệu dòng tồn kho. Theo dõi bằng:
+Lần đầu chủ yếu là build image. Riêng MinIO build từ mã nguồn mất **~20 phút**
+mỗi máy một lần (MinIO ngừng phát image dựng sẵn — xem
+`local-infra-sandbox/minio/Dockerfile`). Seed lúc `up` chỉ còn phần nền, vài giây.
+Theo dõi bằng:
 
 ```bash
-docker compose logs -f server      # tiến độ seed
+docker compose logs -f server      # migrate + seed nền
 docker compose logs -f bootstrap   # khởi tạo phần big-data
 ```
 
@@ -56,13 +59,68 @@ Những việc sau **tự chạy**, không cần gõ gì thêm:
 
 | Việc | Ai làm |
 |---|---|
-| Tạo schema Postgres, seed 600k sản phẩm, tồn kho, voucher, flash sale | `server` lúc khởi động |
+| Tạo schema Postgres, seed NỀN: tài khoản, chi nhánh, danh mục, hãng, voucher, tài khoản test, flash sale | `server` lúc khởi động |
 | Tạo bucket MinIO, user ClickHouse, kéo masterdata, đăng ký connector CDC | `bootstrap` (chạy một lần rồi thoát) |
 | Dựng model dbt mỗi 5 phút | `dbt-scheduler` |
 | Train lại mô hình gợi ý mỗi 5 phút | `ai-rec` |
 | Sao lưu Postgres mỗi 24h vào `./backups/` | `dbt-scheduler` |
 
-Seed chỉ chạy khi database còn rỗng. Lần `up` sau bỏ qua, dữ liệu giữ nguyên.
+Seed nền chỉ chạy khi database còn rỗng. Lần `up` sau bỏ qua, dữ liệu giữ nguyên.
+Catalog còn trống thì log `server` in nhắc chạy `seed-catalog`.
+
+### 2b. Seed dữ liệu (chạy riêng)
+
+Tách khỏi `up` từ 04/10/2026 — trước đó lần `up` đầu chặn cả stack 10–20 phút để
+seed catalog. Profile `seed` nên `up -d` (kể cả `--build`) không đụng tới.
+
+| Lệnh | Tạo ra | Thời gian | Chạy ở |
+|---|---|---|---|
+| `docker compose --profile seed run --rm seed-catalog` | 600.000 sản phẩm, ~1,2 triệu dòng tồn kho | 10–20 phút | mọi máy cần cửa hàng đủ hàng |
+| `docker compose --profile seed run --rm seed-data` | bộ demo: 40.000 khách, 3.000.000 đơn, onboarding | ước tính 20–60 phút ghi, **chưa đo** | **chỉ máy demo** |
+
+Cả hai idempotent: `seed-catalog` chỉ thêm tới đủ 600k; `seed-data` từ chối chạy
+khi đã có dữ liệu demo — thêm `--reset` để xoá đúng phần nó đã sinh rồi sinh lại.
+Bộ demo là **dữ liệu giả lập** có cấu trúc (gu khách, mua kèm, mua lặp) — giả định
+và nguồn ghi ở đầu `data-platform-poc/demo_dataset.py`; trình bày kết quả trên bộ
+này phải nói rõ là giả lập.
+
+#### Máy demo (Windows) — làm theo đúng thứ tự
+
+Ước lượng dưới đây **chưa đo** — máy demo chạy lần đầu xong thì ghi số thật vào đây.
+
+1. **Đĩa trống ≥ 50 GB, RAM cấp cho Docker ≥ 8 GB.** Ước lượng: Postgres +4–6 GB,
+   Kafka ~20–30 GB (message CDC dạng JSON kèm schema, giữ 7 ngày mặc định), MinIO và
+   ClickHouse mỗi bên vài GB.
+2. Clone repo **sau** khi đã có `.gitattributes` (04/10/2026): script `.sh` phải giữ
+   LF, CRLF làm container chết ngay dòng đầu. Đã clone từ trước thì **clone lại** là
+   chắc nhất (lệnh checkout lại tại chỗ `git rm --cached -r . && git reset --hard`
+   XOÁ mọi thay đổi chưa commit — chỉ dùng trên bản clone sạch).
+3. Đặt `.env` ở gốc repo như mọi máy.
+4. Seed **trước** khi bật cả stack — Debezium chụp một lần (snapshot) nhẹ hơn đẩy
+   ~9,5 triệu thay đổi qua replication slot:
+   ```bash
+   docker compose up -d postgres
+   docker compose --profile seed run --rm seed-catalog
+   docker compose --profile seed run --rm seed-data demo_dataset.py --dry-run   # xem số liệu thử, không ghi
+   docker compose --profile seed run --rm seed-data
+   docker compose up -d --build
+   ```
+5. Chờ dữ liệu chảy hết đường CDC → Kafka → MinIO → dbt → AI-Rec (ước tính 30–120
+   phút). Kiểm:
+   ```bash
+   docker compose exec clickhouse clickhouse-client -q "SELECT count(), uniqExact(order_id) FROM warehouse.fact_orders_detail FINAL WHERE _is_deleted = 0"
+   docker compose exec ai-rec python -c "import json,urllib.request as u; print(json.load(u.urlopen('http://localhost:8000/health')))"
+   ```
+
+Lưu ý khi giữ máy demo chạy lâu dài:
+- **Không `docker compose down`** (dùng `stop`/`start`). Kafka không có volume, tạo
+  lại container là Debezium chụp lại TOÀN BỘ bảng — ~9,5 triệu bản ghi trùng vào
+  lake mỗi lần (dbt khử trùng được, nhưng lake phình và mỗi lượt dbt quét lâu hơn).
+- dbt quét toàn bộ parquet mỗi lượt, mà `flush.size = 1000` nên lake có ~9.500 file
+  nhỏ. Máy chậm thì đặt `DBT_SCHEDULE=30m` trong `.env`.
+- Tài khoản demo: `test@getshopy.vn` có gu cố định (Apple, điện thoại + phụ kiện) để
+  người xem thấy ngay gợi ý khớp lịch sử; 40k khách `kh00001@demo.getshopy.vn` …
+  chung mật khẩu `DEMO_PASSWORD` (mặc định `123456` — đổi nếu máy demo mở ra ngoài).
 
 ### 3. Truy cập
 
@@ -91,6 +149,7 @@ Tài khoản có sẵn:
 docker compose ps                                  # trạng thái 14 service
 docker compose logs -f <service>                   # xem log
 docker compose --profile dbt run --rm dbt build    # chạy dbt ngay, không chờ lịch
+docker compose --profile seed run --rm seed-catalog       # seed 600k sản phẩm (một lần)
 python3 data-platform-poc/pos_simulator.py --orders 200   # bắn đơn giả lập
 ```
 

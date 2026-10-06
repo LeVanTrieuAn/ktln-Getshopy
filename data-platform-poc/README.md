@@ -99,3 +99,39 @@ docker run --rm -v "$PWD/data-platform-poc":/sim:ro \
 
 Chế độ ghi vào Postgres/ClickHouse chưa làm, vì cần reset dữ liệu live (backup → xoá đơn và
 event cũ → sinh lại → dựng lại CDC/warehouse). Việc này chờ duyệt.
+→ Đã làm ở dạng bộ dữ liệu demo riêng cho máy demo, xem mục dưới (04/10/2026).
+
+## Bộ dữ liệu demo — `demo_dataset.py` (04/10/2026, đã viết, CHƯA chạy)
+
+Chế độ ghi vào hệ thật của mô hình v2, ở quy mô demo: **40.000 khách · 3.000.000 đơn** trên
+catalog 600k. Đơn vào Postgres như đơn thật rồi đi đúng đường CDC → Kafka → MinIO → dbt →
+serving → AI-Rec; không có đường tắt ghi thẳng vào ClickHouse hay vào model.
+
+Giữ nguyên mô hình và tham số mặc định của v2, thêm ba thứ — đều là GIẢ ĐỊNH của bộ sinh:
+- tổng số đơn **đúng** bằng `--orders` (chia theo đa thức, cùng tỉ lệ kỳ vọng với Poisson của v2);
+- **mua kèm**: thiết bị kéo theo phụ kiện của nhóm liên quan, ưu tiên cùng hãng
+  (McAuley et al., 2015 — sản phẩm bổ trợ);
+- **vòng đời đơn** đi đúng các bước của server (checkoutService → webhookService →
+  orderLifecycle; tại quầy như `pos_simulator.py`), phí ship đúng `pricingService`.
+
+Tài khoản `test@getshopy.vn` được gán gu cố định (Apple, điện thoại + phụ kiện, tầm giá cao) —
+lựa chọn trình diễn để người xem nhận ra gợi ý có khớp lịch sử, không phải giả định thống kê.
+
+**Phải nói rõ khi trình bày kết quả**: đây là dữ liệu giả lập; model học tốt vì dữ liệu được
+sinh có cấu trúc, nên con số đo được là mức hệ khai thác cấu trúc đó, không phải hiệu năng
+trên khách thật (Ie et al., 2019). Trung bình ~75 đơn/khách/năm là tải demo, cao hơn nhiều
+hành vi mua đồ công nghệ thật.
+
+```bash
+docker compose --profile seed run --rm seed-data demo_dataset.py --dry-run   # thử, không ghi
+docker compose --profile seed run --rm seed-data                             # ghi thật
+docker compose --profile seed run --rm seed-data demo_dataset.py --reset     # xoá bộ cũ, sinh lại
+docker compose --profile seed run --rm seed-data -m unittest discover -s tests -v
+docker compose --profile seed run --rm seed-data demo_dataset.py --help      # mọi tham số
+```
+
+Mọi thứ script sinh đều đánh dấu để `--reset` tháo đúng phần của nó: khách có email
+`@demo.getshopy.vn`, đơn có `customer->>'_seed' = 'demo_dataset'` (đơn tạo tay trên tài khoản
+demo không mang dấu nên được giữ). Không đụng tồn kho, voucher, điểm thành viên, hành vi web.
+`Product.sold` được đặt lại theo số lượng bán thật từ đơn đã thanh toán (`--sold-mode keep`
+để giữ số cũ). Tóm tắt mỗi lượt chạy ghi ở `data-platform-poc/out/demo_manifest.json`.

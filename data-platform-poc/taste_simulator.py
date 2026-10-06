@@ -52,7 +52,7 @@ Chạy (chế độ offline — chỉ ghi CSV, KHÔNG đụng DB; cần numpy):
   behavior_events.csv   CustomerID, ProductID, EventType, EventTime, DwellMs, Referrer
   sim_params.json       tham số + đáp án gu (để đối chiếu)
 
-Chế độ ghi vào Postgres/ClickHouse (demo cả hệ) chưa làm: cần reset dữ liệu live — chờ duyệt.
+Chế độ ghi vào Postgres (demo cả hệ, quy mô lớn): demo_dataset.py — dùng lại hằng số ở file này.
 
 Tài liệu:
   Bhagat, R., Muralidharan, S., Lobzhanidze, A., & Vishwanath, S. (2018). Buy It Again:
