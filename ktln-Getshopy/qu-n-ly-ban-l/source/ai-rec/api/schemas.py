@@ -9,6 +9,11 @@ class RecommendationItem(BaseModel):
     """Chi tiết của một sản phẩm được gợi ý."""
 
     product_id: str = Field(..., description="Mã sản phẩm (ProductID)")
+    # Kênh đóng góp nhiều nhất vào điểm của món — để giao diện giải thích được
+    # "vì sao gợi ý món này". Có giá trị mặc định: bên gọi cũ bỏ qua được.
+    reason: str | None = Field(
+        None, description="cf | content | repeat | popular — kênh chính đưa món này lên"
+    )
 
 
 class CustomerRecommendationResponse(BaseModel):
@@ -37,4 +42,13 @@ class HealthResponse(BaseModel):
     trained_at: str | None = Field(None, description="Thời điểm train xong (UTC)")
     data_source: str | None = Field(None, description="clickhouse | csv | disk")
     cached_customers: int = Field(0, description="Số khách đã có gợi ý tính sẵn")
+    candidates: int = Field(0, description="Số món ứng viên (đang bán, có đặc trưng)")
+    onboarded_customers: int = Field(0, description="Số khách có tín hiệu onboarding")
+    content_based: bool = Field(False, description="False = đang chạy thuần CF (thiếu bảng đặc trưng)")
+    repeat_model: bool = Field(
+        False, description="True = kênh mua lại theo tần suất đơn; False = cách cũ (trọng số ma trận CF)"
+    )
+    behavior: bool = Field(
+        False, description="True = ma trận hồ sơ CF có tín hiệu hành vi phụ (xem/giỏ/yêu thích)"
+    )
     last_error: str | None = Field(None, description="Lỗi của lần train gần nhất, nếu có")

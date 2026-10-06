@@ -1,0 +1,13 @@
+version: 2
+
+models:
+  - name: user_events_stitched
+    description: >-
+      Sự kiện hành vi (analytics.user_events) với customer_id đã ghép phiên: sự kiện ẩn danh
+      trong phiên có đúng một khách đăng nhập được gán cho khách đó (cột stitched = 1).
+      Mức từng sự kiện — nằm ở warehouse, tài khoản ai_rec không đọc.
+    columns:
+      - name: session_id
+        tests: [not_null]
+      - name: event_type
+        tests: [not_null]

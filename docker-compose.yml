@@ -168,16 +168,22 @@ services:
     volumes:
       - clickhouse_data:/var/lib/clickhouse
       - ./ktln-Getshopy/qu-n-ly-ban-l/source/clickhouse-init:/docker-entrypoint-initdb.d:ro
+      - ./scripts/ch-optimize.sh:/ch-optimize.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 5s
       timeout: 5s
       retries: 12
-    # Gộp phần thừa của ReplacingMergeTree, chạy thưa vào lúc rảnh.
+    # Gộp phần thừa của MỌI bảng ReplacingMergeTree, chạy thưa vào lúc rảnh.
     #
-    # Bảng processed_data_for_AI_rec là append-only: mỗi cặp (khách, sản phẩm)
-    # đổi số lượng là ghi thêm một dòng. ClickHouse tự gộp trong nền, nhưng
-    # không hứa lúc nào — phần thừa tích lại làm mọi truy vấn FINAL chậm dần.
+    # fact_orders_detail và processed_data_for_AI_rec đều là incremental
+    # append-only: mỗi lượt dbt (5 phút) ghi thêm phần mới, orders_live thì
+    # nhận liên tục từ Kafka. ClickHouse tự gộp trong nền nhưng không hứa lúc
+    # nào — phần thừa tích lại làm mọi truy vấn FINAL chậm dần đều.
+    #
+    # Script tự tìm bảng thay vì liệt kê cứng: thêm model ReplacingMergeTree
+    # mới mà quên sửa chỗ này thì bảng đó tích phần thừa vô hạn, và không có
+    # dấu hiệu nào ngoài việc truy vấn chậm dần.
     #
     # KHÔNG đặt OPTIMIZE vào post_hook của dbt: dbt chạy mỗi 5 phút, mà
     # OPTIMIZE FINAL đọc và ghi lại TOÀN BỘ bảng. Chạy mỗi 5 phút là dành phần
@@ -188,8 +194,7 @@ services:
     labels:
       ofelia.enabled: "true"
       ofelia.job-exec.ch-optimize.schedule: "@every ${CH_OPTIMIZE_SCHEDULE:-1h}"
-      ofelia.job-exec.ch-optimize.command: >-
-        clickhouse-client --query "OPTIMIZE TABLE serving.processed_data_for_AI_rec FINAL"
+      ofelia.job-exec.ch-optimize.command: "sh /ch-optimize.sh"
     restart: unless-stopped
 
   redis:
@@ -256,10 +261,11 @@ services:
     restart: unless-stopped
 
   minio:
-    # quay.io chứ không phải Docker Hub: MinIO đã gỡ image khỏi Docker Hub
-    # công khai, `docker pull minio/minio` trả "pull access denied".
-    # quay.io là registry chính thức MinIO vẫn phát hành.
-    image: quay.io/minio/minio:${MINIO_VERSION:-latest}
+    # Build từ mã nguồn, ghim RELEASE.2025-09-07T16-13-09Z: MinIO đã ngừng phát
+    # image bản cộng đồng — Docker Hub lẫn quay.io đều không kéo được nữa (04/10/2026).
+    # Lý do và nguồn: local-infra-sandbox/minio/Dockerfile.
+    build:
+      context: ./local-infra-sandbox/minio
     ports:
       - "${MINIO_PORT:-9000}:9000"
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
@@ -270,7 +276,7 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://localhost:9000/minio/health/ready"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -307,6 +313,7 @@ services:
       - ./scripts/bootstrap-bigdata.sh:/bootstrap.sh:ro
       - ./local-infra-sandbox/config-json:/config-json:ro
       - ./ktln-Getshopy/qu-n-ly-ban-l/source/clickhouse-init:/clickhouse-init:ro
+      - ./scripts/etl:/etl:ro
     depends_on:
       postgres: {condition: service_healthy}
       clickhouse: {condition: service_healthy}

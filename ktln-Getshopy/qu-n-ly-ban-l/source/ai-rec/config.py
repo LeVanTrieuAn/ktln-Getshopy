@@ -30,6 +30,9 @@ TEST_DATA_PATH = PROCESSED_DATA_DIR / "test.csv"
 OUTPUT_DIR = PROJECT_ROOT / "output"
 MODEL_DIR = OUTPUT_DIR / "cf"
 MODEL_PATH = MODEL_DIR / "item_cf.joblib"
+# Bản hybrid (CF + content-based + tham số trộn) — artifact service phục vụ.
+# item_cf.joblib chỉ còn là đường dự phòng khi nâng cấp từ bản thuần CF.
+HYBRID_MODEL_PATH = OUTPUT_DIR / "hybrid" / "recommender.joblib"
 
 
 
@@ -55,12 +58,47 @@ CLICKHOUSE_TABLE = os.getenv("CLICKHOUSE_TABLE", "serving.processed_data_for_AI_
 # một cặp (khách, sản phẩm) sẽ hiện ra nhiều lần với số lượng khác nhau.
 # Quantity > 0 lọc ngay ở nguồn: dòng 0 là bia mộ của cặp đã bị huỷ, và model
 # cũng loại chúng ở bước làm sạch — kéo về chỉ tốn băng thông.
+# Không còn FINAL ở đây: nguồn giờ là VIEW, và view đã FINAL sẵn bên trong,
+# đồng thời đã lọc sản phẩm quá ít người mua. Thêm FINAL lên view là lỗi cú pháp.
 TRAINING_QUERY = (
-    f"SELECT CustomerID, ProductID, Quantity "
-    f"FROM {CLICKHOUSE_TABLE} FINAL "
+    f"SELECT CustomerID, ProductID, Quantity, "
+    # Số ngày kể từ lần mua gần nhất — tính ở ClickHouse để khỏi phải thống
+    # nhất múi giờ giữa hai hệ.
+    f"dateDiff('day', LastPurchasedAt, now()) AS DaysSince "
+    f"FROM {CLICKHOUSE_TABLE} "
     f"WHERE Quantity > 0 "
     f"FORMAT TabSeparatedWithNames"
 )
+
+# ==============================================================================
+# Giảm trọng số theo thời gian (time decay)
+# ==============================================================================
+# Quantity cộng dồn TOÀN BỘ lịch sử, nên một đơn ba tháng trước nặng ngang đơn
+# hôm qua và gợi ý không theo kịp sở thích đang đổi.
+#
+# Trọng số:  w = Quantity * 0.5 ** (số ngày / HALF_LIFE)
+#   mua hôm nay           -> giữ nguyên  100%
+#   mua đúng HALF_LIFE ngày ->            50%
+#   mua gấp đôi HALF_LIFE  ->            25%
+#
+# Chọn hàm mũ chứ không trừ tuyến tính: trừ tuyến tính sẽ về 0 rồi âm, còn hàm
+# mũ giảm dần và luôn dương — món mua rất lâu vẫn còn chút ảnh hưởng thay vì
+# biến mất đột ngột.
+#
+# HALF_LIFE = 0 để TẮT hẳn, quay lại hành vi cũ.
+#
+# 7 ngày: CHỌN TRÊN VALIDATION (01/10/2026) trong lưới khai báo trước {7, 10, 14,
+# 30, 60} — dùng chung cho ma trận CF, kênh mua lại và độ phổ biến. 7 là CẬN DƯỚI
+# của lưới, đặt theo miền trước khi đo (đồ điện tử không đổi gu theo ngày):
+# validation còn muốn ngắn hơn chỉ vì dữ liệu tổng hợp đổi gu đột ngột đầu tháng 9.
+# Có dữ liệu thật thì phải chọn lại. Bản trước 01/10 chạy 30.
+RECENCY_HALF_LIFE_DAYS = float(os.getenv("RECENCY_HALF_LIFE_DAYS", "7"))
+
+# Thang của trọng số trong ma trận CF, sau khi đã giảm theo thời gian:
+#   "linear" -> giữ nguyên số lượng (bản trước 01/10)
+#   "log"    -> log(1 + ·) (Hu et al., 2008): mua 10 cái không nặng gấp 10 lần mua 1 cái
+# Half-life và thang được chọn CÙNG LÚC trên validation (evaluation/benchmark.py).
+CF_INPUT_SCALE = os.getenv("CF_INPUT_SCALE", "log")
 
 # ==============================================================================
 # Chu kỳ train lại
@@ -92,3 +130,66 @@ PRECOMPUTE_TOP_K = int(os.getenv("PRECOMPUTE_TOP_K", "20"))
 # Trần thời gian tính sẵn. Vượt thì dừng, phần khách còn lại rơi về tính tại
 # chỗ — thà cache một phần còn hơn để chu kỳ train tràn sang chu kỳ kế tiếp.
 PRECOMPUTE_BUDGET_SECONDS = float(os.getenv("PRECOMPUTE_BUDGET_SECONDS", "60"))
+
+# ==============================================================================
+# Content-based + hybrid
+# ==============================================================================
+# Đặc trưng sản phẩm và sở thích onboarding — cả hai do dbt dựng trong `serving`
+# (tài khoản ai_rec chỉ đọc được schema này). Xem models/content_based.py.
+PRODUCT_FEATURES_TABLE = os.getenv("PRODUCT_FEATURES_TABLE", "serving.product_features")
+PREFERENCE_SIGNALS_TABLE = os.getenv("PREFERENCE_SIGNALS_TABLE", "serving.customer_preference_signals")
+PRODUCT_FEATURES_QUERY = (
+    f"SELECT ProductID, ParentCategory, Brand, PriceBand, UnitsSold, CatalogSold, CellRank "
+    f"FROM {PRODUCT_FEATURES_TABLE} FORMAT TabSeparatedWithNames"
+)
+PREFERENCE_SIGNALS_QUERY = (
+    f"SELECT CustomerID, Dimension, Value, Polarity "
+    f"FROM {PREFERENCE_SIGNALS_TABLE} FORMAT TabSeparatedWithNames"
+)
+
+# final = α·CF + (1−α)·CB + γ·mua_lại,  α = n/(n + k)  — xem models/hybrid.py.
+#
+# k và γ: CHỌN TRÊN VALIDATION (01/10/2026) theo luật khai báo trước — tối đa
+#   NDCG@10 tổng thể với ràng buộc 2–3 món khách đã mua trong 10 gợi ý. Ràng buộc
+#   là QUYẾT ĐỊNH SẢN PHẨM (chốt 01/10): không ràng buộc thì validation chọn γ = 5,
+#   khi đó phần lớn ô là món đã mua và khám phá gần bằng 0.
+# k = 0: khách đã mua dùng thuần CF cho phần khám phá — content-based không giúp
+#   khách có lịch sử trên dữ liệu hiện tại; khách mới (n = 0) vẫn dùng thuần
+#   content-based vì α(0) = 0.
+HYBRID_CF_SHRINK_K = float(os.getenv("HYBRID_CF_SHRINK_K", "0"))
+HYBRID_REPEAT_WEIGHT = float(os.getenv("HYBRID_REPEAT_WEIGHT", "1"))
+# Cho phép gợi ý lại món đã mua (quyết định sản phẩm: áp cho MỌI sản phẩm).
+HYBRID_ALLOW_REPEAT = os.getenv("HYBRID_ALLOW_REPEAT", "1") not in ("0", "false", "False")
+# Kênh mua lại (chọn trên validation 01/10/2026: "order_freq"):
+#   "order_freq" -> tần suất ĐƠN đã giảm theo thời gian (models/repeat.py). Cần
+#                   bảng serving.purchase_events_for_AI_rec; bảng lỗi/thiếu thì tự
+#                   rơi về "cf_weight" và /health báo repeat_model = false.
+#   "cf_weight"  -> cách cũ (bản trước 01/10): trọng số của món trong ma trận CF.
+REPEAT_SCORE = os.getenv("REPEAT_SCORE", "order_freq")
+PURCHASE_EVENTS_TABLE = os.getenv("PURCHASE_EVENTS_TABLE", "serving.purchase_events_for_AI_rec")
+PURCHASE_EVENTS_QUERY = (
+    # Một dòng cho mỗi (khách, món, đơn). Số ngày tính ở ClickHouse, cùng cách
+    # với TRAINING_QUERY, để hai kênh già đi theo cùng một đồng hồ.
+    f"SELECT CustomerID, ProductID, dateDiff('day', OrderedAt, now()) AS DaysSince "
+    f"FROM {PURCHASE_EVENTS_TABLE} FORMAT TabSeparatedWithNames"
+)
+# ==============================================================================
+# Tín hiệu hành vi phụ cho ma trận hồ sơ của CF — xem models/behavior.py
+# ==============================================================================
+# "none" | "count" | "dwell" | "dwell+cart". Chọn trên validation như mọi tham số khác.
+# Mặc định TẮT: hành vi đang có trong analytics.user_events là dữ liệu seed không liên
+# quan tới gu mua (evaluation/README.md §Hạn chế) — bật lên chỉ thêm nhiễu.
+CF_BEHAVIOR_MODE = os.getenv("CF_BEHAVIOR_MODE", "none")
+CF_BEHAVIOR_VIEW_WEIGHT = float(os.getenv("CF_BEHAVIOR_VIEW_WEIGHT", "0.5"))
+CF_BEHAVIOR_CART_WEIGHT = float(os.getenv("CF_BEHAVIOR_CART_WEIGHT", "1"))
+CF_BEHAVIOR_WISH_WEIGHT = float(os.getenv("CF_BEHAVIOR_WISH_WEIGHT", "0.5"))
+BEHAVIOR_TABLE = os.getenv("BEHAVIOR_TABLE", "serving.customer_product_events")
+BEHAVIOR_QUERY = (
+    f"SELECT CustomerID, ProductID, Views, DwellSec, Carts, Wishlists, "
+    f"dateDiff('day', LastEventAt, now()) AS DaysSince "
+    f"FROM {BEHAVIOR_TABLE} FORMAT TabSeparatedWithNames"
+)
+
+# Một lựa chọn onboarding nặng bằng bấy nhiêu lần mua khi dựng hồ sơ nội dung.
+# CHƯA tinh chỉnh được: cần dữ liệu onboarding thật để đo (xem README đánh giá).
+CB_ONBOARDING_PSEUDO_COUNT = float(os.getenv("CB_ONBOARDING_PSEUDO_COUNT", "1"))

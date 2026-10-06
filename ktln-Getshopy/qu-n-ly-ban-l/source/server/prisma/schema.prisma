@@ -29,6 +29,32 @@ model B2CCustomer {
   avatar         String?
   provider       String   @default("local")
   created_at     DateTime @default(now())
+  // Trường ẢO của Prisma — không tạo cột nào trong bảng B2CCustomer.
+  preference     CustomerPreference?
+}
+
+/// Sở thích khách tự khai ở trang onboarding.
+///
+/// Đây là tín hiệu TƯỜNG MINH (explicit) — loại dữ liệu mà lịch sử mua hàng không
+/// có. Mua hàng là tín hiệu NGẦM: nó cho biết khách đã mua gì, nhưng KHÔNG cho biết
+/// khách không thích gì. Collaborative filtering không phân biệt được "chưa biết
+/// tới món này" với "không quan tâm", nên hai cột disliked_* là thứ duy nhất trong
+/// hệ mang tín hiệu phủ định.
+///
+/// Một dòng cho mỗi khách. Không có dòng = chưa từng thấy onboarding -> hiện lên.
+model CustomerPreference {
+  customer_id         BigInt      @id
+  customer            B2CCustomer @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  /// 'completed' | 'skipped' — kiểm ở tầng API, Prisma không mô hình được CHECK
+  status              String
+  liked_categories    String[]    @default([])
+  liked_brands        String[]    @default([])
+  disliked_categories String[]    @default([])
+  disliked_brands     String[]    @default([])
+  /// 'lt5' | '5to15' | '15to30' | 'gt30' (triệu đồng); null = không chọn
+  price_band          String?
+  created_at          DateTime    @default(now())
+  updated_at          DateTime    @updatedAt
 }
 
 model Branch {

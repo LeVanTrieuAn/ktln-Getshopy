@@ -120,7 +120,11 @@ const applyFlashSaleToProduct = (product, fsItems) => {
  *   2. Top bán chạy toàn cửa hàng → fill remaining
  *   3. Sản phẩm mới nhất → fill remaining
  *
- * @param {string|null} email - Email khách hàng
+ * @param {string|null} _email - KHÔNG DÙNG. Giữ lại cho đúng chữ ký mà
+ *        server/scripts/test-behavior-tracking.js đang gọi. Danh tính khách
+ *        đến từ `customerId`, và routes/recommendation.js chỉ lấy nó TỪ TOKEN.
+ *        Đừng tra khách theo tham số này: bản trước nhận email rồi không dùng,
+ *        nên customerId luôn undefined và nhánh AI-Rec không bao giờ chạy.
  * @param {Object} opts
  * @param {string} [opts.categoryId] - Category ID
  * @param {string} [opts.brandId] - Brand ID
@@ -128,7 +132,7 @@ const applyFlashSaleToProduct = (product, fsItems) => {
  * @param {number} [opts.customerId] - B2CCustomer ID
  * @returns {Promise<Array>}
  */
-async function getRecommendations(email = null, { categoryId, brandId, sessionId, customerId } = {}) {
+async function getRecommendations(_email = null, { categoryId, brandId, sessionId, customerId } = {}) {
   await KC.ensureLoaded();
   const fsItems = await getActiveFlashSaleItems();
 

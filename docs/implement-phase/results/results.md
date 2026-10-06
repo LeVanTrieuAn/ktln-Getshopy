@@ -485,9 +485,18 @@ chưa cắm. Service chạy degraded, mọi gợi ý trả mảng rỗng.
 
 ### 12.1 Đổi `processed_data_for_AI_rec` sang append-only
 
-Bản cũ `materialized='table'`: mỗi lần dbt chạy là DROP rồi CREATE lại. Với
-chu kỳ 5 phút thì có một khoảng bảng không tồn tại hoặc rỗng — AI-Rec fetch
-đúng lúc đó sẽ train trên bảng trống và **xoá sạch model đang tốt**.
+Chuyển sang append-only + ReplacingMergeTree theo yêu cầu dedup theo `updated_at`.
+
+> **Đính chính (28/09).** Bản trước của mục này ghi lý do là *"`table` DROP rồi
+> CREATE lại, có khoảng bảng rỗng mà AI-Rec có thể đọc trúng"*. **Điều đó sai.**
+> Kiểm `system.query_log` cho thấy dbt-clickhouse dựng bảng `table` theo bốn
+> bước: `CREATE … __dbt_backup` → `INSERT` → **`EXCHANGE TABLES`** → `DROP` bản
+> cũ. Trên database engine `Atomic` (mặc định của ClickHouse 24.8), `EXCHANGE`
+> là thao tác nguyên tử — không có khoảnh khắc nào bảng rỗng.
+>
+> Lý do đúng để dùng incremental ở đây là **chi phí**: `table` dựng lại toàn bộ
+> tập cặp (khách, sản phẩm) mỗi 5 phút, còn incremental chỉ tính lại các cặp
+> vừa có đơn mới. Với bảng nhỏ như hiện tại thì chênh lệch không đáng kể.
 
 Bản mới:
 
@@ -600,3 +609,394 @@ là tự hết.
   Hiện rẻ (mili-giây) vì `fit()` chỉ dựng ma trận thưa và chuẩn hoá, **không**
   nhân ma trận item×item. Cần đo lại khi số tương tác lên hàng triệu.
 - Đỉnh bộ nhớ gấp đôi trong lúc đổi bản — chưa đo ở quy mô thật.
+
+---
+
+## 13. Sửa nạp tăng dần của `fact_orders_detail` (29/09)
+
+### 13.1 Triệu chứng
+
+Sửa snapshot hãng/danh mục của 335 dòng `OrderItem` (7 sản phẩm Apple bị gán
+sai hãng). Bản ghi `op=u` đi đủ Kafka → parquet → `staging.stg_order_items`,
+nhưng **fact vẫn giữ giá trị cũ**. Không có lỗi nào báo ra.
+
+### 13.2 Nguyên nhân — hai lỗi cùng họ
+
+**(1) Lọc hai nguồn riêng rẽ theo mốc.** Model cũ cắt cửa sổ `event_ts >= mốc`
+cho `stg_orders` và `stg_order_items` *độc lập*, rồi `LEFT JOIN`. Thay đổi một
+phía là mất:
+
+| Thay đổi | Cửa sổ Order | Cửa sổ OrderItem | Kết quả |
+|---|---|---|---|
+| chỉ dòng hàng (sửa snapshot) | trống | có | JOIN hụt → `WHERE` loại → **mất** |
+| chỉ đơn (PENDING → PAID) | có | trống | không có dòng nào để ghi → **mất** |
+
+Chạy lại logic cũ trên đúng dữ liệu lake của bài thử 13.4: 1 đơn + 1 dòng hàng
+trong cửa sổ → **0 dòng fact**.
+
+**(2) Một mốc chung cho hai nguồn.** Mốc cũ = `max(greatest(ts dòng hàng, ts đơn))`.
+Sink xả parquet của hai topic ở hai thời điểm khác nhau, nên nguồn đi trước kéo
+mốc vượt qua bản ghi của nguồn đi sau chưa kịp xuống MinIO → bản ghi đó **không
+bao giờ** được nạp. Không phải giả định: ngay sau full-refresh, mốc đơn là
+`01:52 29/09`, mốc dòng hàng là `17:40 28/09` — lệch 8 giờ.
+
+Comment cũ trong model ("lần chạy sau bắt được vì watermark chưa vượt qua nó")
+sai vì cả hai lý do trên.
+
+### 13.3 Bản sửa
+
+- **Theo đơn:** gom `changed` = đơn có bản ghi mới ở *bất kỳ* nguồn nào; với các
+  đơn đó lấy bản mới nhất của đơn và của **mọi** dòng hàng trên toàn bộ lịch sử.
+- **Mốc riêng từng nguồn:** thêm 2 cột `_order_event_ts`, `_item_event_ts`.
+  Mỗi topic có 1 partition, 1 task sink ghi theo thứ tự offset, và `ts_ms` của
+  Debezium là giờ connector xử lý nên tăng theo offset → bản ghi chưa xuống lake
+  luôn có `ts >=` mốc của chính nguồn đó.[^kafka-order]
+- `_event_ts` (version của ReplacingMergeTree) giữ nguyên công thức.
+- **Chặn bảng cũ:** bảng dựng trước bản sửa không có 2 cột mốc → model báo lỗi
+  kèm lệnh cần chạy, thay vì lỗi ClickHouse khó đọc. Máy khác kéo code về mà còn
+  volume cũ thì chạy **một lần**:
+  `docker compose --profile dbt run --rm dbt run --full-refresh --select fact_orders_detail+`
+
+[^kafka-order]: Kafka chỉ đảm bảo thứ tự *trong một partition* (Apache Kafka
+Documentation, §Design). `ts_ms` ở envelope là thời điểm connector xử lý sự kiện
+(Debezium PostgreSQL Connector Documentation, §Data change events).
+
+### 13.4 Kiểm chứng
+
+| Kiểm tra | Trước | Sau |
+|---|---|---|
+| Sản phẩm 1–7 trong fact `FINAL` | 6/7 sai hãng (anker, nokia, oppo, lg…) | 7/7 `br-apple`, đúng danh mục, khớp Postgres |
+| Số dòng / số đơn / tổng `net_amount` | 6262 / 3509 | 6262 / 3509 / 154 649 475 200 — khớp Postgres |
+| `audit.checksum_orders` | — | `KHỚP` cả 3 tầng |
+| Chỉ dòng hàng đổi (`quantity = quantity`) | logic cũ: 0 dòng | cả đơn ghi lại, `_item_event_ts` mới |
+| Chỉ đơn đổi (`status = status`) | logic cũ: 0 dòng | 3/3 dòng hàng ghi lại, `_order_event_ts` mới |
+| `dbt build` | — | 36/36 PASS |
+
+Bài thử dùng cập nhật không đổi giá trị (`SET x = x`) — Postgres vẫn ghi WAL
+nên Debezium vẫn phát `op=u`, dữ liệu không bị đụng.
+
+### 13.5 Đánh đổi và hạn chế
+
+- **Chi phí:** glob `s3()` không cắt tỉa theo thời gian nên mỗi lần chạy vốn đã
+  mở mọi file parquet; lọc theo `order_id` không tăng số file phải đọc (hiện 55
+  file, model chạy ~0,2 s). Khi lake lớn, hướng đúng là tầng trung gian đã dedup
+  (bảng ClickHouse) thay vì đọc lại parquet — chưa làm.
+- Mốc dùng `>=` nên mỗi lượt ghi lại vài đơn nằm đúng mốc (đo được 13 dòng /
+  lượt khi không có thay đổi). ReplacingMergeTree khử, job `ch-optimize` gộp.
+- **Xoá lẻ một `OrderItem` không lan tới fact:** bảng để `REPLICA IDENTITY
+  DEFAULT`, bản ghi xoá chỉ mang khoá chính, không có `order_id` để lần về đơn.
+- **Xoá cả đơn chỉ lan khi đọc `FINAL`:** bản xoá không có `date` nên rơi vào
+  partition `197001`, khác partition của bản gốc. `SELECT … FINAL` mặc định vẫn
+  khử trùng *xuyên* partition (đã thử trên bảng tạm: 0 dòng), nhưng merge nền và
+  `OPTIMIZE FINAL` chỉ gộp *trong* partition → bản gốc không bao giờ bị dọn vật
+  lý, và bật `do_not_merge_across_partitions_select_final=1` thì đơn đã xoá hiện
+  lại. Nghiệp vụ hiện chỉ huỷ đơn (đổi trạng thái), không xoá, nên chưa sửa.
+
+---
+
+## 14. Onboarding → content-based → benchmark trung thực (28–29/09)
+
+### 14.1 Sinh lại catalog cân bằng — `server/scripts/fill-600k.js`
+
+Catalog cũ không dùng được cho content-based:
+
+| Vấn đề | Nguyên nhân |
+|---|---|
+| 600.000 món mà chỉ 6 món là điện thoại/laptop/tablet, 0 đồng hồ | Chỉ lấy danh mục có `parent_id`; 4 nhóm thiết bị không có con nên bị loại |
+| `br-kamera` chiếm 41% | Hãng không có trong `BRAND_CAT_MAP` được coi là làm MỌI danh mục; 9 danh mục không hãng nào map |
+| Ốp lưng 40 triệu, laptop 200 nghìn | Giá rải đều 150k–50tr cho mọi danh mục → đặc trưng "tầm giá" vô nghĩa |
+
+Bản mới: thiết bị 40% (4 nhóm × 10%), phụ kiện/nghe nhìn/camera 60% (4 × 15%); trong
+nhóm chia đều cho danh mục lá, trong danh mục chia đều cho hãng; trần 10% mỗi hãng;
+giá log-uniform trong khoảng riêng từng danh mục (ƯỚC LƯỢNG cho dữ liệu tổng hợp,
+ghi rõ trong code); thiếu cấu hình thì dừng thay vì lấy ngẫu nhiên; `--dry-run`.
+
+Chỉ thay món CHƯA AI MUA: giữ 82 món có đơn (gồm 8 món flash sale), xoá 599.918 món +
+1.200.010 dòng tồn kho trong một transaction có chốt kiểm (backup trước:
+`backups/kltn-20260929-pre-catalog.dump`), sinh lại, `ensure-inventory.js`.
+Kết quả: đúng tỉ trọng từng nhóm, hãng lớn nhất Xiaomi 5,8%, 0 món thiếu tồn kho.
+
+- `analytics.user_events` (22.255 sự kiện, TẤT CẢ do `seed-behavior-data.js` sinh
+  ngày 17/09) trỏ vào món bị xoá → seed lại; script chuyển sang RNG có hạt giống.
+- `VACUUM` trên `Product` lỗi `No space left on device`: `/dev/shm` của container
+  Postgres mặc định 64 MB, VACUUM song song cần 67 MB. Chạy `VACUUM (PARALLEL 0)`.
+  Nên đặt `shm_size: 256mb` cho service postgres — chưa sửa compose.
+- Onboarding hiển thị tới 14 hãng/nhóm, xếp theo số bán rồi số mặt hàng: catalog mới
+  chia đều nên xếp theo số mặt hàng thì hoà gần hết và giấu mất hãng lớn.
+
+### 14.2 Hợp đồng dữ liệu mới cho AI-Rec (dbt)
+
+```
+Postgres CustomerPreference ─postgresql()─▶ masterdata.dim_customer_preferences
+                                                   │ làm sạch (bỏ skipped, trùng, mồ côi,
+                                                   ▼  vừa thích vừa ghét → giữ ghét)
+                                     serving.customer_preference_signals   (BẢNG)
+masterdata.dim_products/categories/brands ─▶ serving.catalog_features (600k, định nghĩa PriceBand)
+                                                   ▼ + doanh số, top 20/ô + mọi món đã bán
+                                     serving.product_features (6.152 ứng viên)
+```
+
+- `customer_preference_signals` phải là **bảng**: view thường của ClickHouse kiểm
+  quyền bảng gốc theo người gọi, `ai_rec` chỉ có quyền `serving` → Code 497. Cấp
+  thêm `masterdata` là mở cả `dim_customers` cho một dịch vụ không cần.
+- Tầm giá là var `price_bands` trong `dbt_project.yml`, phải khớp `PRICE_BANDS` của
+  `routes/onboarding.js` (ghi chú chéo ở cả hai nơi).
+- +15 test dbt (unique/not_null/accepted_values/relationships + test không mâu thuẫn); `dbt build` 55/55 PASS.
+
+### 14.3 AI-Rec: hybrid có trọng số
+
+`final = α·CF + (1−α)·CB + γ·mua_lại`, `α = n/(n+k)` — `models/hybrid.py`,
+`models/content_based.py`, nguồn trích trong docstring.
+
+- **Lọc cứng** danh mục/hãng "không quan tâm" trên MỌI kênh, kể cả CF và mua lại.
+- Chỉ gợi ý món còn bán (tập ứng viên từ `product_features`); thiếu bảng đặc trưng thì
+  chạy thuần CF và `/health` báo `content_based: false` + `last_error`.
+- Response thêm `reason` (`cf | content | repeat | popular`), mặc định rỗng — server
+  Node chỉ đọc `product_id` nên không phải sửa.
+- Artifact mới `output/hybrid/recommender.joblib` (ghi file tạm + `os.replace`); lần
+  đầu nâng cấp tự bọc `item_cf.joblib` cũ.
+- `tests/test_api.py` cũ đã hỏng từ trước (gọi `service.model` không còn tồn tại) —
+  viết lại; +10 test hybrid. 16/16 pass.
+
+Kiểm chứng đầu-cuối qua API thật: `user0001` (khách 32) lưu onboarding "không quan
+tâm `cat-mobile-acc`" bằng `PUT /api/b2c/me/preferences` → dbt → AI-Rec train lại →
+top-10 từ **7/10** món `cat-mobile-acc` còn **0/10**. Đã xoá bản ghi thử sau đó.
+
+### 14.4 Benchmark — `ai-rec/evaluation/`
+
+Giao thức, bảng kết quả, hạn chế: `ai-rec/evaluation/README.md`. Tóm tắt (NDCG@10):
+
+| | Most-Popular | Item-CF | Content-based | Đang chạy (k=0, γ=1) |
+|---|---|---|---|---|
+| Khám phá món mới | 0,141 | **0,350** | 0,123 | 0,258 |
+| Tổng thể | 0,149¹ | 0,156 | 0,057 | **0,309** |
+| Khách mới mô phỏng | 0,139 | — | **0,186**² | — |
+
+¹ bản gợi ý cả món đã mua · ² onboarding giả lập từ lịch sử thật (cận trên)
+
+Đọc đúng: CF học được cấu trúc đồng mua (gấp 2,5 lần Most-Popular). Content-based
+không giúp khách đã có lịch sử — **do bộ sinh dữ liệu**: gu khách là lát `product_id`
+liên tiếp, không theo danh mục/hãng/giá. 63,5% món ở test là món đã mua, nên chỉ số
+tổng thể thưởng việc gợi ý lại đồ cũ; mức gợi ý lại (γ) là quyết định sản phẩm.
+
+### 14.5 Chờ quyết định
+
+- Chính sách gợi ý lại (γ, hoặc chia ô cố định) và k — bảng đánh đổi ở README đánh giá.
+- Có sửa `pos_simulator.py` để khách mua theo sở thích danh mục/hãng/giá hay không —
+  không có thì không đo được content-based trên dữ liệu này.
+- `server/prisma/migrations/` đang bị gitignore: máy clone mới rơi về `db push`, lịch
+  sử migration khác máy này. Có từ trước hôm nay.
+
+## 15. AI-Rec: tinh chỉnh time-decay, kênh mua lại theo đơn, vá tracking (01/10)
+
+### 15.1 Chẩn đoán lại dữ liệu
+
+- **Cú đổi gu có thật, do chính cách sinh dữ liệu.** 3.490 đơn POS đến từ 5 lần chạy
+  `pos_simulator.py` bằng tay (16–17/09), mỗi lần một `--seed` và một khoảng ngày riêng.
+  Chạy lại `build_orders` với đúng tham số tái tạo 3.490/3.490 đơn. Tập món trước/sau 10/09
+  của cùng khách: Jaccard trung vị 0,07. Bản 29/09 ghi "thời gian không mang thông tin" — sai,
+  đã đính chính ở `evaluation/README.md` và `ai-rec/doc/result-sep30.md`.
+- Gu có tương quan với HÃNG (id sinh theo từng hãng): tỉ trọng hãng nhiều nhất/khách trung vị
+  0,57, ngẫu nhiên ~0,36.
+- Ngày đơn POS lưu theo giờ máy (+07) nhưng pipeline coi là UTC; một phần đơn có ngày ở
+  tương lai so với lúc chạy. AI-Rec kẹp `DaysSince ≥ 0`.
+
+### 15.2 AI-Rec
+
+- `CollaborativeFiltering(half_life_days, input_scale)`: thang `log` (Hu et al., 2008).
+- Kênh mua lại mới `models/repeat.py`: tần suất ĐƠN đã giảm theo thời gian. Thiếu bảng thì
+  rơi về cách cũ, `/health` báo `repeat_model: false` + `last_error`.
+- Benchmark: lưới khai báo trước (half-life {7,10,14,30,60} — cận dưới 7 ngày là quyết định
+  miền; thang; kênh mua lại; k; γ) = 1.920 bộ; luật chọn production = tối đa NDCG tổng thể
+  với 2–3 món cũ/10 (quyết định sản phẩm 01/10); đối chứng mạnh EASE^R, iALS; kiểm độ bền trên
+  2 cửa sổ trước validation; so ghép cặp mới/cũ.
+- Mặc định mới trong `config.py` = cấu hình chọn trên validation: half-life 7, thang log,
+  mua lại `order_freq`, k = 0, γ = 1.
+- Test (đo một lần, NDCG@10, CI 95%): tổng thể 0,309 → 0,356 (+0,047 [+0,018; +0,074]);
+  khám phá 0,258 → 0,267 (+0,008, không có ý nghĩa); mua lại 0,264 → 0,332 (+0,068
+  [+0,029; +0,106]). Item-CF tinh chỉnh (0,377 khám phá) không thua EASE^R (0,359) / iALS
+  (0,373). Chi tiết: `ai-rec/evaluation/README.md`.
+- `tests/`: 31/31 pass (thêm 15 test).
+
+### 15.3 dbt
+
+- `serving.purchase_events_for_AI_rec` — BẢNG (quyền `ai_rec`), một dòng cho mỗi (khách, món,
+  đơn), cùng điều kiện "một lần mua" với `pairs_customer_product`. `dbt build` 6/6 PASS;
+  5.974 dòng · 234 khách · 78 món, khớp tuyệt đối với benchmark. Hợp đồng: §4.5
+  `data-contract-warehouse.md`.
+- AI-Rec đầu–cuối: chu kỳ train đầu (trước khi có bảng) rơi về kênh cũ và báo lỗi đúng; chu kỳ
+  sau nạp 5.974 lượt mua, `repeat_model: true`, `last_error` xoá.
+
+### 15.4 Ecom — tracking hành vi (tiền đề cho tín hiệu hành vi phụ)
+
+Cùng một họ lỗi: tin dữ liệu do client khai.
+
+| Chỗ | Trước | Sau |
+|---|---|---|
+| `POST /b2c/track` | `customer_id`, `event_time` lấy từ body | Khách từ token (`optionalAuthB2C`), giờ server |
+| Giờ sự kiện | Chuỗi UTC không hậu tố, cột `Asia/Ho_Chi_Minh` → lệch 7 giờ | ISO có `Z` + `date_time_input_format = best_effort` |
+| `GET /b2c/recently-viewed` | `customer_id` trên query → xem được lịch sử người khác; `session_id` nối thẳng vào SQL | Khách từ token; mọi chuỗi qua `query_params` |
+| `BehaviorService` (5 hàm) | Nối chuỗi vào SQL, có chỗ nối lại `session_id` đọc từ bảng (injection bậc hai) | Tham số hoá; số qua `_int()` có chặn biên |
+| `POST/GET /b2c/wishlist` | Đòi `customer_id` trong body/query → client thật luôn nhận 400, ai cũng sửa được wishlist người khác | `authB2C`, khách từ token |
+| Client `useTracking` | `sendBeacon` (không gửi được token); dwell tính cả lúc tab ẩn; mất lượt xem cuối khi đóng tab | `fetch keepalive` + token; dwell chỉ khi hiển thị; `pagehide` |
+| Ô "Dành riêng cho bạn" | Không ghi gì | `rec_impression` (món được hiển thị), `rec_click`; referrer `recommendation` qua router state |
+
+Kiểm chứng qua `localhost:3000/api`: không token + body giả `customer_id=1` → lưu `NULL`; token
+khách 5 + body giả `customer_id=1` → lưu `5`; `event_time` giả năm 2020 → giờ server, đúng giờ
+VN; `session_id=x' OR 1=1 -- ` → 200 `[]`; wishlist không token → 401, có token thêm/đọc/bỏ
+chạy. Hai event thử đã xoá.
+
+### 15.5 Còn mở
+
+- **`/api/b2b/*` không có middleware xác thực**: `routes/b2b.js`, `routes/aiAdmin`,
+  `routes/behavior-analytics.js` mount ở `index.js:819–827` không kèm `authMiddleware`. Chưa sửa —
+  đụng luồng trang admin, cần quyết định.
+- Tunnel `cloudflared` không chạy lúc 01/10 — webhook SePay không về được cho tới khi dựng lại
+  và khai URL mới bên SePay.
+- Pha 3 (sửa bộ sinh) và pha 4 (tín hiệu hành vi phụ) chờ chốt cách làm với dữ liệu đang có.
+
+## 16. Pha 3–4: bộ sinh v2 (offline) + tín hiệu hành vi phụ (01/10)
+
+Chốt 01/10: sinh dữ liệu OFFLINE trước (CSV cho benchmark, không đụng DB), reset dữ liệu live để
+sau; dbt đọc thẳng `analytics`; auth `/api/b2b/*` để sau.
+
+### 16.1 Bộ sinh v2 — `data-platform-poc/taste_simulator.py`
+
+- Gu ẩn cố định theo mã khách, xác định trên danh mục/hãng/tầm giá, cộng ái lực ẩn riêng
+  (phần chỉ CF học được).
+- Gu trôi DẦN theo thời gian (40% khách); mua lặp theo loại hàng.
+- Ngày UTC, không có ngày ở tương lai; 25% khách đăng ký giữa cửa sổ.
+- Hành vi sinh từ cùng gu: pha "xem trước khi mua", phiên duyệt, dwell theo mức hợp gu,
+  giỏ/yêu thích.
+- Onboarding có nhiễu (đúng 80%).
+- Mặc định: 500 khách · 639 món (2/ô) · 180 ngày · 90 ngày hành vi → 5.676 đơn, 71.357 sự kiện.
+  Chạy 3,4 giây. Tham số + đáp án gu: `sim_params.json`.
+
+### 16.2 AI-Rec
+
+- `models/behavior.py`: tín hiệu (xem / dwell / giỏ / yêu thích, giảm theo thời gian) chỉ vào
+  ma trận HỒ SƠ của CF. Tập "đã mua" vẫn chỉ từ đơn — món đã xem mà chưa mua vẫn được gợi ý;
+  khách chỉ có hành vi vẫn có gợi ý CF. Tắt thì kết quả giống hệt trước (có test).
+- Đường production: `serving.customer_product_events` (dbt, BẢNG, đọc `analytics.user_events`;
+  lượt xem từ ô gợi ý tách riêng) → `fetch_behavior()` → `CF_BEHAVIOR_MODE` (mặc định `none`).
+  `dbt build` 4/4 PASS; `ai_rec` đọc được; fit bật hành vi trên dữ liệu warehouse chạy đúng.
+- Benchmark tầng 2 (hành vi × half-life), baseline Viewed-only, khách mới "đã duyệt, chưa mua".
+- **Sửa luật chọn sau quan sát:** thêm điều kiện trội và ablation có kiểm soát. Lý do: hành vi
+  seed "thắng" chỉ nhờ lọt ranh giới dải món cũ (3,00 so với 3,01) — chi tiết ở README đánh giá.
+- iALS giải theo dạng thưa: cùng nghiệm (sai khác 2·10⁻¹⁶), nhanh ~8 lần.
+- `tests/`: 41/41 pass.
+
+### 16.3 Kết quả (chi tiết: `ai-rec/evaluation/README.md`)
+
+**Dữ liệu thật** (hành vi seed: 5/234 khách, 2/78 món trùng với dữ liệu đơn):
+- validation không chọn hành vi; cấu hình đang chạy TRÙNG cấu hình được chọn;
+- ablation có kiểm soát: hành vi làm giảm nhẹ (−0,002 đến −0,004 tổng thể).
+
+**Dữ liệu mô phỏng** (cấu hình chọn trên validation, so với cấu hình cũ):
+
+| Chỉ số (NDCG) | Cũ | Mới | Δ |
+|---|---|---|---|
+| Tổng thể | 0,197 | 0,357 | +0,160 [+0,142; +0,178] |
+| Khám phá | 0,021 | 0,176 | +0,154 |
+
+- Ablation hành vi: +0,086 đến +0,092 tổng thể, +0,138 đến +0,148 khám phá.
+- Khách mới chỉ có hành vi duyệt: 0,400 so với 0,099 của Most-Popular.
+
+**Giới hạn:** mô phỏng có tính vòng tròn — bộ sinh giả định "xem trước khi mua".
+
+**Phát hiện cần xử lý tiếp:**
+- Viewed-only thắng hybrid ở khám phá → thêm kênh "xem gần đây".
+- iALS thắng Item-CF trên dữ liệu thưa.
+- Half-life 7 hợp dữ liệu thật hiện tại nhưng kém trên dữ liệu trôi dần → phải chọn lại khi
+  reset dữ liệu.
+
+### 16.4 Còn mở
+
+- Reset dữ liệu live bằng bộ sinh v2 (backup → xoá đơn + event → sinh → dựng lại CDC/warehouse)
+  — cần duyệt; sau đó chạy lại benchmark và đổi `config.py` theo cấu hình được chọn.
+- Kênh "xem gần đây" cho hybrid; đánh giá iALS cho production.
+- `/api/b2b/*` chưa có xác thực (§15.5); tunnel `cloudflared` chưa dựng lại.
+
+## 17. Gắn nốt tracking hành vi phía client + ghép phiên (04/10)
+
+Rà lại 04/10: hook `useTracking` có 11 hàm, nhưng chỉ 6 loại sự kiện được gọi thật. Đã sửa:
+
+| Sự kiện | Trước | Sau |
+|---|---|---|
+| `add_to_cart` | Chỉ 2 nút ở trang chi tiết; 5 đường khác (thẻ sản phẩm trang chủ/danh sách, so sánh, món liên quan) mất | Ghi trong `CartContext.addToCart` — mọi đường, đúng một lần; bỏ lời gọi riêng ở trang chi tiết (tránh đếm đôi) |
+| `remove_from_cart` | Không ghi | `CartContext.removeFromCart` (ngăn giỏ); xoá giỏ sau khi đặt đơn KHÔNG tính |
+| `add_to_wishlist` | Import mà không gọi | `AppContext.toggleWishlist` — mọi nút yêu thích |
+| `checkout_abandon` | Không ghi | Rời `/checkout` (chuyển trang / đóng tab) khi còn hàng mà chưa đặt đơn; hoãn một nhịp để StrictMode không sinh sự kiện giả |
+| `identify` (mới) | — | Gửi sau `b2cLogin` kèm token → ghép phiên. Đăng xuất đổi `session_id` |
+| `page_source` | Cố định "detail" | Suy từ URL (`currentPageSource`); thêm giá trị `compare` phía server |
+
+Lỗi có sẵn được sửa kèm: `ProductList` gọi `api.b2c.toggleWishlist(b2cUser.id, productId)` —
+hàm chỉ nhận `product_id`, nên mã khách bị gửi làm mã món, bấm yêu thích ở trang danh sách bật/tắt
+nhầm món khác; trang này còn giữ danh sách yêu thích riêng, lệch với các trang khác. Nay dùng
+chung danh sách và hàm của `AppContext`.
+
+dbt: view `warehouse.user_events_stitched` (ở `warehouse`, `ai_rec` không đọc — dữ liệu mức sự
+kiện); `serving.customer_product_events` và `export_data.sh` đọc qua view này.
+
+Kiểm chứng:
+- `dbt build` 7/7 PASS; `vite build` trong image client qua.
+- API: sự kiện ẩn danh + `identify` cùng phiên → được ghép cho khách 5 (`stitched = 1`); phiên có
+  hai khách → không ghép.
+- Trình duyệt thật (Playwright headless, Chrome for Testing): trang chủ → `/shop` yêu thích + thêm
+  giỏ trên thẻ → bỏ giỏ trong ngăn giỏ → vào rồi rời `/checkout` → đăng nhập qua form. ClickHouse
+  nhận đủ `rec_impression`, `add_to_cart`, `add_to_wishlist`, `remove_from_cart`,
+  `checkout_abandon`, `identify`; năm sự kiện trước lúc đăng nhập được ghép cho khách; không có
+  lỗi JavaScript trên trang; `session_id` giữ nguyên qua đăng nhập.
+- Đăng xuất qua menu người dùng: `session_id` đổi, token bị xoá, không lỗi. (Request đọc sở thích
+  được giả lập TRONG trình duyệt thử để tránh chuyển sang onboarding — không ghi gì vào Postgres.)
+- Đã xoá 43 sự kiện thử (12 phiên); `customer_product_events` về lại 1.246 cặp / 20 khách.
+
+Dữ liệu hành vi THẬT vẫn chưa có — cần người dùng thật hoặc bộ sinh v2 chế độ live (§16.4);
+`CF_BEHAVIOR_MODE` vẫn tắt.
+
+## 18. MinIO: build từ mã nguồn — image chính thức không còn kéo được (04/10)
+
+Triệu chứng: `docker compose up` trên máy mới hỏng ở bước kéo MinIO. Máy chính không thấy lỗi vì
+còn image cũ trong cache, nên lỗi chỉ lộ ra ở máy khác hoặc sau khi dọn image.
+
+Nguyên nhân: MinIO ngừng phát hành bản cộng đồng dựng sẵn — README chính thức: "The MinIO
+community edition is now distributed as source code only", repo archive từ 25/04/2026
+(https://github.com/minio/minio). Kiểm ngày 04/10: `quay.io/minio/minio` và `quay.io/minio/mc`
+trả `no such manifest`, Docker Hub trả `denied`, binary trên `dl.min.io` trả HTTP 410. Bootstrap
+còn hỏng thêm một chỗ: `COPY --from=quay.io/minio/mc` khi build image.
+
+Sửa (đã chọn giữa: build từ nguồn / ghim image cache / image bên thứ ba):
+- `local-infra-sandbox/minio/Dockerfile`: build từ mã nguồn chính thức, ghim
+  `RELEASE.2025-09-07T16-13-09Z` (kiểm commit `07c3a429…` sau khi clone) và go1.24.6 — đúng bản
+  volume `minio_data` đang dùng. Compose chuyển `minio` sang `build:`; healthcheck đổi từ
+  `mc ready local` sang `curl /minio/health/ready`.
+- Bootstrap bỏ hẳn `mc`: kiểm/tạo bucket bằng S3 API, `curl --aws-sigv4` tự ký SigV4. Luồng giữ
+  như cũ (sai khoá / mất kết nối thì dừng, tạo bucket hỏng thì đi tiếp) nhưng nay báo lý do.
+- `.env.example` bỏ `MINIO_VERSION` (không còn tác dụng).
+
+Kiểm chứng:
+- `minio --version` của bản tự build trùng từng chữ với binary chính thức trong image cũ:
+  `RELEASE.2025-09-07T16-13-09Z (commit-id=07c3a429bfed…)`, `Runtime: go1.24.6 linux/arm64`.
+- Thử `curl --aws-sigv4` trên MinIO tạm: bucket chưa có 404, tạo 200, đã có 200, tạo lại 409,
+  sai khoá 403.
+- `docker compose up -d` cả hệ: không còn lỗi pull; MinIO healthy; bootstrap thoát 0 ("bucket
+  'data-lake' đã có" — xác thực đúng bằng khoá thật); hai connector RUNNING.
+- Volume giữ nguyên deployment (`format.json` cùng id); object 57 → 68 (sink ghi thêm parquet
+  mới). ClickHouse đọc qua view `s3()`, tách theo nguồn file:
+  - parquet CŨ trên volume (13/09 → 29/09): 3.521 bản ghi `Order` / 3.510 mã đơn — riêng phần
+    cũ đã đủ cả 3.509 đơn đang có trong Postgres (+1 đơn ghi nhận phụ dưới đây);
+  - parquet MỚI: 3.509 bản ghi — Debezium chụp lại toàn bộ bảng vì container Kafka được tạo lại
+    (offset connector mất theo).
+- Sau lake: `dbt build` PASS=68 / ERROR=0; `fact_orders_detail` 6.262 dòng / 3.509 đơn, khớp
+  đúng Postgres (`OrderItem` 6.262 / `Order` 3.509) — bản chụp trùng được khử, không đếm đôi;
+  `serving.customer_product_events` 1.246 cặp (như §17); AI-Rec `/health` ok; Kafka Connect
+  0 dòng ERROR.
+
+Đánh đổi / hạn chế:
+- Lần build đầu mất ~20 phút (bước `go build`, Docker 10 CPU / 8 GB), mỗi máy một lần.
+- Bản cộng đồng không còn bản vá bảo mật — chấp nhận cho môi trường dev của khoá luận; triển
+  khai thật cần kho S3 còn được bảo trì.
+
+Ghi nhận phụ (có từ trước, không do thay đổi này): lake còn đơn `ORD-1789311006027` (13/09,
+PENDING_PAYMENT → CANCELLED) mà Postgres không còn, và CDC không có sự kiện xoá — nhiều khả năng
+bị xoá lúc Debezium không chạy. Đơn đã huỷ nên không ảnh hưởng mart doanh thu.

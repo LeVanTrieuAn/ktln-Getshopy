@@ -92,8 +92,9 @@ def healthcheck() -> HealthResponse:
     tags=["Recommendations"],
     summary="Recommend products for a Customer",
     description=(
-        "Recommends unseen products for a customer using Item-based Collaborative Filtering. "
-        "Falls back to global popular products if the customer has no past purchases (cold-start)."
+        "Hybrid: Item-based CF + content-based (category, brand, price band) + repurchase, "
+        "with onboarding 'not interested' categories/brands filtered out. Customers without "
+        "any signal get popular products."
     ),
 )
 def recommend_for_customer(

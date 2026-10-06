@@ -323,6 +323,23 @@ export default function StoreLayout() {
   }, [searchKeyword, searchImageBase64]);
 
 
+  // ── Onboarding lần đầu ────────────────────────────────────────────────
+  // Khách đã đăng nhập mà CHƯA CÓ dòng sở thích nào (kể cả 'skipped') thì chuyển
+  // sang /onboarding. Đặt ở đây chứ không ở AuthModal để bắt được mọi đường vào:
+  // đăng nhập mật khẩu, Google, và cả khách đã đăng nhập từ trước khi có tính năng.
+  //
+  // Chạy một lần mỗi khi đổi tài khoản — StoreLayout là layout route nên không
+  // mount lại khi chuyển trang, không gọi API mỗi lượt điều hướng.
+  // Lỗi mạng thì im lặng bỏ qua: không được vì onboarding mà chặn khách vào trang.
+  useEffect(() => {
+    if (!b2cUser?.id) return;
+    let cancelled = false;
+    api.b2c.getMyPreferences()
+      .then(pref => { if (!cancelled && pref === null) navigate('/onboarding'); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [b2cUser?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+
   const SIDEBAR_WIDTH = 280;
   const SIDEBAR_COLLAPSED_WIDTH = 68;
   // Dải cảm ứng sát mép trái: đủ rộng để chuột chạm được, đủ hẹp để không
@@ -602,7 +619,7 @@ export default function StoreLayout() {
               onOpenChange={setProductsOpen}
               placement="rightTop"
               overlayStyle={{ zIndex: 1050 }}
-              dropdownRender={() => (
+              popupRender={() => (
                 <div style={{
                   width: 320,
                   background: isDark ? '#111827' : '#ffffff',
@@ -649,7 +666,7 @@ export default function StoreLayout() {
               onOpenChange={setPagesOpen}
               placement="rightTop"
               overlayStyle={{ zIndex: 1050 }}
-              dropdownRender={() => (
+              popupRender={() => (
                 <div style={{
                   width: 290,
                   background: isDark ? '#111827' : '#ffffff',
@@ -710,7 +727,7 @@ export default function StoreLayout() {
             )}
             {currentUser ? (
               <Dropdown
-                dropdownRender={() => (
+                popupRender={() => (
                   <div style={{
                     minWidth: 260,
                     background: isDark ? '#18181b' : '#ffffff',

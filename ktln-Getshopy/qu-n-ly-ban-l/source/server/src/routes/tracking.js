@@ -13,6 +13,11 @@
  *   GET  /api/b2c/wishlist           — Lấy danh sách wishlist
  *   GET  /api/b2c/behavior/stats     — Stats (admin debug)
  *
+ * DANH TÍNH KHÁCH LẤY TỪ TOKEN, KHÔNG TỪ BODY/QUERY (cùng quy tắc với
+ * middleware/authB2C.js). Trước 01/10 cả bốn endpoint đầu đọc customer_id do
+ * client khai: ai cũng ghi hành vi dưới tên khách khác (dữ liệu AI-Rec sẽ train),
+ * xem được lịch sử xem hàng và sửa được wishlist của người khác.
+ *
  * @module routes/tracking
  */
 
@@ -21,18 +26,22 @@ const router = express.Router();
 const { prisma } = require('../db');
 const BehaviorService = require('../services/BehaviorService');
 const PSC = require('../services/ProductSpecsCache');
+const { authB2C, optionalAuthB2C } = require('../middleware/authB2C');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/b2c/track — Batch track user events
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/track', async (req, res) => {
+// optionalAuthB2C: khách vãng lai vẫn được ghi (theo session_id, customer_id = null).
+router.post('/track', optionalAuthB2C, async (req, res) => {
   try {
     const { events } = req.body;
     if (!events || !Array.isArray(events) || events.length === 0) {
       return res.status(400).json({ error: 'events array is required' });
     }
 
-    const result = BehaviorService.trackEvents(events);
+    const result = BehaviorService.trackEvents(events, {
+      customerId: req.b2cUser ? req.b2cUser.id : null,
+    });
     res.json({ success: true, ...result });
   } catch (err) {
     console.error('[Tracking Error]', err.message);
@@ -43,17 +52,18 @@ router.post('/track', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/b2c/recently-viewed — Sản phẩm đã xem gần đây (enriched)
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/recently-viewed', async (req, res) => {
+router.get('/recently-viewed', optionalAuthB2C, async (req, res) => {
   try {
-    const { session_id, customer_id, limit = 10 } = req.query;
+    // customer_id trên query bị bỏ qua: chỉ token mới mở được lịch sử của khách.
+    const { session_id, limit = 10 } = req.query;
     if (!session_id) {
       return res.status(400).json({ error: 'session_id is required' });
     }
 
     const productIds = await BehaviorService.getRecentlyViewed(
       session_id,
-      customer_id ? Number(customer_id) : null,
-      Math.min(Number(limit), 20)
+      req.b2cUser ? req.b2cUser.id : null,
+      Math.min(Number(limit) || 10, 20)
     );
 
     if (productIds.length === 0) return res.json([]);
@@ -152,14 +162,16 @@ router.get('/trending', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/b2c/wishlist — Thêm/xóa sản phẩm khỏi wishlist (toggle)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/wishlist', async (req, res) => {
+// Client (services/api.js) vốn chỉ gửi product_id + token, nên bản đòi customer_id
+// trong body trả 400 cho mọi lần gọi thật — wishlist chưa từng được lưu phía server.
+router.post('/wishlist', authB2C, async (req, res) => {
   try {
-    const { customer_id, product_id } = req.body;
-    if (!customer_id || !product_id) {
-      return res.status(400).json({ error: 'customer_id and product_id are required' });
+    const { product_id } = req.body;
+    if (!product_id) {
+      return res.status(400).json({ error: 'product_id is required' });
     }
 
-    const cid = BigInt(customer_id);
+    const cid = BigInt(req.b2cUser.id);
     const pid = BigInt(product_id);
 
     // Toggle: nếu đã tồn tại → xóa, chưa → thêm
@@ -185,15 +197,10 @@ router.post('/wishlist', async (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/b2c/wishlist — Lấy danh sách wishlist của user
 // ─────────────────────────────────────────────────────────────────────────────
-router.get('/wishlist', async (req, res) => {
+router.get('/wishlist', authB2C, async (req, res) => {
   try {
-    const { customer_id } = req.query;
-    if (!customer_id) {
-      return res.status(400).json({ error: 'customer_id is required' });
-    }
-
     const wishlistItems = await prisma.wishlist.findMany({
-      where: { customer_id: BigInt(customer_id) },
+      where: { customer_id: BigInt(req.b2cUser.id) },
       orderBy: { created_at: 'desc' },
     });
 

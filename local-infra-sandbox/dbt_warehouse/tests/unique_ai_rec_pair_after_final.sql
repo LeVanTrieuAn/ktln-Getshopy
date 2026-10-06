@@ -9,6 +9,6 @@ SELECT
     CustomerID,
     ProductID,
     count() AS versions
-FROM {{ ref('processed_data_for_AI_rec') }} FINAL
+FROM {{ ref('pairs_customer_product') }} FINAL
 GROUP BY CustomerID, ProductID
 HAVING count() > 1

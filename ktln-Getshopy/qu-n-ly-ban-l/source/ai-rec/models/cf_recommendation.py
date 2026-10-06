@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,7 @@ from config import (
     PRODUCTS_DATA_PATH,
     RAW_DATA_PATH,
 )
+from models.behavior import BehaviorConfig, signal_weights
 
 
 class SparseUserItemMatrix:
@@ -172,16 +174,34 @@ class ItemSimilarityMatrix:
         return self._LocIndexer(self)
 
 
+INPUT_SCALES = ("linear", "log")
+
+
 class CollaborativeFiltering:
     """Recommend unseen products from item-item cosine similarity."""
 
-    def __init__(self, model_path: Path | str = MODEL_PATH) -> None:
+    def __init__(
+        self,
+        model_path: Path | str = MODEL_PATH,
+        half_life_days: float | None = None,
+        input_scale: str | None = None,
+    ) -> None:
         # ======================================================================
         # Khởi tạo các thuộc tính mô hình
         # ======================================================================
         self.model_path = Path(model_path)
+        # None = lấy theo config LÚC FIT (đổi biến môi trường rồi train lại là
+        # có hiệu lực). Truyền tường minh khi cần nhiều cấu hình trong một tiến
+        # trình — benchmark quét lưới half-life/thang trên validation.
+        self.half_life_days = half_life_days
+        self.input_scale = input_scale
+        if input_scale is not None and input_scale not in INPUT_SCALES:
+            raise ValueError(f"input_scale phải thuộc {INPUT_SCALES}, nhận: {input_scale!r}")
         self.df: pd.DataFrame | None = None
         self.user_item_matrix: SparseUserItemMatrix | pd.DataFrame | None = None
+        self.profile_matrix: SparseUserItemMatrix | None = None
+        self.behavior = BehaviorConfig()
+        self.behavior_pairs = 0
         self.item_similarity: ItemSimilarityMatrix | pd.DataFrame | None = None
         self.product_metadata: pd.DataFrame | None = None
         self.customer_metadata: pd.DataFrame | None = None
@@ -219,27 +239,90 @@ class CollaborativeFiltering:
         self.df = pd.read_csv(data_path, dtype={"CustomerID": "string", "ProductID": "string"})
         return self.df
 
+    def resolved_half_life(self) -> float:
+        """Half-life thực dùng: tham số của model, không có thì theo config."""
+        if self.half_life_days is not None:
+            return float(self.half_life_days)
+        from config import RECENCY_HALF_LIFE_DAYS
+        return float(RECENCY_HALF_LIFE_DAYS)
+
+    def resolved_input_scale(self) -> str:
+        if self.input_scale is not None:
+            return self.input_scale
+        from config import CF_INPUT_SCALE
+        if CF_INPUT_SCALE not in INPUT_SCALES:
+            raise ValueError(f"CF_INPUT_SCALE phải thuộc {INPUT_SCALES}, nhận: {CF_INPUT_SCALE!r}")
+        return CF_INPUT_SCALE
+
     @staticmethod
-    def _create_user_item_matrix(df: pd.DataFrame) -> SparseUserItemMatrix:
+    def _apply_recency(df: pd.DataFrame, half_life: float) -> pd.DataFrame:
+        """Giảm trọng số tương tác theo thời gian: w = Quantity * 0.5^(ngày/half_life).
+
+        Không có cột DaysSince, hoặc half-life <= 0, thì trả nguyên df — hành vi
+        cũ. Nhờ vậy tắt tính năng chỉ cần đặt RECENCY_HALF_LIFE_DAYS=0, không
+        phải sửa code.
+
+        Ghi vào chính cột Quantity chứ không thêm cột mới: toàn bộ đường dựng
+        ma trận, tính độ phổ biến và metadata phía sau đều đọc "Quantity", thêm
+        cột thứ hai là mở đường cho hai chỗ dùng hai giá trị khác nhau.
+        """
+        if half_life <= 0 or "DaysSince" not in df.columns:
+            return df
+
+        out = df.copy()
+        days = pd.to_numeric(out["DaysSince"], errors="coerce").fillna(0).clip(lower=0)
+        out["Quantity"] = out["Quantity"].astype("float32") * (0.5 ** (days / half_life))
+        return out
+
+    @staticmethod
+    def _create_user_item_matrix(
+        df: pd.DataFrame, half_life: float, input_scale: str = "linear",
+    ) -> SparseUserItemMatrix:
         # ======================================================================
         # Tạo ma trận User-Item dạng Sparse CSR hiệu năng cao
         # ======================================================================
+        df = CollaborativeFiltering._apply_recency(df, half_life)
+        pairs = df.assign(Weight=df["Quantity"])[["CustomerID", "ProductID", "Weight"]]
+        return CollaborativeFiltering._matrix_from_pairs(pairs, input_scale)
+
+    @staticmethod
+    def _create_profile_matrix(
+        df: pd.DataFrame, signals: pd.DataFrame, half_life: float, input_scale: str,
+    ) -> SparseUserItemMatrix:
+        """Ma trận HỒ SƠ = trọng số mua (đã giảm theo thời gian) + tín hiệu hành vi phụ,
+        cộng ở thang tuyến tính RỒI mới áp thang (log) — cùng cách với ma trận mua."""
+        bought = CollaborativeFiltering._apply_recency(df, half_life)
+        pairs = pd.concat([
+            bought.assign(Weight=bought["Quantity"])[["CustomerID", "ProductID", "Weight"]],
+            signals[["CustomerID", "ProductID", "Weight"]],
+        ], ignore_index=True)
+        return CollaborativeFiltering._matrix_from_pairs(pairs, input_scale)
+
+    @staticmethod
+    def _matrix_from_pairs(pairs: pd.DataFrame, input_scale: str) -> SparseUserItemMatrix:
+        """(CustomerID, ProductID, Weight) -> ma trận thưa khách x món, cộng dồn theo cặp."""
         interactions = (
-            df.groupby(["CustomerID", "ProductID"], as_index=False)["Quantity"]
+            pairs.assign(CustomerID=pairs["CustomerID"].astype(str), ProductID=pairs["ProductID"].astype(str))
+            .groupby(["CustomerID", "ProductID"], as_index=False)["Weight"]
             .sum()
             .sort_values(["CustomerID", "ProductID"], kind="stable")
             .reset_index(drop=True)
         )
 
-        user_ids = pd.Index(np.sort(interactions["CustomerID"].astype(str).unique()), dtype="string")
-        item_ids = pd.Index(np.sort(interactions["ProductID"].astype(str).unique()), dtype="string")
+        user_ids = pd.Index(np.sort(interactions["CustomerID"].unique()), dtype="string")
+        item_ids = pd.Index(np.sort(interactions["ProductID"].unique()), dtype="string")
 
         user_map = pd.Series(np.arange(len(user_ids)), index=user_ids)
         item_map = pd.Series(np.arange(len(item_ids)), index=item_ids)
 
-        row_indices = user_map.loc[interactions["CustomerID"].astype(str)].to_numpy()
-        col_indices = item_map.loc[interactions["ProductID"].astype(str)].to_numpy()
-        values = interactions["Quantity"].to_numpy(dtype=np.float32)
+        row_indices = user_map.loc[interactions["CustomerID"]].to_numpy()
+        col_indices = item_map.loc[interactions["ProductID"]].to_numpy()
+        values = interactions["Weight"].to_numpy(dtype=np.float32)
+        if input_scale == "log":
+            # Thang log (Hu et al., 2008): món mua 10 cái không nặng gấp 10 món
+            # mua 1 cái — số lượng lớn làm vector món lệch hẳn về vài khách mua sỉ.
+            # Vẫn dương với mọi giá trị > 0, nên cosine và tập món đã mua giữ nguyên.
+            values = np.log1p(values).astype(np.float32)
 
         mat = sp.csr_matrix(
             (values, (row_indices, col_indices)),
@@ -288,9 +371,18 @@ class CollaborativeFiltering:
             .loc[:, metadata_cols]
         )
 
-    def fit(self, train_df: pd.DataFrame) -> "CollaborativeFiltering":
+    def fit(
+        self,
+        train_df: pd.DataFrame,
+        behavior: pd.DataFrame | None = None,
+        behavior_cfg: BehaviorConfig | None = None,
+    ) -> "CollaborativeFiltering":
         # ======================================================================
         # Huấn luyện mô hình Item-based Collaborative Filtering trên tập dữ liệu
+        #
+        # behavior (tuỳ chọn): tín hiệu hành vi theo cặp (khách, món) — các cột của
+        # serving.customer_product_events (models/behavior.py). Chỉ đi vào ma trận
+        # HỒ SƠ; tập "đã mua" vẫn chỉ từ đơn.
         # ======================================================================
         if train_df.empty:
             raise ValueError("Cannot train on an empty dataframe.")
@@ -306,15 +398,30 @@ class CollaborativeFiltering:
         if cleaned.empty:
             raise ValueError("Không còn bản ghi hợp lệ sau khi lọc Quantity > 0.")
 
-        # 1. Tạo ma trận tương tác User - Item
-        self.user_item_matrix = self._create_user_item_matrix(cleaned)
+        # Chốt cấu hình ngay lúc fit: bản đã train mang theo đúng half-life/thang
+        # nó được dựng, không đổi theo biến môi trường về sau.
+        half_life = self.half_life_days = self.resolved_half_life()
+        self.input_scale = self.resolved_input_scale()
+
+        # 1. Ma trận MUA (khách x món): tập đã mua, kênh mua lại dự phòng, hồ sơ content-based
+        self.user_item_matrix = self._create_user_item_matrix(cleaned, half_life, self.input_scale)
         if self.user_item_matrix.shape[1] < 2:
             raise ValueError("Need at least two products to train collaborative filtering.")
 
-        # 2. Chuẩn hóa vector item để tính cosine similarity hiệu năng cao
-        item_user = self.user_item_matrix.mat.T.tocsr()
+        # 1b. Ma trận HỒ SƠ = mua + hành vi phụ. Tắt hành vi thì chính là ma trận mua,
+        #     nên mọi kết quả giữ nguyên như trước khi có tính năng này.
+        self.behavior = behavior_cfg or BehaviorConfig()
+        signals = signal_weights(behavior, self.behavior, half_life, set(self.user_item_matrix.columns))
+        self.behavior_pairs = int(len(signals))
+        self.profile_matrix = (
+            self._create_profile_matrix(cleaned, signals, half_life, self.input_scale)
+            if len(signals) else self.user_item_matrix
+        )
+
+        # 2. Chuẩn hóa vector item (trên ma trận HỒ SƠ) để tính cosine similarity
+        item_user = self.profile_matrix.mat.T.tocsr()
         item_user_norm = normalize(item_user, norm="l2", axis=1)
-        self.item_similarity = ItemSimilarityMatrix(item_user_norm, self.user_item_matrix.columns)
+        self.item_similarity = ItemSimilarityMatrix(item_user_norm, self.profile_matrix.columns)
 
         # 3. Trích xuất hoặc cập nhật metadata sản phẩm, khách hàng và danh sách phổ biến
         if self.product_metadata is None:
@@ -322,8 +429,11 @@ class CollaborativeFiltering:
         if self.customer_metadata is None:
             self.customer_metadata = self._create_customer_metadata(cleaned)
 
-        # 4. Tính toán độ phổ biến của từng item để làm cold-start fallback
-        interactions = cleaned.groupby("ProductID")["Quantity"].sum()
+        # 4. Tính toán độ phổ biến của từng item để làm cold-start fallback.
+        #    Dùng CÙNG trọng số đã giảm theo thời gian: nếu không, khách mới vào
+        #    vẫn được quảng bá món bán chạy từ năm ngoái.
+        #    Độ phổ biến luôn ở thang tuyến tính: nó đo sản lượng, không phải sở thích.
+        interactions = self._apply_recency(cleaned, half_life).groupby("ProductID")["Quantity"].sum()
         self.popular_items = interactions.reindex(
             self.user_item_matrix.columns, fill_value=0.0
         ).sort_values(ascending=False)
@@ -357,6 +467,12 @@ class CollaborativeFiltering:
         interactions = self.user_item_matrix.loc[customer_id]
         return interactions.loc[interactions > 0].index.tolist()
 
+    @property
+    def profile(self) -> SparseUserItemMatrix:
+        """Ma trận hồ sơ; model lưu trước khi có hành vi phụ thì là ma trận mua."""
+        pm = getattr(self, "profile_matrix", None)
+        return pm if pm is not None else self.user_item_matrix
+
     def has_product(self, product_id: str) -> bool:
         """Return whether a product exists in the model's training catalog."""
         self._ensure_fitted()
@@ -374,22 +490,28 @@ class CollaborativeFiltering:
         assert self.item_similarity is not None
         assert self.popular_items is not None
 
-        # 1. Kiểm tra lịch sử mua hàng của khách hàng
+        # 1. Lịch sử MUA (để loại) và HỒ SƠ (mua + hành vi phụ, để chấm điểm)
         purchased = self.get_purchased_products(customer_id)
+        profile = self.profile
+        if isinstance(profile, SparseUserItemMatrix):
+            profile_items = profile.get_purchased_products(customer_id)
+        else:
+            profile_items = purchased
 
-        # Xử lý Cold-Start: Nếu khách hàng chưa mua sản phẩm nào -> Gợi ý sản phẩm phổ biến nhất
-        if not purchased:
+        # Xử lý Cold-Start: không có tín hiệu nào -> Gợi ý sản phẩm phổ biến nhất.
+        # Khách chưa mua nhưng đã xem hàng vẫn đi đường CF nhờ hồ sơ hành vi.
+        if not profile_items:
             return [
                 (item, float(score))
                 for item, score in self.popular_items.head(top_k).items()
             ]
 
-        # 2. Tính điểm số (Score) dựa trên trọng số tương tác lịch sử * độ tương đồng sản phẩm
-        weights = self.user_item_matrix.loc[customer_id, purchased]
+        # 2. Tính điểm số (Score) dựa trên trọng số hồ sơ * độ tương đồng sản phẩm
+        weights = profile.loc[customer_id, profile_items]
         if isinstance(self.item_similarity, ItemSimilarityMatrix):
-            scores = self.item_similarity.compute_scores(purchased, weights)
+            scores = self.item_similarity.compute_scores(profile_items, weights)
         else:
-            scores = self.item_similarity.loc[:, purchased].mul(weights, axis=1).sum(axis=1)
+            scores = self.item_similarity.loc[:, profile_items].mul(weights, axis=1).sum(axis=1)
 
         # 3. Loại bỏ các sản phẩm khách hàng đã từng mua ra khỏi danh sách gợi ý
         scores = scores.drop(labels=purchased, errors="ignore")
@@ -479,6 +601,11 @@ class CollaborativeFiltering:
             "product_metadata": self.product_metadata,
             "customer_metadata": self.customer_metadata,
             "popular_items": self.popular_items,
+            "half_life_days": self.half_life_days,
+            "input_scale": self.input_scale,
+            # Hồ sơ trùng ma trận mua thì không lưu hai lần
+            "profile_matrix": None if self.profile is self.user_item_matrix else self.profile_matrix,
+            "behavior": asdict(self.behavior),
         }
         joblib.dump(payload, self.model_path, compress=3)
         return self.model_path
@@ -499,6 +626,12 @@ class CollaborativeFiltering:
         self.product_metadata = payload.get("product_metadata")
         self.customer_metadata = payload.get("customer_metadata")
         self.popular_items = payload["popular_items"]
+        # Bản lưu trước khi có hai trường này được dựng với half-life của config
+        # lúc đó và thang tuyến tính.
+        self.half_life_days = payload.get("half_life_days", self.half_life_days)
+        self.input_scale = payload.get("input_scale", "linear")
+        self.profile_matrix = payload.get("profile_matrix")
+        self.behavior = BehaviorConfig(**payload.get("behavior", {}))
         return self
 
     def summary(self) -> dict[str, int]:
@@ -511,4 +644,8 @@ class CollaborativeFiltering:
             "customers": len(self.user_item_matrix.index),
             "products": len(self.user_item_matrix.columns),
             "interactions": int((self.user_item_matrix > 0).sum().sum()),
+            # Ma trận hồ sơ (mua + hành vi phụ): bằng hai số trên khi tắt hành vi
+            "profile_customers": len(self.profile.index),
+            "profile_products": len(self.profile.columns),
+            "behavior_pairs": int(getattr(self, "behavior_pairs", 0)),
         }

@@ -7,11 +7,24 @@
  * React hook để thu thập hành vi người dùng (implicit feedback).
  *
  * Chức năng:
- *   - Auto-generate session_id (UUID lưu localStorage)
+ *   - Auto-generate session_id (UUID lưu sessionStorage — 1 phiên = 1 tab)
  *   - Auto-detect device_type (mobile/desktop/tablet)
  *   - Buffer events và gửi batch mỗi 5 giây
- *   - Gửi remaining events khi rời trang (beforeunload)
+ *   - Gửi remaining events khi rời trang (pagehide / tab ẩn, fetch keepalive kèm token)
  *   - Tích hợp sẵn dwell_time + scroll_depth tracking cho ProductDetail
+ *
+ * Nơi ghi từng loại sự kiện (01/10–04/10/2026):
+ *   product_view      useProductViewTracker — trang chi tiết
+ *   add_to_cart       CartContext.addToCart — MỌI đường thêm giỏ (thẻ sản phẩm, chi tiết, so sánh)
+ *   remove_from_cart  CartContext.removeFromCart — ngăn giỏ hàng
+ *   add_to_wishlist   AppContext.toggleWishlist — mọi nút yêu thích
+ *   category_view, search_query   ProductList
+ *   purchase, checkout_abandon    Checkout
+ *   review_submit     trang chi tiết
+ *   rec_impression, rec_click     ô "Dành riêng cho bạn" (Home)
+ *   identify          AppContext.b2cLogin — ghép phiên ẩn danh vào khách (dbt user_events_stitched)
+ *   Đặt ở context dùng chung thay vì từng trang: mỗi hành động ghi ĐÚNG MỘT lần, kể cả khi
+ *   sau này thêm nút mới.
  *
  * Usage:
  *   const { trackEvent, trackProductView, trackAddToCart, ... } = useTracking();
@@ -34,6 +47,33 @@ function getSessionId() {
   return sid;
 }
 
+/**
+ * Đăng xuất: mở phiên mới. Phiên cũ đã gắn với khách vừa đăng xuất (qua sự kiện
+ * identify) — giữ nguyên thì người dùng KẾ TIẾP trên cùng tab bị dbt gán nhầm hành vi
+ * sang khách đó. Gửi nốt buffer TRƯỚC khi đổi để sự kiện cũ đi kèm token cũ.
+ */
+export function resetSession() {
+  flushOnExit();
+  sessionStorage.removeItem('gs_session_id');
+}
+
+/**
+ * Nguồn trang suy từ URL — cho sự kiện phát từ chỗ dùng chung (giỏ hàng, yêu thích),
+ * nơi không biết trang nào gọi. Giá trị khớp VALID_PAGE_SOURCES phía server.
+ */
+export function currentPageSource() {
+  const { pathname, search } = window.location;
+  if (pathname === '/' || pathname === '') return 'home';
+  if (pathname.startsWith('/product/')) return 'detail';
+  if (pathname.startsWith('/checkout')) return 'checkout';
+  if (pathname.startsWith('/compare')) return 'compare';
+  if (pathname.startsWith('/account')) return 'wishlist';
+  if (pathname.startsWith('/shop') || pathname.startsWith('/products')) {
+    return new URLSearchParams(search).get('search') ? 'search' : 'category';
+  }
+  return '';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // DEVICE DETECTION
 // ─────────────────────────────────────────────────────────────────────────────
@@ -42,16 +82,6 @@ function getDeviceType() {
   if (/tablet|ipad|playbook|silk/i.test(ua)) return 'tablet';
   if (/mobile|iphone|android|phone/i.test(ua)) return 'mobile';
   return 'desktop';
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GET CUSTOMER INFO from localStorage (if logged in)
-// ─────────────────────────────────────────────────────────────────────────────
-function getCustomerId() {
-  try {
-    const user = JSON.parse(localStorage.getItem('b2c_user') || 'null');
-    return user?.id || null;
-  } catch { return null; }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -84,18 +114,38 @@ function _scheduleFlush() {
   }, FLUSH_INTERVAL_MS);
 }
 
-// Gửi events trước khi user rời trang
+// Gửi nốt buffer khi trang bị ẩn hoặc đóng.
+//
+// fetch keepalive thay cho sendBeacon: sendBeacon KHÔNG gửi được header
+// Authorization, nên mọi event cuối phiên của khách đã đăng nhập bị server ghi
+// thành khách vãng lai (server chỉ tin danh tính trong token). keepalive giữ
+// request sống sau khi trang đóng; giới hạn 64 KB, mỗi lô 20 event chỉ vài KB.
+//
+// pagehide + visibilitychange thay cho beforeunload: beforeunload không bắn khi
+// trình duyệt di động huỷ tab nền, và chặn bfcache.
+export function flushOnExit() {
+  const BASE = import.meta.env.VITE_API_URL || '/api';
+  const token = localStorage.getItem('b2c_token');
+  while (_buffer.length > 0) {
+    const body = JSON.stringify({ events: _buffer.splice(0, MAX_BUFFER) });
+    try {
+      fetch(`${BASE}/b2c/track`, {
+        method: 'POST',
+        keepalive: true,
+        body,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      }).catch(() => {});
+    } catch { /* trang đang đóng — bỏ qua */ }
+  }
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    if (_buffer.length > 0) {
-      // sendBeacon is fire-and-forget, survives page unload
-      const BASE = import.meta.env.VITE_API_URL || '/api';
-      navigator.sendBeacon(
-        `${BASE}/b2c/track`,
-        new Blob([JSON.stringify({ events: _buffer })], { type: 'application/json' })
-      );
-      _buffer = [];
-    }
+  window.addEventListener('pagehide', flushOnExit);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushOnExit();
   });
 }
 
@@ -108,13 +158,13 @@ export function useTracking() {
   const deviceType = getDeviceType();
 
   // ── Base event builder ─────────────────────────────────────────────────
+  // Không gửi customer_id và event_time: server lấy khách từ token và dùng
+  // giờ của server (client tự khai được cả hai).
   const buildEvent = useCallback((eventType, data = {}) => {
     return {
       event_type: eventType,
       session_id: sessionId,
-      customer_id: getCustomerId(),
       device_type: deviceType,
-      event_time: new Date().toISOString().replace('T', ' ').substring(0, 23),
       ...data,
     };
   }, [sessionId, deviceType]);
@@ -247,44 +297,75 @@ export function useTracking() {
 
 /**
  * Hook chuyên dụng cho ProductDetail — tự động track dwell time + scroll depth.
- * Khi unmount (user rời trang), tự gửi product_view event với metrics.
+ * Gửi MỘT product_view khi rời sản phẩm: lúc unmount, hoặc lúc đóng/tải lại tab
+ * (React không unmount khi trang bị đóng — thiếu pagehide thì mất lượt xem cuối).
+ *
+ * Dwell chỉ cộng thời gian trang THỰC SỰ hiển thị: tab để nền không phải là đang
+ * xem, trước đây vẫn bị tính (tới trần 10 phút phía server).
+ *
+ * @param {Object} product
+ * @param {{referrer?: string}} opts - nơi dẫn tới trang, vd. 'recommendation'
+ *   (truyền qua router state). SPA không đổi document.referrer khi chuyển trang,
+ *   nên đoán theo document.referrer chỉ đúng với lượt vào trang đầu tiên.
  */
-export function useProductViewTracker(product) {
+export function useProductViewTracker(product, opts = {}) {
   const { trackProductView } = useTracking();
-  const startTime = useRef(Date.now());
-  const maxScroll = useRef(0);
+  const referrerRef = useRef(opts.referrer);
+  referrerRef.current = opts.referrer;
 
   useEffect(() => {
     if (!product?.id) return;
 
-    startTime.current = Date.now();
-    maxScroll.current = 0;
+    let activeMs = 0;
+    let visibleSince = document.visibilityState === 'visible' ? Date.now() : null;
+    let maxScroll = 0;
+    let sent = false;
 
     const handleScroll = () => {
       const scrolled = window.scrollY;
       const docHeight = document.documentElement.scrollHeight - window.innerHeight;
       if (docHeight > 0) {
         const pct = Math.round((scrolled / docHeight) * 100);
-        if (pct > maxScroll.current) maxScroll.current = pct;
+        if (pct > maxScroll) maxScroll = pct;
       }
     };
 
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') {
+        if (visibleSince != null) { activeMs += Date.now() - visibleSince; visibleSince = null; }
+      } else if (visibleSince == null) {
+        visibleSince = Date.now();
+      }
+    };
+
+    const emit = () => {
+      if (sent) return;
+      sent = true;
+      const dwellMs = activeMs + (visibleSince != null ? Date.now() - visibleSince : 0);
+      if (dwellMs > 1000) { // < 1 giây: bấm nhầm / bot
+        trackProductView(product, {
+          dwellTimeMs: dwellMs,
+          scrollDepthPct: maxScroll,
+          referrer: referrerRef.current
+            || (document.referrer.includes('/search') ? 'search'
+              : document.referrer.includes('/category') ? 'category'
+              : 'direct'),
+        });
+      }
+    };
+
+    // Trang sắp đóng: ghi lượt xem rồi gửi ngay, không chờ hẹn giờ 5 giây.
+    const handlePageHide = () => { emit(); flushOnExit(); };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handlePageHide);
 
     return () => {
       window.removeEventListener('scroll', handleScroll);
-
-      // Send product_view với dwell time + scroll depth khi unmount
-      const dwellMs = Date.now() - startTime.current;
-      if (dwellMs > 1000) { // Chỉ track nếu xem > 1 giây (filter bots/accidental)
-        trackProductView(product, {
-          dwellTimeMs: dwellMs,
-          scrollDepthPct: maxScroll.current,
-          referrer: document.referrer.includes('/search') ? 'search'
-                  : document.referrer.includes('/category') ? 'category'
-                  : 'direct',
-        });
-      }
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handlePageHide);
+      emit();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [product?.id]);

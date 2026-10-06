@@ -13,7 +13,7 @@ import {
   ThunderboltFilled, StarOutlined, AppstoreOutlined,
   ExperimentOutlined, ClockCircleOutlined, AimOutlined,
 } from '@ant-design/icons';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
@@ -1431,10 +1431,14 @@ export default function ProductDetail() {
   const { addToCart, toggleSelectAll } = useCart();
   const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed, b2cUser, openAuthModal } = useApp();
   const navigate = useNavigate();
-  const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
+  // Thêm giỏ và yêu thích được ghi trong CartContext / AppContext (mọi trang dùng chung) —
+  // gọi thêm ở đây là đếm đôi.
+  const { trackReviewSubmit } = useTracking();
 
-  // Auto-track product view with dwell time + scroll depth
-  useProductViewTracker(product);
+  // Auto-track product view with dwell time + scroll depth. Nguồn dẫn tới trang
+  // (vd. ô gợi ý ở trang chủ) truyền qua router state — xem Home.jsx.
+  const location = useLocation();
+  useProductViewTracker(product, { referrer: location.state?.from });
 
   const [zoomScale, setZoomScale] = useState(1);
   const [transformOrigin, setTransformOrigin] = useState('center center');
@@ -1551,13 +1555,11 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     const pToAdd = getProductToAdd();
     addToCart(pToAdd, quantity, true);
-    trackAddToCart(product, quantity);
   };
   const handleBuyNow = () => {
     const pToAdd = getProductToAdd();
     addToCart(pToAdd, quantity, false);
     toggleSelectAll(true);
-    trackAddToCart(product, quantity);
 
     if (!b2cUser && !localStorage.getItem('b2c_token')) {
       message.warning('Vui lòng đăng nhập để thực hiện mua hàng');

@@ -51,6 +51,13 @@ try:
 except ImportError:
     pass
 
+# bcrypt chỉ cần khi tạo khách mới. Không có thì phần bắn đơn vẫn chạy bình
+# thường — báo lỗi ngay lúc dùng chứ không chặn cả script.
+try:
+    import bcrypt
+except ImportError:
+    bcrypt = None
+
 
 # ── Kết nối ──────────────────────────────────────────────────────────────
 # Mặc định trỏ vào stack hợp nhất ở gốc repo (docker-compose.yml). Biến
@@ -67,6 +74,61 @@ def db_config() -> dict:
 
 PAYMENT_METHODS = [("CASH", 70), ("CARD", 30)]   # tại quầy chỉ có hai cách này
 PROVINCES = ["HCM", "HN", "DN"]
+
+
+# Họ tên ghép từ hai bảng cố định — tất định, và nhìn giống dữ liệu thật hơn
+# "Khách 0001". Không dùng faker: thêm một phụ thuộc cho việc này không đáng.
+HO  = ['Nguyễn', 'Trần', 'Lê', 'Phạm', 'Hoàng', 'Huỳnh', 'Phan', 'Vũ', 'Võ', 'Đặng',
+       'Bùi', 'Đỗ', 'Hồ', 'Ngô', 'Dương', 'Lý', 'Đinh', 'Tô', 'Mai', 'Trịnh']
+TEN = ['An', 'Bình', 'Cường', 'Dũng', 'Giang', 'Hà', 'Hải', 'Hạnh', 'Hùng', 'Khanh',
+       'Lan', 'Linh', 'Long', 'Mai', 'Minh', 'Nam', 'Ngọc', 'Nhung', 'Phúc', 'Quân',
+       'Quỳnh', 'Sơn', 'Thảo', 'Thành', 'Thu', 'Trang', 'Trung', 'Tuấn', 'Vy', 'Yến']
+
+
+def seed_customers(conn, cur, count: int, password: str, domain: str) -> int:
+    """Tạo user0001..userNNNN nếu chưa có. Idempotent theo email.
+
+    VÌ SAO CẦN NHIỀU KHÁCH — KHÔNG PHẢI NHIỀU ĐƠN:
+    Collaborative filtering tính cosine giữa các vector sản phẩm, mà SỐ CHIỀU
+    của vector đó chính là SỐ KHÁCH. Với 6 khách thì mỗi sản phẩm là vector 6
+    chiều; món chỉ một người mua, sau chuẩn hoá L2, thành vector đơn vị trỏ
+    trọn vào người đó — và nếu người đó mua trùng nhiều thứ với khách đang xét
+    thì món đó vọt lên đầu bảng gợi ý dù chẳng ai khác mua.
+
+    Thêm ĐƠN không sửa được chuyện này vì ràng buộc nằm ở số chiều.
+    """
+    if bcrypt is None:
+        raise SystemExit("Cần bcrypt để tạo khách:  pip install bcrypt")
+
+    # Hash MỘT lần rồi dùng chung. bcrypt cố tình chậm (~100ms/lần), hash 200
+    # lần là 20 giây đứng yên không đổi lấy gì — mọi tài khoản demo đều chung
+    # một mật khẩu nên chung một hash là đúng.
+    pw_hash = bcrypt.hashpw(password.encode(), bcrypt.gensalt(10)).decode()
+
+    pad = max(4, len(str(count)))
+    rows = []
+    for i in range(1, count + 1):
+        code = str(i).zfill(pad)
+        email = f"user{code}@{domain}"
+        # Chọn tên theo i chứ không ngẫu nhiên: cùng số lượng ra cùng danh sách.
+        name = f"{HO[i % len(HO)]} {TEN[(i * 7) % len(TEN)]}"
+        rows.append((name, email, f"09{str(10000000 + i)[-8:]}", pw_hash, 0, 'local',
+                     f"https://api.dicebear.com/7.x/avataaars/svg?seed={email}"))
+
+    cur.execute('SELECT count(*) FROM "B2CCustomer"')
+    before = cur.fetchone()[0]
+    execute_values(cur, """
+        INSERT INTO "B2CCustomer"
+          (full_name, email, phone, password_hash, loyalty_points, provider, avatar)
+        VALUES %s
+        ON CONFLICT (email) DO NOTHING
+    """, rows)
+    conn.commit()
+    cur.execute('SELECT count(*) FROM "B2CCustomer"')
+    after = cur.fetchone()[0]
+    print(f"khách: tạo mới {after - before}, đã có sẵn {count - (after - before)} "
+          f"(tổng {after}) · đăng nhập user0001@{domain} … / {password}")
+    return after - before
 
 
 def load_catalog(cur, size: int) -> list[dict]:
@@ -230,6 +292,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Máy POS giả lập bắn đơn vào Postgres của Getshopy")
     ap.add_argument("--orders", type=int, default=200, help="số đơn cần sinh (mặc định 200)")
     ap.add_argument("--customers", type=int, default=20, help="số khách lấy từ DB (mặc định 20)")
+    ap.add_argument("--seed-customers", type=int, default=0, metavar="N",
+                    help="tạo N khách user0001..userNNNN trước khi bắn đơn (0 = không tạo)")
+    ap.add_argument("--customer-password", default="123456", help="mật khẩu chung cho khách tạo mới")
+    ap.add_argument("--customer-domain", default="getshopy.vn", help="tên miền email khách tạo mới")
     ap.add_argument("--catalog", type=int, default=80, help="số mặt hàng đưa vào quầy (mặc định 80)")
     ap.add_argument("--groups", type=int, default=8, help="số nhóm sở thích (mặc định 8)")
     ap.add_argument("--days", type=int, default=7, help="rải đơn trong bao nhiêu ngày gần đây")
@@ -254,6 +320,11 @@ def main() -> int:
 
     conn.autocommit = False
     cur = conn.cursor()
+
+    # Tạo khách TRƯỚC khi nạp danh sách, để đơn bắn ngay được cho khách mới.
+    if args.seed_customers > 0:
+        seed_customers(conn, cur, args.seed_customers,
+                       args.customer_password, args.customer_domain)
 
     catalog = load_catalog(cur, args.catalog)
     customers = load_customers(cur, args.customers)

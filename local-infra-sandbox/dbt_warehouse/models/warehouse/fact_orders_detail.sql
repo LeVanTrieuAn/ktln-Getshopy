@@ -25,19 +25,63 @@
 --
 -- KHÔNG join dim_products để lấy tên/giá: OrderItem đã snapshot sẵn giá tại
 -- thời điểm mua. Join bảng hiện tại làm doanh thu lịch sử đổi theo giá hôm nay.
+--
+-- NẠP TĂNG DẦN THEO ĐƠN, không lọc từng nguồn riêng:
+--   Một dòng fact ghép hai nguồn CDC. Giữa hai lần chạy thường chỉ MỘT phía đổi:
+--   đơn chuyển PAID mà dòng hàng giữ nguyên, hoặc snapshot dòng hàng được sửa
+--   mà đơn giữ nguyên. Lọc hai nguồn riêng theo mốc thì phía không đổi rơi khỏi
+--   cửa sổ, JOIN hụt, và thay đổi bị bỏ IM LẶNG. Nên:
+--     (1) gom tập đơn có biến động ở BẤT KỲ nguồn nào -> `changed`
+--     (2) với các đơn đó, lấy bản mới nhất của đơn và của MỌI dòng hàng trên
+--         TOÀN BỘ lịch sử, rồi ghi lại cả đơn.
+--   Chi phí: glob s3() không cắt tỉa theo thời gian nên mỗi lần chạy vốn đã mở
+--   mọi file parquet; lọc theo order_id không làm tăng số file phải đọc.
+--
+-- MỐC RIÊNG TỪNG NGUỒN (_order_event_ts, _item_event_ts):
+--   Sink ghi parquet của Order và OrderItem thành hai file, xả ở hai thời điểm
+--   khác nhau. Một mốc chung (greatest hai nguồn) sẽ bị nguồn đi trước kéo vượt
+--   qua bản ghi của nguồn đi sau chưa kịp xuống MinIO -> lần chạy sau bỏ qua bản
+--   ghi đó MÃI MÃI. Mỗi topic có 1 partition, 1 task sink ghi theo thứ tự offset,
+--   và ts_ms (giờ connector xử lý) tăng theo offset -> bản ghi chưa xuống lake
+--   luôn có ts >= mốc của CHÍNH nguồn đó. Mốc riêng vì thế không bỏ sót.
+--
+-- HẠN CHẾ (chi tiết: docs/implement-phase/results/results.md §13.5):
+--   REPLICA IDENTITY DEFAULT -> bản ghi xoá chỉ mang khoá chính.
+--   - Xoá LẺ một OrderItem: không có order_id để lần về đơn -> không lan tới fact.
+--   - Xoá cả đơn: bản xoá không có date -> rơi vào partition 197001. FINAL mặc
+--     định khử trùng xuyên partition nên đơn vẫn ẩn, nhưng merge nền không dọn.
 -- =====================================================================
 
+{%- if is_incremental() %}
+    {%- set have = adapter.get_columns_in_relation(this) | map(attribute='name') | list %}
+    {%- if '_order_event_ts' not in have or '_item_event_ts' not in have %}
+        {{ exceptions.raise_compiler_error(
+            "Bảng " ~ this ~ " dựng từ bản cũ, chưa có cột mốc riêng từng nguồn "
+            ~ "(_order_event_ts, _item_event_ts). Dựng lại MỘT lần: "
+            ~ "docker compose --profile dbt run --rm dbt run --full-refresh --select fact_orders_detail+") }}
+    {%- endif %}
+{%- endif %}
+
 WITH
+{%- if is_incremental() %}
+    changed AS (
+        -- Mốc dùng >= chứ không >: thà nạp lại vài đơn ở mốc giao rồi để
+        -- ReplacingMergeTree khử, còn hơn bỏ sót bản ghi cùng millisecond.
+        SELECT order_id FROM {{ ref('stg_orders') }}
+        WHERE event_ts >= (SELECT ifNull(max(_order_event_ts), toDateTime64('1970-01-01 00:00:00',3,'UTC')) FROM {{ this }})
+        UNION DISTINCT
+        SELECT order_id FROM {{ ref('stg_order_items') }}
+        WHERE event_ts >= (SELECT ifNull(max(_item_event_ts), toDateTime64('1970-01-01 00:00:00',3,'UTC')) FROM {{ this }})
+    ),
+{%- endif %}
     orders AS (
-        -- Dedup trong lô: một đơn có thể đổi trạng thái nhiều lần giữa hai lần
-        -- chạy (PENDING -> PAID -> CANCELLED), chỉ lấy bản mới nhất.
+        -- Bản mới nhất của đơn trên toàn bộ lịch sử: một đơn có nhiều bản CDC
+        -- (PENDING -> PAID -> CANCELLED), chỉ giữ bản cuối.
         SELECT * EXCEPT rn FROM (
             SELECT *, row_number() OVER (PARTITION BY order_id ORDER BY event_ts DESC) AS rn
             FROM {{ ref('stg_orders') }}
             {% if is_incremental() %}
-            -- Mốc dùng >= chứ không >: thà nạp thừa vài dòng ở mốc giao rồi để
-            -- ReplacingMergeTree khử, còn hơn bỏ sót bản ghi cùng millisecond.
-            WHERE event_ts >= (SELECT ifNull(max(_event_ts), toDateTime64('1970-01-01 00:00:00',3,'UTC')) FROM {{ this }})
+            WHERE order_id IN (SELECT order_id FROM changed)
             {% endif %}
         ) WHERE rn = 1
     ),
@@ -46,7 +90,7 @@ WITH
             SELECT *, row_number() OVER (PARTITION BY item_id ORDER BY event_ts DESC) AS rn
             FROM {{ ref('stg_order_items') }}
             {% if is_incremental() %}
-            WHERE event_ts >= (SELECT ifNull(max(_event_ts), toDateTime64('1970-01-01 00:00:00',3,'UTC')) FROM {{ this }})
+            WHERE order_id IN (SELECT order_id FROM changed)
             {% endif %}
         ) WHERE rn = 1
     )
@@ -78,6 +122,10 @@ SELECT
     o.paid_at                                               AS paid_at,
     ifNull(o.province, '')                                  AS province,
 
+    -- Mốc riêng từng nguồn — chỉ để tính watermark cho lần chạy sau (xem đầu file).
+    assumeNotNull(ifNull(o.event_ts, toDateTime64('1970-01-01 00:00:00',3,'UTC'))) AS _order_event_ts,
+    assumeNotNull(ifNull(i.event_ts, toDateTime64('1970-01-01 00:00:00',3,'UTC'))) AS _item_event_ts,
+
     -- Version: lấy mốc muộn hơn giữa đơn và dòng hàng, để đơn đổi trạng thái
     -- cũng kéo dòng hàng cập nhật theo.
     -- Cột version và cột is_deleted của ReplacingMergeTree bắt buộc NOT NULL —
@@ -90,6 +138,7 @@ SELECT
 
 FROM items i
 LEFT JOIN orders o ON o.order_id = i.order_id
--- Dòng hàng mà đơn chưa tới (parquet Order flush sau) thì bỏ qua lượt này;
--- lần chạy sau bắt được vì watermark chưa vượt qua nó.
+-- Dòng hàng mà bản ghi đơn chưa xuống MinIO (parquet Order xả sau) thì bỏ qua
+-- lượt này. Lần sau vẫn bắt được: bản ghi đơn đó có ts >= mốc _order_event_ts,
+-- nên đơn lọt vào `changed` và kéo theo toàn bộ dòng hàng của nó.
 WHERE o.order_id != ''

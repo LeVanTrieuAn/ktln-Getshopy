@@ -15,6 +15,26 @@ vars:
   # Tiền tố topic Kafka do Debezium đặt (topic.prefix trong connector config)
   cdc_prefix: "{{ env_var('CDC_TOPIC_PREFIX', 'cdc_prod') }}"
 
+  # Sản phẩm phải có ít nhất bằng này người mua KHÁC NHAU mới vào tập train.
+  # Thấp quá thì món một-người-mua thổi cosine lên và chiếm top gợi ý; cao quá
+  # thì hàng mới về không bao giờ được gợi ý (cold start phía sản phẩm).
+  min_buyers_per_product: 3
+
+  # Tầm giá cho content-based. PHẢI khớp PRICE_BANDS trong
+  # ktln-Getshopy/qu-n-ly-ban-l/source/server/src/routes/onboarding.js: khách chọn
+  # mã ở đó, AI-Rec so mã đó với PriceBand của sản phẩm tính ở đây.
+  # Khoảng [min, min của tầm kế tiếp), đơn vị đồng, xếp tăng dần theo min.
+  price_bands:
+    - {id: 'lt5',    min: 0}
+    - {id: '5to15',  min: 5000000}
+    - {id: '15to30', min: 15000000}
+    - {id: 'gt30',   min: 30000000}
+
+  # Số sản phẩm đại diện mỗi ô (nhóm × hãng × tầm giá) đưa sang AI-Rec làm ứng
+  # viên content-based. Mọi món cùng ô có điểm nội dung bằng nhau, nên lấy
+  # nhiều hơn chỉ tăng dữ liệu truyền đi mà không đổi thứ hạng.
+  cb_candidates_per_cell: 20
+
 models:
   dbt_warehouse:
     # Kéo THẲNG từ Postgres, không qua CDC — dimension thay đổi rất ít

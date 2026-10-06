@@ -806,6 +806,10 @@ app.use('/api', recommendationRouter);
 const b2cRouter = require('./routes/b2c');
 app.use('/api/b2c', b2cRouter);
 
+// Onboarding — thu sở thích tường minh cho AI-Rec (cold-start phía khách)
+const onboardingRouter = require('./routes/onboarding');
+app.use('/api/b2c', onboardingRouter);
+
 // ─── B2C Behavior Tracking (Implicit Feedback cho AI Recommendation) ──
 const trackingRouter = require('./routes/tracking');
 app.use('/api/b2c', trackingRouter);
