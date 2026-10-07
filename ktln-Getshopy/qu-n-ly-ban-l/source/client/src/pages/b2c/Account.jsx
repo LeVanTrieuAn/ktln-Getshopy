@@ -36,7 +36,7 @@ const MapResizer = () => {
 };
 
 export default function Account() {
-  const { isDark, wishlist, toggleWishlist, t, b2cUser, user, b2cLogout, logout } = useApp();
+  const { isDark, wishlist, toggleWishlist, t, b2cUser, user, b2cLogout, logout, openOnboarding, onboardingOpen } = useApp();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
@@ -49,6 +49,22 @@ export default function Account() {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [mapPosition, setMapPosition] = useState([10.762622, 106.660172]); // Default HCMC
   const [form] = Form.useForm();
+
+  // ── Preferences tab ─────────────────────────────────────────────────
+  // Tab "Sởthích cá nhân" hiển thị trạng thái onboarding hiện tại (đã hoàn tất
+  // / đã bỏ qua / chưa có) và cho phép mở modal onboarding ở mode 'edit' để
+  // sửa lại. Mở modal xong thì refetch để hiển thị sở thích mới.
+  const [pref, setPref] = useState(null);
+  const [prefLoading, setPrefLoading] = useState(false);
+  const fetchPref = async () => {
+    setPrefLoading(true);
+    try { setPref(await api.b2c.getMyPreferences()); }
+    catch { setPref(null); }
+    finally { setPrefLoading(false); }
+  };
+  useEffect(() => {
+    if (activeTab === 'preferences' && !onboardingOpen) fetchPref();
+  }, [activeTab, onboardingOpen]);
 
   const LocationMarker = () => {
     useMapEvents({
@@ -195,6 +211,7 @@ export default function Account() {
     { key: 'profile', label: 'Hồ sơ cá nhân' },
     { key: 'address', label: 'Sổ địa chỉ' },
     { key: 'wishlist', label: 'Sản phẩm yêu thích' },
+    { key: 'preferences', label: 'Sở thích cá nhân' },
     { key: 'loyalty', label: 'Điểm thưởng & Ưu đãi' },
     { type: 'divider' },
     { key: 'logout', label: 'Đăng xuất', danger: true }
@@ -742,7 +759,64 @@ export default function Account() {
                 </Modal>
               </div>
             )}
-            
+
+            {activeTab === 'preferences' && (
+              <div>
+                <div style={{ marginBottom: 28 }}>
+                  <Title level={3} style={{ color: isDark ? '#fff' : '#18181b', margin: 0, fontWeight: 700 }}>Sở thích cá nhân</Title>
+                  <div style={{ fontSize: 14, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 4 }}>
+                    Những gì bạn chọn giúp AI-Rec gợi ý đúng sản phẩm hơn
+                  </div>
+                </div>
+
+                <div
+                  style={{
+                    background: isDark ? '#18181b' : '#ffffff',
+                    border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+                    borderRadius: 16,
+                    padding: 24,
+                  }}
+                >
+                  {prefLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}><Spin /></div>
+                  ) : !pref ? (
+                    <Empty
+                      description={<span style={{ color: isDark ? '#a1a1aa' : '#71717a' }}>Bạn chưa chọn sở thích nào. Hãy chọn để gợi ý phù hợp hơn.</span>}
+                    >
+                      <Button type="primary" onClick={() => openOnboarding()} style={{ background: isDark ? '#fafafa' : '#18181b', borderColor: isDark ? '#fafafa' : '#18181b', color: isDark ? '#0b0b0d' : '#ffffff' }}>
+                        Chọn sở thích ngay
+                      </Button>
+                    </Empty>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                        <Tag color={pref.status === 'completed' ? 'green' : 'default'}>
+                          {pref.status === 'completed' ? 'Đã hoàn tất' : pref.status === 'skipped' ? 'Đã bỏ qua' : 'Chưa hoàn tất'}
+                        </Tag>
+                        {pref.updated_at && (
+                          <span style={{ fontSize: 12, color: isDark ? '#71717a' : '#a1a1aa' }}>
+                            Cập nhật {new Date(pref.updated_at).toLocaleString('vi-VN')}
+                          </span>
+                        )}
+                      </div>
+
+                      <PrefRow label="Nhóm hàng quan tâm" items={pref.liked_categories} isDark={isDark} />
+                      <PrefRow label="Hãng quan tâm" items={pref.liked_brands} isDark={isDark} />
+                      <PrefRow label="Tầm giá" items={pref.price_band ? [pref.price_band] : []} isDark={isDark} />
+                      <PrefRow label="Không muốn thấy — nhóm hàng" items={pref.disliked_categories} isDark={isDark} danger />
+                      <PrefRow label="Không muốn thấy — hãng" items={pref.disliked_brands} isDark={isDark} danger />
+
+                      <div style={{ marginTop: 20 }}>
+                        <Button type="primary" onClick={() => openOnboarding()} style={{ background: isDark ? '#fafafa' : '#18181b', borderColor: isDark ? '#fafafa' : '#18181b', color: isDark ? '#0b0b0d' : '#ffffff' }}>
+                          Sửa lại sở thích
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
             {activeTab === 'loyalty' && (
               <div>
                 <div style={{ marginBottom: 28 }}>
@@ -984,6 +1058,23 @@ export default function Account() {
           </div>
         )}
       </Modal>
+    </div>
+  );
+}
+
+// Hiển thị 1 dòng trong tab "Sở thích cá nhân". items là mảng id (number|string).
+// Thay vì map sang tên (phải load thêm API options), hiển thị số lượng + tag mẫu.
+// Mục tiêu: user thấy "có/không" để quyết định bấm Sửa — chi tiết nằm trong modal.
+function PrefRow({ label, items = [], isDark, danger = false }) {
+  const count = items.length;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 0', borderBottom: `1px solid ${isDark ? '#27272a' : '#f4f4f5'}` }}>
+      <div style={{ minWidth: 200, color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13 }}>{label}</div>
+      {count === 0 ? (
+        <span style={{ color: isDark ? '#52525b' : '#d4d4d8', fontSize: 13 }}>—</span>
+      ) : (
+        <Tag color={danger ? 'red' : 'blue'}>{count} lựa chọn</Tag>
+      )}
     </div>
   );
 }

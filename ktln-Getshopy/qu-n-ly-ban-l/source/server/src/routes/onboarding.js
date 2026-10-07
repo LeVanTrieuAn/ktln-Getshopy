@@ -36,43 +36,46 @@ const PRICE_BANDS = [
 ];
 const PRICE_BAND_IDS = new Set(PRICE_BANDS.map(b => b.id));
 
-// Trần số phần tử mỗi mảng: tham số do client gửi, không để client quyết định
-// nhét bao nhiêu vào một dòng của database.
-const MAX_ITEMS = 30;
-// Chỉ hiện chừng này hãng mỗi danh mục — 91 hãng bày ra một lượt là không ai chọn nổi.
-// 14 = số hãng của nhóm thiết bị đông nhất (điện thoại): nhóm thiết bị hiện đủ
-// hãng, cắt ít hơn là giấu mất cả hãng lớn như Xiaomi. Nhóm phụ kiện 20+ hãng
-// thì vẫn cắt.
-const BRANDS_PER_CATEGORY = 14;
+// Trần số phần tử mỗi mảng: nâng lên 100 để người dùng thoải mái chọn
+// cả danh mục cha và các danh mục con chuyên biệt.
+const MAX_ITEMS = 100;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /onboarding/options
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/onboarding/options', async (req, res) => {
   try {
-    // Danh mục đổi rất hiếm; câu GROUP BY trên 600.000 sản phẩm thì không rẻ.
-    // Cache 10 phút là đủ tươi và đỡ cho Postgres.
-    const data = await cached('onboarding:options:v2', 600, async () => {
-      const categories = await prisma.category.findMany({
-        where: { parent_id: null },
+    // Cache 24h. Đổi key v4 để làm mới ngay cấu trúc phân cấp và toàn bộ 91 hãng.
+    const data = await cached('onboarding:options:v4', 86400, async () => {
+      // Lấy toàn bộ 49 danh mục trong database (cả 8 nhóm cha và 41 nhóm con)
+      const allCategories = await prisma.category.findMany({
         orderBy: [{ sort_order: 'asc' }, { id: 'asc' }],
-        select: { id: true, name: true },
+        select: { id: true, name: true, parent_id: true, icon: true },
       });
 
-      // Hãng thuộc danh mục CHA nào: sản phẩm gắn vào danh mục CON (hoặc thẳng vào
-      // danh mục cha nếu cha không có con), nên phải leo lên parent_id.
+      // Tạo cấu trúc cây 2 tầng: 8 nhóm cha, mỗi cha chứa danh sách children gồm các danh mục con
+      const categories = allCategories
+        .filter(c => !c.parent_id)
+        .map(parent => ({
+          id: parent.id,
+          name: parent.name,
+          icon: parent.icon,
+          children: allCategories
+            .filter(child => child.parent_id === parent.id)
+            .map(child => ({ id: child.id, name: child.name, icon: child.icon })),
+        }));
+
+      // Hãng thuộc danh mục CHA nào: sản phẩm gắn vào danh mục con hoặc cha,
+      // gom theo parent_id để người dùng chọn hãng theo nhóm ngành đã chọn.
       const rows = await prisma.$queryRaw`
         SELECT COALESCE(c.parent_id, c.id) AS parent_id,
                b.id   AS brand_id,
                b.name AS brand_name,
                COUNT(*)::int AS products,
-               COALESCE(SUM(s.units), 0)::int AS sold
+               COALESCE(SUM(p.sold), 0)::int AS sold
         FROM "Product" p
         JOIN "Category" c ON c.id = p.category_id
         JOIN "Brand"    b ON b.id = p.brand_id
-        LEFT JOIN (
-          SELECT product_id, SUM(quantity) AS units FROM "OrderItem" GROUP BY product_id
-        ) s ON s.product_id = p.id
         WHERE p.is_deleted = false AND b.is_deleted = false
         GROUP BY 1, 2, 3
       `;
@@ -83,19 +86,29 @@ router.get('/onboarding/options', async (req, res) => {
           id: r.brand_id, name: r.brand_name, products: r.products, sold: r.sold,
         });
       }
-      // Hãng bán chạy lên trước, rồi hãng nhiều mặt hàng — dễ gặp tên khách quen.
-      // Catalog tổng hợp chia đều sản phẩm cho các hãng trong cùng danh mục, nên
-      // chỉ xếp theo số sản phẩm thì hoà nhau gần hết và thứ tự thành ngẫu nhiên;
-      // tên hãng là khoá phụ cuối cùng để kết quả luôn cố định.
+
+      // Sắp xếp hãng bán chạy lên trước, không cắt bỏ để người dùng có thể xem tất cả
       for (const k of Object.keys(brandsByCategory)) {
-        brandsByCategory[k] = brandsByCategory[k]
-          .sort((a, b) => b.sold - a.sold || b.products - a.products || a.name.localeCompare(b.name))
-          .slice(0, BRANDS_PER_CATEGORY);
+        brandsByCategory[k].sort((a, b) => b.sold - a.sold || b.products - a.products || a.name.localeCompare(b.name));
       }
+
+      // Toàn bộ 91 thương hiệu trong cơ sở dữ liệu phục vụ tìm kiếm toàn cục
+      const allBrands = await prisma.$queryRaw`
+        SELECT b.id, b.name,
+               COUNT(*)::int AS products,
+               COALESCE(SUM(p.sold), 0)::int AS sold
+        FROM "Product" p
+        JOIN "Brand" b ON b.id = p.brand_id
+        WHERE p.is_deleted = false AND b.is_deleted = false
+        GROUP BY b.id, b.name
+        ORDER BY sold DESC, products DESC, b.name ASC
+      `;
 
       return {
         categories,
+        allCategories,
         brandsByCategory,
+        allBrands,
         priceBands: PRICE_BANDS.map(({ id, label }) => ({ id, label })),
       };
     });
