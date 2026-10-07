@@ -20,6 +20,11 @@
 
 const { createClient } = require('@clickhouse/client');
 const { prisma } = require('../src/db');
+// Hạt giống cố định như các script seed khác (scripts/lib/rng.js): cùng catalog
+// thì cùng chuỗi sự kiện. Mốc thời gian vẫn tính lùi từ lúc chạy, vì dashboard
+// hành vi chỉ xem 30 ngày gần nhất.
+const { createRng } = require('./lib/rng');
+const rng = createRng('seed-behavior-data');
 
 const ch = createClient({
   url: process.env.CLICKHOUSE_URL || process.env.CLICKHOUSE_HOST || 'http://localhost:8123',
@@ -50,13 +55,13 @@ const SEARCH_QUERIES = [
 ];
 
 // ─── Helpers ─────────────────────────────────────────────────────
-function rnd(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+function rnd(min, max) { return Math.floor(rng() * (max - min + 1)) + min; }
 function pick(arr) { return arr[rnd(0, arr.length - 1)]; }
 function uuid() { return 'ses_' + Array.from({length: 32}, () => 'abcdef0123456789'[rnd(0,15)]).join(''); }
 
 function randomDate(daysBack) {
   const now = Date.now();
-  const offset = Math.random() * daysBack * 24 * 60 * 60 * 1000;
+  const offset = rng() * daysBack * 24 * 60 * 60 * 1000;
   return new Date(now - offset);
 }
 
@@ -159,7 +164,7 @@ async function main() {
         const eventTime = new Date(sessionStart.getTime() + timeOffset);
 
         // Decide event type based on funnel probability
-        const roll = Math.random();
+        const roll = rng();
         let eventType, eventData;
 
         if (roll < 0.55) {

@@ -55,3 +55,13 @@ models:
     columns:
       - name: voucher_id
         tests: [unique, not_null]
+
+  - name: dim_customer_preferences
+    description: "Câu trả lời onboarding (CustomerPreference). Một dòng mỗi khách; skipped = khách bấm Bỏ qua."
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: status
+        tests:
+          - accepted_values:
+              values: ['completed', 'skipped']

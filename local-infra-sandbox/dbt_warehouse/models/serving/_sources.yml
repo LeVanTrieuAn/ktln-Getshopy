@@ -1,0 +1,13 @@
+version: 2
+
+# Nguồn KHÔNG đi qua lakehouse: server Node ghi hành vi thẳng vào ClickHouse
+# (services/BehaviorService.js), không qua CDC → Kafka → MinIO như đơn hàng.
+# Chốt 01/10/2026: dbt đọc thẳng bảng này (ít rủi ro tiến độ). Hệ quả phải nêu trong
+# luận văn: không có bản parquet lâu dài trên MinIO, và dữ liệu cũ hơn 90 ngày bị TTL
+# của bảng xoá (clickhouse-init/01_schema.sql).
+sources:
+  - name: analytics
+    schema: analytics
+    tables:
+      - name: user_events
+        description: "Sự kiện hành vi (xem, giỏ, yêu thích, ...). customer_id lấy từ token từ 01/10/2026; trước đó do client tự khai."

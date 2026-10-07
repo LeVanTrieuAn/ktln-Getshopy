@@ -40,6 +40,7 @@ logs/
 # ── Dữ liệu lớn — không thuộc về git ─────────────────────────────────
 orders_mock_data.json
 data-platform-poc/*.json
+data-platform-poc/out/
 *.parquet
 *.sqlite
 *.db

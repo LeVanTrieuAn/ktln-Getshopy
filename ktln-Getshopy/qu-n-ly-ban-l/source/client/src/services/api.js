@@ -25,7 +25,8 @@ async function request(path, options = {}) {
   });
   if (res.status === 401) {
     if (path.includes('/login')) {
-      throw new Error((await res.json()).error || 'Request failed');
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || 'Request failed');
     }
     localStorage.clear();
     if (path.startsWith('/b2c')) {
@@ -35,8 +36,14 @@ async function request(path, options = {}) {
     }
     return;
   }
-  if (!res.ok) throw new Error((await res.json()).error || 'Request failed');
-  return res.json();
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error || `Request failed (${res.status})`);
+  }
+  // Handle empty responses (204 No Content, etc.)
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); } catch { return null; }
 }
 
 export const api = {
@@ -94,13 +101,16 @@ export const api = {
   },
 
   // ─── AI Recommendation ─────────────────────────────────────
+  // KHÔNG gửi email/customerId: server lấy danh tính từ Bearer token mà
+  // request() đã tự gắn. Bản trước gửi email, nhưng server không hề tra khách
+  // theo email — nên nhánh Collaborative Filtering không bao giờ chạy.
   recommendation: {
-    get: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
+    get: () => request('/b2c/recommendations'),
   },
 
   // ─── AI APIs (backward compat aliases) ──────────────────────
   ai: {
-    getRecommendations: (email) => request('/b2c/recommendations?' + new URLSearchParams({ email: email || '' })),
+    getRecommendations: () => request('/b2c/recommendations'),
     getCampaignSuggestions: () => request('/b2b/campaign-suggestions'),
     smartSearch: (query) => request('/ai/smart-search', { method: 'POST', body: JSON.stringify({ query }) }),
     visualSearch: (imageBase64) => request('/b2c/visual-search', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
@@ -173,6 +183,14 @@ export const api = {
       return request('/b2c/products?' + new URLSearchParams(params));
     },
     getProductDetails: (id) => request(`/b2c/products/${id}`),
+
+    // ── Onboarding: thu sở thích tường minh cho AI-Rec ──────────────────────
+    // customer_id lấy từ token ở server, không gửi kèm.
+    getOnboardingOptions: () => request('/b2c/onboarding/options'),
+    // null = khách chưa từng thấy onboarding (khác với lỗi)
+    getMyPreferences: () => request('/b2c/me/preferences'),
+    saveMyPreferences: (data) => request('/b2c/me/preferences', { method: 'PUT', body: JSON.stringify(data) }),
+    skipOnboarding: () => request('/b2c/me/preferences/skip', { method: 'POST' }),
     checkout: (data) => request('/b2c/checkout', { method: 'POST', body: JSON.stringify(data) }),
     // Màn chờ thanh toán poll endpoint này. Chỉ trả trạng thái + thời gian còn
     // lại theo giờ server, không kèm thông tin nhạy cảm của đơn.
@@ -189,7 +207,8 @@ export const api = {
 
     // Behavior Tracking
     track: (events) => request('/b2c/track', { method: 'POST', body: JSON.stringify({ events }) }),
-    getRecentlyViewed: (sessionId, customerId) => request('/b2c/recently-viewed?' + new URLSearchParams({ session_id: sessionId, ...(customerId ? { customer_id: customerId } : {}) })),
+    // Khách lấy từ token (request() tự gắn), server bỏ qua customer_id trên query.
+    getRecentlyViewed: (sessionId) => request('/b2c/recently-viewed?' + new URLSearchParams({ session_id: sessionId })),
     getTrending: (hours = 24, limit = 10) => request('/b2c/trending?' + new URLSearchParams({ hours, limit })),
 
     // Wishlist

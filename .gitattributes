@@ -1,0 +1,9 @@
+# File chạy TRONG container Linux phải giữ xuống dòng LF, kể cả khi clone trên Windows.
+#
+# Git for Windows mặc định core.autocrlf=true: checkout đổi LF → CRLF. Script .sh được
+# mount/COPY vào container mang theo "\r" và chết ngay dòng đầu ("set: Illegal option -",
+# "$'\r': command not found"); Dockerfile hỏng ở dòng nối "\". Lỗi chỉ lộ ra trên máy Windows.
+# (Thêm 04/10/2026 — máy demo dùng Windows.)
+*.sh            text eol=lf
+Dockerfile      text eol=lf
+Dockerfile.*    text eol=lf

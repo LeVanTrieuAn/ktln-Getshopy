@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import vi from '../i18n/vi';
 import en from '../i18n/en';
 import { api } from '../services/api';
+import { currentPageSource, resetSession, useTracking } from '../hooks/useTracking';
 
 const translations = { vi, en };
 
@@ -41,7 +42,14 @@ export function AppProvider({ children }) {
     }
   }, [b2cUser]);
 
+  const { trackEvent, trackAddToWishlist } = useTracking();
+
   const toggleWishlist = async (product) => {
+    // Ghi lúc THÊM (bỏ yêu thích không có loại sự kiện riêng). Xét theo danh sách HIỆN TẠI,
+    // ngoài setWishlist — hàm cập nhật state phải thuần, StrictMode gọi nó hai lần.
+    if (!wishlist.some(p => p.id === product.id)) {
+      trackAddToWishlist(product, { pageSource: currentPageSource() });
+    }
     setWishlist(prev => {
       const exists = prev.find(p => p.id === product.id);
       const next = exists ? prev.filter(p => p.id !== product.id) : [product, ...prev];
@@ -116,6 +124,9 @@ export function AppProvider({ children }) {
   };
 
   const clearAllUserSession = () => {
+    // Đổi phiên TRƯỚC khi xoá token: resetSession gửi nốt sự kiện còn trong buffer kèm
+    // token cũ, rồi mở phiên mới cho người dùng kế tiếp trên tab này.
+    resetSession();
     setUser(null);
     setB2cUser(null);
     setWishlist([]); // Clear wishlist state
@@ -136,6 +147,10 @@ export function AppProvider({ children }) {
     setB2cUser(userData);
     localStorage.setItem('b2c_user', JSON.stringify(userData));
     localStorage.setItem('b2c_token', token);
+    // Ghép phiên: sự kiện này đi kèm token, server ghi customer_id từ token cho session_id
+    // hiện tại. dbt (warehouse.user_events_stitched) dùng nó để gán các lượt xem ẨN DANH
+    // trước lúc đăng nhập trong CÙNG phiên cho khách — không có thì AI-Rec bỏ qua hết.
+    trackEvent('identify');
   };
 
   const [selectedBranch, setSelectedBranchState] = useState(() => {

@@ -47,11 +47,19 @@ const VALID_EVENT_TYPES = new Set([
   'add_to_cart', 'remove_from_cart', 'add_to_wishlist',
   'compare_view', 'review_submit',
   'purchase', 'checkout_abandon',
+  // Ô "Dành riêng cho bạn": món nào ĐƯỢC HIỂN THỊ và món nào ĐƯỢC BẤM. Thiếu hai
+  // loại này thì không đo được CTR online, và không tách được lượt xem do chính
+  // hệ gợi ý gây ra — train lại trên các lượt xem đó là vòng tự củng cố.
+  'rec_impression', 'rec_click',
+  // Ghép phiên: client gửi ngay sau đăng nhập, customer_id lấy từ TOKEN. dbt dùng nó để gán
+  // các sự kiện ẩn danh trước lúc đăng nhập trong cùng session_id cho khách
+  // (warehouse.user_events_stitched).
+  'identify',
 ]);
 
 const VALID_DEVICE_TYPES = new Set(['mobile', 'desktop', 'tablet']);
 const VALID_REFERRERS = new Set(['direct', 'search', 'chatbot', 'recommendation', 'category', 'flash_sale']);
-const VALID_PAGE_SOURCES = new Set(['home', 'category', 'search', 'detail', 'cart', 'checkout', 'wishlist']);
+const VALID_PAGE_SOURCES = new Set(['home', 'category', 'search', 'detail', 'cart', 'checkout', 'wishlist', 'compare']);
 
 // Trọng số cho mỗi loại event (phục vụ user profiling)
 const EVENT_WEIGHTS = {
@@ -65,6 +73,9 @@ const EVENT_WEIGHTS = {
   review_submit: 4,
   purchase: 5,
   checkout_abandon: -0.5,
+  rec_impression: 0,   // được hiển thị ≠ quan tâm
+  rec_click: 1,
+  identify: 0,         // chỉ để ghép phiên
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,6 +102,10 @@ async function _flushBuffer() {
       table: 'analytics.user_events',
       values: batch,
       format: 'JSONEachRow',
+      // event_time gửi dạng ISO có hậu tố 'Z'. Không có best_effort, ClickHouse
+      // đọc chuỗi ngày giờ theo múi của CỘT (Asia/Ho_Chi_Minh) nên giờ UTC bị
+      // hiểu thành giờ Việt Nam — lệch 7 tiếng.
+      clickhouse_settings: { date_time_input_format: 'best_effort' },
     });
   } catch (err) {
     console.error('[BehaviorService] ❌ ClickHouse insert failed:', err.message);
@@ -105,15 +120,21 @@ async function _flushBuffer() {
 // VALIDATE & SANITIZE EVENT
 // ─────────────────────────────────────────────────────────────────────────────
 
-function _sanitizeEvent(raw) {
+/**
+ * @param {Object} raw        - event do client gửi
+ * @param {number|null} customerId - LẤY TỪ TOKEN ở tầng route. customer_id trong
+ *   body bị bỏ qua: client tự khai thì ai cũng ghi được hành vi dưới tên khách
+ *   khác, và đó là dữ liệu AI-Rec sẽ train (đầu độc dữ liệu).
+ */
+function _sanitizeEvent(raw, customerId = null) {
   if (!raw || !raw.event_type || !VALID_EVENT_TYPES.has(raw.event_type)) {
     return null;
   }
 
   return {
     event_type:       raw.event_type,
-    session_id:       String(raw.session_id || 'unknown'),
-    customer_id:      raw.customer_id ? Number(raw.customer_id) : null,
+    session_id:       String(raw.session_id || 'unknown').substring(0, 64),
+    customer_id:      customerId ? Number(customerId) : null,
 
     // Product context
     product_id:       raw.product_id ? Number(raw.product_id) : null,
@@ -139,8 +160,10 @@ function _sanitizeEvent(raw) {
     referrer:         VALID_REFERRERS.has(raw.referrer) ? raw.referrer : 'direct',
     page_source:      VALID_PAGE_SOURCES.has(raw.page_source) ? raw.page_source : '',
 
-    // Timestamp
-    event_time:       raw.event_time || new Date().toISOString().replace('T', ' ').substring(0, 23),
+    // Giờ server lúc nhận, KHÔNG dùng giờ client: client đặt được giờ tuỳ ý (lùi
+    // ngày để lách time-decay), và đồng hồ máy khách có thể lệch. Client gom tối
+    // đa 5 giây mới gửi nên sai số chỉ vài giây.
+    event_time:       new Date().toISOString(),
   };
 }
 
@@ -151,16 +174,17 @@ function _sanitizeEvent(raw) {
 /**
  * Track batch of user events.
  * @param {Array<Object>} events - Mảng raw events từ client
+ * @param {{customerId?: number|null}} identity - danh tính lấy từ token (route)
  * @returns {{ accepted: number, rejected: number }}
  */
-function trackEvents(events) {
+function trackEvents(events, { customerId = null } = {}) {
   if (!Array.isArray(events)) return { accepted: 0, rejected: 0 };
 
   let accepted = 0;
   let rejected = 0;
 
   for (const raw of events.slice(0, 20)) { // Max 20 events/request
-    const sanitized = _sanitizeEvent(raw);
+    const sanitized = _sanitizeEvent(raw, customerId);
     if (sanitized) {
       _eventBuffer.push(sanitized);
       accepted++;
@@ -187,12 +211,14 @@ function trackEvents(events) {
  * @returns {Promise<Object>} User profile
  */
 async function getUserProfile(identifier, identifierType = 'session') {
-  const filterField = identifierType === 'customer' ? 'customer_id' : 'session_id';
-  const filterValue = identifierType === 'customer' ? Number(identifier) : `'${identifier}'`;
+  const isCustomer = identifierType === 'customer';
+  const where = isCustomer ? 'customer_id = {id:Int64}' : 'session_id = {id:String}';
+  const params = { id: isCustomer ? _int(identifier, 0, Number.MAX_SAFE_INTEGER, 0) : String(identifier) };
+  const q = (sql) => _query(sql, params);
 
   try {
     // ── Top categories bằng weighted events ─────────────────────
-    const catRows = await _query(`
+    const catRows = await q(`
       SELECT category_id,
              SUM(CASE event_type
                WHEN 'purchase' THEN 5
@@ -202,7 +228,7 @@ async function getUserProfile(identifier, identifierType = 'session') {
                ELSE 0.5
              END) AS score
       FROM analytics.user_events
-      WHERE ${filterField} = ${filterValue}
+      WHERE ${where}
         AND category_id IS NOT NULL
         AND event_time >= subtractDays(now(), 30)
       GROUP BY category_id
@@ -211,7 +237,7 @@ async function getUserProfile(identifier, identifierType = 'session') {
     `);
 
     // ── Top brands ──────────────────────────────────────────────
-    const brandRows = await _query(`
+    const brandRows = await q(`
       SELECT brand_id,
              SUM(CASE event_type
                WHEN 'purchase' THEN 5
@@ -221,7 +247,7 @@ async function getUserProfile(identifier, identifierType = 'session') {
                ELSE 0.5
              END) AS score
       FROM analytics.user_events
-      WHERE ${filterField} = ${filterValue}
+      WHERE ${where}
         AND brand_id IS NOT NULL
         AND event_time >= subtractDays(now(), 30)
       GROUP BY brand_id
@@ -230,7 +256,7 @@ async function getUserProfile(identifier, identifierType = 'session') {
     `);
 
     // ── Price range preference ──────────────────────────────────
-    const priceRows = await _query(`
+    const priceRows = await q(`
       SELECT
         avg(price_at_event) AS avg_price,
         min(price_at_event) AS min_price,
@@ -238,14 +264,14 @@ async function getUserProfile(identifier, identifierType = 'session') {
         quantile(0.25)(price_at_event) AS p25,
         quantile(0.75)(price_at_event) AS p75
       FROM analytics.user_events
-      WHERE ${filterField} = ${filterValue}
+      WHERE ${where}
         AND price_at_event IS NOT NULL
         AND price_at_event > 0
         AND event_time >= subtractDays(now(), 30)
     `);
 
     // ── Top products by engagement score ────────────────────────
-    const productRows = await _query(`
+    const productRows = await q(`
       SELECT product_id,
              SUM(CASE event_type
                WHEN 'purchase' THEN 5
@@ -255,7 +281,7 @@ async function getUserProfile(identifier, identifierType = 'session') {
                ELSE 0.5
              END) AS score
       FROM analytics.user_events
-      WHERE ${filterField} = ${filterValue}
+      WHERE ${where}
         AND product_id IS NOT NULL
         AND event_time >= subtractDays(now(), 30)
       GROUP BY product_id
@@ -264,13 +290,13 @@ async function getUserProfile(identifier, identifierType = 'session') {
     `);
 
     // ── Tổng event count ────────────────────────────────────────
-    const countRows = await _query(`
+    const countRows = await q(`
       SELECT count() AS total,
              countIf(event_type = 'product_view') AS views,
              countIf(event_type = 'add_to_cart') AS carts,
              countIf(event_type = 'purchase') AS purchases
       FROM analytics.user_events
-      WHERE ${filterField} = ${filterValue}
+      WHERE ${where}
         AND event_time >= subtractDays(now(), 30)
     `);
 
@@ -307,8 +333,9 @@ async function getUserProfile(identifier, identifierType = 'session') {
 async function getRecentlyViewed(sessionId, customerId = null, limit = 10) {
   try {
     const filter = customerId
-      ? `(session_id = '${sessionId}' OR customer_id = ${Number(customerId)})`
-      : `session_id = '${sessionId}'`;
+      ? '(session_id = {sid:String} OR customer_id = {cid:Int64})'
+      : 'session_id = {sid:String}';
+    const params = { sid: String(sessionId), cid: _int(customerId, 0, Number.MAX_SAFE_INTEGER, 0) };
 
     const rows = await _query(`
       SELECT DISTINCT product_id, max(event_time) AS last_seen
@@ -319,8 +346,8 @@ async function getRecentlyViewed(sessionId, customerId = null, limit = 10) {
         AND event_time >= subtractDays(now(), 7)
       GROUP BY product_id
       ORDER BY last_seen DESC
-      LIMIT ${limit}
-    `);
+      LIMIT ${_int(limit, 1, 50, 10)}
+    `, params);
 
     return rows.map(r => Number(r.product_id));
   } catch (err) {
@@ -349,11 +376,11 @@ async function getTrendingProducts(hours = 24, limit = 10) {
       FROM analytics.user_events
       WHERE event_type IN ('product_view', 'add_to_cart', 'add_to_wishlist')
         AND product_id IS NOT NULL
-        AND event_time >= subtractHours(now(), ${hours})
+        AND event_time >= subtractHours(now(), ${_int(hours, 1, 168, 24)})
       GROUP BY product_id
       HAVING view_count >= 2
       ORDER BY trend_score DESC
-      LIMIT ${limit}
+      LIMIT ${_int(limit, 1, 50, 10)}
     `);
 
     return rows.map(r => ({
@@ -380,8 +407,10 @@ async function getTrendingProducts(hours = 24, limit = 10) {
 async function getCollaborativeRecommendations(sessionId, customerId = null, limit = 8) {
   try {
     const userFilter = customerId
-      ? `(session_id = '${sessionId}' OR customer_id = ${Number(customerId)})`
-      : `session_id = '${sessionId}'`;
+      ? '(session_id = {sid:String} OR customer_id = {cid:Int64})'
+      : 'session_id = {sid:String}';
+    const sid = String(sessionId);
+    const cid = _int(customerId, 0, Number.MAX_SAFE_INTEGER, 0);
 
     // Bước 1: Lấy product_ids user hiện tại đã tương tác
     const userProducts = await _query(`
@@ -392,31 +421,32 @@ async function getCollaborativeRecommendations(sessionId, customerId = null, lim
         AND event_type IN ('product_view', 'add_to_cart', 'purchase', 'add_to_wishlist')
         AND event_time >= subtractDays(now(), 30)
       LIMIT 50
-    `);
+    `, { sid, cid });
 
     if (userProducts.length === 0) return [];
 
-    const userProductIds = userProducts.map(r => Number(r.product_id));
-    const productIdList = userProductIds.join(',');
+    const pids = userProducts.map(r => Number(r.product_id));
 
     // Bước 2: Tìm sessions khác cũng xem cùng sản phẩm (similar users)
     const similarSessions = await _query(`
       SELECT session_id,
              count(DISTINCT product_id) AS overlap_count
       FROM analytics.user_events
-      WHERE product_id IN (${productIdList})
-        AND session_id != '${sessionId}'
+      WHERE has({pids:Array(Int64)}, product_id)
+        AND session_id != {sid:String}
         AND event_type IN ('product_view', 'add_to_cart', 'purchase')
         AND event_time >= subtractDays(now(), 14)
       GROUP BY session_id
       HAVING overlap_count >= 2
       ORDER BY overlap_count DESC
       LIMIT 20
-    `);
+    `, { pids, sid });
 
     if (similarSessions.length === 0) return [];
 
-    const sessionIds = similarSessions.map(r => `'${r.session_id}'`).join(',');
+    // session_id đọc từ bảng cũng do client ghi vào -> vẫn phải đi qua tham số,
+    // nối chuỗi ở đây là SQL injection bậc hai.
+    const sids = similarSessions.map(r => String(r.session_id));
 
     // Bước 3: Lấy sản phẩm mà similar users đã xem/mua nhưng user hiện tại CHƯA
     const recRows = await _query(`
@@ -428,15 +458,15 @@ async function getCollaborativeRecommendations(sessionId, customerId = null, lim
                ELSE 1
              END) AS rec_score
       FROM analytics.user_events
-      WHERE session_id IN (${sessionIds})
+      WHERE has({sids:Array(String)}, session_id)
         AND product_id IS NOT NULL
-        AND product_id NOT IN (${productIdList})
+        AND NOT has({pids:Array(Int64)}, product_id)
         AND event_type IN ('product_view', 'add_to_cart', 'purchase', 'add_to_wishlist')
         AND event_time >= subtractDays(now(), 14)
       GROUP BY product_id
       ORDER BY rec_score DESC
-      LIMIT ${limit}
-    `);
+      LIMIT ${_int(limit, 1, 50, 8)}
+    `, { sids, pids });
 
     return recRows.map(r => Number(r.product_id));
   } catch (err) {
@@ -451,7 +481,7 @@ async function getCollaborativeRecommendations(sessionId, customerId = null, lim
  */
 async function getPopularByBehavior(categoryId = null, limit = 8) {
   try {
-    const catFilter = categoryId ? `AND category_id = '${categoryId}'` : '';
+    const catFilter = categoryId ? 'AND category_id = {cat:String}' : '';
 
     const rows = await _query(`
       SELECT product_id,
@@ -470,8 +500,8 @@ async function getPopularByBehavior(categoryId = null, limit = 8) {
         ${catFilter}
       GROUP BY product_id
       ORDER BY popularity_score DESC
-      LIMIT ${limit}
-    `);
+      LIMIT ${_int(limit, 1, 50, 8)}
+    `, { cat: String(categoryId || '') });
 
     return rows.map(r => ({
       product_id: Number(r.product_id),
@@ -508,9 +538,20 @@ async function getStats() {
 // INTERNAL HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function _query(sql) {
-  const result = await ch.query({ query: sql, format: 'JSONEachRow' });
+/**
+ * Mọi giá trị do người dùng đưa vào PHẢI đi qua `params` ({name:Type} trong SQL):
+ * ClickHouse tự thoát ký tự. Nối chuỗi vào SQL là SQL injection — trước 01/10
+ * session_id ở /recently-viewed đi thẳng vào câu truy vấn.
+ */
+async function _query(sql, params = {}) {
+  const result = await ch.query({ query: sql, format: 'JSONEachRow', query_params: params });
   return result.json();
+}
+
+/** Số nguyên trong [lo, hi]; không hợp lệ -> def. Chỉ số đã qua đây mới được chèn thẳng vào SQL. */
+function _int(value, lo, hi, def) {
+  const n = Math.floor(Number(value));
+  return Number.isFinite(n) ? Math.min(Math.max(n, lo), hi) : def;
 }
 
 /** Flush buffer trước khi process exit */

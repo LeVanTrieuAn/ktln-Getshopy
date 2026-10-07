@@ -105,6 +105,10 @@ const ALL_NEW_CHILD_IDS = CHILD_CATEGORIES.map(c => c.id);
 const { createRng } = require('./lib/rng');
 const rng = createRng('seed-categories');
 const randPick = (arr) => arr[Math.floor(rng() * arr.length)];
+const { ruleFor } = require('./lib/product-rules');
+// Danh mục cha không có con (Điện thoại, Laptop...) nhận sản phẩm trực tiếp,
+// nên quy tắc được phép trỏ vào chúng dù chúng không nằm trong danh sách con.
+const PARENT_IDS_FOR_RULES = ['cat-phone', 'cat-laptop', 'cat-tablet', 'cat-watch'];
 
 // ══════════════════════════════════════════════════════════════════
 // MAIN
@@ -152,7 +156,8 @@ async function main() {
 
   while (true) {
     const products = await prisma.product.findMany({
-      select: { id: true, category_id: true },
+      // Cần cả `name` để suy danh mục từ tên (xem scripts/lib/product-rules.js)
+      select: { id: true, category_id: true, name: true },
       take: BATCH_SIZE,
       ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
       orderBy: { id: 'asc' },
@@ -171,7 +176,11 @@ async function main() {
         // Cat ID không tồn tại trong map → random 1 trong all child cats
         newCatIds = ALL_NEW_CHILD_IDS;
       }
-      const newCat = randPick(newCatIds);
+      // Tên nói rõ loại hàng (iPhone, MacBook...) thì theo tên, không chọn bừa.
+      const rule = ruleFor(p.name);
+      const newCat = rule && ALL_NEW_CHILD_IDS.concat(PARENT_IDS_FOR_RULES).includes(rule.category)
+        ? rule.category
+        : randPick(newCatIds);
       if (!groupByNewCat[newCat]) groupByNewCat[newCat] = [];
       groupByNewCat[newCat].push(p.id);
     }

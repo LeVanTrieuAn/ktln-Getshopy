@@ -13,3 +13,7 @@ data/
 # Editor and system files
 .DS_Store
 .env
+
+# Kết quả benchmark: chỉ commit bảng .md. File .json (đủ lưới tham số, ~2,5 MB/lượt) chạy lại
+# benchmark là sinh y hệt (hạt giống cố định) — quyết định 04/10/2026.
+evaluation/results/**/*.json
