@@ -19,16 +19,21 @@
    - 3.2 [Tín hiệu hành vi phụ](#32-tín-hiệu-hành-vi-phụ)
 4. [Phân chia Train / Validation / Test](#4-phân-chia-train--validation--test)
 5. [Phân khúc khách hàng được gợi ý](#5-phân-khúc-khách-hàng-được-gợi-ý)
-6. [Các bảng trong schema `serving` (ClickHouse)](#6-các-bảng-trong-schema-serving-clickhouse)
-   - 6.1 [pairs_customer_product](#61-pairs_customer_product)
-   - 6.2 [processed_data_for_AI_rec](#62-processed_data_for_ai_rec)
-   - 6.3 [catalog_features](#63-catalog_features)
-   - 6.4 [product_features](#64-product_features)
-   - 6.5 [purchase_events_for_AI_rec](#65-purchase_events_for_ai_rec)
-   - 6.6 [customer_preference_signals](#66-customer_preference_signals)
-   - 6.7 [customer_product_events](#67-customer_product_events)
-   - 6.8 [mart_revenue](#68-mart_revenue)
-7. [Luồng dữ liệu từ BigData → AI-Rec](#7-luồng-dữ-liệu-từ-bigdata--ai-rec)
+6. [Các case AI xử lý đặc biệt](#6-các-case-ai-xử-lý-đặc-biệt)
+   - 6.1 [Item cold-start](#61-item-cold-start)
+   - 6.2 [User cold-start](#62-user-cold-start)
+   - 6.3 [User có đơn hàng thông thường](#63-user-có-đơn-hàng-thông-thường)
+   - 6.4 [Xử lý sản phẩm đã mua](#64-xử-lý-sản-phẩm-đã-mua)
+7. [Các bảng trong schema `serving` (ClickHouse)](#7-các-bảng-trong-schema-serving-clickhouse)
+   - 7.1 [pairs_customer_product](#71-pairs_customer_product)
+   - 7.2 [processed_data_for_AI_rec](#72-processed_data_for_ai_rec)
+   - 7.3 [catalog_features](#73-catalog_features)
+   - 7.4 [product_features](#74-product_features)
+   - 7.5 [purchase_events_for_AI_rec](#75-purchase_events_for_ai_rec)
+   - 7.6 [customer_preference_signals](#76-customer_preference_signals)
+   - 7.7 [customer_product_events](#77-customer_product_events)
+   - 7.8 [mart_revenue](#78-mart_revenue)
+8. [Luồng dữ liệu từ BigData → AI-Rec](#8-luồng-dữ-liệu-từ-bigdata--ai-rec)
 
 ---
 
@@ -322,9 +327,206 @@ Mốc cắt validation              Mốc cắt test              Hiện tại
 
 ---
 
-## 6. Các bảng trong schema `serving` (ClickHouse)
+## 6. Các case AI xử lý đặc biệt
 
-### 6.1 `pairs_customer_product`
+Mục này mô tả **cách AI-Rec phản ứng với từng tình huống biên** — nơi dữ liệu thưa hoặc trống, hoặc nơi sản phẩm đã xuất hiện trong lịch sử mua. Mỗi case đều có file mã nguồn và (nếu đã đo) số liệu benchmark đính kèm.
+
+### 6.1 Item cold-start
+
+**Định nghĩa:** Sản phẩm có trong catalog (có ở `serving.catalog_features`) nhưng **chưa ai mua** trong tập train — vector cột trong ma trận User-Item toàn 0, nên cosine similarity không có "neo" để gợi ý.
+
+**Vì sao xảy ra:**
+- Sản phẩm mới nhập kho, chưa bán được đơn nào (hoặc < 3 người mua — đã bị lọc ở dbt).
+- Sản phẩm đã bán rồi nhưng khách huỷ đơn (`order_status = CANCELLED`), không lọt vào `processed_data_for_AI_rec`.
+
+**Cách AI-Rec xử lý:**
+
+| Kênh | Xử lý | Mã nguồn |
+|---|---|---|
+| Item-CF | Loại khỏi tập ứng viên — ma trận CF đã lọc ở dbt theo ngưỡng `uniqExact(CustomerID) >= 3`, nên item mới (0 người mua) không xuất hiện trong `profile.columns`. | `cf_recommendation.py:_create_user_item_matrix` |
+| Content-Based | Vẫn được chấm điểm — đặc trưng `(ParentCategory, PriceBand)` có sẵn ở `serving.product_features` và là đầu vào content-based. | `content_based.py:score` |
+| Repeat | Không áp dụng — khách chưa mua thì không thể có tín hiệu mua lại. | `repeat.py:scores` |
+
+**Trong danh sách ứng viên (`item_ids`):**
+- Có CB → chỉ những item có trong `product_features` (khoảng 6.152 dòng theo thiết kế) được đưa vào tập ứng viên. Item mới hoàn toàn (chưa có ở `product_features`) bị loại.
+- Không có CB (dbt lỗi) → dùng `cf.profile.columns` làm tập ứng viên — item mới không thể xuất hiện ở đây.
+
+**Hệ quả:** Item cold-start **chỉ được gợi ý khi**:
+1. Có trong `product_features` (tức admin đã chạy `dbt run` đủ để đưa vào ứng viên), và
+2. Khớp ít nhất một chiều onboarding/khách đã chọn (danh mục, hãng hoặc tầm giá).
+
+**Giải pháp bổ sung (chưa implement):** Khi item mới được nhập, có thể thêm tín hiệu giả (pseudo-count) dựa trên đặc trưng nội dung — đã có tham số `CB_ONBOARDING_PSEUDO_COUNT` cho khách, có thể áp dụng chiều ngược lại. Cần confirm trước khi implement.
+
+---
+
+### 6.2 User cold-start
+
+**Định nghĩa:** Khách **chưa có trong ma trận train** của CF — không mua lần nào, hoặc chỉ vừa đăng ký.
+
+**Phân loại chuyên sâu hơn Mục 5** (vì Mục 5 mới chỉ chia theo "đã mua / đã onboarding / đã duyệt"):
+
+| Tiểu-case | ĐK nhận biết | Cách xử lý | Lý do gợi ý |
+|---|---|---|---|
+| **6.2.1 Khách vãng lai** | Chưa đăng nhập, không có `customer_id` | API trả rỗng — frontend hiển thị "Sản phẩm bán chạy" (gọi thẳng `popular_items` từ server) | `popular` |
+| **6.2.2 Khách mới chưa làm gì** | Có `customer_id` nhưng `n_items = 0` trong CF, không có onboarding, không có behavior | Trộn hybrid: `α=0` nên `final = cb + γ·repeat = 0 + γ·0 = 0`. Tất cả `final ≤ 0` → bật sang `REASON_POPULAR` (xem `hybrid.py:230-233`) | `popular` |
+| **6.2.3 Khách mới đã onboarding** | Có trong `customer_preference_signals` | Content-Based dùng tín hiệu onboarding; `α=0` vẫn; `cb > 0` nên vào top | `content` (hoặc `popular` nếu không match món nào) |
+| **6.2.4 Khách mới đã duyệt hàng** | Có trong `customer_product_events` (chỉ khi `CF_BEHAVIOR_MODE != "none"`) | Behavior weights đi vào **ma trận HỒ SƠ** của CF; kênh khám phá dùng được. Content-based cũng có thêm tín hiệu từ hành vi (xem `content_based.py`). | `cf` hoặc `content` tuỳ kênh thắng |
+
+**Quy tắc chung cho user cold-start (Mục 5 + 6.2 gộp lại):**
+1. Không bao giờ trả danh sách rỗng.
+2. Nếu `final ≤ 0` cho mọi ứng viên → trả `popular_items` với reason = `popular`.
+3. Sản phẩm "không quan tâm" (blocked) bị loại ở bước `exclude` **trước** khi tính top-K.
+
+**Tham số `cb_shrink_k`:** Hiện tại `HYBRID_CF_SHRINK_K = 5`. Công thức `α = n/(n+k)` → user mới (`n=0`) có `α=0` (tin content thuần), user có 5 món khác nhau đã mua có `α=0.5` (tin CF và CB ngang nhau), user 30 món đã mua có `α≈0.86` (gần như thuần CF). Có thể chỉnh nếu validation cho thấy user mới cần tin content nhiều hơn.
+
+**Số liệu benchmark:** Xem `evaluation/results/benchmark_20260930_203039.md` (cấu hình production hiện tại).
+
+---
+
+### 6.3 User có đơn hàng thông thường
+
+**Định nghĩa:** Khách có trong ma trận train, số món khác nhau đã mua `n ≥ 1`.
+
+**Cách xử lý (đường đi của một request):**
+
+```
+Request GET /recommend/{customer_id}?top_k=10
+  │
+  ▼
+CFModelService.recommend_for_customer(cid, top_k=10)        [api/service.py:419]
+  │
+  ├─── cache hit (cid ∈ bundle.cache, len ≥ top_k)
+  │      → trả cache[cid][:top_k]                            (~0.1ms, dict lookup)
+  │
+  └─── cache miss → HybridRecommender.recommend(cid, top_k)
+         │
+         ▼
+       HybridRecommender.components(cid)                      [models/hybrid.py:194]
+         │
+         ├─ _cf_and_repeat(cid)                                [hybrid.py:147]
+         │   ├─ Lấy hàng của cid từ ma trận HỒ SƠ (CF)
+         │   ├─ Tính cf_hat = norm · (norm[prow.indices]^T · prow.data)
+         │   ├─ Lấy purchased[] từ ma trận MUA
+         │   ├─ Nếu có RepeatModel → repeat.scores(cid)
+         │   └─ Zero-out cf_hat tại purchased[]               [hybrid.py:186]
+         │
+         ├─ cb.score(cid)                                     [content_based.py]
+         │   ├─ Tính điểm theo đặc trưng + onboarding
+         │   └─ Trả về blocked[] (không quan tâm)
+         │
+         └─ HybridRecommender.rank (comp, params, k)
+                ├─ α = n_u / (n_u + k)
+                ├─ final = α·cf + (1−α)·cb + γ·repeat
+                ├─ exclude = blocked ∪ (purchased nếu allow_repeat=False)
+                ├─ order = lexsort(tiebreak, -final)
+                ├─ order = order[~exclude[order]][:top_k]
+                └─ reason = argmax(cf, cb, repeat) hoặc 'popular' nếu final ≤ 0
+```
+
+**Đặc điểm:**
+- **Không có request lỗi**: nếu cache miss, code rơi về tính tại chỗ từ cùng bản model đang phục vụ (atomic swap đảm bảo).
+- **Tập ứng viên** luôn là `item_ids` (~6k nếu CB có, hoặc `profile.columns` nếu CB lỗi) — KHÔNG phải toàn bộ 600k sản phẩm.
+- **`allow_repeat=True`** (mặc định): món đã mua có thể xuất hiện trong top nếu `repeat` thắng.
+- **`allow_repeat=False`**: chỉ `exclude` thêm `purchased` — đảm bảo không bao giờ gợi ý lại món đã mua.
+
+**Tham số hiện tại (production):**
+
+| Tham số | Giá trị | Ý nghĩa |
+|---|---|---|
+| `half_life_days` | 7 | Time decay cho cả CF và repeat (chọn trên validation 01/10) |
+| `cf_input_scale` | `log` | log(1+x) — chống skew bởi mua sỉ |
+| `cf_shrink_k` | 5 | Co rút hybrid α = n/(n+5) |
+| `repeat_weight (γ)` | 0.5 | Trọng số kênh mua lại |
+| `allow_repeat` | True | Cho phép món đã mua trong top |
+| `repeat_score` | `order_freq` | Dùng bảng `purchase_events_for_AI_rec` (RepeatModel) |
+| `top_k` | 10 (mặc định API) | Số món trả về |
+
+---
+
+### 6.4 Xử lý sản phẩm đã mua
+
+Đây là phần chi tiết nhất — vì cách model phân biệt "đã mua" ảnh hưởng trực tiếp đến UX (có nên gợi ý lại món đã mua hay không) và đến số liệu benchmark (2–3 món đã mua trong top-10 là ràng buộc sản phẩm).
+
+#### 6.4.1 Định nghĩa "đã mua" trong code
+
+| Nguồn dữ liệu | Phạm vi | Vai trò |
+|---|---|---|
+| **Ma trận MUA** (`cf.user_item_matrix`) | Từ `serving.processed_data_for_AI_rec` — chỉ đơn `PAID`, lọc `Quantity > 0` | **DUY NHẤT** cái gọi là "đã mua" trong logic rank |
+| Ma trận HỒ SƠ (`cf.profile_matrix`) | Mua + behavior (nếu bật) | Dùng để **tính điểm CF**, KHÔNG dùng để xác định đã mua |
+| `serving.purchase_events_for_AI_rec` | Từng dòng = mỗi đơn (OrderID) | Chỉ đi vào **RepeatModel** |
+
+**Quan trọng:** Hành vi (view/cart/wish) trong `customer_product_events` KHÔNG tính là "đã mua". Xem sản phẩm nhiều lần nhưng chưa mua → sản phẩm đó vẫn được chấm điểm CF bình thường (`cf_recommendation.py:498-503`).
+
+#### 6.4.2 Ba nơi "đã mua" được xử lý khác nhau
+
+**a) Item-CF — kênh KHÁM PHÁ (hybrid.py:186-188)**
+```python
+cf_hat[purchased] = 0.0   # tắt điểm CF cho món đã mua
+```
+- Lý do: comment dòng 187 — "CF là kênh khám phá, món đã mua để kênh mua lại lo".
+- Hệ quả: Kênh CF **không bao giờ** gợi ý lại món đã mua. Mọi điểm CF ở `purchased` bị zero-out.
+
+**b) Repeat Model — kênh MUA LẠI (models/repeat.py:38-65)**
+```python
+rep(u, i) = Σ_{đơn o của u có i} 0.5^(ngày_o / half_life)
+```
+- **Half-life = 7 ngày** (chia sẻ từ `cf.resolved_half_life()`).
+- Mỗi đơn có `w` riêng; món mua nhiều đơn gần đây → điểm cao.
+- Sau đó chuẩn hoá về `[0, 1]` theo giá trị cao nhất của khách đó (`_unit_max`).
+- Kênh này **CHỈ chấm điểm cho món đã mua** — nếu khách chưa từng mua món i thì `rep(u, i) = 0`.
+
+**c) Content-Based (models/content_based.py)**
+- Không phân biệt đã mua / chưa mua — chỉ dựa trên đặc trưng và tín hiệu onboarding.
+- Hệ quả: một món có thể có `cb > 0` dù khách đã mua, nhưng nếu `final` ở món đó vẫn thắng (chủ yếu nhờ `cb`) thì món đó có thể lọt vào top nếu `allow_repeat=True`.
+
+#### 6.4.3 Quyết định cuối — `rank()` (hybrid.py:211-235)
+
+```python
+exclude = comp["blocked"].copy()               # "không quan tâm"
+if not params.allow_repeat:
+    exclude |= comp["purchased"]               # loại món đã mua nếu allow_repeat=False
+
+order = np.lexsort((self._tiebreak, -final))   # xếp theo điểm, phá hoà
+order = order[~exclude[order]][:top_k]
+
+parts = np.vstack([w_cf, w_cb, w_rep])
+labels = (REASON_CF, REASON_CONTENT, REASON_REPEAT)
+reason = labels[int(parts[:, col].argmax())] if final > 0 else REASON_POPULAR
+```
+
+**Ma trận quyết định:**
+
+| Trạng thái khách | Tín hiệu | `final` món đã mua | `allow_repeat` | Kết quả |
+|---|---|---|---|---|
+| Đã mua, có tín hiệu gần đây | `rep > 0`, `cf = 0`, `cb` ≥ 0 | = `γ·rep + (1−α)·cb` | True | **Có thể vào top** với reason `repeat` (nếu `rep` thắng) hoặc `content` |
+| Đã mua, không có tín hiệu gần | `rep ≈ 0`, `cf = 0`, `cb` ≥ 0 | = `(1−α)·cb` | True | **Có thể vào top** với reason `content` |
+| Đã mua, không quan tâm (blocked) | `rep` ≥ 0, `cb < 0` hoặc blocked_mask=True | bất kỳ | True | **LOẠI** ở bước `exclude` |
+| Đã mua | bất kỳ | bất kỳ | False | **LOẠI** ở bước `exclude` |
+
+#### 6.4.4 Số liệu benchmark
+
+Yêu cầu sản phẩm (Mục 4): **2–3 món đã mua trong top-10** (trung bình validation).
+- Đạt được nhờ `γ = 0.5` (không quá cao — không ràng buộc thì validation chọn `γ = 5`, lúc đó phần lớn top-10 là món đã mua, khám phá ≈ 0).
+- File tham chiếu: `evaluation/results/benchmark_20260930_203039.md`.
+
+#### 6.4.5 Lý do gợi ý `repeat`
+
+Trong `rank()`:
+```python
+reason = labels[int(parts[:, col].argmax())] if final > 0 else REASON_POPULAR
+```
+- `parts[:, col]` = 3 giá trị `[α·cf, (1−α)·cb, γ·rep]` của **món đang xét**.
+- `argmax` chọn kênh thắng.
+- Nếu `γ·rep` thắng → reason = `repeat` → frontend hiển thị "Bạn từng mua món này".
+
+**Lưu ý UX — cần confirm với frontend:**
+- Lý do `repeat` đang được gán khi kênh `rep` thắng — nghĩa là **món đã mua từ lâu nhưng CF/CB cũng cao** sẽ hiển thị "repeat". Có thể gây hiểu nhầm ("món này tôi đã mua rồi mà sao lại gợi ý"). Xem `models/hybrid.py:228-233`.
+
+---
+
+## 7. Các bảng trong schema `serving` (ClickHouse)
+
+### 7.1 `pairs_customer_product`
 
 **Trạng thái:** Chưa tồn tại (cần `dbt run`)
 
@@ -347,7 +549,7 @@ Mốc cắt validation              Mốc cắt test              Hiện tại
 
 ---
 
-### 6.2 `processed_data_for_AI_rec`
+### 7.2 `processed_data_for_AI_rec`
 
 **Trạng thái:** Đang tồn tại (4.033.015 dòng) — nhưng **thiếu cột `LastPurchasedAt`**
 
@@ -382,7 +584,7 @@ WHERE p.Quantity > 0
 
 ---
 
-### 6.3 `catalog_features`
+### 7.3 `catalog_features`
 
 **Trạng thái:** Đang tồn tại (600.000 dòng)
 
@@ -428,7 +630,7 @@ multiIf(
 
 ---
 
-### 6.4 `product_features`
+### 7.4 `product_features`
 
 **Trạng thái:** Chưa tồn tại (cần `dbt run`)
 
@@ -458,7 +660,7 @@ multiIf(
 
 ---
 
-### 6.5 `purchase_events_for_AI_rec`
+### 7.5 `purchase_events_for_AI_rec`
 
 **Trạng thại:** Chưa tồn tại (cần `dbt run`)
 
@@ -498,7 +700,7 @@ HAVING Quantity > 0
 
 ---
 
-### 6.6 `customer_preference_signals`
+### 7.6 `customer_preference_signals`
 
 **Trạng thái:** Chưa tồn tại (cần `dbt run`)
 
@@ -533,7 +735,7 @@ WHERE (dimension = 'category' AND value IN (SELECT category_id FROM dim_categori
 
 ---
 
-### 6.7 `customer_product_events`
+### 7.7 `customer_product_events`
 
 **Trạng thái:** Đang tồn tại (0 dòng — `analytics.user_events` chưa có dữ liệu thật)
 
@@ -557,7 +759,7 @@ WHERE (dimension = 'category' AND value IN (SELECT category_id FROM dim_categori
 
 ---
 
-### 6.8 `mart_revenue`
+### 7.8 `mart_revenue`
 
 **Trạng thái:** Đang tồn tại (167.974 dòng)
 
@@ -582,7 +784,7 @@ WHERE (dimension = 'category' AND value IN (SELECT category_id FROM dim_categori
 
 ---
 
-## 7. Luồng dữ liệu từ BigData → AI-Rec
+## 8. Luồng dữ liệu từ BigData → AI-Rec
 
 ```
 Postgres (Ecommerce)
