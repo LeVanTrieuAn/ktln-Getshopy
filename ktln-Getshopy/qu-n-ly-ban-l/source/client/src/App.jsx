@@ -32,7 +32,6 @@ const Checkout      = lazy(() => import('./pages/b2c/Checkout'));
 const Account       = lazy(() => import('./pages/b2c/Account'));
 const Compare       = lazy(() => import('./pages/b2c/Compare'));
 const About         = lazy(() => import('./pages/b2c/About'));
-const Onboarding    = lazy(() => import('./pages/b2c/Onboarding'));
 
 import './App.css';
 
@@ -109,10 +108,6 @@ export default function App() {
                   </Route>
 
                   {/* B2C Storefront — Home eager, sub-routes lazy */}
-                  {/* Đứng NGOÀI StoreLayout: không sidebar, không banner — khách tập
-                      trung vào 4 bước. Đặt bên trong thì còn gây vòng lặp, vì chính
-                      StoreLayout là nơi quyết định chuyển sang onboarding. */}
-                  <Route path="/onboarding" element={<Onboarding />} />
                   <Route path="/" element={<StoreLayout />}>
                     <Route index           element={<Home />} />
                     <Route path="shop"     element={<ProductList />} />

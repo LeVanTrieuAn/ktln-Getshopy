@@ -21,6 +21,19 @@ export function AppProvider({ children }) {
   const [b2cUser, setB2cUser] = useState(() => {
     try { return JSON.parse(localStorage.getItem('b2c_user')); } catch { return null; }
   });
+  // Modal-state: Onboarding nổi lên lần đầu (khi pref === null) hoặc khi user
+  // chủ động bấm "Sửa lại sở thích" từ Account. Không gắn vào URL — modal
+  // thì không cần, và để URL sạch cho việc share trang.
+  const [onboardingOpen, setOnboardingOpen] = useState(false);
+  // 'first' = mở sau đăng ký (gate); 'edit' = mở khi sửa lại từ Account. Hai mode
+  // này khác nhau: first không pre-fill (chưa có gì), edit thì pre-fill từ preferences.
+  const [onboardingMode, setOnboardingMode] = useState('first');
+  // Mặc định openOnboarding dùng mode 'edit' — đường gọi từ Account là chỉnh sửa.
+  // StoreLayout tự set mode='first' trong useEffect của nó.
+  const openOnboarding = () => {
+    setOnboardingMode('edit');
+    setOnboardingOpen(true);
+  };
   const [wishlist, setWishlist] = useState(() => {
     try { const v = JSON.parse(localStorage.getItem('b2c_wishlist')); return Array.isArray(v) ? v : []; } catch { return []; }
   });
@@ -187,6 +200,7 @@ export function AppProvider({ children }) {
       user, login, logout,
       b2cUser, b2cLogin, b2cLogout,
       authOpen, setAuthOpen, openAuthModal, closeAuthModal, authSuccessCallback,
+      onboardingOpen, setOnboardingOpen, onboardingMode, setOnboardingMode, openOnboarding,
       selectedBranch, setSelectedBranch,
       wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed
     }}>
