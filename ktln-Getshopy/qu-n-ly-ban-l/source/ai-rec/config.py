@@ -87,12 +87,59 @@ TRAINING_QUERY = (
 #
 # HALF_LIFE = 0 để TẮT hẳn, quay lại hành vi cũ.
 #
-# 7 ngày: CHỌN TRÊN VALIDATION (01/10/2026) trong lưới khai báo trước {7, 10, 14,
-# 30, 60} — dùng chung cho ma trận CF, kênh mua lại và độ phổ biến. 7 là CẬN DƯỚI
-# của lưới, đặt theo miền trước khi đo (đồ điện tử không đổi gu theo ngày):
-# validation còn muốn ngắn hơn chỉ vì dữ liệu tổng hợp đổi gu đột ngột đầu tháng 9.
-# Có dữ liệu thật thì phải chọn lại. Bản trước 01/10 chạy 30.
-RECENCY_HALF_LIFE_DAYS = float(os.getenv("RECENCY_HALF_LIFE_DAYS", "7"))
+# 37 ngày: CHỌN TỪ PHÂN TÍCH DATA THẬT (08/10/2026) dựa trên median inter-purchase
+# interval — dùng chung cho ma trận CF, kênh mua lại và độ phổ biến. Phân tích 
+# 18,194 lần mua lại cho thấy median = 73 ngày → half-life = 37 ngày (73/2).
+# Giá trị cũ (7 ngày) quá ngắn so với chu kỳ thực tế; 37 ngày phản ánh hành vi 
+# đúng hơn. Nếu có data production thật với chu kỳ khác nhau theo danh mục thì 
+# sẽ chuyển sang CATEGORY_HALF_LIFE_DAYS.
+RECENCY_HALF_LIFE_DAYS = float(os.getenv("RECENCY_HALF_LIFE_DAYS", "37"))
+
+# Category-aware half-life: Dict[ParentCategory, half_life_days]
+# Dựa trên hành vi tiêu dùng thực tế trong đời sống (domain knowledge 2026):
+#
+# PHỤ KIỆN (mua thường xuyên):
+#   cat-mobile-acc:  90 ngày — 40% người dùng thay phụ kiện điện thoại mỗi 4-6 tháng
+#   cat-laptop-acc:  120 ngày — phụ kiện laptop ít thay hơn phụ kiện điện thoại
+#   cat-camera:      180 ngày — phụ kiện máy ảnh (lens, filter) thay theo nhu cầu
+#
+# THIẾT BỊ AV (chu kỳ trung bình):
+#   cat-av:          1,095 ngày (3 năm) — AV receiver/loa có chu kỳ 7-12 năm,
+#                    upgrade công nghệ 3-5 năm
+#
+# THIẾT BỊ CHÍNH (chu kỳ dài):
+#   cat-phone:       975 ngày (2.7 năm) — người dùng giữ điện thoại trung bình
+#                    32 tháng (2026 consumer research)
+#   cat-tablet:      1,095 ngày (3 năm) — 22.6% thay tablet mỗi 3-4 năm
+#   cat-laptop:      1,460 ngày (4 năm) — doanh nghiệp 3-4 năm, cá nhân 5-7 năm
+#
+# Half-life = chu kỳ thay thế / 2 → giảm trọng số 50% tại mốc giữa chu kỳ.
+#
+# Format env var: "cat-mobile-acc:90,cat-laptop:1460" để override, hoặc để trống dùng mặc định.
+_category_halflife_str = os.getenv("CATEGORY_HALF_LIFE_DAYS", "")
+if _category_halflife_str.strip():
+    try:
+        CATEGORY_HALF_LIFE_DAYS = {
+            k.strip(): float(v.strip())
+            for k, v in (pair.split(":") for pair in _category_halflife_str.split(","))
+        }
+    except (ValueError, AttributeError):
+        CATEGORY_HALF_LIFE_DAYS = None
+else:
+    # Mặc định: dựa trên hành vi tiêu dùng thực tế
+    # tuỳ thuộc vào ngành và nhóm hàng sẽ điều chỉnh các chu kỳ thay thế khác nhau
+    CATEGORY_HALF_LIFE_DAYS = {
+        # Phụ kiện — chu kỳ ngắn
+        "cat-mobile-acc": 90.0,
+        "cat-laptop-acc": 120.0,
+        "cat-camera": 180.0,
+        # Thiết bị AV — chu kỳ trung bình
+        "cat-av": 1095.0,
+        # Thiết bị chính — chu kỳ dài
+        "cat-phone": 975.0,
+        "cat-tablet": 1095.0,
+        "cat-laptop": 1460.0,
+    }
 
 # Thang của trọng số trong ma trận CF, sau khi đã giảm theo thời gian:
 #   "linear" -> giữ nguyên số lượng (bản trước 01/10)
@@ -170,8 +217,13 @@ PURCHASE_EVENTS_TABLE = os.getenv("PURCHASE_EVENTS_TABLE", "serving.purchase_eve
 PURCHASE_EVENTS_QUERY = (
     # Một dòng cho mỗi (khách, món, đơn). Số ngày tính ở ClickHouse, cùng cách
     # với TRAINING_QUERY, để hai kênh già đi theo cùng một đồng hồ.
-    f"SELECT CustomerID, ProductID, dateDiff('day', OrderedAt, now()) AS DaysSince "
-    f"FROM {PURCHASE_EVENTS_TABLE} FORMAT TabSeparatedWithNames"
+    # Thêm ParentCategory để hỗ trợ category-aware half-life (08/10/2026).
+    f"SELECT pe.CustomerID, pe.ProductID, "
+    f"dateDiff('day', pe.OrderedAt, now()) AS DaysSince, "
+    f"cf.ParentCategory "
+    f"FROM {PURCHASE_EVENTS_TABLE} pe "
+    f"LEFT JOIN serving.catalog_features cf ON cf.ProductID = pe.ProductID "
+    f"FORMAT TabSeparatedWithNames"
 )
 # ==============================================================================
 # Tín hiệu hành vi phụ cho ma trận hồ sơ của CF — xem models/behavior.py

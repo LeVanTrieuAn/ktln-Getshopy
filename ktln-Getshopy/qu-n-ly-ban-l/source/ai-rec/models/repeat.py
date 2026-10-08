@@ -12,6 +12,11 @@ evaluation/README.md.
 Không lọc ngưỡng số người mua như CF: ngưỡng đó chống cosine bị thổi lên ở món ít
 người mua, còn điểm mua lại chỉ phụ thuộc lịch sử của chính khách.
 
+Category-aware half-life (08/10/2026): Cho phép half-life riêng cho từng danh mục
+(ParentCategory). Dữ liệu hiện tại cho thấy mọi danh mục có chu kỳ giống nhau nên
+mặc định dùng chung. Khi có data production với chu kỳ khác biệt (cosmetics vs. laptop),
+bật category_half_life lên.
+
 Tài liệu:
   Anderson, A., Kumar, R., Tomkins, A., & Vassilvitskii, S. (2014). The dynamics
     of repeat consumption. WWW '14, 419–430.
@@ -25,18 +30,27 @@ import numpy as np
 import pandas as pd
 
 REQUIRED_COLUMNS = ("CustomerID", "ProductID", "DaysSince")
+CATEGORY_AWARE_COLUMNS = REQUIRED_COLUMNS + ("ParentCategory",)
 
 
 class RepeatModel:
     """Điểm mua lại theo khách, dựng từ lịch sử mua ở mức ĐƠN."""
 
-    def __init__(self, half_life_days: float) -> None:
+    def __init__(
+        self,
+        half_life_days: float,
+        category_half_life: dict[str, float] | None = None,
+    ) -> None:
         self.half_life_days = float(half_life_days)
+        self.category_half_life = category_half_life or {}
         self._items: dict[str, np.ndarray] = {}
         self._scores: dict[str, np.ndarray] = {}
 
     def fit(self, events: pd.DataFrame) -> "RepeatModel":
         """events: một dòng cho mỗi (khách, món, đơn) — CustomerID, ProductID, DaysSince.
+        
+        Nếu có cột ParentCategory và category_half_life được config, dùng half-life
+        riêng cho từng danh mục. Không có thì dùng chung half_life_days.
 
         Một đơn có hai dòng cùng món (tách dòng khi nhập) vẫn chỉ là một lần mua,
         nên nguồn phải gom theo đơn trước; ở đây không có OrderID để gom lại.
@@ -44,14 +58,33 @@ class RepeatModel:
         missing = [c for c in REQUIRED_COLUMNS if c not in events.columns]
         if missing:
             raise ValueError(f"Lịch sử mua thiếu cột: {missing}")
+        
         df = events.dropna(subset=list(REQUIRED_COLUMNS)).assign(
             CustomerID=lambda d: d["CustomerID"].astype(str),
             ProductID=lambda d: d["ProductID"].astype(str),
             DaysSince=lambda d: pd.to_numeric(d["DaysSince"], errors="coerce").fillna(0).clip(lower=0),
         )
-        hl = self.half_life_days
-        # half-life <= 0: tắt giảm theo thời gian -> đếm số đơn
-        df["w"] = 0.5 ** (df["DaysSince"] / hl) if hl > 0 else 1.0
+        
+        # Category-aware: nếu có ParentCategory và category_half_life config
+        use_category_aware = (
+            "ParentCategory" in df.columns
+            and self.category_half_life
+        )
+        
+        if use_category_aware:
+            df["ParentCategory"] = df["ParentCategory"].fillna("").astype(str)
+            df["hl"] = df["ParentCategory"].map(self.category_half_life).fillna(self.half_life_days)
+        else:
+            df["hl"] = self.half_life_days
+        
+        # Tính weight với half-life riêng cho từng dòng
+        # hl <= 0: tắt giảm theo thời gian -> đếm số đơn
+        df["w"] = np.where(
+            df["hl"] > 0,
+            0.5 ** (df["DaysSince"] / df["hl"]),
+            1.0
+        )
+        
         scores = df.groupby(["CustomerID", "ProductID"], sort=True)["w"].sum()
 
         self._items, self._scores = {}, {}
@@ -74,4 +107,6 @@ class RepeatModel:
         return {
             "repeat_customers": len(self._items),
             "repeat_pairs": int(sum(len(v) for v in self._items.values())),
+            "category_aware": int(bool(self.category_half_life)),
+            "num_categories": len(self.category_half_life) if self.category_half_life else 0,
         }
