@@ -815,6 +815,9 @@ app.post('/api/b2c/chat',              (req, res) => forwardToAiBot(req, res, '/
 app.post('/api/ai/smart-search',       (req, res) => forwardToAiBot(req, res, '/api/ai/smart-search'));
 app.post('/api/b2c/visual-search',     (req, res) => forwardToAiBot(req, res, '/api/b2c/visual-search'));
 app.post('/api/ai/smart-search-image', (req, res) => forwardToAiBot(req, res, '/api/ai/smart-search-image'));
+// Giọng nói → chữ (voice input). Âm thanh base64 tối đa ~60 KB nên nằm gọn trong
+// giới hạn mặc định của express.json(); client ghi tối đa 15 giây.
+app.post('/api/ai/transcribe',         (req, res) => forwardToAiBot(req, res, '/api/ai/transcribe'));
 
 // Recommendation vẫn ở server (gọi ai-rec container qua HTTP trong RecommendationService)
 const recommendationRouter = require('./routes/recommendation');

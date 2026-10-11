@@ -76,6 +76,7 @@ import {
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import AIChatbot from './AIChatbot';
+import VoiceButton from './VoiceButton';
 import AuthModal from './AuthModal';
 import { useApp } from '../../context/AppContext';
 import { useState, useEffect, useRef } from 'react';
@@ -548,7 +549,7 @@ export default function StoreLayout() {
                 </div>
               )}
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 8,
+                display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
                 background: isDark ? 'rgba(255,255,255,0.06)' : '#f4f5f7',
                 borderRadius: 10, padding: '7px 11px',
                 border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
@@ -567,16 +568,29 @@ export default function StoreLayout() {
                     }
                   }}
                   style={{
-                    flex: 1, border: 'none', background: 'transparent', outline: 'none',
+                    flex: 1, minWidth: 0, width: '50px', border: 'none', background: 'transparent', outline: 'none',
                     fontSize: 13, color: isDark ? '#ffffff' : '#18181b',
                     fontFamily: 'inherit',
                   }}
                 />
                 <input ref={searchImageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleSearchImageSelect} />
+                {/* Voice input: chữ nhận được điền vào ô tìm kiếm, người dùng sửa rồi tự nhấn Enter.
+                    Danh sách gợi ý hiện sẵn theo cơ chế tìm kiếm trực tiếp của ô này. */}
+                <VoiceButton
+                  id="search-voice-btn"
+                  isDark={isDark}
+                  size={20}
+                  fontSize={12}
+                  onText={(text) => {
+                    setSearchKeyword(prev => (prev.trim() ? prev.trimEnd() + ' ' : '') + text);
+                    setShowSearchDropdown(true);
+                    setTimeout(() => searchInputRef.current?.focus(), 0);
+                  }}
+                />
                 <button
                   title="Tìm bằng ảnh"
                   onClick={() => searchImageInputRef.current?.click()}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.4)' : '#a1a1aa', fontSize: 14, display: 'flex', alignItems: 'center', padding: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.4)' : '#a1a1aa', fontSize: 14, display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
                 >
                   <CameraOutlined />
                 </button>

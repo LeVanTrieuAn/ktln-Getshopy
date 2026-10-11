@@ -12,6 +12,7 @@
  *   POST /api/ai/smart-search       — Smart Search (text)
  *   POST /api/b2c/visual-search     — Visual Search (ảnh)
  *   POST /api/ai/smart-search-image — Search ảnh + text
+ *   POST /api/ai/transcribe         — Giọng nói → chữ (voice input)
  *   GET  /api/health                — Healthcheck
  */
 
@@ -45,7 +46,7 @@ app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
     service: 'ai-bot',
-    features: ['chatbot', 'smart-search', 'visual-search'],
+    features: ['chatbot', 'smart-search', 'visual-search', 'voice-input'],
     timestamp: new Date(),
   });
 });
@@ -53,9 +54,11 @@ app.get('/api/health', (req, res) => {
 // ─── AI ROUTES ───────────────────────────────────────────────────────────────
 const searchRouter  = require('./routes/search');
 const chatbotRouter = require('./routes/chatbot');
+const speechRouter  = require('./routes/speech');
 
 app.use('/api', searchRouter);
 app.use('/api', chatbotRouter);
+app.use('/api', speechRouter);
 
 // ─── START ───────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {

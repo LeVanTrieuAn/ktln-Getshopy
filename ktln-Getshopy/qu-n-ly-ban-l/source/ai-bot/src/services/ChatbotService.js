@@ -587,7 +587,7 @@ function fallbackResponse(intent, context) {
   }
 
   const defaults = {
-    GREETING:         { text: 'Dạ Getshopy xin chào ạ! 👋 Cửa hàng em có hơn 600.000 sản phẩm từ 67 thương hiệu. Anh/chị đang cần tìm gì ạ?', link: null },
+    GREETING:         { text: 'Dạ Getshopy xin chào ạ! 👋 Cửa hàng em có hơn 600.000 sản phẩm từ 33 thương hiệu. Anh/chị đang cần tìm gì ạ?', link: null },
     ASK_DELIVERY:     { text: 'Dạ giao nội thành 2–4 tiếng, tỉnh thành 1–3 ngày, miễn phí ship từ 500k ạ!', link: null },
     ASK_RETURN:       { text: 'Dạ đổi trả 7 ngày, bảo hành 12 tháng chính hãng ạ!', link: null },
     ASK_PAYMENT:      { text: 'Dạ hỗ trợ COD, MoMo, ZaloPay, trả góp 0% ạ!', link: null },
@@ -598,7 +598,7 @@ function fallbackResponse(intent, context) {
   };
 
   return defaults[intent] || {
-    text: 'Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!',
+    text: 'Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 33 thương hiệu, 8 danh mục chính ạ!',
     link: null,
   };
 }

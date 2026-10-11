@@ -117,7 +117,7 @@ async function analyzeProductImage(imageBase64) {
     return { caption: null, analysis: null };
   }
 
-  const prompt = `Bạn là AI phân tích sản phẩm cho cửa hàng điện tử Getshopy Việt Nam (600.000+ sản phẩm, 67 thương hiệu).
+  const prompt = `Bạn là AI phân tích sản phẩm cho cửa hàng điện tử Getshopy Việt Nam (600.000+ sản phẩm, 33 thương hiệu).
 Nhìn vào ảnh và xác định thông tin sản phẩm điện tử.
 
 DANH MỤC HỢP LỆ (chọn chính xác 1):
@@ -165,10 +165,11 @@ Chỉ trả về JSON.`;
       console.log(`[VisualSearch] Gọi ${model} (attempt ${attempt}/${MAX_RETRIES})...`);
 
       const response = await fetch(
-        `${GEMINI_BASE_URL}/models/${model}:generateContent?key=${GOOGLE_AI_KEY}`,
+        `${GEMINI_BASE_URL}/models/${model}:generateContent`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          // Khóa gửi qua header (không đưa vào URL để không lọt log).
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': GOOGLE_AI_KEY },
           body: JSON.stringify(requestBody),
           signal: AbortSignal.timeout(30_000),
         }

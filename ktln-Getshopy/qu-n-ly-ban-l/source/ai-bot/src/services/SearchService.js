@@ -199,7 +199,7 @@ async function smartSearch(query) {
   const brandNames = KC.getBrandNamesForPrompt();
 
   if (HF_API_KEY) {
-    const systemPrompt = `Bạn là AI trợ lý tìm kiếm sản phẩm cho cửa hàng điện tử Getshopy (600.000+ sản phẩm, 67 thương hiệu).
+    const systemPrompt = `Bạn là AI trợ lý tìm kiếm sản phẩm cho cửa hàng điện tử Getshopy (600.000+ sản phẩm, 33 thương hiệu).
 Nhiệm vụ: Phân tích câu tìm kiếm của khách hàng và trả về JSON.
 
 DANH MỤC HỢP LỆ (chọn CHÍNH XÁC 1, ưu tiên danh mục cấp 2 cụ thể hơn):

@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { useNavigate } from 'react-router-dom';
+import VoiceButton from './VoiceButton';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -547,6 +548,17 @@ export default function AIChatbot() {
               >
                 <PictureOutlined />
               </button>
+
+              {/* Voice input: chữ nhận được điền vào ô nhập, người dùng sửa rồi tự nhấn Enter */}
+              <VoiceButton
+                id="chatbot-voice-btn"
+                isDark={isDark}
+                disabled={isTyping || isAnalyzing}
+                onText={(text) => {
+                  setInputValue(prev => (prev.trim() ? prev.trimEnd() + ' ' : '') + text);
+                  setTimeout(() => inputRef.current?.focus(), 0);
+                }}
+              />
 
               {/* Text input */}
               <input
