@@ -5,6 +5,46 @@
 
 ---
 
+## 0. Cập nhật 19/10/2026 (đọc trước — ưu tiên hơn các mục cũ bên dưới)
+
+Các mục cũ bên dưới được viết ở v3.0 (09/2025). Những điểm sau **đã thay đổi trong code** và thay thế mô tả cũ:
+
+### 0.1 Chuỗi nhà cung cấp LLM
+Thứ tự (quyết định của chủ dự án): **HuggingFace → Google Gemini → OpenRouter → rule-based / câu dựng sẵn.**
+
+| Thứ tự | Nhà cung cấp | Biến môi trường |
+|---|---|---|
+| 1 | HuggingFace (featherless-ai) | `HF_API_KEY`, `HF_LLM_MODELS` |
+| 2 | Google Gemini | `GOOGLE_AI_KEY`, `GEMINI_CHAT_MODELS` (mặc định `gemini-3.5-flash,gemini-3-flash-preview`) |
+| 3 | OpenRouter | `OPENROUTER_API_KEY`, `OPENROUTER_URL`, `OPENROUTER_MODEL` |
+| 4 | Rule-based | không cần khóa |
+
+- Cài đặt tại `src/ai/llmClient.js`; `src/ai/llm.js` giữ nguyên system prompt và gọi `generateText`.
+- **Ngắt tạm theo nhà cung cấp:** HTTP 402 (hết credit) tạm ngưng 30 phút, 401/403 (và Gemini 400 `API_KEY_INVALID`) 30–60 phút, 429 từ 1 đến 5 phút. Mỗi lần chuyển trạng thái ghi log `[LLM][ALERT]` kèm hướng dẫn đổi khóa.
+- Gemini 3 mặc định "suy nghĩ" và tiêu hết token (câu trả lời bị cắt cụt); code đặt `thinkingLevel: minimal`. Nguồn: https://ai.google.dev/gemini-api/docs/thinking
+- `GET /api/health` có thêm `llm_providers` (ok / lý do chết / not_configured), không chứa khóa.
+- Tìm bằng ảnh và giọng nói chỉ dùng Gemini (cần model đa phương thức), **chưa có đường dự phòng**.
+- Khi đổi khóa trong `.env`: `docker compose up -d --force-recreate ai-bot` (từ thư mục gốc dự án).
+- Lưu ý: phân loại intent (`huggingface.js`) vẫn gọi HuggingFace trực tiếp, chỉ model đầu tiên. Khi HF lỗi, intent rơi về `UNKNOWN` và dựa vào rule-based + nhận diện hãng/danh mục. Chuỗi 4 model NLI mô tả ở các mục cũ **không còn đúng** với code.
+
+### 0.2 Ngân sách là ràng buộc cứng
+- Module dùng chung `src/services/PriceParser.js` cho cả chatbot và smart-search. Hiểu: dưới / không quá / tối đa / trên / từ…đến / tầm (±30%); chỉ "giá rẻ" mới là ước chừng (dưới 5 triệu, chỉ khi `implicit`).
+- Khi không có sản phẩm trong ngân sách, hệ thống **không nới giá hay bỏ giá** (lỗi cũ: "dưới 5 triệu" trả sản phẩm 7–8 triệu, "dưới 1 triệu" trả điện thoại 41 triệu). Thay vào đó trả câu thông báo dựng sẵn, nêu rõ mức chênh, kèm sản phẩm gần ngưỡng nhất. Phản hồi có `budget.status` ∈ `ok | over | none | other_brand`.
+- Câu thông báo này không qua LLM, để LLM không diễn đạt như thể sản phẩm nằm trong ngân sách.
+- Unit test: `node tests/price-parser.test.js` (34 ca).
+
+### 0.3 Nhận diện danh mục
+- `KnowledgeCache.detectCategory` khớp theo ranh giới từ để `phone` không khớp trong `iphone`. "iphone dưới 5 triệu" vẫn là điện thoại; câu có từ phụ kiện ("ốp lưng iphone") không bị coi là điện thoại.
+- Danh sách sản phẩm trả về được gộp theo tên (dữ liệu seed có nhiều dòng trùng tên).
+
+### 0.4 Hạn chế dữ liệu (cần ghi trong báo cáo)
+Catalog seed (dữ liệu mô phỏng) **không có điện thoại dưới 6.440.000đ và không có laptop dưới 13.840.000đ** (đo ngày 19/10/2026, trước khi cập nhật). Do đó câu "điện thoại dưới 5 triệu" trả về thông báo "chưa có" kèm sản phẩm gần ngưỡng nhất; đây là hành vi đúng, không phải lỗi. Kết quả test là một lần chạy, chưa lặp lại.
+
+### 0.5 Số liệu tài liệu cũ chưa được đồng bộ
+Số intent (48 hay 46), số danh mục (34 thực tế) và số thương hiệu ở các mục cũ có thể lệch với code; cần đối chiếu lại với `KnowledgeCache.js` và `huggingface.js` trước khi trích dẫn.
+
+---
+
 ## 1. Tổng quan
 
 AI Bot là một **microservice Node.js độc lập**, tách khỏi server chính, cung cấp ba năng lực AI cho nền tảng thương mại điện tử Getshopy:
