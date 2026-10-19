@@ -1,14 +1,15 @@
 /**
- * llm.js — HuggingFace Text-Generation Client (Qwen2.5-72B-Instruct)
+ * llm.js — Sinh câu trả lời chatbot bằng LLM
  *
  * Nhận context từ DB (sản phẩm, chính sách) + câu hỏi user
- * → Gọi HuggingFace Inference API (Qwen2.5-72B) để sinh câu trả lời
- *   tự nhiên bằng tiếng Việt.
+ * → gọi chuỗi nhà cung cấp trong ./llmClient (HuggingFace → Gemini)
+ *   để sinh câu trả lời tự nhiên bằng tiếng Việt.
+ *   Trả null nếu mọi nhà cung cấp đều không dùng được → ChatbotService
+ *   dùng câu trả lời dựng sẵn (rule-based).
  *
- * Model: Qwen/Qwen2.5-72B-Instruct
- *   - Hỗ trợ 29 ngôn ngữ, đặc biệt xuất sắc tiếng Việt và tiếng Anh
- *   - Top multilingual benchmark (MMLU, C-Eval, ViMMRC...)
- *   - Endpoint tương thích OpenAI Chat Completions format
+ * Danh sách model đọc từ env:
+ *   HF_LLM_MODELS        (mặc định meta-llama/Llama-3.1-8B-Instruct)
+ *   GEMINI_CHAT_MODELS   (mặc định gemini-3.5-flash,gemini-3-flash-preview)
  *
  * Lưu ý: OpenRouter keys được giữ trong .env để có thể dễ dàng
  *        chuyển lại bằng cách thay đổi cấu hình.
@@ -16,36 +17,7 @@
 
 'use strict';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// CONFIGURATION — HuggingFace Inference API (Chat Completions)
-// ─────────────────────────────────────────────────────────────────────────────
-
-const HF_API_KEY   = process.env.HF_API_KEY;
-/**
- * Chain LLM models cho text generation (featherless-ai provider).
- * Thử lần lượt nếu model bị deprecated/timeout.
- *
- * Refs:
- *  [1] meta-llama/Llama-3.1-8B-Instruct — HuggingFace Model Hub (CONFIRMED working)
- *  [2] Qwen/Qwen2.5-7B-Instruct — featherless-ai (timeout 2025-09, monitor)
- *  [3] Qwen/Qwen2.5-3B-Instruct — lighter fallback
- */
-/**
- * Đọc LLM model chain từ env var HF_LLM_MODELS.
- * Format: tên model phân tách bằng dấu phẩy.
- */
-const LLM_MODELS = (
-  process.env.HF_LLM_MODELS ||
-  'meta-llama/Llama-3.1-8B-Instruct' // default nếu không set env
-).split(',').map(s => s.trim()).filter(Boolean);
-const HF_LLM_MODEL = LLM_MODELS[0]; // backward compat
-
-/**
- * HuggingFace Inference Router — featherless-ai provider.
- * api-inference.huggingface.co đã bị deprecated (cuối 2025).
- * Endpoint mới: router.huggingface.co/<provider>/v1/chat/completions
- */
-const HF_LLM_URL = 'https://router.huggingface.co/featherless-ai/v1/chat/completions';
+const { generateText } = require('./llmClient');
 
 const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 
@@ -53,7 +25,7 @@ const fmt = (n) => new Intl.NumberFormat('vi-VN').format(n) + 'đ';
 // BUILD SYSTEM PROMPT
 // ─────────────────────────────────────────────────────────────────────────────
 function buildSystemPrompt(context = {}) {
-  const { products = [], policy = null } = context;
+  const { products = [], policy = null, budget = null } = context;
 
   let productSection = '';
   if (products.length > 0) {
@@ -74,6 +46,9 @@ function buildSystemPrompt(context = {}) {
   }
 
   const policySection = policy ? `\nTHÔNG TIN:\n${policy}\n` : '';
+  const budgetSection = budget && budget.description
+    ? `\nNGÂN SÁCH KHÁCH NÊU: ${budget.description}. Các sản phẩm ở trên đều nằm trong ngân sách này; TUYỆT ĐỐI KHÔNG gợi ý sản phẩm có giá vượt mức đó.\n`
+    : '';
 
   return `Bạn là trợ lý AI mua sắm của Getshopy — cửa hàng điện tử tại TP.HCM với hơn 600.000 sản phẩm.
 VAI TRÒ: Tư vấn mua sắm thông minh, thân thiện.
@@ -85,7 +60,7 @@ VAI TRÒ: Tư vấn mua sắm thông minh, thân thiện.
 8 DANH MỤC CHÍNH: Điện thoại, Laptop, Tablet, Smartwatch, Phụ kiện di động, Phụ kiện laptop/PC, Thiết bị nghe nhìn & lưu trữ, Camera.
 
 PHONG CÁCH: Nhiệt tình, ngắn gọn (2–3 câu), dùng emoji vừa phải.
-${productSection}${policySection}
+${productSection}${policySection}${budgetSection}
 CHÍNH SÁCH:
 - Giao hàng: Nội thành 2–4h, tỉnh thành 1–3 ngày. Miễn ship từ 500k.
 - Bảo hành: 12 tháng chính hãng, đổi trả 7 ngày.
@@ -100,35 +75,17 @@ QUY TẮC BẮT BUỘC:
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SLEEP HELPER — dùng cho retry khi model cold start
-// ─────────────────────────────────────────────────────────────────────────────
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
-
-// ─────────────────────────────────────────────────────────────────────────────
-// LANGUAGE GUARD — phát hiện tiếng Trung trong response
-// ─────────────────────────────────────────────────────────────────────────────
-function containsChinese(text) {
-  // Unicode block: CJK Unified Ideographs (4E00–9FFF) + Extensions
-  return /[\u4e00-\u9fff\u3400-\u4dbf\u{20000}-\u{2a6df}]/u.test(text);
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// GENERATE RESPONSE — gọi HuggingFace Inference API (Qwen2.5-72B)
+// GENERATE RESPONSE
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Sinh câu trả lời bằng model Qwen2.5-72B-Instruct qua HuggingFace Inference API.
+ * Sinh câu trả lời qua chuỗi HuggingFace → Gemini.
  *
  * @param {{ intent: string, context: object, message: string, history: Array }} params
- * @returns {Promise<string|null>} - Nội dung câu trả lời hoặc null nếu thất bại
+ * @returns {Promise<string|null>} - Nội dung câu trả lời hoặc null nếu mọi nhà cung cấp thất bại
  */
 async function generateChatResponse({ intent, context, message, history = [] }) {
-  if (!HF_API_KEY) {
-    console.warn('[LLM] HF_API_KEY chưa được cấu hình.');
-    return null;
-  }
-
-  const systemPrompt = buildSystemPrompt({ ...context, intent });
+  const system = buildSystemPrompt({ ...context, intent });
 
   const historyMessages = history
     .slice(-6)
@@ -138,98 +95,21 @@ async function generateChatResponse({ intent, context, message, history = [] }) 
     }))
     .filter(m => m.content);
 
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...historyMessages,
-    { role: 'user',   content: context.effectiveMessage || message },
-  ];
+  const result = await generateText({
+    system,
+    messages: [...historyMessages, { role: 'user', content: context.effectiveMessage || message }],
+    maxTokens: 150,
+    temperature: 0.7,
+    topP: 0.9,
+    timeoutMs: 20_000,
+  });
 
-  // Retry tối đa 1 lần — failfast để tránh user chờ quá lâu
-  // Nếu LLM không trả lời trong 20s → fallback handler ngay
-  const MAX_RETRIES = 1;
-
-  // Thử lần lượt qua LLM_MODELS — nếu model timeout/deprecated, chuyển sang tiếp theo
-  for (let mi = 0; mi < LLM_MODELS.length; mi++) {
-    const currentModel = LLM_MODELS[mi];
-    if (mi > 0) console.log(`[LLM] Thử fallback LLM model [${mi}]: ${currentModel}`);
-
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        console.log(`[LLM] Calling ${currentModel} (attempt ${attempt}/${MAX_RETRIES})...`);
-
-        const response = await fetch(HF_LLM_URL, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${HF_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model:       currentModel,
-            messages,
-            temperature: 0.7,
-            max_tokens:  150,
-            top_p:       0.9,
-            stream:      false,
-          }),
-          signal: AbortSignal.timeout(20_000),
-        });
-
-        // Model bị deprecated / không hỗ trợ → skip sang model tiếp
-        if (response.status === 400 || response.status === 404 || response.status === 410) {
-          const errText = await response.text().catch(() => '');
-          console.warn(`[LLM] Model ${currentModel} not available (${response.status}): ${errText.slice(0,80)}`);
-          break; // thử model tiếp
-        }
-
-        // Model đang warm-up (503) — chờ rồi retry
-        if (response.status === 503) {
-          const errData = await response.json().catch(() => ({}));
-          const waitMs  = Math.min((errData.estimated_time || 10) * 1000, 8_000);
-          console.log(`[LLM] Model đang load, chờ ${Math.round(waitMs / 1000)}s...`);
-          if (attempt < MAX_RETRIES) { await sleep(waitMs); continue; }
-          break;
-        }
-
-        if (!response.ok) {
-          const errText = await response.text().catch(() => '');
-          console.error(`[LLM] HTTP ${response.status}:`, errText.slice(0, 200));
-          break;
-        }
-
-        const data    = await response.json();
-        const content = data?.choices?.[0]?.message?.content?.trim();
-
-        if (!content) {
-          console.warn('[LLM] Response rỗng — thử model tiếp.');
-          break;
-        }
-
-        // Guard: phát hiện tiếng Trung → retry hoặc skip model
-        if (containsChinese(content)) {
-          console.warn(`[LLM] ⚠️ Response tiếng Trung (${content.slice(0,30)}...) — retry`);
-          if (attempt < MAX_RETRIES) { await sleep(1000); continue; }
-          break;
-        }
-
-        if (mi > 0) console.log(`[LLM] Fallback model ${currentModel} thành công!`);
-        console.log(`[LLM] ✅ ${currentModel.split('/')[1]} generated ${content.length} chars, intent=${intent}`);
-        return content;
-
-      } catch (err) {
-        const isTimeout = err.name === 'TimeoutError' || err.name === 'AbortError';
-        if (isTimeout) {
-          console.warn(`[LLM] Model ${currentModel} timeout — thử model tiếp`);
-          break; // timeout → skip sang model tiếp luôn, không retry
-        }
-        console.error(`[LLM] Attempt ${attempt} lỗi: ${err.message}`);
-        if (attempt < MAX_RETRIES) await sleep(4000 * attempt);
-      }
-    }
+  if (!result) {
+    console.warn('[LLM] Không nhà cung cấp nào khả dụng — dùng fallback handler.');
+    return null;
   }
-
-  console.warn('[LLM] Tất cả LLM models đều thất bại — dùng fallback handler.');
-  return null;
-  return null;
+  console.log(`[LLM] ${result.provider}/${result.model} sinh ${result.text.length} ký tự, intent=${intent}`);
+  return result.text;
 }
 
 module.exports = { generateChatResponse };

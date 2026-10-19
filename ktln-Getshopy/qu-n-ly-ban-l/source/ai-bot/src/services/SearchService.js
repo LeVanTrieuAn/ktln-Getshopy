@@ -26,6 +26,11 @@ const { analyzeProductImage }  = require('../ai/visualSearch');
 const { generateChatResponse } = require('../ai/llm');
 const KC  = require('./KnowledgeCache');
 const PSC = require('./ProductSpecsCache');
+const { generateText } = require('../ai/llmClient');
+const {
+  extractPriceFromQuery, stripPricePhrases, toPriceFilter,
+  describeBudget, describeShortfall, lowerFirst, findOverBudget,
+} = require('./PriceParser');
 
 // ── Định dạng tiền tệ ────────────────────────────────────────────────────────
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -63,89 +68,8 @@ function serializeProducts(products, categoryMap = {}) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// RULE-BASED PRICE EXTRACTION — Luôn chính xác, không phụ thuộc LLM
+// TRÍCH NGÂN SÁCH — dùng chung PriceParser với ChatbotService (xem services/PriceParser.js)
 // ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Extract price range từ query tiếng Việt.
- * Hỗ trợ: "dưới X triệu", "trên X triệu", "từ X đến Y triệu",
- *          "tầm X triệu", "khoảng X triệu", "Xtr", "Xk", "X000000"...
- *
- * @param {string} query
- * @returns {{ min: number|null, max: number|null }}
- */
-function extractPriceFromQuery(query) {
-  if (!query) return { min: null, max: null };
-  const norm = removeDiacritics(query).toLowerCase().replace(/,/g, '');
-  let min = null, max = null;
-
-  // Parse số + đơn vị → VND
-  const parsePrice = (numStr, unit) => {
-    const num = parseFloat(numStr);
-    if (isNaN(num)) return null;
-    if (/trieu|tr\b/.test(unit)) return num * 1_000_000;
-    if (/nghin|ngan|k\b/.test(unit)) return num * 1_000;
-    if (/dong|vnd|d\b/.test(unit)) return num;
-    // Số > 100K thì coi là VND gốc
-    if (num >= 100_000) return num;
-    // Số < 100 → triệu (VD: "dưới 10" → 10 triệu)
-    if (num <= 100) return num * 1_000_000;
-    return num;
-  };
-
-  // Helper: extract number + unit từ substring
-  const NUM_UNIT = /(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/;
-
-  // Pattern 1: "dưới X triệu" / "duoi X tr" / "under X trieu" / "< X trieu"
-  const underMatch = norm.match(/(?:duoi|under|khong qua|<)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/);
-  if (underMatch) {
-    max = parsePrice(underMatch[1], underMatch[2] || '');
-  }
-
-  // Pattern 2: "trên X triệu" / "tren X tr" / "> X trieu" / "hơn X triệu"
-  const overMatch = norm.match(/(?:tren|hon|over|>)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/);
-  if (overMatch) {
-    min = parsePrice(overMatch[1], overMatch[2] || '');
-  }
-
-  // Pattern 3: "từ Xk đến Y triệu" — hỗ trợ đơn vị KHÁC NHAU cho mỗi số
-  const rangeMatch = norm.match(/(?:tu|from)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k)?\s*(?:den|toi|to|-)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k)?/);
-  if (rangeMatch && !min && !max) {
-    const unit1 = rangeMatch[2] || rangeMatch[4] || ''; // fallback lấy unit chung
-    const unit2 = rangeMatch[4] || rangeMatch[2] || '';
-    min = parsePrice(rangeMatch[1], unit1);
-    max = parsePrice(rangeMatch[3], unit2);
-  }
-
-  // Pattern 4: "tầm X triệu" / "khoang X ngan" → ±30%
-  const aroundMatch = norm.match(/(?:tam|khoang|around|about)\s*(\d+(?:[.,]\d+)?)\s*(trieu|tr|nghin|ngan|k|dong|vnd|d)?/);
-  if (aroundMatch && !min && !max) {
-    const center = parsePrice(aroundMatch[1], aroundMatch[2] || '');
-    if (center) {
-      min = Math.round(center * 0.7);
-      max = Math.round(center * 1.3);
-    }
-  }
-
-  // Pattern 5: "giá rẻ" → dưới 5 triệu (cẩn thận tránh false positive)
-  if (!min && !max && /\b(gia re|budget|gia tot)\b/.test(norm)) {
-    max = 5_000_000;
-  }
-
-  // Pattern 6: "cao cấp" / "premium" → trên 20 triệu
-  if (!min && !max && /\b(cao cap|premium|flagship|high.?end)\b/.test(norm)) {
-    min = 20_000_000;
-  }
-
-  // Sanity check
-  if (min && max && min > max) [min, max] = [max, min];
-
-  if (min || max) {
-    console.log(`[PriceExtract] "${query}" → min=${min?.toLocaleString()}, max=${max?.toLocaleString()}`);
-  }
-
-  return { min, max };
-}
 
 /**
  * Build WHERE clause cho category — hỗ trợ parent→child expansion
@@ -182,10 +106,7 @@ async function smartSearch(query) {
   const rawQuery = String(query).trim();
   const categoryMap = KC.getCategoryMap();
 
-  // ── BƯỚC 1: Gọi LLM để extract search keywords từ câu mơ hồ ─────────────
-  const HF_API_KEY  = process.env.HF_API_KEY;
-  const HF_LLM_MODEL = process.env.HF_LLM_MODEL || 'Qwen/Qwen2.5-7B-Instruct';
-  const HF_LLM_URL   = 'https://router.huggingface.co/featherless-ai/v1/chat/completions';
+  // ── BƯỚC 1: Gọi LLM (HuggingFace → Gemini, xem ai/llmClient.js) để extract search keywords từ câu mơ hồ ──
 
   let keywords = [];
   let categoryHint = null;
@@ -198,7 +119,7 @@ async function smartSearch(query) {
   const categoryTaxonomy = KC.getCategoryTaxonomyForPrompt();
   const brandNames = KC.getBrandNamesForPrompt();
 
-  if (HF_API_KEY) {
+  if (process.env.HF_API_KEY || process.env.GOOGLE_AI_KEY || process.env.OPENROUTER_API_KEY) {
     const systemPrompt = `Bạn là AI trợ lý tìm kiếm sản phẩm cho cửa hàng điện tử Getshopy (600.000+ sản phẩm, 33 thương hiệu).
 Nhiệm vụ: Phân tích câu tìm kiếm của khách hàng và trả về JSON.
 
@@ -226,40 +147,26 @@ Ví dụ:
 Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
 
     try {
-      const response = await fetch(HF_LLM_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${HF_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: HF_LLM_MODEL,
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user',   content: rawQuery },
-          ],
-          temperature: 0.3,
-          max_tokens: 200,
-          stream: false,
-        }),
-        signal: AbortSignal.timeout(20_000),
+      const result = await generateText({
+        system: systemPrompt,
+        messages: [{ role: 'user', content: rawQuery }],
+        maxTokens: 200,
+        temperature: 0.3,
+        timeoutMs: 20_000,
+        json: true,
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        const content = data?.choices?.[0]?.message?.content?.trim();
-        if (content) {
-          const jsonMatch = content.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0]);
-            keywords     = Array.isArray(parsed.keywords) ? parsed.keywords : [];
-            brandHint    = parsed.brand ? String(parsed.brand).trim() : null;
-            categoryHint = parsed.category || null;
-            priceMax     = parsed.price_max ? Number(parsed.price_max) : null;
-            priceMin     = parsed.price_min ? Number(parsed.price_min) : null;
-            hint         = parsed.hint || '';
-            console.log(`[SmartSearch] LLM → keywords=${JSON.stringify(keywords)}, brand=${brandHint}, category=${categoryHint}`);
-          }
+      const content = result?.text;
+      if (content) {
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          keywords     = Array.isArray(parsed.keywords) ? parsed.keywords : [];
+          brandHint    = parsed.brand ? String(parsed.brand).trim() : null;
+          categoryHint = parsed.category || null;
+          priceMax     = parsed.price_max ? Number(parsed.price_max) : null;
+          priceMin     = parsed.price_min ? Number(parsed.price_min) : null;
+          hint         = parsed.hint || '';
+          console.log(`[SmartSearch] LLM(${result.provider}) → keywords=${JSON.stringify(keywords)}, brand=${brandHint}, category=${categoryHint}`);
         }
       }
     } catch (llmErr) {
@@ -281,27 +188,23 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
       categoryHint = categoryMap[detectedCatId] || null;
     }
 
-    const norm = removeDiacritics(rawQuery).toLowerCase();
+    const norm = stripPricePhrases(rawQuery);
     const stopWords = new Set(['toi','muon','can','mua','tim','kiem','cho','mot','cai','san','pham','cua','va','hoac','hay','la','de','xem','gia']);
     keywords = norm.split(/\s+/).filter(w => !stopWords.has(w) && w.length > 1).slice(0, 4);
     hint = `Kết quả cho "${rawQuery}"`;
   }
 
-  // ── BƯỚC 2: Rule-based price extraction (bổ sung / override LLM) ───────
-  // Luôn chạy rule-based để đảm bảo "dưới X triệu" luôn hoạt động
-  const rulePrice = extractPriceFromQuery(rawQuery);
-  if (rulePrice.max && !priceMax) priceMax = rulePrice.max;
-  if (rulePrice.min && !priceMin) priceMin = rulePrice.min;
-  // Override LLM nếu LLM trả priceMax nhưng rule-based detect giá thấp hơn
-  if (rulePrice.max && priceMax && rulePrice.max < priceMax) priceMax = rulePrice.max;
-  if (rulePrice.min && priceMin && rulePrice.min > priceMin) priceMin = rulePrice.min;
+  // ── BƯỚC 2: Ngân sách — LUÔN ưu tiên luật (PriceParser), LLM chỉ bổ sung khi luật không thấy gì ──
+  let price = extractPriceFromQuery(rawQuery);
+  if (price.kind == null && (priceMax || priceMin)) {
+    price = { min: priceMin || null, max: priceMax || null, kind: priceMax && priceMin ? 'range' : priceMax ? 'max' : 'min' };
+  }
+  const hasPrice = price.min != null || price.max != null;
+  const priceFilter = toPriceFilter(price);
+  let budget = hasPrice ? { status: 'ok', description: describeBudget(price) } : null;
 
   // ── BƯỚC 3: Resolve category & brand → DB IDs ────────────────────────────
   const allCategories = KC.getCategories();
-
-  const priceFilter = {};
-  if (priceMax) priceFilter.lte = priceMax;
-  if (priceMin) priceFilter.gte = priceMin;
 
   // Resolve category
   let matchedCatId = null;
@@ -433,30 +336,66 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
   }
 
   // ── BƯỚC 4: Fallback ────────────────────────────────────────────────────
+  // NGUYÊN TẮC: "dưới / tối đa / từ…đến" là ràng buộc CỨNG. Không âm thầm bỏ giá hay bỏ
+  // danh mục để trả sản phẩm sai; nếu phải gợi ý ngoài ngân sách thì nói rõ trong `hint`.
   if (products.length === 0) {
-    const hasPriceFilter = Object.keys(priceFilter).length > 0;
+    const hasCatOrBrand = !!matchedCatId || Object.keys(brandFilter).length > 0;
+    const catLabel   = matchedCatId ? lowerFirst(categoryMap[matchedCatId] || '') : '';
+    const brandLabel = Object.keys(brandFilter).length ? (brandHint || '') : '';
 
-    if (hasPriceFilter) {
-      if (matchedCatId || Object.keys(brandFilter).length > 0) {
+    if (hasPrice) {
+      if (hasCatOrBrand && price.kind === 'implicit') {
+        // "giá rẻ" không phải con số khách nêu: không báo thiếu hàng, chỉ lấy loại rẻ nhất.
         products = await prisma.product.findMany({
-          where: { ...categoryFilter, ...brandFilter, is_deleted: false, price: priceFilter },
+          where: { ...categoryFilter, ...brandFilter, is_deleted: false, stock: { gt: 0 } },
           orderBy: [{ price: 'asc' }],
           take: 8,
         });
-        if (products.length > 0) hint = `Các sản phẩm phù hợp trong tầm giá`;
-      }
-
-      if (products.length === 0) {
+        hint = 'Các sản phẩm giá thấp nhất';
+        budget = { status: 'ok', description: describeBudget(price) };
+      } else if (hasCatOrBrand) {
+        let status = null;
+        let shownBrand = brandLabel;
+        // (b) Có hãng khách muốn nhưng không có trong tầm giá -> hãng khác CÙNG tầm giá, giữ danh mục.
+        if (brandLabel && matchedCatId) {
+          products = await prisma.product.findMany({
+            where: { ...categoryFilter, is_deleted: false, stock: { gt: 0 }, price: priceFilter },
+            orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+            take: 8,
+          });
+          if (products.length > 0) status = 'other_brand';
+        }
+        // (a) Không có trong tầm giá: lấy gần ngưỡng nhất ở phía ngoài, cùng danh mục/hãng.
+        if (products.length === 0) {
+          products = await findOverBudget({ ...categoryFilter, ...brandFilter }, price, 8);
+          if (products.length > 0) status = 'over';
+        }
+        // (c) Vẫn không có (hãng đó không còn hàng nào): bỏ hãng, giữ danh mục.
+        if (products.length === 0 && brandLabel && matchedCatId) {
+          products = await findOverBudget({ ...categoryFilter }, price, 8);
+          if (products.length > 0) { status = 'over'; shownBrand = ''; }
+        }
+        status = status || 'none';
+        hint = describeShortfall(
+          status, price,
+          [catLabel, shownBrand].filter(Boolean).join(' '),
+          [catLabel, brandLabel].filter(Boolean).join(' '),
+          products[0] ? Number(products[0].price) : null
+        );
+        budget = { status, description: describeBudget(price) };
+      } else if (filteredKeywords.length > 0) {
+        // Khách nêu loại hàng mà ta không nhận ra danh mục/hãng và tên cũng không khớp: không bịa kết quả.
+        hint = describeShortfall('none', price, '"' + filteredKeywords.join(' ') + '"');
+        budget = { status: 'none', description: describeBudget(price) };
+      } else {
+        // Chỉ có ngân sách, không nêu loại hàng -> bán chạy trong tầm giá.
         products = await prisma.product.findMany({
           where: { is_deleted: false, price: priceFilter, stock: { gt: 0 } },
           orderBy: [{ sold: 'desc' }],
           take: 8,
         });
-        hint = hint || `Sản phẩm trong tầm giá`;
-      }
-
-      if (products.length === 0) {
-        hint = `Không tìm thấy sản phẩm nào trong tầm giá này`;
+        hint = products.length ? 'Sản phẩm bán chạy ' + describeBudget(price) : describeShortfall('none', price, null);
+        budget = { status: products.length ? 'ok' : 'none', description: describeBudget(price) };
       }
     } else {
       products = await prisma.product.findMany({
@@ -469,7 +408,7 @@ Chỉ trả về JSON thuần, không có markdown hay text bổ sung.`;
   }
 
   const serialized = serializeProducts(products, categoryMap);
-  return { products: serialized, hint, keywords };
+  return { products: serialized, hint, keywords, budget };
 }
 
 

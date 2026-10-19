@@ -47,6 +47,8 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     service: 'ai-bot',
     features: ['chatbot', 'smart-search', 'visual-search', 'voice-input'],
+    // Chỉ trạng thái (ok / lý do chết / not_configured), KHÔNG chứa khóa.
+    llm_providers: require('./ai/llmClient').getProviderStatus(),
     timestamp: new Date(),
   });
 });

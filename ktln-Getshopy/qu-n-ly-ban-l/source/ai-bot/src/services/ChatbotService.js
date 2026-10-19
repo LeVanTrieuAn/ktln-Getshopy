@@ -27,6 +27,10 @@ const { classifyIntent, removeDiacritics } = require('../ai/huggingface');
 const { generateChatResponse }             = require('../ai/llm');
 const KC  = require('./KnowledgeCache');
 const PSC = require('./ProductSpecsCache');
+const {
+  extractPriceFromQuery, stripPricePhrases, toPriceFilter,
+  describeBudget, describeShortfall, lowerFirst, findOverBudget,
+} = require('./PriceParser');
 
 // ── Định dạng tiền tệ ────────────────────────────────────────────────────────
 const fmt = (n) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(n);
@@ -42,7 +46,16 @@ const CHATBOT_SELECT = {
 function serializeProducts(products) {
   if (!Array.isArray(products)) return [];
   const categoryMap = KC.getCategoryMap();
-  return products.slice(0, 4).map(p => {
+  // Catalog seed có nhiều dòng trùng tên (khác nhau vài nghìn đồng) → chỉ giữ dòng đầu của mỗi tên
+  // để câu trả lời không liệt kê cùng một sản phẩm nhiều lần.
+  const seen = new Set();
+  const unique = products.filter(p => {
+    const key = String(p.name || '').trim().toLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.slice(0, 4).map(p => {
     let imagesArr = [];
     if (Array.isArray(p.images)) {
       imagesArr = p.images;
@@ -126,6 +139,74 @@ function extractKeywordsFromHistory(history = []) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// NGÂN SÁCH — dùng chung PriceParser với SearchService
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Lấy ngân sách từ câu hiện tại; nếu là câu nối tiếp ("xem đi") thì lấy từ các lượt
+ * khách nói gần đây. implicit:false — "giá rẻ" không phải con số khách nêu nên không
+ * được dùng làm trần cứng (tránh báo "chưa có laptop dưới 5 triệu" khi khách chưa hề nói vậy).
+ */
+function resolvePrice(message, history = []) {
+  let price = extractPriceFromQuery(message, { implicit: false });
+  if (price.kind == null && isFollowUp(message)) {
+    for (const h of history.slice(-4).reverse()) {
+      if (h.sender !== 'user') continue;
+      const p = extractPriceFromQuery(h.text || '', { implicit: false });
+      if (p.kind) { price = p; break; }
+    }
+  }
+  return price;
+}
+
+/**
+ * Khi KHÔNG có sản phẩm nào trong ngân sách. Ngân sách "dưới / tối đa / từ…đến" là
+ * ràng buộc CỨNG nên không nới giá, không bỏ giá. Thay vào đó:
+ *   (b) có đúng hãng nhưng ngoài tầm giá -> hãng khác CÙNG tầm giá (status 'other_brand')
+ *   (a) không có gì trong tầm giá        -> sản phẩm GẦN NGƯỠNG NHẤT (status 'over')
+ *   (c) hãng đó không còn hàng           -> bỏ hãng, giữ danh mục
+ *   không có gì                          -> status 'none'
+ * `where` chỉ gồm danh mục/hãng, KHÔNG gồm giá.
+ */
+async function budgetFallback({ where, price, brandId, brandName, catName }) {
+  const description = describeBudget(price);
+  let products = [];
+  let status = null;
+  let shownBrand = brandId ? brandName : '';
+  const hasCat = !!where.category_id;
+
+  if (brandId && hasCat) {
+    const noBrand = { ...where };
+    delete noBrand.brand_id;
+    products = await prisma.product.findMany({
+      where: { ...noBrand, is_deleted: false, stock: { gt: 0 }, price: toPriceFilter(price) },
+      orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+      take: 24,
+    });
+    if (products.length > 0) status = 'other_brand';
+  }
+  if (products.length === 0) {
+    products = await findOverBudget(where, price, 4);
+    if (products.length > 0) status = 'over';
+  }
+  if (products.length === 0 && brandId && hasCat) {
+    const noBrand = { ...where };
+    delete noBrand.brand_id;
+    products = await findOverBudget(noBrand, price, 4);
+    if (products.length > 0) { status = 'over'; shownBrand = ''; }
+  }
+  status = status || 'none';
+
+  const message = describeShortfall(
+    status, price,
+    [catName, shownBrand].filter(Boolean).join(' '),
+    [catName, brandName].filter(Boolean).join(' '),
+    products[0] ? Number(products[0].price) : null
+  );
+  return { products, budget: { status, description, message } };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // BUILD CONTEXT — Query DB theo intent + brand + category
 // ĐẠI NÂNG CẤP: dùng KnowledgeCache thay vì hardcoded map
 // ─────────────────────────────────────────────────────────────────────────────
@@ -146,6 +227,7 @@ async function buildContext(intent, message, history = []) {
   let products  = [];
   let policy    = null;
   let link      = null;
+  let budget    = null;   // { status, description, message } — xem budgetFallback
 
   try {
     switch (intent) {
@@ -156,17 +238,11 @@ async function buildContext(intent, message, history = []) {
       case 'ASK_SPECS':
       case 'ASK_ACCESSORIES':
       case 'SEARCH_CATEGORY': {
-        // Bước 1: Trích ngân sách nếu có — chạy trên norm để handle cả có dấu lẫn không dấu
-        const budgetMatch = norm.match(/(\d+[\d.,]*)\s*(trieu|tr\b|cu\b|k\b|nghin)/);
-        let priceFilter = {};
-        if (budgetMatch) {
-          const unit = budgetMatch[2].toLowerCase();
-          const val  = parseFloat(budgetMatch[1].replace(',', '.'));
-          const vnd  = (unit === 'k' || unit === 'nghin') ? val * 1_000 : val * 1_000_000;
-          priceFilter = /duoi/.test(norm)
-            ? { lte: Math.round(vnd) }
-            : { lte: Math.round(vnd * 1.3), gte: Math.round(vnd * 0.7) };
-        }
+        // Bước 1: Ngân sách (PriceParser dùng chung với smart-search): dưới/không quá/tối đa/từ…đến/tầm
+        const price = resolvePrice(message, history);
+        const hasPrice = price.min != null || price.max != null;
+        const priceFilter = toPriceFilter(price);
+        if (hasPrice) budget = { status: 'ok', description: describeBudget(price) };
 
         // Bước 2: Detect brand từ KnowledgeCache (67 brands + aliases)
         const detectedBrandId = KC.detectBrand(message);
@@ -200,7 +276,7 @@ async function buildContext(intent, message, history = []) {
           ...removeDiacritics(catName).toLowerCase().split(/\s+/),
         ].filter(Boolean));
 
-        const tokens = norm.split(/\s+/).filter(w =>
+        const tokens = stripPricePhrases(effectiveMessage).split(/\s+/).filter(w =>
           !stopWords.has(w) && !excludeWords.has(w) && w.length > 1
         );
 
@@ -231,16 +307,29 @@ async function buildContext(intent, message, history = []) {
           }
         }
 
-        // Fallback: top sản phẩm trong category/brand
+        // Fallback 1: top sản phẩm trong category/brand (vẫn nằm TRONG ngân sách nếu khách nêu)
         if (products.length === 0) {
           products = await prisma.product.findMany({
             where: baseWhere,
             orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
-            take: 4,
+            take: 24,
           });
         }
 
-        // Fallback 2: brand quá chặt → bỏ brand, giữ category + price
+        // Ngân sách là ràng buộc CỨNG: không âm thầm nới giá hay bỏ giá (lỗi cũ: "dưới 1 triệu"
+        // trả điện thoại 41 triệu). Không có hàng trong ngân sách -> nói rõ và gợi ý gần nhất.
+        if (products.length === 0 && hasPrice) {
+          const fb = await budgetFallback({
+            where: { ...categoryFilter, ...brandFilter }, price,
+            brandId: detectedBrandId, brandName, catName: lowerFirst(catName),
+          });
+          products = fb.products;
+          budget = fb.budget;
+          link = detectedCatId ? `/shop?category=${detectedCatId}` : '/shop';
+          break;
+        }
+
+        // Fallback 2 (khách KHÔNG nêu ngân sách): brand quá chặt → bỏ brand, giữ category
         if (products.length === 0 && detectedBrandId) {
           const withoutBrand = { ...baseWhere };
           delete withoutBrand.brand_id;
@@ -251,20 +340,7 @@ async function buildContext(intent, message, history = []) {
           });
         }
 
-        // Fallback 3: price quá chặt → nới ±30%, giữ category
-        if (products.length === 0 && Object.keys(priceFilter).length > 0) {
-          const relaxed = { ...baseWhere };
-          delete relaxed.brand_id;
-          if (priceFilter.lte) relaxed.price = { lte: priceFilter.lte * 1.3, gte: priceFilter.lte * 0.4 };
-          else if (priceFilter.gte) relaxed.price = { gte: priceFilter.gte * 0.7 };
-          products = await prisma.product.findMany({
-            where: relaxed,
-            orderBy: [{ price: 'asc' }],
-            take: 4,
-          });
-        }
-
-        // Fallback 4: không tìm được gì → top bán chạy TRONG CÙNG CATEGORY
+        // Fallback 3 (khách KHÔNG nêu ngân sách): top bán chạy TRONG CÙNG CATEGORY
         if (products.length === 0) {
           const catFallback = detectedCatId
             ? { ...categoryFilter, is_deleted: false, stock: { gt: 0 } }
@@ -283,35 +359,44 @@ async function buildContext(intent, message, history = []) {
 
       // ── Gợi ý / Tư vấn chọn máy ──────────────────────────────────────────
       case 'ASK_RECOMMEND': {
-        const budgetMatch = message.match(/(\d+[\d.,]*)\s*(triệu|tr\b|củ)/i);
-        let whereClause = { is_deleted: false, stock: { gt: 0 } };
-        if (budgetMatch) {
-          const budget = parseFloat(budgetMatch[1]) * 1_000_000;
-          whereClause.price = { lte: budget * 1.2, gte: budget * 0.5 };
-        }
+        const price = resolvePrice(message, history);
+        const hasPrice = price.min != null || price.max != null;
 
         // Detect category + brand cho tư vấn chính xác hơn
         const catId = KC.detectCategory(message);
+        let categoryFilter = {};
         if (catId) {
           const expandedIds = KC.expandCategoryIds(catId);
-          whereClause.category_id = expandedIds.length === 1 ? expandedIds[0] : { in: expandedIds };
+          categoryFilter = expandedIds.length === 1 ? { category_id: expandedIds[0] } : { category_id: { in: expandedIds } };
         }
         const brandId = KC.detectBrand(message);
-        if (brandId) whereClause.brand_id = brandId;
+        const brandFilter = brandId ? { brand_id: brandId } : {};
+        const orderBy = [{ rating: 'desc' }, { sold: 'desc' }];
 
         products = await prisma.product.findMany({
-          where: whereClause,
-          orderBy: [{ rating: 'desc' }, { sold: 'desc' }],
-          take: 4,
+          where: {
+            ...categoryFilter, ...brandFilter, is_deleted: false, stock: { gt: 0 },
+            ...(hasPrice ? { price: toPriceFilter(price) } : {}),
+          },
+          orderBy,
+          take: 24,
         });
+        if (hasPrice && products.length > 0) budget = { status: 'ok', description: describeBudget(price) };
 
-        // Fallback nếu filter quá chặt
-        if (products.length === 0) {
-          delete whereClause.brand_id;
-          delete whereClause.category_id;
+        if (products.length === 0 && hasPrice) {
+          // Ngân sách là ràng buộc CỨNG: không nới giá, không bỏ giá (xem budgetFallback).
+          const fb = await budgetFallback({
+            where: { ...categoryFilter, ...brandFilter }, price, brandId,
+            brandName: brandId ? (KC.getBrandMap()[brandId] || '') : '',
+            catName: catId ? lowerFirst(KC.getCategoryMap()[catId] || '') : '',
+          });
+          products = fb.products;
+          budget = fb.budget;
+        } else if (products.length === 0) {
+          // Khách không nêu ngân sách mà filter quá chặt -> bỏ brand/category
           products = await prisma.product.findMany({
-            where: whereClause,
-            orderBy: [{ rating: 'desc' }, { sold: 'desc' }],
+            where: { is_deleted: false, stock: { gt: 0 } },
+            orderBy,
             take: 4,
           });
         }
@@ -488,19 +573,34 @@ async function buildContext(intent, message, history = []) {
 
       // ── Chê mắc / Mặc cả ─────────────────────────────────────────────────
       case 'PRICE_COMPLAINT': {
-        const budgetMatch = message.match(/(\d+[\d.,]*)\s*(triệu|tr\b|củ|k\b|nghìn)/i);
-        if (budgetMatch) {
-          const unit = budgetMatch[2].toLowerCase();
-          const val  = parseFloat(budgetMatch[1]);
-          const vnd  = (unit === 'k' || unit === 'nghìn') ? val * 1_000 : val * 1_000_000;
+        // Khách chê đắt, thường kèm ngân sách mới ("có cái nào dưới 3 triệu không") cho một loại hàng.
+        const price = resolvePrice(message, history);
+        const hasPrice = price.min != null || price.max != null;
+        const catId = KC.detectCategory(message);
+        let categoryFilter = {};
+        if (catId) {
+          const expandedIds = KC.expandCategoryIds(catId);
+          categoryFilter = expandedIds.length === 1 ? { category_id: expandedIds[0] } : { category_id: { in: expandedIds } };
+        }
+        if (hasPrice) {
           products = await prisma.product.findMany({
-            where: { is_deleted: false, stock: { gt: 0 }, price: { lte: vnd } },
+            where: { ...categoryFilter, is_deleted: false, stock: { gt: 0 }, price: toPriceFilter(price) },
             orderBy: { price: 'desc' },
             take: 3,
           });
+          if (products.length > 0) {
+            budget = { status: 'ok', description: describeBudget(price) };
+          } else {
+            const fb = await budgetFallback({
+              where: { ...categoryFilter }, price, brandId: null, brandName: '',
+              catName: catId ? lowerFirst(KC.getCategoryMap()[catId] || '') : '',
+            });
+            products = fb.products;
+            budget = fb.budget;
+          }
         } else {
           products = await prisma.product.findMany({
-            where: { is_deleted: false, stock: { gt: 0 } },
+            where: { ...categoryFilter, is_deleted: false, stock: { gt: 0 } },
             orderBy: { price: 'asc' },
             take: 3,
           });
@@ -566,7 +666,7 @@ async function buildContext(intent, message, history = []) {
     console.warn(`[buildContext] Query thất bại cho intent=${intent}:`, err.message);
   }
 
-  return { products: serializeProducts(products), policy, link, effectiveMessage };
+  return { products: serializeProducts(products), policy, link, effectiveMessage, budget };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -600,6 +700,27 @@ function fallbackResponse(intent, context) {
   return defaults[intent] || {
     text: 'Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 33 thương hiệu, 8 danh mục chính ạ!',
     link: null,
+  };
+}
+
+/**
+ * Câu trả lời khi KHÔNG có sản phẩm nào trong ngân sách khách nêu. Luôn dùng câu dựng sẵn
+ * (không qua LLM): LLM có thể diễn đạt như thể sản phẩm nằm trong ngân sách, còn câu này
+ * nói thẳng mức chênh. Đồng thời tiết kiệm một lượt gọi LLM.
+ */
+function budgetResponse(context) {
+  const { products, link, budget } = context;
+  const lead = 'Dạ ' + lowerFirst(budget.message);
+  if (products.length > 0) {
+    const list = products.slice(0, 3).map(p => `**${p.name}** — ${fmt(p.price)}`).join(', ');
+    return {
+      text: `${lead} ${list}. Anh/chị muốn em tư vấn thêm hoặc lọc theo tiêu chí khác không ạ?`,
+      link, products, budget,
+    };
+  }
+  return {
+    text: `${lead} Anh/chị thử tăng ngân sách hoặc xem danh mục khác giúp em nhé ạ!`,
+    link, products, budget,
   };
 }
 
@@ -637,23 +758,29 @@ async function chat({ message, history = [], req }) {
   // ── BƯỚC 2: Query DB theo intent để lấy context thực (truyền history để xử lý follow-up) ──
   const context = await buildContext(intent, message, history);
 
-  // ── BƯỚC 3: Sinh câu trả lời bằng LLM ────────────────────────────────
+  // ── BƯỚC 3: Sinh câu trả lời — chuỗi HuggingFace → Gemini → câu dựng sẵn ──────────
+  // Không khớp ngân sách (over / none / other_brand): bỏ qua LLM, dùng budgetResponse.
+  const budgetMiss = !!context.budget && ['over', 'none', 'other_brand'].includes(context.budget.status);
   let responseText = null;
-  try {
-    responseText = await generateChatResponse({
-      intent,
-      context,
-      message,
-      history,
-    });
-  } catch (llmErr) {
-    console.warn('[Chat] LLM generation failed:', llmErr.message);
+  if (!budgetMiss) {
+    try {
+      responseText = await generateChatResponse({
+        intent,
+        context,
+        message,
+        history,
+      });
+    } catch (llmErr) {
+      console.warn('[Chat] LLM generation failed:', llmErr.message);
+    }
   }
 
   // ── BƯỚC 4: Fallback nếu LLM không khả dụng ──────────────────────────
-  const aiResponse = responseText
-    ? { text: responseText, link: context.link, products: context.products }
-    : fallbackResponse(intent, context);
+  const aiResponse = budgetMiss
+    ? budgetResponse(context)
+    : responseText
+      ? { text: responseText, link: context.link, products: context.products, ...(context.budget ? { budget: context.budget } : {}) }
+      : { ...fallbackResponse(intent, context), ...(context.budget ? { budget: context.budget } : {}) };
 
   // ── Lưu ChatLog (fire-and-forget) ────────────────────────────────────
   let customerId = null;

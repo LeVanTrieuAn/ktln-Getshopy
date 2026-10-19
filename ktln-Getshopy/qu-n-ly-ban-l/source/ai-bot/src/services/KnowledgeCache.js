@@ -124,6 +124,14 @@ const BRAND_KEYWORD_ALIASES = {
 // CATEGORY KEYWORD → CATEGORY ID mapping
 // 34 danh mục thực tế: 8 root + 26 leaf (theo SEED_DOCUMENTATION.md)
 // ─────────────────────────────────────────────────────────────────────────────
+// Tên dòng máy → danh mục, chỉ dùng khi câu KHÔNG có từ khóa danh mục nào và không có từ phụ kiện
+// (xem detectCategory). Thứ tự quan trọng: 'galaxy tab' phải đứng trước các tên chung.
+const DEVICE_NAME_TO_CATEGORY = {
+  'galaxy tab': 'cat-tablet',
+  'iphone': 'cat-phone',
+  'macbook': 'cat-laptop',
+};
+
 const CATEGORY_KEYWORD_TO_ID = {
   // ── Cấp 1 (cha) ──────────────────────────────────────────────
   'dien thoai': 'cat-phone', 'smartphone': 'cat-phone', 'phone': 'cat-phone',
@@ -297,12 +305,21 @@ function detectBrand(text) {
 /** Detect category from text → categoryId or null */
 function detectCategory(text) {
   if (!text) return null;
-  const norm = removeDiacritics(text).toLowerCase();
+  // Đệm khoảng trắng hai đầu và bỏ ký tự lạ → khớp theo RANH GIỚI TỪ, để từ khóa ngắn như
+  // 'phone' không khớp nhầm bên trong 'iphone' ("ốp lưng iphone" từng bị hiểu là điện thoại).
+  const norm = ' ' + removeDiacritics(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' ';
 
   // Try longest match first
   const sortedKeys = Object.keys(CATEGORY_KEYWORD_TO_ID).sort((a, b) => b.length - a.length);
   for (const kw of sortedKeys) {
-    if (norm.includes(kw)) return CATEGORY_KEYWORD_TO_ID[kw];
+    if (norm.includes(' ' + kw + ' ')) return CATEGORY_KEYWORD_TO_ID[kw];
+  }
+
+  // Tên dòng máy (không có từ "điện thoại"): "iphone dưới 5 triệu" vẫn là điện thoại.
+  // Nhưng nếu câu có từ phụ kiện ("ốp lưng iphone", "miếng dán iphone") thì KHÔNG suy ra là điện thoại.
+  if (/ (op lung|op|case|bao da|mieng dan|dan man hinh|cuong luc|phu kien|day deo) /.test(norm)) return null;
+  for (const [kw, catId] of Object.entries(DEVICE_NAME_TO_CATEGORY)) {
+    if (norm.includes(' ' + kw)) return catId; // chỉ cần ranh giới đầu: "iphone15" vẫn khớp
   }
   return null;
 }
