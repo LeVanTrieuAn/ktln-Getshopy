@@ -74,25 +74,54 @@ WITH
         WHERE event_ts >= (SELECT ifNull(max(_item_event_ts), toDateTime64('1970-01-01 00:00:00',3,'UTC')) FROM {{ this }})
     ),
 {%- endif %}
+    -- Bản mới nhất trên toàn bộ lịch sử: một đơn có nhiều bản CDC
+    -- (PENDING -> PAID -> CANCELLED), chỉ giữ bản cuối; dòng hàng cũng vậy.
+    --
+    -- GROUP BY + argMax(tuple(...), event_ts) thay cho row_number() OVER (PARTITION BY ...)
+    -- từ 08/10/2026. Hàm cửa sổ sắp xếp mọi bản ghi với mọi cột TRONG RAM, không tràn
+    -- đĩa được: lượt dồn 2,77 triệu đơn cần 6,44 GB, dựng lại từ đầu thì vượt cả trần
+    -- 7,2 GB. GROUP BY tràn đĩa được: dựng lại toàn bộ chỉ 2,82 GB. Đã đối chiếu trên
+    -- toàn bộ dữ liệu: khớp TỪNG BYTE với bảng do logic cũ dựng (6.276.950 dòng, cùng
+    -- cityHash64 của mọi cột).
+    -- tuple() để mọi cột lấy từ CÙNG một bản ghi; coalesce giữ đúng thứ tự cũ nếu
+    -- event_ts rỗng (NULLS LAST khi ORDER BY ... DESC).
     orders AS (
-        -- Bản mới nhất của đơn trên toàn bộ lịch sử: một đơn có nhiều bản CDC
-        -- (PENDING -> PAID -> CANCELLED), chỉ giữ bản cuối.
-        SELECT * EXCEPT rn FROM (
-            SELECT *, row_number() OVER (PARTITION BY order_id ORDER BY event_ts DESC) AS rn
+        SELECT order_id,
+               t.1 AS customer_id, t.2 AS total, t.3 AS sub_total, t.4 AS discount,
+               t.5 AS shipping_fee, t.6 AS status, t.7 AS payment_method, t.8 AS payment_status,
+               t.9 AS order_date, t.10 AS paid_at, t.11 AS province, t.12 AS event_ts,
+               t.13 AS is_deleted
+        FROM (
+            SELECT order_id,
+                   argMax(tuple(customer_id, total, sub_total, discount, shipping_fee, status,
+                                payment_method, payment_status, order_date, paid_at, province,
+                                event_ts, is_deleted),
+                          coalesce(event_ts, toDateTime64(0, 3, 'UTC'))) AS t
             FROM {{ ref('stg_orders') }}
             {% if is_incremental() %}
             WHERE order_id IN (SELECT order_id FROM changed)
             {% endif %}
-        ) WHERE rn = 1
+            GROUP BY order_id
+        )
     ),
     items AS (
-        SELECT * EXCEPT rn FROM (
-            SELECT *, row_number() OVER (PARTITION BY item_id ORDER BY event_ts DESC) AS rn
+        SELECT item_id,
+               t.1 AS order_id, t.2 AS product_id, t.3 AS product_name, t.4 AS category_id,
+               t.5 AS brand_id, t.6 AS branch_id, t.7 AS variant_id, t.8 AS quantity,
+               t.9 AS unit_price, t.10 AS discount, t.11 AS net_amount, t.12 AS event_ts,
+               t.13 AS is_deleted
+        FROM (
+            SELECT item_id,
+                   argMax(tuple(order_id, product_id, product_name, category_id, brand_id,
+                                branch_id, variant_id, quantity, unit_price, discount,
+                                net_amount, event_ts, is_deleted),
+                          coalesce(event_ts, toDateTime64(0, 3, 'UTC'))) AS t
             FROM {{ ref('stg_order_items') }}
             {% if is_incremental() %}
             WHERE order_id IN (SELECT order_id FROM changed)
             {% endif %}
-        ) WHERE rn = 1
+            GROUP BY item_id
+        )
     )
 
 SELECT

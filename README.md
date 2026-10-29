@@ -143,6 +143,87 @@ Tài khoản có sẵn:
 | Quản trị | `admin@gmail.com` / `admin` |
 | Khách hàng | `test@getshopy.vn` / `123456` |
 
+### 3b. Webhook SePay và mở web cho người khác
+
+Hai việc khác nhau, hai công cụ khác nhau (chốt 07/10/2026):
+
+| Việc | Công cụ | URL |
+|---|---|---|
+| SePay báo "tiền đã về" (webhook) | **ngrok**, domain cố định miễn phí | cố định — khai SePay MỘT lần |
+| Cho người khác mở web đang chạy | `cloudflared` quick tunnel | ngẫu nhiên, đổi mỗi lần chạy — chỉ để xem, gửi lại link là xong |
+
+Cả hai dẫn vào **ĐÚNG MÁY đang chạy tunnel**, không dẫn vào code ai vừa pull.
+
+#### Webhook SePay — ngrok, domain cố định
+
+Vì sao ngrok: gói miễn phí cho mỗi tài khoản một domain cố định nên khai SePay một lần là
+xong; chạy qua cổng 443 nên không vướng cổng 7844 như `cloudflared`; trang cảnh báo của
+gói miễn phí chỉ hiện với trình duyệt, không chặn webhook; giới hạn 20.000 request và
+1 GB mỗi tháng thừa cho webhook nhưng KHÔNG đủ để cả nhóm mở web — nên web đi đường
+`cloudflared` bên dưới. Nguồn: [giới hạn gói miễn phí](https://ngrok.com/docs/pricing-limits/free-plan-limits),
+[CLI](https://ngrok.com/docs/agent/cli/).
+
+Dựng một lần, trên máy nhận webhook (nên là máy demo chạy lâu dài):
+
+```bash
+ngrok config add-authtoken <TOKEN>        # token lấy ở dashboard ngrok — BÍ MẬT, không commit, không gửi chat nhóm
+# Dashboard ngrok → Domains: lấy domain cố định, dạng <tên>.ngrok-free.app
+ngrok http 3000 --url https://<tên>.ngrok-free.app    # chạy bằng docker compose
+ngrok http 8080 --url https://<tên>.ngrok-free.app    # chạy server native để dev
+```
+
+Khai vào dashboard SePay một lần: `https://<tên>.ngrok-free.app/api/payment/webhook/sepay`.
+
+- Mỗi lúc **chỉ một máy** chạy agent với domain đó, nên chỉ máy đó nhận xác nhận thanh toán.
+- ngrok tắt, máy ngủ hay mất mạng thì webhook KHÔNG về: đơn chuyển khoản nằm PENDING rồi
+  hết hạn dù tiền đã vào tài khoản, và không có lỗi nào hiện ra. Nhưng URL không đổi —
+  bật lại `ngrok http …` là chạy, không phải sửa SePay.
+- Trỏ sai cổng (3000 khi chạy compose, 8080 khi chạy native) thì webhook lỗi 502 và SePay
+  thử lại trong im lặng.
+- Kiểm: `pgrep -f 'ngrok http'` chỉ biết tiến trình còn chạy. Chắc chắn thì mở
+  `https://<tên>.ngrok-free.app/` — thấy trang cảnh báo của ngrok rồi vào được web là thông
+  — hoặc xem mục Endpoints trên dashboard ngrok.
+
+**Dev test luồng thanh toán ở máy mình** — không cần tunnel: dùng adapter mô phỏng. Nó đi
+qua đúng code đối soát của webhook thật, chỉ bỏ đoạn mạng từ SePay về và bước kiểm chữ ký
+HMAC của SePay. Chạy khi `NODE_ENV` khác `production` và `.env` có `PAYMENT_SIMULATOR_KEY`:
+
+```bash
+# đặt một đơn chuyển khoản trên web, ghi lại số tiền và nội dung CK ở màn hình QR, rồi:
+curl -X POST http://localhost:3000/api/payment/webhook/simulator \
+  -H "Authorization: Apikey <PAYMENT_SIMULATOR_KEY>" -H "Content-Type: application/json" \
+  -d '{"amount": <tổng tiền đơn>, "content": "<nội dung CK trên màn hình QR>"}'
+```
+
+Muốn test luồng THẬT (chuyển tiền thật, SePay báo về) thì test trên máy đang chạy ngrok.
+
+#### Mở web cho người khác xem — `cloudflared` quick tunnel
+
+```bash
+cloudflared tunnel --url http://localhost:3000
+```
+
+In ra `https://<ngẫu nhiên>.trycloudflare.com` — gửi link đó. Người mở dùng web **và dữ
+liệu** của máy chạy tunnel, không cần pull code. URL đổi mỗi lần `cloudflared` chạy lại,
+máy ngủ hoặc mất mạng — gửi lại link mới là được, không dính tới SePay.
+
+**Mạng phải cho ra cổng 7844.** `cloudflared` nối tới Cloudflare qua cổng 7844 (UDP cho
+QUIC, TCP cho HTTP/2) — không có tuỳ chọn dùng 443. Mạng công ty thường chặn cổng này
+(gặp ngày 07/10/2026). Triệu chứng: vẫn in ra URL, nhưng mở URL bị lỗi 530 hoặc không
+kết nối được, log không có `Registered tunnel connection`, có `QUIC connection failed`.
+- Chỉ chặn UDP: chạy thêm `--protocol http2`.
+- Chặn cả TCP 7844 (kiểm: `curl -sv --connect-timeout 5 https://region1.v2.argotunnel.com:7844/`
+  không in `Connected to`): đổi mạng (hotspot điện thoại, mạng nhà) hoặc nhờ IT mở cổng.
+
+#### Chung cho cả hai
+
+- Giữ máy chạy tunnel không ngủ: macOS `caffeinate -dims`, Windows tắt Sleep trong Power settings.
+- `docker compose up -d --build`, `down`/`up`, `restart`, sửa `.env` KHÔNG ảnh hưởng tunnel —
+  `ngrok` và `cloudflared` chạy ngoài Docker.
+- **⚠️ Bảo mật:** tunnel đưa CẢ trang quản trị ra Internet — domain ngrok lại cố định nên
+  càng dễ bị dò — mà tài khoản mặc định ở bảng trên ghi công khai trong README này.
+  **Đổi mật khẩu admin và `DEMO_PASSWORD` trên máy chạy tunnel trước khi mở.**
+
 ### 4. Lệnh hay dùng
 
 ```bash

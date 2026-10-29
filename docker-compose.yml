@@ -161,6 +161,16 @@ services:
       CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-}
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+      # Trần RAM từng truy vấn (gồm dbt) + ngưỡng tràn đĩa — đọc trong
+      # local-infra-sandbox/clickhouse/users.d/memory-limits.xml
+      CH_QUERY_MAX_MEMORY: ${CLICKHOUSE_QUERY_MAX_MEMORY:-2000000000}
+      CH_SPILL_BYTES: ${CLICKHOUSE_SPILL_BYTES:-1000000000}
+      CH_QUERY_MAX_THREADS: ${CLICKHOUSE_QUERY_MAX_THREADS:-4}
+    # Trần RAM cả container (08/10/2026). Không đặt thì ClickHouse tự cho mình 90% RAM
+    # CẢ máy ảo Docker, trong khi dùng chung với 12 container khác — đợt seed lớn làm máy
+    # ảo cạn RAM và kernel diệt ClickHouse. Có trần thì ClickHouse tự giới hạn ở 90% mức
+    # này và từ chối/tràn đĩa thay vì bị diệt. Mặc định cho Docker 7,8 GB (xem .env.example).
+    mem_limit: ${CLICKHOUSE_MEM_LIMIT:-3g}
     ports:
       - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
       # 9000 là cổng mặc định của cả ClickHouse TCP lẫn MinIO — đổi để khỏi đụng
@@ -169,6 +179,7 @@ services:
       - clickhouse_data:/var/lib/clickhouse
       - ./ktln-Getshopy/qu-n-ly-ban-l/source/clickhouse-init:/docker-entrypoint-initdb.d:ro
       - ./scripts/ch-optimize.sh:/ch-optimize.sh:ro
+      - ./local-infra-sandbox/clickhouse/users.d/memory-limits.xml:/etc/clickhouse-server/users.d/memory-limits.xml:ro
     healthcheck:
       test: ["CMD-SHELL", "clickhouse-client --query 'SELECT 1'"]
       interval: 5s
@@ -256,6 +267,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}
+      # Heap JVM (08/10/2026). Mặc định JVM lấy 1/4 RAM máy ảo — đo được 2,5 GB RSS và bị
+      # kernel diệt 3 lần trong đợt seed lớn. S3 Sink chỉ đệm flush.size = 1000 bản ghi
+      # mỗi partition nên 1 GB heap là thừa.
+      KAFKA_HEAP_OPTS: ${KAFKA_CONNECT_HEAP_OPTS:--Xms256m -Xmx1g}
+    mem_limit: ${KAFKA_CONNECT_MEM_LIMIT:-1536m}
     volumes:
       - ./local-infra-sandbox/config-json:/config-json:ro
     restart: unless-stopped

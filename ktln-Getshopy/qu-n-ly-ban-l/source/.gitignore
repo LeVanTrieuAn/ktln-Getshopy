@@ -20,7 +20,8 @@ client/.vite/
 
 # ── Prisma generated ─────────────────────────────────────────────
 server/src/generated/
-server/prisma/migrations/
+# server/prisma/migrations/ ĐƯỢC commit từ 08/10/2026 — trước đó bị ignore nên máy clone
+# chỉ có `db push`, không có lịch sử migration (docker-entrypoint.sh tự baseline máy cũ).
 
 # ── Logs ─────────────────────────────────────────────────────────
 logs/
