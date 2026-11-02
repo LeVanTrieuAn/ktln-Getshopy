@@ -78,6 +78,7 @@ import { useCart } from '../../context/CartContext';
 import AIChatbot from './AIChatbot';
 import VoiceButton from './VoiceButton';
 import AuthModal from './AuthModal';
+import OnboardingModal from './OnboardingModal';
 import { useApp } from '../../context/AppContext';
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../services/api';
@@ -85,7 +86,7 @@ import { api } from '../../services/api';
 const { Sider, Content, Footer } = Layout;
 
 export default function StoreLayout() {
-  const { isDark, toggleTheme, bg, compareList, lang, toggleLang, t, b2cUser, user, b2cLogout, logout, selectedBranch, setSelectedBranch, authOpen, setAuthOpen, openAuthModal, closeAuthModal, authSuccessCallback } = useApp();
+  const { isDark, toggleTheme, bg, compareList, lang, toggleLang, t, b2cUser, user, b2cLogout, logout, selectedBranch, setSelectedBranch, authOpen, setAuthOpen, openAuthModal, closeAuthModal, authSuccessCallback, onboardingOpen, setOnboardingOpen, onboardingMode, setOnboardingMode, openOnboarding } = useApp();
   const currentUser = b2cUser || user;
   const { cart, removeFromCart, cartTotal, cartCount, toggleSelect, toggleSelectAll, updateQuantity, cartOpen, setCartOpen } = useCart();
   const navigate = useNavigate();
@@ -325,8 +326,8 @@ export default function StoreLayout() {
 
 
   // ── Onboarding lần đầu ────────────────────────────────────────────────
-  // Khách đã đăng nhập mà CHƯA CÓ dòng sở thích nào (kể cả 'skipped') thì chuyển
-  // sang /onboarding. Đặt ở đây chứ không ở AuthModal để bắt được mọi đường vào:
+  // Khách đã đăng nhập mà CHƯA CÓ dòng sở thích nào (kể cả 'skipped') thì mở
+  // modal onboarding. Đặt ở đây chứ không ở AuthModal để bắt được mọi đường vào:
   // đăng nhập mật khẩu, Google, và cả khách đã đăng nhập từ trước khi có tính năng.
   //
   // Chạy một lần mỗi khi đổi tài khoản — StoreLayout là layout route nên không
@@ -336,10 +337,13 @@ export default function StoreLayout() {
     if (!b2cUser?.id) return;
     let cancelled = false;
     api.b2c.getMyPreferences()
-      .then(pref => { if (!cancelled && pref === null) navigate('/onboarding'); })
+      .then(pref => { if (!cancelled && pref === null) {
+        setOnboardingMode('first');
+        setOnboardingOpen(true);
+      } })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [b2cUser?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [b2cUser?.id, setOnboardingOpen, setOnboardingMode]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const SIDEBAR_WIDTH = 280;
   const SIDEBAR_COLLAPSED_WIDTH = 68;
@@ -1372,6 +1376,16 @@ export default function StoreLayout() {
 
       {/* AUTH MODAL */}
       <AuthModal open={authOpen} onClose={closeAuthModal} onSuccess={authSuccessCallback} />
+
+      {/* ONBOARDING MODAL — nổi lên lần đầu sau đăng ký, hoặc khi user bấm "Sửa lại
+          sở thích" từ Account. Chỉ hiện với khách đã đăng nhập (b2cUser), nếu chưa
+          thì việc lưu không có ý nghĩa. Mode 'first' vs 'edit' do onboardingMode
+          quyết định — first là cảnh báo lần đầu, edit là sửa lại. */}
+      <OnboardingModal
+        open={onboardingOpen && !!b2cUser}
+        mode={onboardingMode}
+        onClose={() => setOnboardingOpen(false)}
+      />
       </Layout>
     </Layout>
   );

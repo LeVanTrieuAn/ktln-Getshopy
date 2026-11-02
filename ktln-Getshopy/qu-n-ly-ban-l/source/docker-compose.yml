@@ -21,11 +21,17 @@ services:
   ai-rec:
     build:
       context: ./ai-rec
+    environment:
+      CLICKHOUSE_URL: "http://host.docker.internal:8123"
+      CLICKHOUSE_USER: "default"
+      CLICKHOUSE_PASSWORD: ""
     expose:
       - "8000"
     volumes:
       - ai_data:/app/data
       - ai_models:/app/output
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

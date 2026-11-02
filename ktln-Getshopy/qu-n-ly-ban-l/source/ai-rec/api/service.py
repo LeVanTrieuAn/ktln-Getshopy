@@ -18,6 +18,7 @@ from api.schemas import (
 )
 from config import (
     CB_ONBOARDING_PSEUDO_COUNT,
+    CATEGORY_HALF_LIFE_DAYS,
     CF_BEHAVIOR_CART_WEIGHT,
     CF_BEHAVIOR_MODE,
     CF_BEHAVIOR_VIEW_WEIGHT,
@@ -248,6 +249,7 @@ class CFModelService:
             cf, features, signals, current_params(),
             onboarding_pseudo_count=CB_ONBOARDING_PSEUDO_COUNT,
             purchase_events=events,
+            category_half_life=self._get_category_half_life(),
         )
 
         cache = (
@@ -345,6 +347,10 @@ class CFModelService:
             errors.append(f"Không lấy được tín hiệu hành vi, CF chỉ dùng đơn mua: {exc}")
             logger.warning("%s", errors[-1])
             return None
+
+    def _get_category_half_life(self) -> dict[str, float] | None:
+        """Lấy category half-life từ config. None nếu không config (dùng chung)."""
+        return CATEGORY_HALF_LIFE_DAYS
 
     def _load_purchase_events(self, errors: list[str]) -> pd.DataFrame | None:
         """Lịch sử mua theo đơn cho kênh mua lại. Lỗi thì rơi về kênh cũ.

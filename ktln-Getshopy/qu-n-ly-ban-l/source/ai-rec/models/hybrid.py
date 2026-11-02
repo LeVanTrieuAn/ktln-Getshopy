@@ -288,12 +288,14 @@ def build_recommender(
     params: HybridParams,
     onboarding_pseudo_count: float = 1.0,
     purchase_events: pd.DataFrame | None = None,
+    category_half_life: dict[str, float] | None = None,
 ) -> HybridRecommender:
     """CF đã fit + bảng đặc trưng + tín hiệu onboarding (+ lịch sử mua theo đơn)
     -> một bản hybrid hoàn chỉnh.
 
     purchase_events None/rỗng -> kênh mua lại theo cách cũ (trọng số ma trận CF).
-    Half-life của kênh mua lại dùng CHUNG half-life của CF đã fit.
+    Half-life của kênh mua lại dùng CHUNG half-life của CF đã fit, trừ khi có
+    category_half_life (dict ParentCategory -> half-life) thì dùng riêng từng danh mục.
     """
     cb = None
     if features is not None and not features.empty:
@@ -302,5 +304,8 @@ def build_recommender(
         )
     repeat = None
     if purchase_events is not None and not purchase_events.empty:
-        repeat = RepeatModel(cf.resolved_half_life()).fit(purchase_events)
+        repeat = RepeatModel(
+            cf.resolved_half_life(),
+            category_half_life=category_half_life,
+        ).fit(purchase_events)
     return HybridRecommender(cf, cb, params, repeat)

@@ -1,0 +1,33 @@
+<!--
+  Trần RAM cho TỪNG TRUY VẤN của ClickHouse — gồm mọi truy vấn dbt (dbt không tự tiêu
+  RAM, nó gửi SQL cho ClickHouse chạy). Thêm 08/10/2026.
+
+  Vì sao: đợt seed 2,77 triệu đơn làm máy ảo Docker hết RAM — kernel diệt ClickHouse 2 lần,
+  dbt báo "Max retries exceeded". Không có trần thì ClickHouse tự cho mình 90% RAM CẢ máy
+  ảo dù dùng chung với 12 container khác.
+
+  Quá trần thì TRÀN RA ĐĨA thay vì báo lỗi: sort và GROUP BY ghi tạm ra đĩa, JOIN tự
+  chuyển từ hash (trong RAM) sang partial_merge (join_algorithm = auto).
+
+  LƯU Ý: hàm cửa sổ (row_number() OVER ...) KHÔNG tràn đĩa — chính nó làm fact_orders_detail
+  cần 6,44 GB và checksum_orders 4,75 GB. Hai model đã chuyển sang GROUP BY + argMax (khớp
+  từng byte với bản cũ). Đo ở 2,77 triệu đơn với trần mặc định 2 GB/truy vấn: dựng lại
+  toàn bộ fact 1,56 GB, checksum 0,96 GB, purchase_events 1,0 GB, mart_revenue 0,98 GB.
+  Viết model mới trên dữ liệu lớn thì tránh hàm cửa sổ trên toàn bảng.
+
+  Giá trị lấy từ biến môi trường do docker-compose.yml đặt (mặc định cho Docker 7,8 GB;
+  tăng Docker lên 16 GB thì đổi trong .env — xem .env.example).
+-->
+<clickhouse>
+    <profiles>
+        <default>
+            <max_memory_usage from_env="CH_QUERY_MAX_MEMORY"/>
+            <max_bytes_before_external_sort from_env="CH_SPILL_BYTES"/>
+            <max_bytes_before_external_group_by from_env="CH_SPILL_BYTES"/>
+            <join_algorithm>auto</join_algorithm>
+            <max_bytes_in_join from_env="CH_SPILL_BYTES"/>
+            <!-- Ít luồng hơn → ít khối dữ liệu nằm song song trong RAM. Mặc định = số nhân (10). -->
+            <max_threads from_env="CH_QUERY_MAX_THREADS"/>
+        </default>
+    </profiles>
+</clickhouse>

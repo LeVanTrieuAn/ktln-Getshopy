@@ -177,9 +177,11 @@ class DataConfig:
     scale: str       # "linear" | "log"
     repeat: str      # "cf_weight" | "order_freq"
     behavior: BehaviorConfig = BehaviorConfig()
+    category_half_life: dict[str, float] | None = None  # Category-aware half-life (08/10/2026)
 
     def label(self) -> str:
-        return (f"half-life {self.half_life:g} ngày, thang {self.scale}, mua lại {self.repeat}, "
+        cat_label = f", category-aware ({len(self.category_half_life)} danh mục)" if self.category_half_life else ""
+        return (f"half-life {self.half_life:g} ngày{cat_label}, thang {self.scale}, mua lại {self.repeat}, "
                 f"hành vi phụ {self.behavior.label()}")
 
 
@@ -302,15 +304,24 @@ def training_frame(lines: pd.DataFrame, cut: pd.Timestamp, min_buyers: int) -> p
     return pairs[["CustomerID", "ProductID", "Quantity", "DaysSince"]].reset_index(drop=True)
 
 
-def purchase_events_frame(lines: pd.DataFrame, cut: pd.Timestamp) -> pd.DataFrame:
+def purchase_events_frame(lines: pd.DataFrame, cut: pd.Timestamp, catalog: pd.DataFrame | None = None) -> pd.DataFrame:
     """Tái hiện serving.purchase_events_for_AI_rec + PURCHASE_EVENTS_QUERY tại `cut`:
-    một dòng cho mỗi (khách, món, đơn), không lọc ngưỡng số người mua."""
+    một dòng cho mỗi (khách, món, đơn), không lọc ngưỡng số người mua.
+    
+    Nếu có catalog, JOIN để lấy ParentCategory cho category-aware half-life (08/10/2026).
+    """
     ev = (
         lines.groupby(["CustomerID", "ProductID", "OrderID"], as_index=False)
         .agg(Quantity=("Quantity", "sum"), OrderedAt=("OrderDate", "min"))
     )
     ev = ev[ev["Quantity"] > 0]
     ev["DaysSince"] = (cut.normalize() - ev["OrderedAt"].dt.normalize()).dt.days
+    
+    # JOIN catalog để lấy ParentCategory nếu có
+    if catalog is not None and "ParentCategory" in catalog.columns:
+        ev = ev.merge(catalog[["ProductID", "ParentCategory"]], on="ProductID", how="left")
+        return ev[["CustomerID", "ProductID", "DaysSince", "ParentCategory"]].reset_index(drop=True)
+    
     return ev[["CustomerID", "ProductID", "DaysSince"]].reset_index(drop=True)
 
 
@@ -348,7 +359,9 @@ def build_split(lines_train: pd.DataFrame, cut: pd.Timestamp, catalog: pd.DataFr
     cb = ContentBasedModel(onboarding_pseudo_count=CB_ONBOARDING_PSEUDO_COUNT).fit(
         candidates, interactions=cf_interactions(cf), signals=signals,
     )
-    repeat = (RepeatModel(data.half_life).fit(purchase_events_frame(lines_train, cut))
+    # Category-aware half-life (08/10/2026): truyền catalog để JOIN ParentCategory
+    repeat = (RepeatModel(data.half_life, category_half_life=data.category_half_life)
+              .fit(purchase_events_frame(lines_train, cut, catalog))
               if data.repeat == "order_freq" else None)
     hybrid = HybridRecommender(cf, cb, HybridParams(), repeat)
     return SplitState(

@@ -25,6 +25,28 @@ echo "Synchronising PostgreSQL schema..."
 # Có migration thì dùng migrate; chưa có thì mới rơi về db push.
 attempt=0
 if [ -d prisma/migrations ] && [ -n "$(ls -A prisma/migrations 2>/dev/null)" ]; then
+  # Baseline (08/10/2026): prisma/migrations/ trước đây bị .gitignore nên máy clone đồng
+  # bộ schema bằng `db push` — DB có bảng nhưng không có _prisma_migrations. migrate deploy
+  # trên DB như vậy dừng ở lỗi P3005 và server không lên. Gặp trường hợp đó thì db push
+  # MỘT lần cho khớp schema.prisma mới nhất (như máy đó vẫn làm), rồi đánh dấu mọi
+  # migration là đã áp — quy trình baselining của Prisma:
+  # https://www.prisma.io/docs/orm/prisma-migrate/workflows/baselining
+  # Từ lần khởi động sau, máy đó đi đường migrate deploy như mọi máy.
+  DB_STATE=$(node -e "
+    const { PrismaClient } = require('@prisma/client');
+    const p = new PrismaClient();
+    p.\$queryRawUnsafe('SELECT to_regclass(\'public.\"_prisma_migrations\"\') IS NOT NULL AS h, to_regclass(\'public.\"User\"\') IS NOT NULL AS t')
+      .then(r => console.log(r[0].h ? 'history' : (r[0].t ? 'pushed' : 'fresh')))
+      .catch(() => console.log('unknown'))
+      .finally(() => p.\$disconnect());
+  " 2>/dev/null || echo "unknown")
+  if [ "$DB_STATE" = "pushed" ]; then
+    echo "DB dựng bằng db push, chưa có lịch sử migration — baseline một lần..."
+    ./node_modules/.bin/prisma db push --skip-generate
+    for m in prisma/migrations/*/; do
+      ./node_modules/.bin/prisma migrate resolve --applied "$(basename "$m")"
+    done
+  fi
   until ./node_modules/.bin/prisma migrate deploy; do
     attempt=$((attempt + 1))
     if [ "$attempt" -ge 15 ]; then
@@ -45,6 +67,13 @@ until ./node_modules/.bin/prisma db push --skip-generate; do
   sleep 2
 done
 fi
+
+# Ràng buộc tồn kho (CHECK + trigger giữ Product.stock = tổng tồn biến thể). Idempotent,
+# chạy mỗi lần khởi động — nằm ngoài migrations/ để đúng cả máy vẫn đi đường db push.
+# Áp không được thì báo to nhưng KHÔNG chặn server khởi động.
+echo "Ràng buộc tồn kho (prisma/sql/inventory_constraints.sql)..."
+./node_modules/.bin/prisma db execute --file prisma/sql/inventory_constraints.sql --schema prisma/schema.prisma \
+  || echo "!! Không áp được ràng buộc tồn kho — server vẫn chạy, xem lỗi ở trên"
 
 echo "Seeding baseline application data..."
 # Từ 04/10/2026 `up` CHỈ seed NỀN (vài giây): tài khoản, chi nhánh, danh mục, hãng,
