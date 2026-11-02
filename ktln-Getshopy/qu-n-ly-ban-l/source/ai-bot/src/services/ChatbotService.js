@@ -16,7 +16,7 @@
  * Pipeline:
  *   classifyIntent (mDeBERTa + rule-based)
  *   → buildContext (query DB theo intent + brand + category)
- *   → generateChatResponse (Qwen LLM) + specs context
+ *   → generateChatResponse (chuỗi LLM: HuggingFace → Gemini → OpenRouter) + specs context
  *   → fallback nếu LLM fail
  *
  * @module ChatbotService
@@ -621,12 +621,12 @@ async function buildContext(intent, message, history = []) {
 
       // ── Thanh toán ────────────────────────────────────────────────────────
       case 'ASK_PAYMENT':
-        policy = 'Hỗ trợ: Tiền mặt, COD, chuyển khoản, MoMo, ZaloPay, VNPAY, Visa/Mastercard. Trả góp 0% lãi suất 3–24 tháng qua thẻ tín dụng.';
+        policy = 'Hỗ trợ: thanh toán khi nhận hàng (COD) và chuyển khoản ngân hàng qua mã VietQR, tự động xác nhận khi tiền về.';
         break;
 
       // ── Theo dõi đơn hàng ─────────────────────────────────────────────────
       case 'TRACK_ORDER':
-        policy = 'Đăng nhập → Đơn hàng của tôi để xem trạng thái. Hotline hỗ trợ 24/7: 1800-xxxx (miễn phí).';
+        policy = 'Đăng nhập → Đơn hàng của tôi để xem trạng thái.';
         link = '/profile';
         break;
 
@@ -638,7 +638,7 @@ async function buildContext(intent, message, history = []) {
 
       // ── Liên hệ ───────────────────────────────────────────────────────────
       case 'CONTACT':
-        policy = 'Địa chỉ: TP.HCM. Hotline: 1800-xxxx (miễn phí, 24/7). Email: support@getshopy.vn. Facebook/Zalo: Getshopy Official.';
+        policy = 'Địa chỉ: TP.HCM. Email: support@getshopy.vn. Facebook/Zalo: Getshopy Official.';
         break;
 
       // ── Thu cũ đổi mới ────────────────────────────────────────────────────
@@ -690,11 +690,11 @@ function fallbackResponse(intent, context) {
     GREETING:         { text: 'Dạ Getshopy xin chào ạ! 👋 Cửa hàng em có hơn 600.000 sản phẩm từ 33 thương hiệu. Anh/chị đang cần tìm gì ạ?', link: null },
     ASK_DELIVERY:     { text: 'Dạ giao nội thành 2–4 tiếng, tỉnh thành 1–3 ngày, miễn phí ship từ 500k ạ!', link: null },
     ASK_RETURN:       { text: 'Dạ đổi trả 7 ngày, bảo hành 12 tháng chính hãng ạ!', link: null },
-    ASK_PAYMENT:      { text: 'Dạ hỗ trợ COD, MoMo, ZaloPay, trả góp 0% ạ!', link: null },
+    ASK_PAYMENT:      { text: 'Dạ bên em hỗ trợ thanh toán khi nhận hàng (COD) và chuyển khoản qua mã VietQR ạ!', link: null },
     TRACK_ORDER:      { text: 'Dạ anh/chị vào mục "Đơn hàng của tôi" để kiểm tra nhé ạ!', link: '/profile' },
     CANCEL_ORDER:     { text: 'Dạ vào "Đơn hàng của tôi" → Chọn đơn → Hủy đơn nhé ạ!', link: '/profile' },
     FEEDBACK_POSITIVE:{ text: 'Dạ cảm ơn anh/chị rất nhiều! 🌟 Getshopy luôn cố gắng phục vụ tốt nhất ạ!', link: null },
-    COMPLAINT:        { text: 'Dạ em thành thật xin lỗi! Anh/chị liên hệ hotline 1800-xxxx để được hỗ trợ ngay ạ!', link: null },
+    COMPLAINT:        { text: 'Dạ em thành thật xin lỗi! Anh/chị vào "Đơn hàng của tôi" hoặc liên hệ qua email/Zalo của cửa hàng để được hỗ trợ ngay ạ!', link: null },
   };
 
   return defaults[intent] || {

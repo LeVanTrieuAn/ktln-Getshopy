@@ -560,7 +560,7 @@ async function visualSearch(imageBase64) {
     stock:  Number(p.stock || 0),
   }));
 
-  // BƯỚC 4: Dùng Qwen LLM sinh câu trả lời tự nhiên tiếng Việt
+  // BƯỚC 4: Dùng LLM (ai/llmClient) sinh câu trả lời tự nhiên tiếng Việt
   const visualContext = { products: serializedProducts };
   const visualMessage = serializedProducts.length > 0
     ? `Khách vừa gửi ảnh. Gemini Vision nhận ra: ${analysis.description_vi || caption}` +

@@ -1,11 +1,11 @@
 /**
  * ============================================================
- * VISUAL SEARCH — Google Gemini 2.5 Flash Vision
+ * VISUAL SEARCH — Google Gemini Vision (model theo GEMINI_MODELS, mặc định gemini-3.5-flash)
  * visualSearch.js — Getshopy AI Visual Search Engine v5.0
  * ============================================================
  *
  * Pipeline:
- *   Google Gemini 2.5 Flash (gemini.googleapis.com — trực tiếp, không qua OpenRouter)
+ *   Google Gemini Vision (gemini.googleapis.com — trực tiếp, không qua OpenRouter)
  *   Nhận ảnh base64 → phân tích → JSON { category, brand, color, keywords, description_vi }
  *
  * Lý do:

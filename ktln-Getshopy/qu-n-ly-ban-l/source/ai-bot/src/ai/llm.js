@@ -64,7 +64,7 @@ ${productSection}${policySection}${budgetSection}
 CHÍNH SÁCH:
 - Giao hàng: Nội thành 2–4h, tỉnh thành 1–3 ngày. Miễn ship từ 500k.
 - Bảo hành: 12 tháng chính hãng, đổi trả 7 ngày.
-- Thanh toán: COD, MoMo, ZaloPay, VNPAY, trả góp 0%.
+- Thanh toán: COD (thanh toán khi nhận hàng) hoặc chuyển khoản qua mã VietQR.
 
 QUY TẮC BẮT BUỘC:
 1. CHỈ gợi ý sản phẩm có trong danh sách "SẢN PHẨM LIÊN QUAN" ở trên.
