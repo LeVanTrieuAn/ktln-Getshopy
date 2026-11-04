@@ -435,6 +435,27 @@ services:
         "PG_SOURCE_USER=${POSTGRES_USER:-getshopy}","PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}"]
     restart: unless-stopped
 
+  # ═══ GATEWAY ═════════════════════════════════════════════════════════════
+
+  # Một cổng vào cho web, server, ai-rec và ai-bot, chia theo đường dẫn — bảng
+  # route ở gateway/nginx.conf. server, ai-rec và ai-bot chỉ `expose` trong
+  # network nên máy khác không gọi thẳng được; gateway là đường vào của chúng.
+  #
+  # Mặc định chỉ nghe localhost. Để các máy cùng tailnet Tailscale gọi được,
+  # đặt GATEWAY_BIND_IP trong .env bằng IP Tailscale của máy (tailscale ip -4),
+  # rồi gọi qua tên MagicDNS:  http://<tên-máy>.<tailnet>.ts.net:8000/
+  #
+  # KHÔNG đặt 0.0.0.0: ai-rec, ai-bot và /api/b2b chưa có xác thực, và rule
+  # firewall "Docker Desktop Backend" cho mọi cổng Docker publish đi vào ở cả
+  # mạng Public — nghe mọi IP là lộ các API đó ra cả mạng LAN đang cắm.
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "${GATEWAY_BIND_IP:-127.0.0.1}:${GATEWAY_PORT:-8000}:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   clickhouse_data:
