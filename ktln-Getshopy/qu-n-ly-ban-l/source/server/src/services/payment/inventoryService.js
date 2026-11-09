@@ -125,10 +125,6 @@ async function reserveStock(tx, orderId, lines, expiresAt) {
   }
 
   await tx.stockReservation.createMany({ data: reservations });
-  // Đồng bộ ngay Product.stock và Product.variants[].stock theo tồn khả dụng
-  // (on_hand - reserved) để khi khách nhấn Đặt hàng (cả COD lẫn QR), tồn kho
-  // hiển thị trên giao diện giảm ngay (VD: 601 -> 600).
-  await syncProductStock(tx, reservations.map(r => r.inventory_id));
   return reservations;
 }
 
@@ -187,78 +183,23 @@ async function releaseReservations(tx, orderId) {
     where: { order_id: orderId, status: 'HELD' },
     data: { status: 'RELEASED' },
   });
-  await syncProductStock(tx, held.map(r => r.inventory_id));
   return held.length;
 }
 
-/**
- * Đồng bộ Product.stock và từng biến thể trong Product.variants (JSONB) từ
- * tồn khả dụng (on_hand - reserved) của toàn bộ các dòng Inventory thuộc sản phẩm đó.
- */
+/** Đồng bộ Product.stock từ tổng on_hand của Inventory. */
 async function syncProductStock(tx, inventoryIds) {
   if (!inventoryIds || inventoryIds.length === 0) return;
-
-  const ids = [...new Set(inventoryIds.map(id => BigInt(id)))];
-  const touched = await tx.inventory.findMany({
-    where: { id: { in: ids } },
-    select: { product_id: true },
-    distinct: ['product_id'],
-  });
-  const productIds = touched.map(r => r.product_id);
-  if (productIds.length === 0) return;
-
-  // Phải lấy TOÀN BỘ dòng Inventory của product_id (mọi biến thể, mọi chi nhánh)
-  // thay vì chỉ lọc WHERE id = ANY(inventoryIds), nếu không sản phẩm có nhiều
-  // biến thể sẽ bị ghi đè Product.stock bằng tồn của riêng 1 biến thể vừa mua.
-  const allInv = await tx.inventory.findMany({
-    where: { product_id: { in: productIds } },
-    select: { product_id: true, variant_id: true, on_hand: true, reserved: true },
-  });
-
-  for (const productId of productIds) {
-    const rows = allInv.filter(r => r.product_id === productId);
-    const byVariant = new Map();
-    let totalAvailable = 0;
-
-    for (const r of rows) {
-      const avail = Math.max(0, Number(r.on_hand || 0) - Number(r.reserved || 0));
-      totalAvailable += avail;
-      const vid = r.variant_id || '';
-      byVariant.set(vid, (byVariant.get(vid) || 0) + avail);
-    }
-
-    const product = await tx.product.findUnique({
-      where: { id: productId },
-      select: { variants: true },
-    });
-
-    let rawVariants = product?.variants;
-    const wasString = typeof rawVariants === 'string';
-    if (wasString) {
-      try { rawVariants = JSON.parse(rawVariants); } catch { rawVariants = null; }
-    }
-
-    let updatedVariants = undefined;
-    if (Array.isArray(rawVariants) && rawVariants.length > 0) {
-      const nextArr = rawVariants.map((v, idx) => {
-        if (!v || typeof v !== 'object') return v;
-        const vid = String(v.id || `var-${idx}`);
-        if (byVariant.has(vid)) {
-          return { ...v, stock: byVariant.get(vid) };
-        }
-        return v;
-      });
-      updatedVariants = wasString ? JSON.stringify(nextArr) : nextArr;
-    }
-
-    await tx.product.update({
-      where: { id: productId },
-      data: {
-        stock: totalAvailable,
-        ...(updatedVariants !== undefined ? { variants: updatedVariants } : {}),
-      },
-    });
-  }
+  await tx.$executeRaw`
+    UPDATE "Product" p
+    SET    stock = sub.total
+    FROM (
+      SELECT product_id, SUM(on_hand)::int AS total
+      FROM   "Inventory"
+      WHERE  id = ANY(${inventoryIds}::bigint[])
+      GROUP  BY product_id
+    ) sub
+    WHERE p.id = sub.product_id
+  `;
 }
 
 /** Tồn khả dụng của một sản phẩm (tổng mọi biến thể, mọi chi nhánh). */

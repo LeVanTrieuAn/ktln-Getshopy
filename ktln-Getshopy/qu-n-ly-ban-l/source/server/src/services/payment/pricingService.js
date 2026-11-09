@@ -39,38 +39,13 @@ function calcShippingFee(province) {
 }
 
 /**
- * Đọc mảng variants an toàn (hỗ trợ cả trường hợp DB lưu chuỗi JSON kép).
- */
-function parseVariantsList(product) {
-  let raw = product?.variants;
-  if (typeof raw === 'string') {
-    try { raw = JSON.parse(raw); } catch { raw = []; }
-  }
-  return Array.isArray(raw) ? raw : [];
-}
-
-/**
  * Tìm một biến thể trong Product.variants theo id.
  * variants là Json: [{ id, color, storage, price, stock }]
- * Nếu dữ liệu seed chỉ lưu thuộc tính mô tả [{ color, ram, storage }] không có id,
- * client (ProductDetail.jsx) tự gán id tạm `var-${index}` — hỗ trợ tra cứu theo cả hai.
  */
 function findVariant(product, variantId) {
   if (!variantId) return null;
-  const list = parseVariantsList(product);
-  return list.find((v, idx) => String(v?.id || `var-${idx}`) === String(variantId)) || null;
-}
-
-/**
- * Kiểm tra xem biến thể có bản ghi tồn kho riêng theo variant_id hay dùng chung
- * dòng kho gốc (variant_id = '') của sản phẩm.
- */
-function resolveInventoryVariantId(product, variantId) {
-  if (!variantId) return null;
-  const list = parseVariantsList(product);
-  const matched = list.find(v => v?.id && String(v.id) === String(variantId));
-  // Chỉ khi phần tử trong DB thực sự có trường `id` riêng thì Inventory mới tách dòng theo variant_id
-  return matched ? String(matched.id) : null;
+  const list = Array.isArray(product.variants) ? product.variants : [];
+  return list.find(v => String(v?.id) === String(variantId)) || null;
 }
 
 /**
@@ -174,17 +149,13 @@ async function priceOrder(prisma, { items, province, voucherCode, pointsToUse = 
     const lineTotal = unitPrice * qty;
     subTotal += lineTotal;
 
-    // Nếu sản phẩm chỉ có biến thể mô tả (không có trường id riêng trong DB),
-    // tồn kho nằm ở dòng gốc variant_id = '' của bảng Inventory.
-    const inventoryVariantId = resolveInventoryVariantId(product, variantId);
-
     lines.push({
       product_id: product.id,
       product_name: product.name,          // snapshot
       category_id: product.category_id,
       brand_id: product.brand_id,
       branch_id: item.branch_id || null,
-      variant_id: inventoryVariantId,
+      variant_id: variantId,
       quantity: qty,
       unit_price: unitPrice,               // snapshot
       line_total: lineTotal,

@@ -175,34 +175,6 @@ async function applyPayment(prisma, transactionId, ref, amount) {
     };
   }
 
-  // Đơn chuyển khoản đã được chuyển sang COD (trạng thái CONFIRMED, payment_status = UNPAID,
-  // tồn kho đã COMMITTED), nhưng tiền chuyển khoản từ ngân hàng vẫn về sau đó:
-  // Cập nhật đơn thành PAID / BANK_TRANSFER mà KHÔNG trừ kho lần thứ hai.
-  if (fresh.payment_status === 'UNPAID' && fresh.status !== 'CANCELLED') {
-    await prisma.$transaction(async tx => {
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          payment_method: 'BANK_TRANSFER',
-          payment_status: 'PAID',
-          paid_at: new Date(),
-          paid_amount: amount,
-        },
-      });
-      await lifecycle.commitOrder(tx, order.id);
-    });
-    await prisma.paymentTransaction.update({
-      where: { id: transactionId },
-      data: { order_id: order.id, match_status: S.LATE_MATCHED },
-    });
-    return {
-      status: S.LATE_MATCHED,
-      reason: 'Đơn đã chuyển sang COD nhưng nhận được tiền chuyển khoản — đã cập nhật thành PAID',
-      orderId: order.id,
-      transactionId,
-    };
-  }
-
   // Đơn đã EXPIRED: webhook đến muộn. Thử giữ chỗ lại — còn hàng thì vẫn cho
   // khách, không bắt họ chờ hoàn tiền.
   return retryExpiredOrder(prisma, fresh, transactionId, amount);

@@ -1,13 +1,16 @@
 /**
  * Category3DModel.jsx — Interactive 3D FBX viewer cho category cards
  * ════════════════════════════════════════════════════════════════════
- * UX Flow (v5 — always-mounted, GPU-optimized):
- *   1. Load → 3D model hiện ngay (tĩnh, không xoay)
- *   2. Hover → auto-rotate
- *   3. Rời chuột → DỪNG xoay, GIỮ NGUYÊN góc hiện tại
- *   4. Hover lại → tiếp tục xoay từ góc đã dừng
+ * UX Flow:
+ *   1. Hiện ảnh snapshot tĩnh (PNG pre-generated từ script snapshot-fbx.cjs)
+ *   2. Canvas 3D mount sẵn ngầm (hidden), FBX load sẵn trong background
+ *   3. Hover → Canvas hiện lên + auto-rotate (instant, không delay)
+ *   4. Rời chuột → Canvas ẩn, snapshot hiện lại
+ *   5. Hover lại → Canvas hiện ngay (KHÔNG re-mount, đã mount sẵn)
  *
- *   GPU optimization: DPR=1, frameloop=demand, context recovery handlers
+ * Refs:
+ *   Three.js FBXLoader: https://threejs.org/docs/#examples/en/loaders/FBXLoader
+ *   Performance pattern: docs/optimizing/OPTIMIZE-3D.md
  * ════════════════════════════════════════════════════════════════════
  */
 import React, { useRef, useMemo, useEffect, useState, Suspense, useCallback } from 'react';
@@ -15,35 +18,13 @@ import { Canvas, useFrame, useThree, useLoader } from '@react-three/fiber';
 import { FBXLoader } from 'three-stdlib';
 import * as THREE from 'three';
 
-// ─── Patch TextureLoader để tránh 404 từ texture nhúng trong FBX ─────────────
-// FBX files lưu tên texture gốc (vd: speaker.jpg, Wallpaper.jpeg, Lens.png).
-// Three.js cố tải chúng từ /assets/ → 404. Ta override load() để dùng
-// 1×1 white canvas texture thay thế khi URL không phải http(s).
-(function patchFBXTextureLoader() {
-  const OrigLoad = THREE.TextureLoader.prototype.load;
-  THREE.TextureLoader.prototype.load = function (url, onLoad, onProgress, onError) {
-    // Nếu URL là relative path (tên file từ FBX nội bộ) → trả texture trắng
-    if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('/') && !url.startsWith('blob:') && !url.startsWith('data:')) {
-      const canvas = document.createElement('canvas');
-      canvas.width = 1; canvas.height = 1;
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'rgba(255,255,255,0)';
-      ctx.fillRect(0, 0, 1, 1);
-      const tex = new THREE.CanvasTexture(canvas);
-      if (onLoad) onLoad(tex);
-      return tex;
-    }
-    return OrigLoad.call(this, url, onLoad, onProgress, onError);
-  };
-})();
-
-// ─── Preload helper ──────────────────────────────────────────────────────────
+// ─── Preload helper — gọi ở module-level để fetch FBX sớm ───────────────────
 // eslint-disable-next-line react-refresh/only-export-components
 export function preloadFBX(url) {
   useLoader.preload(FBXLoader, url);
 }
 
-// ─── Dispose helper ──────────────────────────────────────────────────────────
+// ─── Dispose helper ───────────────────────────────────────────────────────────
 function disposeObject(obj) {
   if (!obj) return;
   obj.traverse((child) => {
@@ -60,17 +41,20 @@ function disposeObject(obj) {
   });
 }
 
-// ─── FBX Model inner component ───────────────────────────────────────────────
+// ─── FBX Model (live 3D inside Canvas) ────────────────────────────────────────
 function FBXModel({ url, autoRotateSpeed, initialRotation, isHovered, onReady }) {
   const fbx = useLoader(FBXLoader, url);
   const { invalidate } = useThree();
 
+  // Inner group: holds the clone with initialRotation baked in
+  // Outer pivot: used for auto-rotation (rotates around Y in world space)
   const pivotRef = useRef();
   const isHoveredRef = useRef(isHovered);
   isHoveredRef.current = isHovered;
 
   const wrapper = useMemo(() => {
     const clone = fbx.clone(true);
+
     if (initialRotation[0] || initialRotation[1] || initialRotation[2]) {
       clone.rotation.set(initialRotation[0], initialRotation[1], initialRotation[2]);
     }
@@ -99,13 +83,14 @@ function FBXModel({ url, autoRotateSpeed, initialRotation, isHovered, onReady })
 
   useEffect(() => () => disposeObject(wrapper), [wrapper]);
 
-  // Notify parent + force first render
-  useEffect(() => {
-    onReady();
-    invalidate();
-  }, [onReady, invalidate]);
+  // Notify parent that model is ready to display
+  useEffect(() => { onReady(); }, [onReady]);
+
+  // Force first frame
+  useEffect(() => { invalidate(); }, [invalidate]);
 
   // Kick-start render loop when hover begins
+  // (frameloop="demand" means useFrame only runs during invalidate-triggered renders)
   useEffect(() => {
     if (isHovered) invalidate();
   }, [isHovered, invalidate]);
@@ -116,7 +101,6 @@ function FBXModel({ url, autoRotateSpeed, initialRotation, isHovered, onReady })
       pivotRef.current.rotation.y += autoRotateSpeed;
       invalidate();
     }
-    // Không hover → giữ nguyên góc, GPU nghỉ
   });
 
   return (
@@ -126,36 +110,22 @@ function FBXModel({ url, autoRotateSpeed, initialRotation, isHovered, onReady })
   );
 }
 
-// ─── WebGL Context Recovery ──────────────────────────────────────────────────
-function ContextRecovery() {
-  const { gl, invalidate } = useThree();
-
-  useEffect(() => {
-    const canvas = gl.domElement;
-    const handleLost = (e) => {
-      e.preventDefault();
-      console.warn('[Category3D] WebGL context lost, will restore...');
-    };
-    const handleRestored = () => {
-      console.log('[Category3D] WebGL context restored');
-      invalidate();
-    };
-    canvas.addEventListener('webglcontextlost', handleLost);
-    canvas.addEventListener('webglcontextrestored', handleRestored);
-    return () => {
-      canvas.removeEventListener('webglcontextlost', handleLost);
-      canvas.removeEventListener('webglcontextrestored', handleRestored);
-    };
-  }, [gl, invalidate]);
-
-  return null;
-}
-
 // ─── Category3DModel — Exported Component ─────────────────────────────────────
+/**
+ * @param {Object}   props
+ * @param {string}   props.fbxUrl          — URL to the .fbx file
+ * @param {string}   props.snapshotImage   — Pre-generated PNG snapshot (from scripts/snapshot-fbx.cjs)
+ * @param {boolean}  props.isDark
+ * @param {boolean}  props.isHovered
+ * @param {number}   [props.height=220]
+ * @param {number}   [props.autoRotateSpeed=0.005]
+ * @param {number[]} [props.initialRotation=[0,0,0]]
+ */
 const DEFAULT_ROTATION = [0, 0, 0];
 
 export default function Category3DModel({
   fbxUrl,
+  snapshotImage,
   isDark,
   isHovered = false,
   height = 220,
@@ -166,13 +136,13 @@ export default function Category3DModel({
   const [isInView, setIsInView] = useState(false);
   const [fbxReady, setFbxReady] = useState(false);
 
-  // IntersectionObserver — mount Canvas chỉ khi card trong viewport
+  // IntersectionObserver — mount Canvas chỉ khi card gần viewport
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setIsInView(entry.isIntersecting),
-      { rootMargin: '100px 0px', threshold: 0 },
+      { rootMargin: '200px 0px', threshold: 0 },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -183,12 +153,29 @@ export default function Category3DModel({
   return (
     <div ref={containerRef} style={{ width: '100%', height, position: 'relative', overflow: 'hidden' }}>
 
-      {/* Shimmer — hiện trong lúc FBX đang load */}
-      {!fbxReady && (
-        <div style={{
-          position: 'absolute', inset: 0, zIndex: 1,
-          pointerEvents: 'none',
-        }}>
+      {/* Layer 1: Snapshot PNG — hiện ngay lập tức, mờ dần khi hover */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 1,
+        transition: 'opacity 0.3s ease',
+        opacity: isHovered && fbxReady ? 0 : 1,
+        pointerEvents: 'none',
+      }}>
+        {snapshotImage ? (
+          <img
+            src={snapshotImage}
+            alt=""
+            loading="lazy"
+            draggable={false}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              userSelect: 'none',
+              WebkitUserDrag: 'none',
+            }}
+          />
+        ) : (
+          // Fallback shimmer nếu chưa có snapshot PNG
           <div style={{
             width: '100%', height: '100%', borderRadius: 12,
             background: isDark
@@ -197,31 +184,25 @@ export default function Category3DModel({
             backgroundSize: '200% 100%',
             animation: 'cat3d-shimmer 1.5s linear infinite',
           }} />
-        </div>
-      )}
+        )}
+      </div>
 
-      {/* Live 3D Canvas — always mounted when in view */}
+      {/* Layer 2: Live Canvas — LUÔN mounted (không unmount), chỉ toggle opacity */}
       {isInView && (
         <div style={{
           position: 'absolute', inset: 0, zIndex: 2,
-          opacity: fbxReady ? 1 : 0,
-          transition: 'opacity 0.4s ease',
+          opacity: isHovered && fbxReady ? 1 : 0,
+          transition: 'opacity 0.3s ease',
+          pointerEvents: isHovered && fbxReady ? 'auto' : 'none',
         }}>
           <Canvas
             frameloop="demand"
-            dpr={1}
+            dpr={[1, 1.5]}
+            performance={{ min: 0.5 }}
             camera={{ position: [0, 0, 4.5], fov: 40 }}
-            gl={{
-              powerPreference: 'default',
-              antialias: false,
-              alpha: true,
-              stencil: false,
-              depth: true,
-              failIfMajorPerformanceCaveat: false,
-            }}
+            gl={{ powerPreference: 'high-performance', antialias: false, alpha: true }}
             style={{ width: '100%', height: '100%', background: 'transparent' }}
           >
-            <ContextRecovery />
             <ambientLight intensity={0.65} />
             <directionalLight position={[4, 6, 4]} intensity={1.3} color="#ffffff" />
             <directionalLight position={[-3, -2, -3]} intensity={0.4} color={isDark ? '#a7f3d0' : '#e5e7eb'} />

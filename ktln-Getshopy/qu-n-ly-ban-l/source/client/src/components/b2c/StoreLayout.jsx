@@ -76,7 +76,6 @@ import {
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import AIChatbot from './AIChatbot';
-import VoiceButton from './VoiceButton';
 import AuthModal from './AuthModal';
 import OnboardingModal from './OnboardingModal';
 import { useApp } from '../../context/AppContext';
@@ -439,22 +438,6 @@ export default function StoreLayout() {
           .b2c-main-content { margin-left: 0 !important; }
           .b2c-mobile-overlay { display: block; }
         }
-
-        /* Mega-dropdown entrance animation */
-        @keyframes megaDropIn {
-          from { opacity: 0; transform: translateX(-8px) scale(0.97); }
-          to   { opacity: 1; transform: translateX(0) scale(1); }
-        }
-        @keyframes megaItemIn {
-          from { opacity: 0; transform: translateY(6px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-
-        /* Page-level fade-in — dùng cho navigate trực tiếp (ProductDetail) */
-        @keyframes pageIn {
-          from { opacity: 0; transform: translateY(18px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
       `}</style>
 
       {/* Dải cảm ứng sát mép trái — chuột chạm vào là sidebar trượt ra.
@@ -553,7 +536,7 @@ export default function StoreLayout() {
                 </div>
               )}
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 4, minWidth: 0,
+                display: 'flex', alignItems: 'center', gap: 8,
                 background: isDark ? 'rgba(255,255,255,0.06)' : '#f4f5f7',
                 borderRadius: 10, padding: '7px 11px',
                 border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`,
@@ -565,36 +548,17 @@ export default function StoreLayout() {
                   value={searchKeyword}
                   onChange={e => { setSearchKeyword(e.target.value); setShowSearchDropdown(true); }}
                   onFocus={() => searchKeyword && setShowSearchDropdown(true)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && searchKeyword.trim()) {
-                      navigate(`/shop?search=${encodeURIComponent(searchKeyword.trim())}`);
-                      setShowSearchDropdown(false);
-                    }
-                  }}
                   style={{
-                    flex: 1, minWidth: 0, width: '50px', border: 'none', background: 'transparent', outline: 'none',
+                    flex: 1, border: 'none', background: 'transparent', outline: 'none',
                     fontSize: 13, color: isDark ? '#ffffff' : '#18181b',
                     fontFamily: 'inherit',
                   }}
                 />
                 <input ref={searchImageInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handleSearchImageSelect} />
-                {/* Voice input: chữ nhận được điền vào ô tìm kiếm, người dùng sửa rồi tự nhấn Enter.
-                    Danh sách gợi ý hiện sẵn theo cơ chế tìm kiếm trực tiếp của ô này. */}
-                <VoiceButton
-                  id="search-voice-btn"
-                  isDark={isDark}
-                  size={20}
-                  fontSize={12}
-                  onText={(text) => {
-                    setSearchKeyword(prev => (prev.trim() ? prev.trimEnd() + ' ' : '') + text);
-                    setShowSearchDropdown(true);
-                    setTimeout(() => searchInputRef.current?.focus(), 0);
-                  }}
-                />
                 <button
                   title="Tìm bằng ảnh"
                   onClick={() => searchImageInputRef.current?.click()}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.4)' : '#a1a1aa', fontSize: 14, display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0 }}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.4)' : '#a1a1aa', fontSize: 14, display: 'flex', alignItems: 'center', padding: 0 }}
                 >
                   <CameraOutlined />
                 </button>
@@ -653,7 +617,7 @@ export default function StoreLayout() {
             <SideNavItem icon={<HomeOutlined />} label="Trang chủ" path="/" active={location?.pathname === '/'} />
             <SideNavItem icon={<ShoppingOutlined />} label="Cửa hàng" path="/shop" />
 
-            {/* Products — Mega-dropdown 2 cột (inspired by Graphify.com nav) */}
+            {/* Products with expandable sub-items */}
             <Dropdown
               open={productsOpen}
               onOpenChange={setProductsOpen}
@@ -661,77 +625,32 @@ export default function StoreLayout() {
               overlayStyle={{ zIndex: 1050 }}
               popupRender={() => (
                 <div style={{
-                  width: 560,
+                  width: 320,
                   background: isDark ? '#111827' : '#ffffff',
-                  borderRadius: 18,
+                  borderRadius: 16,
                   boxShadow: isDark
-                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(255, 255, 255, 0.1)'
-                    : '0 25px 50px -12px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                    ? '0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                    : '0 25px 50px -12px rgba(0, 0, 0, 0.14), 0 0 0 1px rgba(0, 0, 0, 0.06)',
+                  padding: '14px 12px',
                   border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.05)',
-                  overflow: 'hidden',
-                  animation: 'megaDropIn 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
                 }}>
-                  {/* Header */}
-                  <div style={{ padding: '14px 16px 10px', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.38)' }}>
-                      Danh mục sản phẩm
-                    </div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)', paddingBottom: 8, marginBottom: 6, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Danh mục</span>
                   </div>
-
-                  {/* 2-Column Grid */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 2,
-                    padding: '8px 10px',
-                  }}>
-                    {navCategories.map((cat, i) => (
-                      <div
-                        key={cat.id}
-                        onClick={() => { setProductsOpen(false); navigate(`/shop?category=${cat.id}`); }}
-                        className="dropdown-menu-card-item"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 10,
-                          padding: '10px 10px', borderRadius: 10, cursor: 'pointer',
-                          animation: `megaItemIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) ${i * 30}ms both`,
-                        }}
-                      >
-                        <div style={{
-                          width: 32, height: 32, borderRadius: 8,
-                          background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 14, flexShrink: 0,
-                          color: isDark ? 'rgba(255,255,255,0.7)' : '#52525b',
-                        }}>
-                          {cat.icon || <InboxOutlined />}
-                        </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {[{ key: 'all', title: 'Tất cả sản phẩm', desc: 'Toàn bộ 600.000+ sản phẩm', icon: <OrderedListOutlined />, path: '/shop' },
+                      ...navCategories.map(cat => ({ key: cat.id, title: cat.name, desc: cat.desc, icon: cat.icon || <InboxOutlined />, path: `/shop?category=${cat.id}` }))
+                    ].map(item => (
+                      <div key={item.key} onClick={() => { setProductsOpen(false); navigate(item.path); }} className="dropdown-menu-card-item"
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 7, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, flexShrink: 0, color: isDark ? 'rgba(255,255,255,0.7)' : '#52525b' }}>{item.icon}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#f3f4f6' : '#18181b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{cat.name}</div>
-                          <div style={{ fontSize: 10.5, color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.3 }}>{cat.desc}</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#f3f4f6' : '#18181b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.title}</div>
+                          <div style={{ fontSize: 11, color: isDark ? 'rgba(255,255,255,0.38)' : 'rgba(0,0,0,0.4)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.desc}</div>
                         </div>
+                        <RightOutlined className="item-arrow" style={{ fontSize: 9, color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.3)', opacity: 0, transition: 'all 0.2s ease', transform: 'translateX(-4px)', flexShrink: 0 }} />
                       </div>
                     ))}
-                  </div>
-
-                  {/* Footer CTA — Xem tất cả */}
-                  <div
-                    onClick={() => { setProductsOpen(false); navigate('/shop'); }}
-                    style={{
-                      padding: '12px 16px',
-                      borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.05)'}`,
-                      background: isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)',
-                      cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      transition: 'background 0.15s',
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)'}
-                    onMouseLeave={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)'}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <OrderedListOutlined style={{ fontSize: 13, color: isDark ? 'rgba(255,255,255,0.5)' : '#52525b' }} />
-                      <span style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#e5e7eb' : '#18181b' }}>Xem tất cả sản phẩm</span>
-                    </div>
-                    <RightOutlined style={{ fontSize: 9, color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }} />
                   </div>
                 </div>
               )}
@@ -768,14 +687,7 @@ export default function StoreLayout() {
                       { key: 'compare', title: 'So sánh thiết bị', desc: 'Đối chiếu thông số kỹ thuật', icon: <SwapOutlined style={{ fontSize: 14 }} />, path: '/compare' },
                       { key: 'account', title: 'Đơn hàng & Tài khoản', desc: 'Lịch sử mua sắm & tích điểm', icon: <UserOutlined style={{ fontSize: 14 }} />, path: '/account' },
                     ].map(item => (
-                      <div key={item.key} onClick={() => { 
-                          setPagesOpen(false); 
-                          if (item.key === 'account' && !currentUser && !localStorage.getItem('b2c_token')) {
-                            if (typeof openAuthModal === 'function') openAuthModal();
-                          } else {
-                            navigate(item.path); 
-                          }
-                        }} className="dropdown-menu-card-item"
+                      <div key={item.key} onClick={() => { setPagesOpen(false); navigate(item.path); }} className="dropdown-menu-card-item"
                         style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, cursor: 'pointer' }}>
                         <div style={{ width: 30, height: 30, borderRadius: 7, background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: isDark ? 'rgba(255,255,255,0.7)' : '#52525b' }}>{item.icon}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>

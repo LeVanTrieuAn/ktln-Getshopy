@@ -79,10 +79,6 @@ router.post('/payment/webhook/:provider', async (req, res) => {
       reason: result.reason ?? null,
     });
 
-    if (result.status === 'MATCHED' || result.status === 'LATE_MATCHED') {
-      req.app?.locals?.broadcastStockUpdate?.();
-    }
-
     // Luôn 200 khi đã ghi nhận được giao dịch — kể cả UNMATCHED hay
     // REFUND_REQUIRED. Đó là kết quả hợp lệ của việc đối soát, không phải lỗi
     // của provider; trả lỗi chỉ khiến họ retry vô ích.
@@ -110,7 +106,7 @@ router.get('/b2c/orders/:id/payment-status', authB2C, async (req, res) => {
     const order = await prisma.order.findUnique({
       where: { id: String(req.params.id) },
       select: {
-        id: true, status: true, payment_method: true, payment_status: true, customer_id: true,
+        id: true, status: true, payment_status: true, customer_id: true,
         paid_at: true, expires_at: true, total: true,
       },
     });
@@ -146,7 +142,6 @@ router.get('/b2c/orders/:id/payment-status', authB2C, async (req, res) => {
     return res.json({
       order_id: order.id,
       status: order.status,
-      payment_method: order.payment_method,
       payment_status: order.payment_status,
       paid_at: order.paid_at,
       total: order.total,
@@ -156,51 +151,6 @@ router.get('/b2c/orders/:id/payment-status', authB2C, async (req, res) => {
     });
   } catch (err) {
     return res.status(500).json({ error: err.message });
-  }
-});
-
-// ─── POST /api/b2c/orders/:id/switch-to-cod ─────────────────────────────
-// Khách đóng popup QR hoặc không chuyển khoản được -> tự động chuyển đơn sang
-// COD (CONFIRMED / UNPAID) và giữ nguyên tồn kho đã trừ lúc đặt hàng (601 -> 600).
-router.post('/b2c/orders/:id/switch-to-cod', authB2C, async (req, res) => {
-  const orderId = String(req.params.id);
-
-  try {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      select: { id: true, customer_id: true, status: true, payment_method: true, payment_status: true },
-    });
-    if (!order) return res.status(404).json({ error: 'Không tìm thấy đơn hàng' });
-
-    if (!order.customer_id || Number(order.customer_id) !== req.b2cUser.id) {
-      return res.status(403).json({ error: 'Đơn hàng này không thuộc về bạn' });
-    }
-
-    const result = await prisma.$transaction(tx =>
-      lifecycle.convertTransferToCod(tx, orderId)
-    );
-
-    if (result.changed) {
-      req.app?.locals?.broadcastStockUpdate?.();
-    }
-
-    console.log('[switch-to-cod]', JSON.stringify({
-      orderId, by: req.b2cUser.id, changed: result.changed,
-      alreadyPaid: !!result.alreadyPaid, alreadyCod: !!result.alreadyCod,
-    }));
-
-    return res.json({
-      success: true,
-      order_id: orderId,
-      changed: result.changed,
-      already_paid: !!result.alreadyPaid,
-      status: result.order?.status ?? order.status,
-      payment_method: result.order?.payment_method ?? order.payment_method,
-      payment_status: result.order?.payment_status ?? order.payment_status,
-    });
-  } catch (err) {
-    console.error('[switch-to-cod] lỗi:', err.message);
-    return res.status(400).json({ error: err.message });
   }
 });
 
@@ -240,10 +190,6 @@ router.post('/b2c/orders/:id/cancel', authB2C, async (req, res) => {
     const result = await prisma.$transaction(tx =>
       lifecycle.cancelOrder(tx, orderId, { reason, cancelledBy: null })
     );
-
-    if (result.changed) {
-      req.app?.locals?.broadcastStockUpdate?.();
-    }
 
     console.log('[cancel-order]', JSON.stringify({ orderId, by: req.b2cUser.id, reason, ...result }));
 

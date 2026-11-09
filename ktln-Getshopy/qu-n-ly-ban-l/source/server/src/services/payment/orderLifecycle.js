@@ -17,40 +17,7 @@ const { syncProductStock } = require('./inventoryService');
 const POINT_EARN_PER_VND = 100000;
 
 /**
- * Cộng/trừ lượt bán (Product.sold và FlashSaleItem.sold) cho các dòng của đơn hàng.
- * direction = 1 khi đơn được xác nhận (commit), direction = -1 khi đơn đã xác nhận bị huỷ.
- */
-async function adjustOrderSold(tx, orderId, direction = 1) {
-  const sign = direction >= 0 ? 1 : -1;
-  const items = await tx.orderItem.findMany({
-    where: { order_id: orderId },
-    select: { product_id: true, quantity: true, unit_price: true },
-  });
-
-  for (const item of items) {
-    const delta = Number(item.quantity || 0) * sign;
-    if (!delta) continue;
-
-    await tx.$executeRaw`
-      UPDATE "Product"
-      SET    sold = GREATEST(0, COALESCE(sold, 0) + ${delta})
-      WHERE  id = ${BigInt(item.product_id)}
-    `;
-
-    await tx.$executeRaw`
-      UPDATE "FlashSaleItem" fsi
-      SET    sold = GREATEST(0, COALESCE(fsi.sold, 0) + ${delta})
-      FROM   "FlashSale" fs
-      WHERE  fsi.flash_sale_id = fs.id
-        AND  fsi.product_id = ${BigInt(item.product_id)}
-        AND  fsi.discount_price = ${Number(item.unit_price)}
-        AND  fs.is_deleted = false
-    `;
-  }
-}
-
-/**
- * Đơn đã thanh toán (hoặc chốt sang COD): chốt mọi thứ đang giữ.
+ * Đơn đã thanh toán: chốt mọi thứ đang giữ.
  * Phải gọi bên trong một transaction.
  */
 async function commitOrder(tx, orderId) {
@@ -58,10 +25,7 @@ async function commitOrder(tx, orderId) {
   if (!order) throw new Error(`Không tìm thấy đơn ${orderId}`);
 
   // 1. Tồn kho: giữ chỗ -> trừ thật
-  const committedCount = await inventory.commitReservations(tx, orderId);
-  if (committedCount > 0) {
-    await adjustOrderSold(tx, orderId, 1);
-  }
+  await inventory.commitReservations(tx, orderId);
 
   // 2. Voucher: chốt lượt đã dùng
   await tx.voucherUsage.updateMany({
@@ -78,41 +42,6 @@ async function commitOrder(tx, orderId) {
   // KHÔNG tích điểm ở đây. Thanh toán xong không có nghĩa là đơn đã hoàn tất —
   // hàng chưa tới tay khách, đơn vẫn có thể bị huỷ. Điểm chỉ tích khi
   // GIAO THÀNH CÔNG, xem markDelivered().
-}
-
-/**
- * Chuyển đơn chuyển khoản (BANK_TRANSFER đang chờ thanh toán) sang COD:
- * - Chốt giữ chỗ tồn kho từ HELD -> COMMITTED (giữ nguyên mức tồn đã trừ lúc đặt hàng: 601 -> 600)
- * - Chốt voucher & điểm thưởng đã dùng
- * - Đổi payment_method = 'COD', payment_status = 'UNPAID', status = 'CONFIRMED', expires_at = null
- */
-async function convertTransferToCod(tx, orderId) {
-  const order = await tx.order.findUnique({ where: { id: orderId } });
-  if (!order) throw new Error(`Không tìm thấy đơn ${orderId}`);
-
-  if (order.payment_status === 'PAID') {
-    return { changed: false, alreadyPaid: true, order };
-  }
-  if (order.payment_method === 'COD' && order.status === 'CONFIRMED') {
-    return { changed: false, alreadyCod: true, order };
-  }
-  if (order.payment_status !== 'PENDING' || order.status === 'CANCELLED') {
-    return { changed: false, reason: 'Đơn không ở trạng thái chờ thanh toán', order };
-  }
-
-  await commitOrder(tx, orderId);
-
-  const updated = await tx.order.update({
-    where: { id: orderId },
-    data: {
-      payment_method: 'COD',
-      payment_status: 'UNPAID',
-      status: 'CONFIRMED',
-      expires_at: null,
-    },
-  });
-
-  return { changed: true, order: updated };
 }
 
 /**
@@ -227,8 +156,7 @@ async function expireOrder(tx, orderId) {
 }
 
 /**
- * Quét các đơn chuyển khoản quá hạn chờ QR và tự động chuyển sang COD
- * (giữ nguyên tồn kho đã trừ khi đặt hàng và xác nhận đơn).
+ * Quét và đóng mọi đơn quá hạn.
  * Mỗi đơn một transaction riêng: một đơn lỗi không kéo cả lô chết theo.
  */
 async function expireOverdueOrders(prisma, { limit = 200 } = {}) {
@@ -241,16 +169,16 @@ async function expireOverdueOrders(prisma, { limit = 200 } = {}) {
     take: limit,
   });
 
-  const converted = [];
+  const expired = [];
   for (const o of overdue) {
     try {
-      const res = await prisma.$transaction(tx => convertTransferToCod(tx, o.id));
-      if (res.changed) converted.push(o.id);
+      const done = await prisma.$transaction(tx => expireOrder(tx, o.id));
+      if (done) expired.push(o.id);
     } catch (err) {
-      console.error(`[expire->cod] đơn ${o.id} lỗi:`, err.message);
+      console.error(`[expire] đơn ${o.id} lỗi:`, err.message);
     }
   }
-  return converted;
+  return expired;
 }
 
 /**
@@ -293,7 +221,6 @@ async function cancelOrder(tx, orderId, { reason = null, cancelledBy = null } = 
       data: { status: 'RELEASED' },
     });
     await syncProductStock(tx, committed.map(r => r.inventory_id));
-    await adjustOrderSold(tx, orderId, -1);
   }
   await inventory.releaseReservations(tx, orderId);   // phần còn HELD (nếu có)
 
@@ -373,7 +300,6 @@ async function cancelOrder(tx, orderId, { reason = null, cancelledBy = null } = 
 }
 
 module.exports = {
-  commitOrder, convertTransferToCod, adjustOrderSold,
-  expireOrder, expireOverdueOrders, cancelOrder, markDelivered,
+  commitOrder, expireOrder, expireOverdueOrders, cancelOrder, markDelivered,
   POINT_EARN_PER_VND,
 };

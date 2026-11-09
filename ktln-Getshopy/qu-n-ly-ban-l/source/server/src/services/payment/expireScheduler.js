@@ -29,7 +29,7 @@ async function runOnce(prisma) {
   try {
     const expired = await expireOverdueOrders(prisma);
     if (expired.length > 0) {
-      console.log(`[expire-job] đã tự động chuyển ${expired.length} đơn quá hạn QR sang COD:`, expired.join(', '));
+      console.log(`[expire-job] đã đóng ${expired.length} đơn quá hạn:`, expired.join(', '));
     }
     return { skipped: false, expired };
   } finally {

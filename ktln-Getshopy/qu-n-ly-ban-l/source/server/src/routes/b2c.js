@@ -180,12 +180,10 @@ async function getCategoryDescendants(rootId) {
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
-    const { category_id, brand_ids, search, sort, branch_id, page = 1, limit = 12, min_price, max_price } = req.query;
+    const { category_id, brand_ids, search, sort, branch_id, page = 1, limit = 12 } = req.query;
     const pageNumber = parseInt(page, 10) || 1;
     const limitNumber = parseInt(limit, 10) || 12;
     const skip = (pageNumber - 1) * limitNumber;
-    const parsedMinPrice = min_price ? parseFloat(min_price) : null;
-    const parsedMaxPrice = max_price ? parseFloat(max_price) : null;
 
     // Parse multi-brand: brand_ids=br-apple,br-samsung  OR  brand_ids=br-apple
     const brandIdList = brand_ids && brand_ids !== 'ALL'
@@ -202,13 +200,6 @@ router.get('/products', async (req, res) => {
 
     if (brandIdList.length === 1) where.brand_id = brandIdList[0];
     else if (brandIdList.length > 1) where.brand_id = { in: brandIdList };
-
-    // Price range filter
-    if (parsedMinPrice !== null || parsedMaxPrice !== null) {
-      where.price = {};
-      if (parsedMinPrice !== null) where.price.gte = parsedMinPrice;
-      if (parsedMaxPrice !== null) where.price.lte = parsedMaxPrice;
-    }
     
     // Handle multi-word search correctly using AND for each token
     if (search) {
@@ -276,16 +267,6 @@ router.get('/products', async (req, res) => {
         });
       }
 
-      // Price range for raw SQL
-      if (parsedMinPrice !== null) {
-        params.push(parsedMinPrice);
-        conditions.push(`price >= $${params.length}`);
-      }
-      if (parsedMaxPrice !== null) {
-        params.push(parsedMaxPrice);
-        conditions.push(`price <= $${params.length}`);
-      }
-
       const whereSQL = conditions.join(' AND ');
 
       // P-05: Prisma type-safe orderBy — loại bỏ string interpolation vào raw SQL
@@ -328,16 +309,9 @@ router.get('/products', async (req, res) => {
     const fsItems = await getActiveFlashSaleItems();
     products = products.map(p => applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems));
 
-    // totalAll: tổng sản phẩm toàn DB (không filter), cache 5 phút
-    // Dùng cho banner "Bán chạy nhất" để luôn hiển thị tổng thật (600,000)
-    const totalAll = await cached('products:total_all', 300, () =>
-      prisma.product.count({ where: { is_deleted: false } })
-    );
-
     res.json({
       data: products,
       total,
-      totalAll,
       page: pageNumber,
       limit: limitNumber,
       totalPages: Math.ceil(total / limitNumber)
@@ -465,19 +439,6 @@ router.get('/orders/me', authB2C, async (req, res) => {
       include: { items: true },
     });
 
-    const productIds = [];
-    orders.forEach(o => o.items.forEach(i => productIds.push(i.product_id)));
-    
-    const products = await prisma.product.findMany({
-      where: { id: { in: [...new Set(productIds)] } },
-      select: { id: true, image: true, images: true, variants: true }
-    });
-    
-    const productMap = {};
-    products.forEach(p => {
-       productMap[p.id.toString()] = p;
-    });
-
     // Chuẩn hoá cho client: BigInt không serialize được sang JSON, và giữ tên
     // trường `items` để phần hiển thị cũ không phải sửa.
     const data = orders.map(o => ({
@@ -494,24 +455,15 @@ router.get('/orders/me', authB2C, async (req, res) => {
       discount: o.discount,
       total: o.total,
       customer: o.customer,
-      items: o.items.map(i => {
-        const product = productMap[i.product_id.toString()];
-        let image = product?.image || (product?.images && product.images[0]) || '';
-        if (i.variant_id && product?.variants) {
-          const variant = (product.variants || []).find(v => String(v.id) === String(i.variant_id));
-          if (variant && variant.image) image = variant.image;
-        }
-        return {
-          id: Number(i.id),
-          product_id: Number(i.product_id),
-          name: i.product_name,
-          quantity: i.quantity,
-          price: i.unit_price,
-          net_amount: i.net_amount,
-          variant_id: i.variant_id,
-          image: image
-        };
-      }),
+      items: o.items.map(i => ({
+        id: Number(i.id),
+        product_id: Number(i.product_id),
+        name: i.product_name,
+        quantity: i.quantity,
+        price: i.unit_price,
+        net_amount: i.net_amount,
+        variant_id: i.variant_id,
+      })),
     }));
 
     res.json(data);
@@ -539,34 +491,11 @@ router.post('/products/:id/reviews', async (req, res) => {
       }
     });
 
-    // Tính lại Product.rating = AVG thực từ toàn bộ reviews
-    // (Sản phẩm chưa có review nào → rating = 0, không phải null)
-    const agg = await prisma.review.aggregate({
-      where: { product_id: BigInt(id) },
-      _avg: { rating: true },
-      _count: { id: true },
-    });
-
-    const newRating = agg._avg.rating
-      ? Math.round(agg._avg.rating * 10) / 10
-      : 0;
-
-    await prisma.product.update({
-      where: { id: BigInt(id) },
-      data: { rating: newRating },
-    });
-
-    res.json({
-      success: true,
-      review: { ...newReview, product_id: Number(newReview.product_id) },
-      product_rating: newRating,
-      review_count: agg._count.id,
-    });
+    res.json({ success: true, review: { ...newReview, product_id: Number(newReview.product_id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
 
 // --- AUTHENTICATION ---
 
@@ -594,7 +523,7 @@ router.post('/auth/register', async (req, res) => {
     const token = jwt.sign({ id: Number(newUser.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = newUser;
     
-    res.json({ token, user: { ...userWithoutPass, has_password: true, id: Number(userWithoutPass.id) } });
+    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -608,9 +537,9 @@ router.post('/auth/login', async (req, res) => {
     const user = await prisma.b2CCustomer.findUnique({ where: { email } });
     if (!user) return res.status(401).json({ error: 'Email hoặc mật khẩu không chính xác' });
     
-    if (!user.password_hash) {
-      const providerStr = user.provider === 'google' ? 'Google' : user.provider;
-      return res.status(400).json({ error: `Tài khoản này được đăng ký qua ${providerStr} và chưa có mật khẩu. Vui lòng đăng nhập bằng ${providerStr}.` });
+    const provider = user.provider || 'local';
+    if (provider !== 'local') {
+      return res.status(400).json({ error: `Tài khoản này được liên kết với ${provider}. Vui lòng đăng nhập bằng ${provider}.` });
     }
 
     const isMatch = await bcrypt.compare(password, user.password_hash);
@@ -619,7 +548,7 @@ router.post('/auth/login', async (req, res) => {
     const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
     
-    res.json({ token, user: { ...userWithoutPass, has_password: true, id: Number(userWithoutPass.id) } });
+    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -707,58 +636,29 @@ router.post('/auth/social', async (req, res) => {
           provider: 'google',
         },
       });
-    } else if (!user.provider?.includes('google')) {
+    } else if (user.provider !== 'google') {
       // Email đã đăng ký bằng mật khẩu, giờ đăng nhập bằng Google. Gộp làm một
       // tài khoản là đúng: Google đã xác minh chủ sở hữu email chính là người
       // này. Nhưng KHÔNG xoá password_hash — chủ tài khoản vẫn đăng nhập bằng
       // mật khẩu như cũ được.
-      let newProvider = user.provider || '';
-      if (!newProvider.includes('google')) {
-        newProvider = newProvider === 'local' ? 'local,google' : (newProvider ? newProvider + ',google' : 'google');
-      }
       user = await prisma.b2CCustomer.update({
         where: { email },
-        data: { provider: newProvider, avatar: user.avatar || avatar },
+        data: { provider: 'google', avatar: user.avatar || avatar },
       });
     }
 
     const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
 
-    res.json({ token, user: { ...userWithoutPass, has_password: !!user.password_hash, id: Number(userWithoutPass.id) } });
+    res.json({ token, user: { ...userWithoutPass, id: Number(userWithoutPass.id) } });
   } catch (err) {
     console.error('[auth/social]', err);
     res.status(500).json({ error: 'Không đăng nhập được, vui lòng thử lại' });
   }
 });
 
-// Set Password
-router.post('/auth/set-password', authB2C, async (req, res) => {
-  try {
-    const { new_password } = req.body;
-    if (!new_password) return res.status(400).json({ error: 'Vui lòng cung cấp mật khẩu mới' });
-
-    const password_hash = await bcrypt.hash(new_password, 10);
-    let user = await prisma.b2CCustomer.findUnique({ where: { id: req.b2cUser.id } });
-    
-    if (!user) return res.status(404).json({ error: 'Không tìm thấy người dùng' });
-
-    let newProvider = user.provider || '';
-    if (!newProvider.includes('local')) {
-      newProvider = newProvider ? newProvider + ',local' : 'local';
-    }
-
-    user = await prisma.b2CCustomer.update({
-      where: { id: req.b2cUser.id },
-      data: { password_hash, provider: newProvider }
-    });
-
-    const { password_hash: _, ...userWithoutPass } = user;
-    res.json({ success: true, user: { ...userWithoutPass, has_password: true, id: Number(userWithoutPass.id) } });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// NOTE: /recommendations endpoint đã được chuyển sang routes/recommendation.js
+//       sử dụng services/RecommendationService.js
 
 module.exports = router;
 

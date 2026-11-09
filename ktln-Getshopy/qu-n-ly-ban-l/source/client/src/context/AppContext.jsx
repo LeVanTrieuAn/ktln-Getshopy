@@ -45,8 +45,8 @@ export function AppProvider({ children }) {
   });
 
   useEffect(() => {
-    if (b2cUser?.id) {
-      api.b2c.getWishlist(b2cUser.id)
+    if (b2cUser) {
+      api.b2c.getWishlist()
         .then(products => {
           setWishlist(products);
           localStorage.setItem('b2c_wishlist', JSON.stringify(products));
@@ -142,14 +142,12 @@ export function AppProvider({ children }) {
     resetSession();
     setUser(null);
     setB2cUser(null);
-    setWishlist([]); // Clear wishlist state
     localStorage.removeItem('user');
     localStorage.removeItem('token');
     localStorage.removeItem('b2c_user');
     localStorage.removeItem('b2c_token');
     localStorage.removeItem('b2c_points');
     localStorage.removeItem('b2c_addresses');
-    localStorage.removeItem('b2c_wishlist'); // Remove wishlist from storage
   };
 
   const logout = () => {
