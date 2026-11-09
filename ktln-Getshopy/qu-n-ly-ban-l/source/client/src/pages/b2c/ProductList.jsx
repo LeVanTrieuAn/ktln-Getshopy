@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import useRevealOnScroll, { revealStyle } from '../../hooks/useRevealOnScroll';
 import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select, Popover, InputNumber } from 'antd';
 import {
   ShoppingOutlined,
@@ -22,8 +23,12 @@ import {
   HomeOutlined,
   WifiOutlined,
   DesktopOutlined,
-  InboxOutlined
+  InboxOutlined,
+  FireOutlined,
+  TrophyOutlined,
+  RiseOutlined,
 } from '@ant-design/icons';
+
 
 const CAT_ICON_MAP = {
   'cat-phone': <MobileOutlined />,
@@ -64,6 +69,13 @@ function getFallback(categoryId) {
   if (c.startsWith('cat-cam') || c.startsWith('c6')) return FALLBACK_BY_CAT.camera;
   return FALLBACK_BY_CAT.default;
 }
+/** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB (vd: /assets/speaker.jpg) */
+function getSafeImageUrl(url, categoryId) {
+  if (!url) return getFallback(categoryId);
+  // Bỏ qua relative path hoặc URL không có protocol (dữ liệu cũ)
+  if (!url.startsWith('http://') && !url.startsWith('https://')) return getFallback(categoryId);
+  return url;
+}
 
 const { Title, Text } = Typography;
 
@@ -87,7 +99,7 @@ function SkeletonCard({ isDark }) {
 }
 
 // ── Product Card (No Rating, Pill Price Button, Heart Wishlist) ─────
-function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite }) {
+function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite, onBeforeNavigate }) {
   const [hovered, setHovered] = useState(false);
   const [added, setAdded] = useState(false);
   const discount = p.original_price > p.price
@@ -111,7 +123,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
     <div
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      onClick={() => navigate(`/product/${p.id}`)}
+      onClick={() => { if (onBeforeNavigate) onBeforeNavigate(); navigate(`/product/${p.id}`); }}
       style={{
         borderRadius: 24,
         overflow: 'hidden',
@@ -216,7 +228,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
 
         <img
           alt={p.name}
-          src={p.image}
+          src={getSafeImageUrl(p.image, p.category_id)}
           loading="lazy"
           style={{
             maxWidth: '85%',
@@ -337,25 +349,62 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
 
 // ── Main Component ───────────────────────────────────────────────
 export default function ProductList() {
+  // ── Hooks cần ở trên để có location trước khi khởi tạo state ──────────────
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { addToCart } = useCart();
+  const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist, openAuthModal } = useApp();
+  const { trackCategoryView, trackSearchQuery } = useTracking();
+
+  // Scroll reveal
+  const [gridRef, gridVis] = useRevealOnScroll({ threshold: 0.05 });
+
+  const queryParams = new URLSearchParams(location.search);
+  const categoryFilter = queryParams.get('category') || 'ALL';
+  const searchQuery = queryParams.get('search') || '';
+
+  // ── Lazy-init: đọc sessionStorage đồng bộ trước render đầu tiên ─────────────
+  // Không cần useEffect restore nữa → chỉ 1 lần fetch, không flash sai data
+  const [_savedFilters] = useState(() => {
+    try {
+      const raw = sessionStorage.getItem('productListFilters');
+      if (!raw) return {};
+      sessionStorage.removeItem('productListFilters'); // xóa ngay sau khi đọc
+      return JSON.parse(raw);
+    } catch { return {}; }
+  });
+  // Chỉ dùng saved state nếu đang quay lại đúng context (cùng category + search)
+  const _r = (_savedFilters.categoryFilter === categoryFilter && _savedFilters.searchQuery === searchQuery)
+    ? _savedFilters : {};
+
   const [products, setProducts] = useState([]);
   const [totalProducts, setTotalProducts] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [totalAllProducts, setTotalAllProducts] = useState(0); // tổng toàn DB, không filter
+  const [currentPage, setCurrentPage] = useState(_r.currentPage || 1);
   const [categories, setCategories] = useState([]);
   const [activeCategories, setActiveCategories] = useState([]);
   const [brandList, setBrandList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sort, setSort] = useState('newest');
+  const [sort, setSort] = useState(() => {
+    if (_r.sort) return _r.sort;
+    const initSort = new URLSearchParams(window.location.search).get('sort');
+    return initSort === 'bestseller' ? 'best_selling' : (initSort || 'newest');
+  });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  // Filters state
-  const [brands, setBrands] = useState([]);
+  // Filters state — khởi tạo từ saved state nếu có
+  const [brands, setBrands] = useState(_r.brands || []);
   const [brandSearch, setBrandSearch] = useState('');
-  const [minPrice, setMinPrice] = useState(100000);
-  const [maxPrice, setMaxPrice] = useState(50000000);
-  const [appliedMinPrice, setAppliedMinPrice] = useState(null);
-  const [appliedMaxPrice, setAppliedMaxPrice] = useState(null);
+  const [minPrice, setMinPrice] = useState(_r.minPrice ?? 0);
+  const [maxPrice, setMaxPrice] = useState(_r.maxPrice ?? 100000000);
+  const [appliedMinPrice, setAppliedMinPrice] = useState(_r.appliedMinPrice ?? null);
+  const [appliedMaxPrice, setAppliedMaxPrice] = useState(_r.appliedMaxPrice ?? null);
+  // filterKey: tăng mỗi lần bấm "Áp dụng giá" — đảm bảo useEffect luôn chạy lại
+  // dù min hoặc max không đổi giữa 2 lần apply liên tiếp
+  const [filterKey, setFilterKey] = useState(0);
 
+  // Wishlist state is managed by AppContext
 
   // Modals state
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
@@ -368,15 +417,7 @@ export default function ProductList() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiSearchDone, setAiSearchDone] = useState(false);
 
-  const { addToCart } = useCart();
-  const { isDark, t, selectedBranch, b2cUser, wishlist, toggleWishlist } = useApp();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { trackCategoryView, trackSearchQuery } = useTracking();
-
-  const queryParams = new URLSearchParams(location.search);
-  const categoryFilter = queryParams.get('category') || 'ALL';
-  const searchQuery = queryParams.get('search') || '';
+  // (hooks đã khai báo ở trên)
 
   // Track category views
   useEffect(() => {
@@ -385,21 +426,39 @@ export default function ProductList() {
     }
   }, [categoryFilter]);
 
+  // Watch URL for changes and update sort state
+  useEffect(() => {
+    const qSort = new URLSearchParams(location.search).get('sort');
+    if (qSort === 'bestseller') {
+      setSort('best_selling');
+    }
+  }, [location.search]);
+
   useEffect(() => {
     setAiResults([]); setAiHint(''); setAiSearchDone(false);
   }, [searchQuery]);
 
-  // Yêu thích: dùng CHUNG danh sách và hàm của AppContext (đồng bộ server bằng token, ghi
-  // sự kiện add_to_wishlist, khớp với các trang khác). Trước 04/10 trang này giữ danh
-  // sách riêng và gọi api.b2c.toggleWishlist(b2cUser.id, productId) — hàm chỉ nhận
-  // product_id, nên MÃ KHÁCH bị gửi làm mã món: bấm yêu thích ở đây bật/tắt nhầm món khác.
-  const isFavorited = (id) => wishlist.some(w => String(w.id) === String(id));
-
-  const handleToggleFavorite = (product) => {
-    if (isFavorited(product.id)) message.info('Đã xoá khỏi danh sách yêu thích');
-    else message.success('Đã thêm vào danh sách yêu thích');
-    toggleWishlist(product);
+  const handleToggleFavorite = (p) => {
+    if (!b2cUser && !localStorage.getItem('b2c_token')) {
+      if (typeof openAuthModal === 'function') openAuthModal();
+      return;
+    }
+    toggleWishlist(p);
+    const isWished = wishlist?.some(w => w.id === p.id);
+    message.success(isWished ? 'Đã xoá khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích');
   };
+
+  // ── Persist filter state in sessionStorage ────────────────────────
+  // Save state before navigating to product detail
+  const saveFilterState = () => {
+    const state = {
+      currentPage, sort, brands, minPrice, maxPrice,
+      appliedMinPrice, appliedMaxPrice, categoryFilter, searchQuery,
+    };
+    sessionStorage.setItem('productListFilters', JSON.stringify(state));
+  };
+
+  // Restore useEffect đã được thay thế bằng lazy useState init ở trên
 
   // Main data loader
   useEffect(() => {
@@ -407,18 +466,15 @@ export default function ProductList() {
       setLoading(true);
       try {
         let [prodData, catData, brandData, activeCatData] = await Promise.all([
-          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands),
+          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands, appliedMinPrice, appliedMaxPrice),
           api.b2c.getCategories(),
           api.b2c.getBrands(),
           api.b2c.getActiveCategories(selectedBranch?.id || ''),
         ]);
 
-        let allProds = prodData.data || [];
-        if (appliedMinPrice !== null) allProds = allProds.filter(p => p.price >= appliedMinPrice);
-        if (appliedMaxPrice !== null) allProds = allProds.filter(p => p.price <= appliedMaxPrice);
-
-        setProducts(allProds);
+        setProducts(prodData.data || []);
         setTotalProducts(prodData.total || 0);
+        setTotalAllProducts(prodData.totalAll || prodData.total || 0);
         setCategories(catData || []);
         setBrandList(brandData || []);
         setActiveCategories(activeCatData || []);
@@ -427,7 +483,7 @@ export default function ProductList() {
           trackSearchQuery(searchQuery, prodData.total || 0);
         }
 
-        if (allProds.length === 0 && searchQuery.trim()) {
+        if ((prodData.data || []).length === 0 && searchQuery.trim()) {
           setIsAiLoading(true);
           setAiSearchDone(false);
           try {
@@ -446,17 +502,18 @@ export default function ProductList() {
       }
     }
     load();
-  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, currentPage]);
+  }, [categoryFilter, searchQuery, sort, selectedBranch, appliedMinPrice, appliedMaxPrice, brands, currentPage, filterKey]);
 
   const applyPriceFilter = () => {
     setAppliedMinPrice(minPrice);
     setAppliedMaxPrice(maxPrice);
     setCurrentPage(1);
+    setFilterKey(k => k + 1); // luôn force re-fetch dù giá trị không đổi
   };
 
   const clearAllFilters = () => {
     setMinPrice(0);
-    setMaxPrice(50000000);
+    setMaxPrice(100000000);
     setAppliedMinPrice(null);
     setAppliedMaxPrice(null);
     setBrands([]);
@@ -691,7 +748,7 @@ export default function ProductList() {
               content={categoryPopoverContent}
               trigger="hover"
               placement="bottomLeft"
-              styles={{ body: { borderRadius: 20, padding: 24, background: isDark ? '#0f172a' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)' } }}
+              overlayInnerStyle={{ borderRadius: 20, padding: 24, background: isDark ? '#0f172a' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)' }}
             >
               <button
                 style={{
@@ -726,12 +783,13 @@ export default function ProductList() {
       </div>
 
       {/* ── 2. Main Layout (Sidebar + Products Grid) ── */}
-      <div style={{
+      <div ref={gridRef} style={{
         display: 'flex',
         maxWidth: 1400,
         margin: '0 auto',
         padding: '32px 32px 64px',
         gap: 32,
+        ...revealStyle(gridVis),
       }}>
 
         {/* ── Left Sidebar Filter ── */}
@@ -788,8 +846,8 @@ export default function ProductList() {
                 {(appliedMinPrice !== null || appliedMaxPrice !== null) && (
                   <button
                     onClick={() => {
-                      setMinPrice(100000);
-                      setMaxPrice(50000000);
+                      setMinPrice(0);
+                      setMaxPrice(100000000);
                       setAppliedMinPrice(null);
                       setAppliedMaxPrice(null);
                       setCurrentPage(1);
@@ -806,15 +864,15 @@ export default function ProductList() {
 
               <div style={{ fontSize: 12, color: subCol, marginBottom: 18 }}>
                 {appliedMinPrice !== null || appliedMaxPrice !== null
-                  ? `${(appliedMinPrice || 100000).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 50000000).toLocaleString('vi-VN')} đ`
+                  ? `${(appliedMinPrice || 0).toLocaleString('vi-VN')} đ — ${(appliedMaxPrice || 100000000).toLocaleString('vi-VN')} đ`
                   : 'Lọc theo ngân sách sản phẩm'}
               </div>
 
               {/* Clean Range Slider (No Histogram / Chart) */}
               <Slider
                 range
-                min={100000}
-                max={50000000}
+                min={0}
+                max={100000000}
                 step={100000}
                 value={[minPrice, maxPrice]}
                 onChange={([valMin, valMax]) => {
@@ -836,14 +894,14 @@ export default function ProductList() {
               {/* Price Pill Values */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16 }}>
                 <InputNumber
-                  min={100000}
-                  max={50000000}
+                  min={0}
+                  max={100000000}
                   step={100000}
                   value={minPrice}
                   onChange={v => { if (v !== null) setMinPrice(v) }}
                   formatter={value => `${value} đ`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
                   parser={value => value?.replace(/\D/g, '')}
-                  variant="borderless"
+                  bordered={false}
                   controls={false}
                   style={{
                     flex: 1,
@@ -857,14 +915,14 @@ export default function ProductList() {
                 />
                 <span style={{ color: subCol, fontSize: 12 }}>—</span>
                 <InputNumber
-                  min={100000}
-                  max={50000000}
+                  min={0}
+                  max={100000000}
                   step={100000}
                   value={maxPrice}
                   onChange={v => { if (v !== null) setMaxPrice(v) }}
                   formatter={value => `${value} đ`.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}
                   parser={value => value?.replace(/\D/g, '')}
-                  variant="borderless"
+                  bordered={false}
                   controls={false}
                   style={{
                     flex: 1,
@@ -1009,6 +1067,125 @@ export default function ProductList() {
         {/* ── Right Column: Products List ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
 
+          {/* ─── Bestseller Hero Banner — full-width, above toolbar ─── */}
+          {sort === 'best_selling' && (
+            <div
+              style={{
+                position: 'relative',
+                overflow: 'hidden',
+                borderRadius: 20,
+                marginBottom: 20,
+                padding: '24px 28px',
+                width: '100%',
+                boxSizing: 'border-box',
+                background: isDark
+                  ? 'linear-gradient(135deg, #18181b 0%, #27272a 60%, #1c1917 100%)'
+                  : '#ffffff',
+                border: isDark
+                  ? '1px solid rgba(255,255,255,0.08)'
+                  : '1px solid #e4e4e7',
+                boxShadow: isDark
+                  ? '0 16px 48px -8px rgba(0,0,0,0.5)'
+                  : '0 4px 24px -4px rgba(0,0,0,0.08)',
+              }}
+            >
+              {isDark && (
+                <>
+                  <div style={{
+                    position: 'absolute', top: -60, right: -60,
+                    width: 260, height: 260, borderRadius: '50%',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                    pointerEvents: 'none',
+                  }} />
+                  <div style={{
+                    position: 'absolute', top: -30, right: -30,
+                    width: 160, height: 160, borderRadius: '50%',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    pointerEvents: 'none',
+                  }} />
+                </>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap' }}>
+                {/* Trophy icon */}
+                <div style={{
+                  width: 56, height: 56, borderRadius: 16, flexShrink: 0,
+                  background: isDark ? 'rgba(251,191,36,0.12)' : 'rgba(251,191,36,0.1)',
+                  border: isDark ? '1px solid rgba(251,191,36,0.2)' : '1px solid rgba(251,191,36,0.3)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <TrophyOutlined style={{ fontSize: 26, color: '#f59e0b' }} />
+                </div>
+
+                {/* Center — flex:1 kéo full width còn lại */}
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 5,
+                    fontSize: 10, fontWeight: 700, letterSpacing: 1.5,
+                    textTransform: 'uppercase',
+                    color: isDark ? 'rgba(255,255,255,0.4)' : '#a1a1aa',
+                    marginBottom: 5,
+                  }}>
+                    <RiseOutlined style={{ fontSize: 9 }} />
+                    Dựa trên dữ liệu bán hàng thực tế
+                  </div>
+                  <div style={{
+                    fontSize: 22, fontWeight: 800,
+                    color: isDark ? '#ffffff' : '#18181b',
+                    lineHeight: 1.2, letterSpacing: '-0.02em', marginBottom: 8,
+                  }}>
+                    Top Bán Chạy Nhất
+                  </div>
+                  <div style={{
+                    display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+                    fontSize: 12.5,
+                    color: isDark ? 'rgba(255,255,255,0.5)' : '#71717a',
+                  }}>
+                    <ShoppingOutlined style={{
+                      fontSize: 13,
+                      color: isDark ? 'rgba(255,255,255,0.35)' : '#a1a1aa',
+                    }} />
+                    <span>
+                      Xếp hạng theo trường&nbsp;
+                      <code style={{
+                        fontSize: 11, fontWeight: 700,
+                        padding: '1px 7px', borderRadius: 5,
+                        background: isDark ? 'rgba(255,255,255,0.08)' : '#f4f4f5',
+                        color: isDark ? '#fbbf24' : '#a16207',
+                        fontFamily: 'ui-monospace, monospace',
+                      }}>sold</code>
+                      &nbsp;— tổng số lượt mua tích lũy từ các đơn hàng hoàn thành
+                    </span>
+                  </div>
+                </div>
+
+                {/* Product count pill */}
+                <div style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 18px', borderRadius: 14, flexShrink: 0,
+                  background: isDark ? 'rgba(251,191,36,0.1)' : 'rgba(251,191,36,0.08)',
+                  border: isDark ? '1px solid rgba(251,191,36,0.2)' : '1px solid rgba(251,191,36,0.3)',
+                }}>
+                  <FireOutlined style={{ color: '#f59e0b', fontSize: 16 }} />
+                  <div>
+                    <div style={{
+                      fontSize: 10, fontWeight: 700, letterSpacing: 1,
+                      textTransform: 'uppercase',
+                      color: isDark ? 'rgba(255,255,255,0.4)' : '#a16207',
+                      marginBottom: 1,
+                    }}>Sản phẩm</div>
+                    <div style={{
+                      fontSize: 20, fontWeight: 900,
+                      color: isDark ? '#fbbf24' : '#d97706',
+                      lineHeight: 1,
+                      fontVariantNumeric: 'tabular-nums',
+                    }}>{totalAllProducts.toLocaleString('vi-VN')}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Toolbar Header */}
           <div style={{
             display: 'flex',
@@ -1019,8 +1196,8 @@ export default function ProductList() {
             gap: 12,
           }}>
             <div>
-              <Title level={3} style={{ color: textCol, margin: 0, fontWeight: 700, fontSize: 22 }}>
-                {searchQuery ? `Kết quả: "${searchQuery}"` : activeCatName}
+            <Title level={3} style={{ color: textCol, margin: 0, fontWeight: 700, fontSize: 22 }}>
+                {sort === 'best_selling' ? 'Top bán chạy' : (searchQuery ? `Kết quả: "${searchQuery}"` : activeCatName)}
               </Title>
               {!loading && (
                 <Text style={{ color: subCol, fontSize: 13 }}>
@@ -1028,6 +1205,8 @@ export default function ProductList() {
                 </Text>
               )}
             </div>
+
+
 
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {/* Filter toggle */}
@@ -1218,8 +1397,9 @@ export default function ProductList() {
                         isDark={isDark}
                         navigate={navigate}
                         addToCart={addToCart}
-                        isFavorited={isFavorited(p.id)}
+                        isFavorited={wishlist?.some(w => w.id === p.id)}
                         onToggleFavorite={handleToggleFavorite}
+                        onBeforeNavigate={saveFilterState}
                       />
                     ))}
                   </div>
@@ -1240,22 +1420,50 @@ export default function ProductList() {
                 : '1fr',
               gap: viewMode === 'grid' ? 24 : 16,
             }}>
-              {products.map(p => (
+              {products.map((p, idx) => (
                 viewMode === 'grid' ? (
-                  <ProductCard
-                    key={p.id}
-                    p={p}
-                    isDark={isDark}
-                    navigate={navigate}
-                    addToCart={addToCart}
-                    isFavorited={isFavorited(p.id)}
-                    onToggleFavorite={handleToggleFavorite}
-                  />
+                  <div key={p.id} style={{ position: 'relative' }}>
+                    {sort === 'best_selling' && idx < 3 && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 14,
+                        left: 14,
+                        zIndex: 10,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '5px 11px',
+                        borderRadius: 10,
+                        fontWeight: 800,
+                        fontSize: 12,
+                        letterSpacing: 0.4,
+                        boxShadow: '0 4px 14px rgba(0,0,0,0.3)',
+                        ...(idx === 0
+                          ? { background: 'linear-gradient(135deg,#b45309,#fbbf24)', color: '#fff' }
+                          : idx === 1
+                          ? { background: 'linear-gradient(135deg,#52525b,#d4d4d8)', color: '#18181b' }
+                          : { background: 'linear-gradient(135deg,#92400e,#d97706)', color: '#fff' }
+                        ),
+                      }}>
+                        <TrophyOutlined style={{ fontSize: 11 }} />
+                        #{idx + 1}
+                      </div>
+                    )}
+                    <ProductCard
+                      p={p}
+                      isDark={isDark}
+                      navigate={navigate}
+                      addToCart={addToCart}
+                      isFavorited={wishlist?.some(w => w.id === p.id)}
+                      onToggleFavorite={handleToggleFavorite}
+                      onBeforeNavigate={saveFilterState}
+                    />
+                  </div>
                 ) : (
                   // List View (No Rating, Pill Price Button)
                   <div
                     key={p.id}
-                    onClick={() => navigate(`/product/${p.id}`)}
+                    onClick={() => { saveFilterState(); navigate(`/product/${p.id}`); }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',

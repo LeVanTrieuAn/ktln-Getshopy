@@ -115,6 +115,8 @@ export const api = {
     smartSearch: (query) => request('/ai/smart-search', { method: 'POST', body: JSON.stringify({ query }) }),
     visualSearch: (imageBase64) => request('/b2c/visual-search', { method: 'POST', body: JSON.stringify({ imageBase64 }) }),
     smartSearchWithImage: (query, imageBase64) => request('/ai/smart-search-image', { method: 'POST', body: JSON.stringify({ query, imageBase64 }) }),
+    // Giọng nói -> chữ. Trả { text }; text rỗng nghĩa là không nghe rõ.
+    transcribe: (audioBase64, mimeType, signal) => request('/ai/transcribe', { method: 'POST', body: JSON.stringify({ audioBase64, mimeType }), signal }),
   },
 
   // ─── B2B APIs ────────────────────────────────────────────────
@@ -159,6 +161,7 @@ export const api = {
     register: (data) => request('/b2c/auth/register', { method: 'POST', body: JSON.stringify(data) }),
     login: (email, password) => request('/b2c/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     socialLogin: (data) => request('/b2c/auth/social', { method: 'POST', body: JSON.stringify(data) }),
+    setPassword: (new_password) => request('/b2c/auth/set-password', { method: 'POST', body: JSON.stringify({ new_password }) }),
     
     // Wishlist
     getWishlist: () => request('/b2c/wishlist'),
@@ -173,10 +176,12 @@ export const api = {
     },
     getBrands: () => request('/b2c/brands'),
     getFlashSales: () => request('/b2c/flash-sales'),
-    getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = []) => {
+    getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = [], minPrice = null, maxPrice = null) => {
       const params = { category_id, search, sort, page, limit };
       if (branch_id && branch_id !== 'undefined') params.branch_id = branch_id;
       if (brands && brands.length > 0) params.brand_ids = brands.join(',');
+      if (minPrice !== null && minPrice !== undefined) params.min_price = minPrice;
+      if (maxPrice !== null && maxPrice !== undefined) params.max_price = maxPrice;
       return request('/b2c/products?' + new URLSearchParams(params));
     },
     getProductDetails: (id) => request(`/b2c/products/${id}`),
@@ -192,6 +197,7 @@ export const api = {
     // Màn chờ thanh toán poll endpoint này. Chỉ trả trạng thái + thời gian còn
     // lại theo giờ server, không kèm thông tin nhạy cảm của đơn.
     getPaymentStatus: (orderId) => request(`/b2c/orders/${orderId}/payment-status`),
+    switchOrderToCod: (orderId) => request(`/b2c/orders/${orderId}/switch-to-cod`, { method: 'POST' }),
     applyVoucher: (code, cart_total) => request('/b2c/cart/apply-voucher', { method: 'POST', body: JSON.stringify({ code, cart_total }) }),
     // customer_id lấy từ token ở server — không truyền email nữa, truyền cũng
     // không có tác dụng (trước đây truyền email bất kỳ là xem được đơn người khác).

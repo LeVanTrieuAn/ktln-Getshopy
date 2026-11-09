@@ -14,6 +14,7 @@
 
 const { priceOrder, diffClientClaim } = require('./pricingService');
 const inventory = require('./inventoryService');
+const lifecycle = require('./orderLifecycle');
 const { generatePaymentRef } = require('./paymentRef');
 const { buildVietQRPayload } = require('./vietqr');
 const QRCode = require('qrcode');
@@ -216,9 +217,12 @@ async function createOrder(prisma, {
       reservationExpiresAt
     );
 
-    // COD: không chờ thanh toán nên trừ kho luôn.
+    // COD: không chờ thanh toán nên trừ kho luôn và ghi nhận lượt bán.
     if (!isTransfer) {
-      await inventory.commitReservations(tx, orderId);
+      const committedCount = await inventory.commitReservations(tx, orderId);
+      if (committedCount > 0) {
+        await lifecycle.adjustOrderSold(tx, orderId, 1);
+      }
     }
 
     // ── Voucher: ghi nhận đã dùng ───────────────────────────────────────

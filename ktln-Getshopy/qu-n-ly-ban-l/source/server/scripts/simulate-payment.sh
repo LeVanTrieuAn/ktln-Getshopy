@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 #
 # Giả lập SePay bắn webhook cho đơn chuyển khoản mới nhất đang chờ thanh toán.
 # Dùng khi chưa có tài khoản SePay thật, để test luồng end-to-end.
