@@ -78,6 +78,7 @@ server/scripts/reassign-*.js
 server/scripts/set-branch-*.js
 server/scripts/final-*.js
 server/scripts/ensure-*.js
+!server/scripts/ensure-inventory.js
 server/scripts/delete-*.js
 
 # ── AI / ML Models & Datasets ────────────────────────────────────

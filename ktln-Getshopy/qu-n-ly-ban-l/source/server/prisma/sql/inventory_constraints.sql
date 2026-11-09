@@ -41,7 +41,7 @@ EXCEPTION WHEN check_violation THEN
     RAISE WARNING 'Inventory có dòng cũ vi phạm ràng buộc tồn kho (tồn âm hoặc giữ chỗ vượt tồn). Ràng buộc vẫn chặn mọi lần ghi mới; dòng cũ cần sửa tay.';
 END $$;
 
--- ── 2. Product.stock = tổng on_hand các biến thể ─────────────────────────────
+-- ── 2. Product.stock = tổng tồn khả dụng (on_hand - reserved) các biến thể ──
 -- Trigger MỨC CÂU LỆNH với bảng chuyển tiếp, không phải mức dòng: ensure-inventory chèn
 -- ~1,2 triệu dòng trong MỘT câu INSERT ... SELECT; trigger mức dòng sẽ chạy 1,2 triệu lần,
 -- còn ở đây chỉ một lần và cập nhật mọi sản phẩm liên quan bằng một UPDATE.
@@ -53,14 +53,14 @@ LANGUAGE plpgsql AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
         UPDATE "Product" p SET stock = s.total
-        FROM (SELECT i.product_id, COALESCE(SUM(i.on_hand), 0)::int AS total
+        FROM (SELECT i.product_id, COALESCE(SUM(GREATEST(0, i.on_hand - i.reserved)), 0)::int AS total
               FROM "Inventory" i
               WHERE i.product_id IN (SELECT DISTINCT product_id FROM new_rows)
               GROUP BY i.product_id) s
         WHERE p.id = s.product_id AND p.stock IS DISTINCT FROM s.total;
     ELSIF TG_OP = 'UPDATE' THEN
         UPDATE "Product" p SET stock = s.total
-        FROM (SELECT i.product_id, COALESCE(SUM(i.on_hand), 0)::int AS total
+        FROM (SELECT i.product_id, COALESCE(SUM(GREATEST(0, i.on_hand - i.reserved)), 0)::int AS total
               FROM "Inventory" i
               WHERE i.product_id IN (SELECT product_id FROM new_rows
                                      UNION SELECT product_id FROM old_rows)
@@ -68,8 +68,12 @@ BEGIN
         WHERE p.id = s.product_id AND p.stock IS DISTINCT FROM s.total;
     ELSE  -- DELETE
         UPDATE "Product" p
-        SET stock = COALESCE((SELECT SUM(i.on_hand) FROM "Inventory" i WHERE i.product_id = p.id), 0)::int
-        WHERE p.id IN (SELECT DISTINCT product_id FROM old_rows);
+        SET stock = s.total
+        FROM (SELECT d.product_id, COALESCE(SUM(GREATEST(0, i.on_hand - i.reserved)), 0)::int AS total
+              FROM (SELECT DISTINCT product_id FROM old_rows) d
+              LEFT JOIN "Inventory" i ON i.product_id = d.product_id
+              GROUP BY d.product_id) s
+        WHERE p.id = s.product_id AND p.stock IS DISTINCT FROM s.total;
     END IF;
     RETURN NULL;
 END;
@@ -89,3 +93,17 @@ DROP TRIGGER IF EXISTS inventory_sync_product_stock_del ON "Inventory";
 CREATE TRIGGER inventory_sync_product_stock_del
     AFTER DELETE ON "Inventory" REFERENCING OLD TABLE AS old_rows
     FOR EACH STATEMENT EXECUTE FUNCTION inventory_sync_product_stock();
+
+-- ── 3. Dọn biến thể mồ côi (v1..v5 từ bản seed cũ) & đồng bộ Product.stock ──
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM "Inventory" WHERE variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')) THEN
+        DELETE FROM "StockReservation" sr
+        USING "Inventory" i
+        WHERE sr.inventory_id = i.id
+          AND i.variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5');
+
+        DELETE FROM "Inventory"
+        WHERE variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5');
+    END IF;
+END $$;

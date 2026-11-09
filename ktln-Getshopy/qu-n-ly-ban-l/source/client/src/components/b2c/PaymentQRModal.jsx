@@ -69,11 +69,16 @@ export default function PaymentQRModal({ open, orderData, isDark, onPaid, onClos
         clearInterval(pollRef.current);
         clearInterval(tickRef.current);
         onPaid?.(res);
+      } else if (res.payment_method === 'COD' && res.payment_status === 'UNPAID') {
+        // Server đã tự động chuyển đơn quá hạn chờ QR sang COD
+        clearInterval(pollRef.current);
+        clearInterval(tickRef.current);
+        onClose?.(res);
       }
     } catch {
       // Mất mạng một nhịp không phải lỗi — lần polling sau tự khớp lại.
     }
-  }, [orderId, orderData, onPaid]);
+  }, [orderId, orderData, onPaid, onClose]);
 
   useEffect(() => {
     if (!open || !orderId) return;
@@ -220,12 +225,17 @@ export default function PaymentQRModal({ open, orderData, isDark, onPaid, onClos
 
           {/* Không có nút "Thanh toán sau": đơn đang giữ chỗ trong kho, khuyến
               khích trì hoãn nghĩa là giữ hàng mà không ai trả tiền. Khách vẫn
-              thoát được bằng nút X ở góc — lúc đó đơn ở trạng thái chưa thanh
-              toán và sẽ tự huỷ khi hết hạn. */}
+              thoát được bằng nút X ở góc hoặc nút chuyển COD bên dưới — lúc đó
+              đơn tự động chuyển sang Thanh toán khi nhận hàng (COD) và giữ nguyên
+              tồn kho đã trừ. */}
           <div className="pqr-wait">
             <span className="pqr-pulse" />
             Đang chờ chuyển khoản — trang này tự cập nhật khi ngân hàng báo có
           </div>
+
+          <button type="button" className="pqr-cod-btn" onClick={() => onClose?.()}>
+            Không chuyển khoản được? Chuyển sang Thanh toán khi nhận hàng (COD)
+          </button>
 
           <p className="pqr-note">
             Giữ nguyên <strong>nội dung chuyển khoản</strong> để hệ thống tự đối soát. Nếu chuyển thủ
@@ -311,6 +321,12 @@ const PQR_CSS = `
 .pqr-pulse { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--pqr-fg);
              animation: pqr-pulse 1.4s ease-in-out infinite; }
 @keyframes pqr-pulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .25; transform: scale(.7); } }
+
+.pqr-cod-btn { width: 100%; margin-top: 10px; padding: 9px 12px; border: 1px solid var(--pqr-line);
+               border-radius: 10px; background: var(--pqr-soft); color: var(--pqr-fg);
+               font-size: 12.5px; font-weight: 600; cursor: pointer;
+               transition: background .15s, color .15s, border-color .15s; }
+.pqr-cod-btn:hover { background: var(--pqr-inv); border-color: var(--pqr-inv); color: var(--pqr-inv-fg); }
 
 .pqr-note { margin: 11px 2px 0; color: var(--pqr-sub); font-size: 11.5px; line-height: 1.65; text-align: center; }
 .pqr-note strong { color: var(--pqr-fg); font-weight: 600; }

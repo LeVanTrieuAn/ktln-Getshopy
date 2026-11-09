@@ -608,6 +608,14 @@ wss.on('connection', (ws) => {
   ws.on('close', () => wsClients.delete(ws));
 });
 
+function broadcastStockUpdate() {
+  const payload = JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() });
+  wsClients.forEach(ws => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+  });
+}
+app.locals.broadcastStockUpdate = broadcastStockUpdate;
+
 // P-04: Shared KPI cache — 1 query duy nhất mỗi 5s, broadcast cho TẤT CẢ clients
 // Tránh N×query khi có N admin dashboard mở đồng thời
 let _wsKpiCache = null;

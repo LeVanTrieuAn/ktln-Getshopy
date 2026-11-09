@@ -413,16 +413,36 @@ export default function Checkout() {
         setSuccess(true);
         setQrModal(null);
       }}
-      onClose={() => {
-        // Khách đóng popup khi chưa trả. Đơn vẫn tồn tại ở PENDING_PAYMENT và
-        // vẫn giữ chỗ trong kho cho tới khi job hết hạn dọn — chuyển khoản muộn
-        // vẫn được đối soát. Màn hoàn tất sẽ ghi rõ là CHƯA thanh toán.
-        // Vẫn dọn giỏ: đơn đã tạo và đang giữ chỗ trong kho, để hàng nằm lại
-        // giỏ thì khách dễ đặt trùng.
-        clearCartAfterOrder(qrModal._order.items);
-        setOrderData({ ...qrModal._order, payment_status: 'PENDING' });
-        setSuccess(true);
+      onClose={async () => {
+        // Khách đóng popup khi chưa chuyển khoản qua QR -> tự động chuyển đơn sang
+        // Thanh toán khi nhận hàng (COD), giữ nguyên số tồn kho đã trừ (601 -> 600).
+        const currentModal = qrModal;
         setQrModal(null);
+        if (!currentModal) return;
+
+        clearCartAfterOrder(currentModal._order.items);
+        try {
+          const switched = await api.b2c.switchOrderToCod(currentModal.order_id);
+          if (switched?.already_paid || switched?.payment_status === 'PAID') {
+            setOrderData({ ...currentModal._order, payment_status: 'PAID' });
+          } else {
+            message.info('Đơn hàng đã được chuyển sang Thanh toán khi nhận hàng (COD)');
+            setOrderData({
+              ...currentModal._order,
+              method: 'COD',
+              payment_method: 'COD',
+              payment_status: 'UNPAID',
+            });
+          }
+        } catch {
+          setOrderData({
+            ...currentModal._order,
+            method: 'COD',
+            payment_method: 'COD',
+            payment_status: 'UNPAID',
+          });
+        }
+        setSuccess(true);
       }}
     />
   );
