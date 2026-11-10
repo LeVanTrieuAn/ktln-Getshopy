@@ -476,7 +476,8 @@ services:
   # đặt GATEWAY_BIND_IP trong .env bằng IP Tailscale của máy (tailscale ip -4),
   # rồi gọi qua tên MagicDNS:  http://<tên-máy>.<tailnet>.ts.net:8000/
   #
-  # KHÔNG đặt 0.0.0.0: ai-rec, ai-bot và /api/b2b chưa có xác thực, và rule
+  # KHÔNG đặt 0.0.0.0: ai-rec và ai-bot chưa có xác thực (/api/b2b có requireAdmin
+  # từ 11/11/2026, nhưng vẫn không nên mở thừa), và rule
   # firewall "Docker Desktop Backend" cho mọi cổng Docker publish đi vào ở cả
   # mạng Public — nghe mọi IP là lộ các API đó ra cả mạng LAN đang cắm.
   gateway:
@@ -493,8 +494,16 @@ services:
       #   tailscale serve --bg --https=8080 http://127.0.0.1:18081   # WebSocket dashboard
       - "127.0.0.1:${GATEWAY_SERVE_PORT:-18000}:80"
       - "127.0.0.1:${GATEWAY_SERVE_WS_PORT:-18081}:8081"
+      # Cổng PUBLIC (server listen 8090 trong gateway/nginx.conf): chỉ cửa hàng,
+      # chặn mặc định mọi thứ khác. CHỈ trên loopback — Internet tới qua Funnel /
+      # tunnel trỏ vào đây, không mở cổng nào của máy:
+      #   tailscale funnel --bg --https=443 http://127.0.0.1:18090
+      # (khi đó admin chuyển sang cổng tailnet khác, ví dụ --https=4443 -> 18000)
+      - "127.0.0.1:${GATEWAY_PUBLIC_PORT:-18090}:8090"
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Trang "đang bảo trì" khi dịch vụ phía sau không trả lời (error_page trong nginx.conf)
+      - ./gateway/maintenance.html:/usr/share/nginx/maintenance/maintenance.html:ro
     restart: unless-stopped
 
 volumes:
