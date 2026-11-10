@@ -9,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
+import { phoneRules, fullNameRules } from '../../utils/validators';
 import { GoogleLogin } from '@react-oauth/google';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
@@ -372,7 +373,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             <Form.Item
               name="full_name"
               style={{ marginBottom: 16 }}
-              rules={[{ required: true, message: 'Vui lòng nhập họ tên' }]}
+              rules={fullNameRules}
             >
               <Input
                 prefix={<UserOutlined />}
@@ -396,9 +397,11 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             </Form.Item>
 
             {/* Phone (Optional) */}
-            <Form.Item name="phone" style={{ marginBottom: 16 }}>
+            <Form.Item name="phone" style={{ marginBottom: 16 }} rules={phoneRules(false)}>
               <Input
                 prefix={<PhoneOutlined />}
+                inputMode="tel"
+                maxLength={15}
                 placeholder="Số điện thoại (tùy chọn)"
               />
             </Form.Item>
@@ -409,7 +412,8 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               style={{ marginBottom: 20 }}
               rules={[
                 { required: true, message: 'Vui lòng nhập mật khẩu' },
-                { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự' }
+                { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự' },
+                { max: 128, message: 'Mật khẩu tối đa 128 ký tự' }
               ]}
             >
               <Input.Password

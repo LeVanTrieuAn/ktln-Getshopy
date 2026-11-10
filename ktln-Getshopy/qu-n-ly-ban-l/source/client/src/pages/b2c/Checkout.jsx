@@ -23,6 +23,7 @@ import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 import { useTracking } from '../../hooks/useTracking';
 import PaymentQRModal from '../../components/b2c/PaymentQRModal';
+import { phoneRules, fullNameRules, addressRules, shortTextRules } from '../../utils/validators';
 
 const { Title, Text } = Typography;
 
@@ -101,6 +102,10 @@ export default function Checkout() {
   // Checkout logic states: Ưu tiên các sản phẩm được chọn; nếu không có tick nào thì lấy tất cả sản phẩm trong giỏ hàng
   const selectedCartItems = cart.filter(item => item.selected);
   const checkoutItems = selectedCartItems.length > 0 ? selectedCartItems : cart;
+  // Đã đăng nhập mà giỏ trống: không có gì để đặt. Chưa đăng nhập thì nút vẫn bấm
+  // được vì nó mở hộp đăng nhập. Trước 11/11/2026 nút luôn bấm được, chỉ báo lỗi
+  // sau khi gửi.
+  const emptyCartBlocked = !!(b2cUser || localStorage.getItem('b2c_token')) && checkoutItems.length === 0;
   const subTotal = checkoutItems.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
   
   const province = Form.useWatch('province', form);
@@ -116,8 +121,16 @@ export default function Checkout() {
   const [selectedAddressId, setSelectedAddressId] = useState(null);
 
   // Loyalty Points Integration
-  const [points] = useState(() => parseInt(localStorage.getItem('b2c_points') || '0'));
+  // Số điểm HIỆN TẠI lấy từ server (/b2c/me). Trước 11/11/2026 đọc localStorage
+  // ['b2c_points'] — vừa sửa tay được, vừa luôn là 0 với khách mới đăng nhập vì
+  // không chỗ nào ghi khoá đó lúc login. Server vẫn tự kiểm điểm khi trừ tiền.
+  const [points, setPoints] = useState(0);
   const [usePoints, setUsePoints] = useState(false);
+  const refreshPoints = () => {
+    if (!localStorage.getItem('b2c_token')) return;
+    api.b2c.getMe().then(me => setPoints(Number(me?.loyalty_points) || 0)).catch(() => {});
+  };
+  useEffect(refreshPoints, [b2cUser]);
   const maxPointsToUse = Math.min(points, Math.floor(subTotal / 1000));
   const pointsDiscount = usePoints ? maxPointsToUse * 1000 : 0;
 
@@ -198,12 +211,8 @@ export default function Checkout() {
       // Điểm thưởng giờ do SERVER quản lý trong LoyaltyTransaction.
       // Trước đây client tự cộng/trừ localStorage['b2c_points'] — sửa DevTools
       // là có điểm vô hạn, và pointsDiscount kéo tổng tiền về 0.
-      // Chỉ đồng bộ lại con số server trả về để hiển thị.
-      if (res.pricing) {
-        const serverPoints = (points - (res.pricing.pointsUsed || 0))
-          + (res.payment_method === 'COD' ? (res.pricing.pointsEarned || 0) : 0);
-        localStorage.setItem('b2c_points', String(Math.max(0, serverPoints)));
-      }
+      // Sau khi đặt, đọc lại số điểm thật từ server (đã trừ điểm dùng / cộng điểm COD).
+      refreshPoints();
 
       // KHÔNG xoá giỏ ở đây.
       //
@@ -309,7 +318,7 @@ export default function Checkout() {
               {orderData.items.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   <img
-                    src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.jpg'}
+                    src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.webp'}
                     alt={item.name}
                     style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }}
                   />
@@ -551,13 +560,13 @@ export default function Checkout() {
             <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false} className="checkout-form">
               <Row gutter={16}>
               <Col xs={24} md={12}>
-                <Form.Item name="full_name" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Họ và tên</span>} rules={[{ required: true, message: 'Vui lòng nhập họ và tên' }]}>
+                <Form.Item name="full_name" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Họ và tên</span>} rules={fullNameRules}>
                   <Input size="large" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item name="phone" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Số điện thoại</span>} rules={[{ required: true, message: 'Vui lòng nhập số điện thoại' }]}>
-                  <Input size="large" />
+                <Form.Item name="phone" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Số điện thoại</span>} rules={phoneRules(true)}>
+                  <Input size="large" inputMode="tel" maxLength={15} placeholder="0912345678" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
@@ -576,19 +585,19 @@ export default function Checkout() {
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
-                <Form.Item name="district" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Quận / Huyện</span>} rules={[{ required: true, message: 'Nhập quận/huyện' }]}>
+                <Form.Item name="district" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Quận / Huyện</span>} rules={shortTextRules('Nhập quận/huyện')}>
                   <Input size="large" placeholder="Ví dụ: Quận 1" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={8}>
-                <Form.Item name="ward" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Phường / Xã</span>} rules={[{ required: true, message: 'Nhập phường/xã' }]}>
+                <Form.Item name="ward" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Phường / Xã</span>} rules={shortTextRules('Nhập phường/xã')}>
                   <Input size="large" placeholder="Ví dụ: Phường Bến Nghé" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
                 <Form.Item 
                   name="address" 
-                  rules={[{ required: true, message: 'Vui lòng nhập địa chỉ cụ thể' }]}
+                  rules={addressRules}
                   label={
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', minWidth: 200 }}>
                       <span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>
@@ -612,7 +621,7 @@ export default function Checkout() {
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
-                <Form.Item name="email" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Email nhận thông báo đơn hàng</span>}>
+                <Form.Item name="email" rules={[{ type: 'email', message: 'Email không hợp lệ' }]} label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Email nhận thông báo đơn hàng</span>}>
                   <Input size="large" placeholder="email@example.com" />
                 </Form.Item>
               </Col>
@@ -711,6 +720,7 @@ export default function Checkout() {
               size="large" 
               block 
               loading={loading}
+              disabled={emptyCartBlocked}
               style={{ 
                 marginTop: 36, 
                 height: 52, 
@@ -719,7 +729,9 @@ export default function Checkout() {
                 fontWeight: 700, 
                 background: '#18181b', 
                 borderColor: '#18181b',
-                color: '#ffffff'
+                color: '#ffffff',
+                // style gắn thẳng đè màu "disabled" của antd, nên tự làm mờ
+                opacity: emptyCartBlocked ? 0.4 : 1,
               }}
             >
               {b2cUser || localStorage.getItem('b2c_token') ? 'Xác nhận đặt hàng' : 'Đăng nhập để đặt hàng'}
@@ -743,8 +755,8 @@ export default function Checkout() {
             <div style={{ height: 550, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
               <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
                 <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                 />
                 <LocationMarker />
                 <MapResizer />
@@ -791,7 +803,7 @@ export default function Checkout() {
             ) : (
               checkoutItems.map((item, idx) => (
                 <div key={`${item.id}-${item.selectedVariant?.id || idx}`} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.jpg'} alt={item.name} style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }} />
+                  <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.webp'} alt={item.name} style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }} />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, color: isDark ? '#fff' : '#18181b', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                     {item.selectedVariant && (
@@ -846,9 +858,9 @@ export default function Checkout() {
                 Điểm tích luỹ thành viên
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
-                <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13 }}>Khả dụng: <strong>{points.toLocaleString()}</strong> điểm</span>
+                <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13 }}>Khả dụng: <strong>{points.toLocaleString('vi-VN')}</strong> điểm</span>
                 <Checkbox checked={usePoints} onChange={e => setUsePoints(e.target.checked)}>
-                  Dùng {maxPointsToUse.toLocaleString()} điểm (-{(maxPointsToUse * 1000).toLocaleString('vi-VN')} đ)
+                  Dùng {maxPointsToUse.toLocaleString('vi-VN')} điểm (-{(maxPointsToUse * 1000).toLocaleString('vi-VN')} đ)
                 </Checkbox>
               </div>
             </div>

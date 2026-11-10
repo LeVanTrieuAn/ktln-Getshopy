@@ -336,6 +336,24 @@ body {
   color: #71717a !important;
 }
 
+/* Điện thoại: nút Chat AI đứng trên thanh điều hướng dưới đáy (StoreLayout); cửa sổ
+   chat 400x600 neo góc phải tràn khỏi màn 390px -> trải toàn màn hình. Dùng !important
+   vì vị trí gốc đặt bằng style inline trong AIChatbot.jsx. */
+@media (max-width: 768px) {
+  .ai-chat-fab {
+    bottom: calc(72px + env(safe-area-inset-bottom)) !important;
+    right: 16px !important;
+    width: 50px !important;
+    height: 50px !important;
+  }
+  .ai-chat-window {
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+  }
+}
+
 /* B2C Sidebar - Mobile hamburger button */
 @media (max-width: 768px) {
   .b2c-hamburger-btn {

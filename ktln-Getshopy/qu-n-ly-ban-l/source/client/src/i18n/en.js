@@ -8,6 +8,14 @@ const en = {
     top_selling_subtitle: 'Most popular products right now',
     sold: 'Sold',
     discount: 'SALE',
+    hero_title_1: 'High-quality tech',
+    hero_title_2: 'gadgets & accessories',
+    hero_subtitle: 'Phones, laptops, tablets and genuine accessories — fair prices, fast delivery, full warranty.',
+    hero_cta_browse: 'Browse products',
+    hero_cta_about: 'About us',
+    hero_image_alt: 'High-quality tech gadgets',
+    search_products: 'Search for products',
+    category_fallback: 'Product',
     // ── Level 1 (parent) ──────────────────────────────────────────
     'category_cat-phone':      'Phones',
     'category_cat-laptop':     'Laptops',
@@ -88,7 +96,10 @@ const en = {
     no_results: 'No results found',
     logged_out_success: 'Logged out successfully!',
     compare_warning: 'You haven\'t selected any products to compare',
-    flash_sale_happening: 'Flash Sale is Happening'
+    flash_sale_happening: 'Flash Sale is Happening',
+    reviews: 'Reviews',
+    behavior: 'Behavior Analytics',
+    chatbot: 'AI Chatbot'
   },
   shop: {
     all_products: 'All Products',

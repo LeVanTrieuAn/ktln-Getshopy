@@ -4,14 +4,17 @@
 const BASE = import.meta.env.VITE_API_URL || '/api';
 
 function getToken(path = '') {
-  // Route admin (/b2b/*) phải dùng token ADMIN. Lấy b2c_token trước như cũ thì
-  // trang admin gửi token khách và nhận 403 — mà lỗi đó nhìn như "không có
-  // quyền" chứ không phải "gửi nhầm token".
-  // Cùng một trình duyệt có thể đang đăng nhập cả hai vai.
-  if (path.startsWith('/b2b/')) {
-    return localStorage.getItem('token') || localStorage.getItem('b2c_token');
-  }
-  return localStorage.getItem('b2c_token') || localStorage.getItem('token');
+  // Khu vực cửa hàng (/b2c/*, /ai/*) dùng token KHÁCH; mọi đường dẫn còn lại
+  // (/b2b, /dashboard, /analytics, /financial, /alerts, /auth/me...) thuộc trang
+  // quản trị và dùng token ADMIN. Server bắt role ở cả hai phía (authB2C và
+  // requireAdmin), nên gửi nhầm token là nhận 403 — lỗi trông như "không có
+  // quyền" chứ không phải "gửi nhầm token". Cùng một trình duyệt có thể đang
+  // đăng nhập cả hai vai. (Trước 11/11/2026 chỉ /b2b/* ưu tiên token admin; các
+  // API dashboard vẫn chạy vì server khi đó nhận cả token khách — đã chặn.)
+  const storefront = path.startsWith('/b2c/') || path.startsWith('/ai/');
+  return storefront
+    ? (localStorage.getItem('b2c_token') || localStorage.getItem('token'))
+    : (localStorage.getItem('token') || localStorage.getItem('b2c_token'));
 }
 
 async function request(path, options = {}) {
@@ -121,7 +124,9 @@ export const api = {
 
   // ─── B2B APIs ────────────────────────────────────────────────
   b2b: {
-    getCustomers: () => request('/b2b/customers'),
+    // Phân trang ở máy chủ — trả { data, total, page, limit }
+    getCustomers: ({ page = 1, limit = 20, search = '' } = {}) =>
+      request('/b2b/customers?' + new URLSearchParams({ page, limit, search })),
     getReviews: () => request('/b2b/reviews'),
     replyReview: (id, reply) => request(`/b2b/reviews/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
     
@@ -162,6 +167,8 @@ export const api = {
     login: (email, password) => request('/b2c/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     socialLogin: (data) => request('/b2c/auth/social', { method: 'POST', body: JSON.stringify(data) }),
     setPassword: (new_password) => request('/b2c/auth/set-password', { method: 'POST', body: JSON.stringify({ new_password }) }),
+    // Hồ sơ + loyalty_points hiện tại từ DB (thay cho localStorage['b2c_points'])
+    getMe: () => request('/b2c/me'),
     
     // Wishlist
     getWishlist: () => request('/b2c/wishlist'),
@@ -175,6 +182,8 @@ export const api = {
       return request('/b2c/categories/active?' + new URLSearchParams(params));
     },
     getBrands: () => request('/b2c/brands'),
+    // Chỉ id, tên, địa chỉ — /b2b/branches là của trang quản trị, cần quyền admin
+    getBranches: () => request('/b2c/branches'),
     getFlashSales: () => request('/b2c/flash-sales'),
     getProducts: (category_id = 'ALL', search = '', sort = 'newest', branch_id = '', page = 1, limit = 12, brands = [], minPrice = null, maxPrice = null) => {
       const params = { category_id, search, sort, page, limit };

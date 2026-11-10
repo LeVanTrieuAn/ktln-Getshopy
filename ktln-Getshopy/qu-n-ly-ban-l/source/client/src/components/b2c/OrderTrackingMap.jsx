@@ -42,12 +42,20 @@ const shipperIcon = createCustomIcon(<CarOutlined />, '#f59e0b');
 const MapBounds = ({ bounds }) => {
   const map = useMap();
   useEffect(() => {
-    if (bounds && bounds.length === 2) {
-      map.fitBounds(bounds, { padding: [50, 50] });
-      // Invalidate size in case modal opened and map was hidden
-      setTimeout(() => map.invalidateSize(), 100);
-      setTimeout(() => map.invalidateSize(), 400);
-    }
+    if (!bounds || bounds.length !== 2) return;
+    // Bản đồ nằm trong Modal có hiệu ứng mở: lúc khởi tạo khung còn rộng 0, nên
+    // fitBounds tính ra zoom tối đa (18) và đường đi tràn khỏi khung. Bản trước gọi
+    // fitBounds TRƯỚC rồi mới invalidateSize, mà không fit lại. Phải invalidateSize
+    // rồi mới fitBounds, lặp lại sau khi hiệu ứng mở (~300 ms) xong. maxZoom 15: điểm
+    // đi và điểm đến gần nhau thì vẫn còn thấy đường phố xung quanh.
+    const fit = () => {
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    };
+    fit();
+    const t1 = setTimeout(fit, 150);
+    const t2 = setTimeout(fit, 450);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
   }, [map, bounds]);
   return null;
 };
@@ -110,8 +118,8 @@ export default function OrderTrackingMap({ order }) {
     <div style={{ height: 400, width: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid #eee' }}>
       <MapContainer bounds={bounds} style={{ height: '100%', width: '100%' }}>
         <TileLayer
-          attribution='&copy; OpenStreetMap contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
         <MapBounds bounds={bounds} />
         

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import useRevealOnScroll, { revealStyle } from '../../hooks/useRevealOnScroll';
-import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select, Popover, InputNumber } from 'antd';
+import useMediaQuery from '../../hooks/useMediaQuery';
+import { Typography, Spin, Empty, Slider, Pagination, Input, Modal, message, Select, Popover, InputNumber, Drawer } from 'antd';
 import {
   ShoppingOutlined,
   RobotOutlined,
@@ -79,6 +80,15 @@ function getSafeImageUrl(url, categoryId) {
 
 const { Title, Text } = Typography;
 
+// Nhãn danh mục trên thẻ sản phẩm. API /b2c/products chỉ trả category_id, không
+// có tên — trước 11/11/2026 mọi thẻ đều rơi về chữ 'TECHNOLOGY'. Tên đã có sẵn
+// trong i18n (home.category_<id>); t() trả lại chính key khi thiếu.
+function categoryLabel(p, t) {
+  if (p.category_name || p.Category?.name) return p.category_name || p.Category.name;
+  const key = p.category_id ? `home.category_${p.category_id}` : '';
+  return key && t(key) !== key ? t(key) : t('home.category_fallback');
+}
+
 // ── Skeleton Card ────────────────────────────────────────────────
 function SkeletonCard({ isDark }) {
   const base = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6';
@@ -99,7 +109,10 @@ function SkeletonCard({ isDark }) {
 }
 
 // ── Product Card (No Rating, Pill Price Button, Heart Wishlist) ─────
-function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite, onBeforeNavigate }) {
+// compact: lưới 2 cột trên điện thoại (~170px mỗi thẻ). Thẻ gốc thiết kế cho
+// >= 260px: ảnh cao 220, nút giá 14px — co vào 170px thì chữ giá tràn và ảnh dài.
+function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite, onBeforeNavigate, compact = false }) {
+  const { t } = useApp();
   const [hovered, setHovered] = useState(false);
   const [added, setAdded] = useState(false);
   const discount = p.original_price > p.price
@@ -141,14 +154,15 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
         flexDirection: 'column',
         height: '100%',
         position: 'relative',
-        padding: '16px 16px 20px',
+        padding: compact ? '10px 10px 14px' : '16px 16px 20px',
+        borderRadius: compact ? 18 : 24,
       }}
     >
       {/* Top Bar on Card: Wishlist Heart */}
       <div style={{
         position: 'absolute',
-        top: 16,
-        right: 16,
+        top: compact ? 12 : 16,
+        right: compact ? 12 : 16,
         zIndex: 3,
       }}>
         <div
@@ -158,8 +172,8 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
           }}
           title={isFavorited ? 'Bỏ yêu thích' : 'Yêu thích'}
           style={{
-            width: 36,
-            height: 36,
+            width: compact ? 30 : 36,
+            height: compact ? 30 : 36,
             borderRadius: '50%',
             background: isDark ? 'rgba(255,255,255,0.1)' : '#ffffff',
             boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
@@ -183,15 +197,15 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
       {/* Image Area */}
       <div style={{
         background: isDark ? '#0d131f' : '#f5f5f7',
-        borderRadius: 20,
-        height: 220,
+        borderRadius: compact ? 14 : 20,
+        height: compact ? 140 : 220,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
         overflow: 'hidden',
-        padding: 16,
-        marginBottom: 16,
+        padding: compact ? 10 : 16,
+        marginBottom: compact ? 10 : 16,
       }}>
         {/* Badges */}
         {discount > 0 ? (
@@ -199,6 +213,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
             position: 'absolute',
             bottom: 12,
             left: 12,
+            zIndex: 2,
             background: '#ef4444',
             color: '#fff',
             fontWeight: 700,
@@ -214,6 +229,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
             position: 'absolute',
             bottom: 12,
             left: 12,
+            zIndex: 2,
             background: '#fbbf24',
             color: '#78350f',
             fontWeight: 700,
@@ -254,17 +270,17 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
             color: isDark ? 'rgba(255,255,255,0.45)' : '#9ca3af',
             marginBottom: 4,
           }}>
-            {p.category_name || p.Category?.name || 'TECHNOLOGY'}
+            {categoryLabel(p, t)}
           </div>
 
           {/* Product Title */}
           <h4 style={{
-            fontSize: 15,
+            fontSize: compact ? 13 : 15,
             fontWeight: 600,
             color: isDark ? '#ffffff' : '#18181b',
-            margin: '0 0 12px 0',
+            margin: compact ? '0 0 8px 0' : '0 0 12px 0',
             lineHeight: 1.4,
-            height: 42,
+            height: compact ? 36 : 42,
             overflow: 'hidden',
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -286,7 +302,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
         }}>
           {p.original_price > p.price && (
             <span style={{
-              fontSize: 13,
+              fontSize: compact ? 11.5 : 13,
               color: isDark ? 'rgba(255,255,255,0.35)' : '#9ca3af',
               textDecoration: 'line-through',
             }}>
@@ -300,9 +316,11 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: 8,
-              padding: '8px 18px',
+              gap: compact ? 5 : 8,
+              padding: compact ? '6px 10px' : '8px 18px',
               borderRadius: 9999,
+              maxWidth: '100%',
+              whiteSpace: 'nowrap',
               border: `1.5px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#e4e4e7'}`,
               background: added
                 ? '#10b981'
@@ -311,7 +329,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
                 ? '#ffffff'
                 : (isDark ? '#ffffff' : '#18181b'),
               fontWeight: 700,
-              fontSize: 14,
+              fontSize: compact ? 12.5 : 14,
               cursor: 'pointer',
               transition: 'all 0.2s cubic-bezier(.16,1,.3,1)',
               boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
@@ -344,6 +362,57 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
         </div>
       </div>
     </div>
+  );
+}
+
+// ── Khung bộ lọc ─────────────────────────────────────────────────
+// Màn rộng: cột trái dính (sticky) như cũ. Dưới 992px: ngăn kéo trượt từ trái,
+// có nút "Xem N sản phẩm" để đóng sau khi chọn. Khai báo ở cấp module (không
+// lồng trong ProductList) để React không gỡ/gắn lại ô nhập mỗi lần render.
+function FilterShell({ narrow, open, onClose, bg, isDark, resultText, children }) {
+  if (narrow) {
+    return (
+      <Drawer
+        open={open}
+        onClose={onClose}
+        placement="left"
+        width="min(360px, 88vw)"
+        closable={false}
+        styles={{
+          body: { padding: '20px 16px', background: bg },
+          footer: { padding: 12, background: bg, borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#f0f0f2'}` },
+        }}
+        footer={
+          <button
+            onClick={onClose}
+            style={{
+              width: '100%', padding: '12px 16px', borderRadius: 12, border: 'none', cursor: 'pointer',
+              background: isDark ? '#ffffff' : '#111111', color: isDark ? '#000000' : '#ffffff',
+              fontWeight: 700, fontSize: 14,
+            }}
+          >
+            {resultText}
+          </button>
+        }
+      >
+        {children}
+      </Drawer>
+    );
+  }
+  if (!open) return null;
+  return (
+    <aside style={{
+      width: 270,
+      flexShrink: 0,
+      alignSelf: 'flex-start',
+      position: 'sticky',
+      top: 150,
+      maxHeight: 'calc(100vh - 170px)',
+      overflowY: 'auto',
+      paddingRight: 4,
+    }}>
+      {children}
+    </aside>
   );
 }
 
@@ -391,7 +460,17 @@ export default function ProductList() {
     return initSort === 'bestseller' ? 'best_selling' : (initSort || 'newest');
   });
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'list'
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Điện thoại / máy tính bảng: cột lọc 270px đặt cạnh lưới làm lưới còn ~60px —
+  // tiêu đề vỡ thành từng chữ (báo 11/11/2026). Dưới 992px bộ lọc thành ngăn kéo,
+  // mặc định đóng.
+  const isNarrow = useMediaQuery('(max-width: 991px)');
+  const isPhone = useMediaQuery('(max-width: 768px)');
+  const [sidebarOpen, setSidebarOpen] = useState(() => !window.matchMedia('(max-width: 991px)').matches);
+  const gridCols = isPhone ? 'repeat(2, minmax(0, 1fr))' : 'repeat(auto-fill, minmax(260px, 1fr))';
+  const gridGap = isPhone ? 12 : 24;
+  // Nút "Danh mục": máy tính rê chuột mở Popover rộng 800px; điện thoại không có hover
+  // và 800px tràn màn 390px (báo 11/11/2026) -> chạm là mở bảng trượt từ dưới lên.
+  const [catSheetOpen, setCatSheetOpen] = useState(false);
 
   // Filters state — khởi tạo từ saved state nếu có
   const [brands, setBrands] = useState(_r.brands || []);
@@ -554,6 +633,7 @@ export default function ProductList() {
 
   const handleSelectCategory = (catId) => {
     setIsCategoryModalOpen(false);
+    setCatSheetOpen(false);
     navigate(catId === 'ALL' ? '/shop' : `/shop?category=${catId}`);
   };
 
@@ -570,7 +650,7 @@ export default function ProductList() {
   const subCol = isDark ? 'rgba(255,255,255,0.6)' : '#71717a';
 
   const categoryPopoverContent = (
-    <div style={{ width: 800, padding: 0 }}>
+    <div style={{ width: isPhone ? '100%' : 800, padding: 0 }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
@@ -610,7 +690,7 @@ export default function ProductList() {
             Không tìm thấy danh mục phù hợp.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isPhone ? '1fr' : 'repeat(2, 1fr)', gap: isPhone ? 12 : 16 }}>
             {hierarchicalCategories.map(parent => (
               <div
                 key={parent.id}
@@ -709,7 +789,7 @@ export default function ProductList() {
         borderBottom: `1px solid ${borderCol}`,
         padding: '14px 0',
       }}>
-        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 32px' }}>
+        <div style={{ maxWidth: 1400, margin: '0 auto', padding: isPhone ? '0 12px' : (isNarrow ? '0 20px' : '0 32px') }}>
           <div style={{
             display: 'flex',
             alignItems: 'center',
@@ -747,6 +827,7 @@ export default function ProductList() {
             <Popover
               content={categoryPopoverContent}
               trigger="hover"
+              open={isPhone ? false : undefined}
               placement="bottomLeft"
               overlayInnerStyle={{ borderRadius: 20, padding: 24, background: isDark ? '#0f172a' : '#ffffff', border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid rgba(0,0,0,0.06)' }}
             >
@@ -767,6 +848,7 @@ export default function ProductList() {
                   color: isDark ? '#ffffff' : '#111111',
                   boxShadow: isDark ? 'none' : '0 1px 2px rgba(0,0,0,0.02)',
                 }}
+                onClick={() => { if (isPhone) setCatSheetOpen(true); }}
                 onMouseEnter={e => {
                   e.currentTarget.style.borderColor = isDark ? '#ffffff' : '#000000';
                 }}
@@ -787,23 +869,20 @@ export default function ProductList() {
         display: 'flex',
         maxWidth: 1400,
         margin: '0 auto',
-        padding: '32px 32px 64px',
+        padding: isPhone ? '16px 12px 48px' : (isNarrow ? '24px 20px 56px' : '32px 32px 64px'),
         gap: 32,
         ...revealStyle(gridVis),
       }}>
 
         {/* ── Left Sidebar Filter ── */}
-        {sidebarOpen && (
-          <aside style={{
-            width: 270,
-            flexShrink: 0,
-            alignSelf: 'flex-start',
-            position: 'sticky',
-            top: 150,
-            maxHeight: 'calc(100vh - 170px)',
-            overflowY: 'auto',
-            paddingRight: 4,
-          }}>
+        <FilterShell
+          narrow={isNarrow}
+          open={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          bg={bg}
+          isDark={isDark}
+          resultText={loading ? 'Đang tải…' : `Xem ${totalProducts.toLocaleString('vi-VN')} sản phẩm`}
+        >
 
             {/* Filter Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
@@ -1061,8 +1140,7 @@ export default function ProductList() {
               )}
             </div>
 
-          </aside>
-        )}
+        </FilterShell>
 
         {/* ── Right Column: Products List ── */}
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1201,14 +1279,14 @@ export default function ProductList() {
               </Title>
               {!loading && (
                 <Text style={{ color: subCol, fontSize: 13 }}>
-                  {totalProducts.toLocaleString()} sản phẩm tìm thấy
+                  {totalProducts.toLocaleString('vi-VN')} sản phẩm tìm thấy
                 </Text>
               )}
             </div>
 
 
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, ...(isPhone ? { width: '100%' } : {}) }}>
               {/* Filter toggle */}
               <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
@@ -1227,7 +1305,7 @@ export default function ProductList() {
                   transition: 'all 0.2s',
                 }}
               >
-                {sidebarOpen ? 'Ẩn bộ lọc' : 'Hiện bộ lọc'}
+                {isNarrow ? 'Bộ lọc' : (sidebarOpen ? 'Ẩn bộ lọc' : 'Hiện bộ lọc')}
                 {hasActiveFilters && (
                   <span style={{
                     background: isDark ? '#ffffff' : '#000000',
@@ -1250,7 +1328,7 @@ export default function ProductList() {
               <Select
                 value={sort}
                 onChange={val => { setSort(val); setCurrentPage(1); }}
-                style={{ width: 160, borderRadius: 12 }}
+                style={isPhone ? { flex: 1, minWidth: 0, borderRadius: 12 } : { width: 160, borderRadius: 12 }}
                 options={[
                   { value: 'newest', label: 'Mới nhất' },
                   { value: 'best_selling', label: 'Bán chạy' },
@@ -1354,8 +1432,8 @@ export default function ProductList() {
           {loading ? (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: viewMode === 'grid' ? 'repeat(auto-fill, minmax(260px, 1fr))' : '1fr',
-              gap: 24,
+              gridTemplateColumns: viewMode === 'grid' ? gridCols : '1fr',
+              gap: gridGap,
             }}>
               {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} isDark={isDark} />)}
             </div>
@@ -1387,8 +1465,8 @@ export default function ProductList() {
                   </div>
                   <div style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                    gap: 24, textAlign: 'left',
+                    gridTemplateColumns: gridCols,
+                    gap: gridGap, textAlign: 'left',
                   }}>
                     {aiResults.map(p => (
                       <ProductCard
@@ -1400,6 +1478,7 @@ export default function ProductList() {
                         isFavorited={wishlist?.some(w => w.id === p.id)}
                         onToggleFavorite={handleToggleFavorite}
                         onBeforeNavigate={saveFilterState}
+                        compact={isPhone}
                       />
                     ))}
                   </div>
@@ -1415,10 +1494,8 @@ export default function ProductList() {
           ) : (
             <div style={{
               display: 'grid',
-              gridTemplateColumns: viewMode === 'grid'
-                ? 'repeat(auto-fill, minmax(260px, 1fr))'
-                : '1fr',
-              gap: viewMode === 'grid' ? 24 : 16,
+              gridTemplateColumns: viewMode === 'grid' ? gridCols : '1fr',
+              gap: viewMode === 'grid' ? gridGap : 16,
             }}>
               {products.map((p, idx) => (
                 viewMode === 'grid' ? (
@@ -1457,6 +1534,7 @@ export default function ProductList() {
                       isFavorited={wishlist?.some(w => w.id === p.id)}
                       onToggleFavorite={handleToggleFavorite}
                       onBeforeNavigate={saveFilterState}
+                      compact={isPhone}
                     />
                   </div>
                 ) : (
@@ -1494,7 +1572,7 @@ export default function ProductList() {
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: subCol, marginBottom: 2 }}>
-                        {p.category_name || p.Category?.name || 'TECHNOLOGY'}
+                        {categoryLabel(p, t)}
                       </div>
                       <div style={{ fontWeight: 600, fontSize: 15, color: textCol, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {p.name}
@@ -1536,9 +1614,10 @@ export default function ProductList() {
 
           {/* Pagination */}
           {totalProducts > 24 && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: 48, marginBottom: 40, width: '100%' }}>
+            <div style={{ display: 'flex', justifyContent: isPhone ? 'center' : 'flex-end', alignItems: 'center', marginTop: isPhone ? 28 : 48, marginBottom: 40, width: '100%' }}>
               <div className="modern-pagination-container">
                 <Pagination
+                  showLessItems={isPhone}
                   current={currentPage}
                   total={totalProducts}
                   pageSize={24}
@@ -1723,6 +1802,21 @@ export default function ProductList() {
           </div>
         </div>
       </Modal>
+
+      {/* Danh mục dạng bảng trượt trên điện thoại */}
+      <Drawer
+        open={isPhone && catSheetOpen}
+        onClose={() => setCatSheetOpen(false)}
+        placement="bottom"
+        height="85vh"
+        styles={{
+          header: { background: bg, borderBottom: 'none', paddingBottom: 0 },
+          body: { background: bg, padding: '8px 16px 24px' },
+          content: { borderRadius: '20px 20px 0 0' },
+        }}
+      >
+        {categoryPopoverContent}
+      </Drawer>
 
       {/* Shimmer keyframe */}
       <style>{`

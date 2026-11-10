@@ -250,6 +250,7 @@ export default function AIChatbot() {
         <button
           onClick={() => setIsOpen(true)}
           title="Mở trợ lý AI"
+          className="ai-chat-fab"
           style={{
             position: 'fixed', bottom: 28, right: 28,
             width: 56, height: 56, zIndex: 9999,
@@ -272,7 +273,7 @@ export default function AIChatbot() {
 
       {/* ── Chat Window ── */}
       {isOpen && (
-        <div style={{
+        <div className="ai-chat-window" style={{
           position: 'fixed', bottom: 28, right: 28,
           width: 400, height: 600, zIndex: 9999,
           borderRadius: 20,

@@ -9,6 +9,16 @@ const vi = {
     top_selling_subtitle: 'Các sản phẩm được săn đón nhiều nhất',
     sold: 'Đã bán',
     discount: 'GIẢM',
+    // ── Hero trang chủ (trước 11/11/2026 ghi cứng tiếng Anh + lorem ipsum) ──
+    hero_title_1: 'Thiết bị công nghệ',
+    hero_title_2: '& phụ kiện chính hãng',
+    hero_subtitle: 'Điện thoại, laptop, tablet và phụ kiện chính hãng — giá tốt, giao nhanh, bảo hành đầy đủ.',
+    hero_cta_browse: 'Xem sản phẩm',
+    hero_cta_about: 'Về chúng tôi',
+    hero_image_alt: 'Thiết bị công nghệ chính hãng',
+    search_products: 'Tìm sản phẩm',
+    // Nhãn khi sản phẩm có category_id lạ (không có trong danh sách bên dưới)
+    category_fallback: 'Sản phẩm',
     // ── Danh mục cấp 1 (cha) ──────────────────────────────────────
     'category_cat-phone':      'Điện thoại',
     'category_cat-laptop':     'Laptop',
@@ -90,7 +100,11 @@ const vi = {
     no_results: 'Không tìm thấy kết quả nào',
     logged_out_success: 'Đã đăng xuất thành công!',
     compare_warning: 'Bạn chưa chọn sản phẩm nào để so sánh',
-    flash_sale_happening: 'Flash Sale Đang diễn ra'
+    flash_sale_happening: 'Flash Sale Đang diễn ra',
+    // Menu admin — trước đây AppLayout truyền thẳng chữ hiển thị vào t()
+    reviews: 'Đánh giá',
+    behavior: 'Phân tích hành vi',
+    chatbot: 'Quản lý Chatbot AI'
   },
   shop: {
     all_products: 'Tất cả sản phẩm',

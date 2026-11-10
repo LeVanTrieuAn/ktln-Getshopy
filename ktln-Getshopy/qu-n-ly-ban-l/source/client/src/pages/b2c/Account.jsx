@@ -91,7 +91,10 @@ export default function Account() {
   };
 
   // Loyalty State
-  const [points] = useState(() => parseInt(localStorage.getItem('b2c_points') || '0'));
+  // Điểm lấy từ server (/b2c/me). Trước 11/11/2026 đọc localStorage['b2c_points']:
+  // sửa DevTools là lên hạng Kim cương trên giao diện, còn khách vừa đăng nhập thì
+  // luôn thấy 0 điểm vì không chỗ nào ghi khoá đó lúc login.
+  const [points, setPoints] = useState(0);
 
   useEffect(() => {
     localStorage.setItem('b2c_addresses', JSON.stringify(addresses));
@@ -104,6 +107,11 @@ export default function Account() {
       handleLookup(currentUser.email);
     }
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!b2cUser) { setPoints(0); return; }
+    api.b2c.getMe().then(me => setPoints(Number(me?.loyalty_points) || 0)).catch(() => {});
+  }, [b2cUser]);
 
   const handleLookup = async (email = lookupEmail) => {
     if (!email) return message.error(t('account.lookup_placeholder'));
@@ -247,8 +255,34 @@ export default function Account() {
     { key: 'logout', label: 'Đăng xuất', danger: true }
   ];
 
+  // Chưa đăng nhập: trước 11/11/2026 trang vẫn dựng hồ sơ giả "Khách vãng lai ·
+  // Thành viên Đồng" kèm đủ menu và nút Đăng xuất, còn ô "tra cứu theo email" thì
+  // bỏ qua email (getMyOrders tra theo token). Mời đăng nhập thay vì giả lập tài
+  // khoản. Đặt sau mọi hook ở trên nên không vi phạm thứ tự hook.
+  if (!currentUser) {
+    return (
+      <div style={{ maxWidth: 520, margin: '0 auto', padding: '120px 24px 64px' }}>
+        <Card style={{ borderRadius: 20, textAlign: 'center' }} styles={{ body: { padding: '40px 32px' } }}>
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={null} />
+          <Title level={3} style={{ marginTop: 8, marginBottom: 8 }}>Đăng nhập để xem tài khoản</Title>
+          <Text type="secondary">Theo dõi đơn hàng, lưu địa chỉ giao hàng, sản phẩm yêu thích và điểm thưởng của bạn.</Text>
+          <div style={{ marginTop: 24 }}>
+            <Button
+              type="primary"
+              size="large"
+              onClick={() => openAuthModal()}
+              style={{ background: '#18181b', borderColor: '#18181b', borderRadius: 999, paddingInline: 32 }}
+            >
+              Đăng nhập / Đăng ký
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '100px 24px 48px' }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', padding: 'clamp(20px, 7vw, 100px) clamp(12px, 4vw, 24px) 48px' }}>
       <style>{`
         @keyframes pulseGlow {
           0% { box-shadow: 0 0 0px var(--glow-color); }
@@ -277,7 +311,7 @@ export default function Account() {
           animation: shineEffect 3s infinite;
         }
       `}</style>
-      <Row gutter={[32, 32]}>
+      <Row gutter={[{ xs: 0, md: 32 }, { xs: 20, md: 32 }]}>
         <Col xs={24} md={7} lg={6}>
           <div 
             style={{ 
@@ -348,6 +382,11 @@ export default function Account() {
                         handleLogout();
                       } else {
                         setActiveTab(item.key);
+                        // Điện thoại: cột nội dung nằm DƯỚI menu dài — không cuộn thì bấm
+                        // tab xong tưởng không có gì xảy ra.
+                        if (window.innerWidth < 768) {
+                          setTimeout(() => document.getElementById('account-content')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
+                        }
                       }
                     }}
                     style={{
@@ -390,11 +429,13 @@ export default function Account() {
 
         <Col xs={24} md={17} lg={18}>
           <div 
+            id="account-content"
             style={{ 
               background: isDark ? '#18181b' : '#ffffff',
+              scrollMarginTop: 64,
               border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
               borderRadius: 20,
-              padding: 32,
+              padding: 'clamp(16px, 5vw, 32px)',
               minHeight: 520,
               boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)'
             }}
@@ -688,7 +729,7 @@ export default function Account() {
                     <div style={{ padding: 20, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 14, background: isDark ? '#202024' : '#fafafa' }}>
                       <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, marginBottom: 6 }}>Hạng thành viên</div>
                       <div style={{ color: getTierStyle(mockUser.tier).color, fontWeight: 600, fontSize: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {getTierStyle(mockUser.tier).icon} {mockUser.tier} <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 14 }}>({points} điểm)</span>
+                        {getTierStyle(mockUser.tier).icon} {mockUser.tier} <span style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 14 }}>({points.toLocaleString('vi-VN')} điểm)</span>
                       </div>
                     </div>
                   </div>
@@ -914,8 +955,8 @@ export default function Account() {
                           whenCreated={(mapInstance) => { setTimeout(() => mapInstance.invalidateSize(), 300); }}
                         >
                           <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
                           />
                           <LocationMarker />
                           <MapResizer />
@@ -999,9 +1040,11 @@ export default function Account() {
                   style={{ 
                     background: isDark ? '#27272a' : '#18181b', 
                     borderRadius: 20, 
-                    padding: 32, 
+                    padding: 'clamp(20px, 6vw, 32px)',
                     color: '#ffffff', 
                     display: 'flex', 
+                    flexWrap: 'wrap',
+                    gap: 16,
                     justifyContent: 'space-between', 
                     alignItems: 'center', 
                     boxShadow: '0 8px 24px -4px rgba(0,0,0,0.2)',
@@ -1010,11 +1053,11 @@ export default function Account() {
                 >
                   <div>
                     <div style={{ fontSize: 13, textTransform: 'uppercase', letterSpacing: 1, opacity: 0.7, marginBottom: 8 }}>Hạng thành viên hiện tại</div>
-                    <div style={{ fontSize: 24, fontWeight: 700, marginBottom: 16, color: getTierStyle(mockUser.tier).color, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <div style={{ fontSize: 'clamp(19px, 5.5vw, 24px)', fontWeight: 700, marginBottom: 16, color: getTierStyle(mockUser.tier).color, display: 'flex', alignItems: 'center', gap: 8, whiteSpace: 'nowrap' }}>
                       {getTierStyle(mockUser.tier).icon} {mockUser.tier}
                     </div>
-                    <div style={{ fontSize: 44, fontWeight: 800, letterSpacing: -1 }}>
-                      {points.toLocaleString()} <span style={{ fontSize: 20, fontWeight: 500, opacity: 0.8 }}>Điểm</span>
+                    <div style={{ fontSize: 'clamp(34px, 10vw, 44px)', fontWeight: 800, letterSpacing: -1, lineHeight: 1.1 }}>
+                      {points.toLocaleString('vi-VN')} <span style={{ fontSize: 20, fontWeight: 500, opacity: 0.8 }}>Điểm</span>
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -1032,6 +1075,7 @@ export default function Account() {
                       fontSize: 13,
                       fontWeight: 700,
                       letterSpacing: 0.5,
+                      whiteSpace: 'nowrap',
                       '--glow-color': getTierStyle(mockUser.tier).glow
                     }}>
                       <GiftOutlined style={{ fontSize: 15 }} /> GETSHOPY REWARDS

@@ -123,19 +123,19 @@ export default function Reconciliation() {
         <Col span={8}>
           <Card style={{ borderRadius: 12, background: isDark ? 'rgba(82, 196, 26, 0.1)' : '#f6ffed', borderColor: isDark ? 'rgba(82, 196, 26, 0.2)' : '#b7eb8f' }}>
             <div style={{ color: isDark ? 'rgba(255,255,255,0.7)' : '#389e0d' }}>{t('recon.matched')}</div>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{summary.MATCHED.toLocaleString()}</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>{summary.MATCHED.toLocaleString('vi-VN')}</div>
           </Card>
         </Col>
         <Col span={8}>
           <Card style={{ borderRadius: 12, background: isDark ? 'rgba(250, 140, 22, 0.1)' : '#fffbe6', borderColor: isDark ? 'rgba(250, 140, 22, 0.2)' : '#ffe58f' }}>
             <div style={{ color: isDark ? 'rgba(255,255,255,0.7)' : '#d46b08' }}>{t('recon.pending')}</div>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fa8c16' }}>{summary.PENDING.toLocaleString()}</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fa8c16' }}>{summary.PENDING.toLocaleString('vi-VN')}</div>
           </Card>
         </Col>
         <Col span={8}>
           <Card style={{ borderRadius: 12, background: isDark ? 'rgba(255, 77, 79, 0.1)' : '#fff1f0', borderColor: isDark ? 'rgba(255, 77, 79, 0.2)' : '#ffa39e' }}>
             <div style={{ color: isDark ? 'rgba(255,255,255,0.7)' : '#cf1322' }}>{t('recon.mismatch')}</div>
-            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>{summary.MISMATCH.toLocaleString()}</div>
+            <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>{summary.MISMATCH.toLocaleString('vi-VN')}</div>
           </Card>
         </Col>
       </Row>
@@ -174,7 +174,15 @@ export default function Reconciliation() {
           dataSource={data}
           rowKey="order_id"
           loading={loading}
-          pagination={{ current: page, onChange: setPage, pageSize: 20, total: 500 }}
+          // Tổng lấy từ summary (server đếm theo cùng bộ lọc ngày + chi nhánh, KHÔNG
+          // theo trạng thái). Trước 11/11/2026 ghi cứng total: 500 nên bảng trống vẫn
+          // hiện 25 trang, còn khi nhiều hơn 500 dòng thì không tới được trang sau.
+          pagination={{
+            current: page, onChange: setPage, pageSize: 20, showSizeChanger: false,
+            total: status
+              ? (summary?.[status] || 0)
+              : (summary?.MATCHED || 0) + (summary?.PENDING || 0) + (summary?.MISMATCH || 0),
+          }}
           style={{ background: 'transparent' }}
         />
       </Card>

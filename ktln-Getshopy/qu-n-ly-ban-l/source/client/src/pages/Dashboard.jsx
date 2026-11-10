@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Row, Col, Card, Select, DatePicker, Statistic, Tag, Table, Spin, Segmented, Modal, Form, Input, InputNumber, FloatButton, message, Tabs, Cascader, Upload, Space, Button, Slider } from 'antd';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Row, Col, Card, Select, DatePicker, Statistic, Tag, Table, Spin, Segmented, Modal, Form, Input, InputNumber, FloatButton, message, Tabs, Cascader, Upload, Space, Button, Slider, Alert } from 'antd';
 import {
   ArrowUpOutlined, ArrowDownOutlined, ShoppingCartOutlined,
   DollarOutlined, BankOutlined, WarningOutlined, SyncOutlined, PlusOutlined, UploadOutlined
@@ -10,10 +10,26 @@ import { useApp } from '../context/AppContext';
 import { api } from '../services/api';
 import { mono, chartRamp } from '../theme/monochrome';
 
+// Định dạng tiền kiểu Việt Nam: "1.087,89 tỷ", "12,5 tr". Trước 11/11/2026 dùng
+// toFixed (dấu chấm thập phân, không phân nhóm) nên ra "1087.89 tỷ" — lệch với
+// "0,8" trên trục ECharts và "9,032" của Statistic. Ngưỡng tính trên |n| để dòng
+// tiền thuần âm cũng được rút gọn.
 function fmtVND(n) {
-  if (n >= 1e9) return (n / 1e9).toFixed(2) + ' tỷ';
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + ' tr';
-  return n?.toLocaleString('vi-VN') || '0';
+  const v = Number(n) || 0;
+  const a = Math.abs(v);
+  if (a >= 1e9) return (v / 1e9).toLocaleString('vi-VN', { maximumFractionDigits: 2 }) + ' tỷ';
+  if (a >= 1e6) return (v / 1e6).toLocaleString('vi-VN', { maximumFractionDigits: 1 }) + ' tr';
+  return v.toLocaleString('vi-VN');
+}
+
+// Đơn hàng hiện CHƯA gán chi nhánh (OrderItem.branch_id rỗng ở mọi dòng — đo
+// 11/11/2026), nên API doanh thu theo chi nhánh thực chất gom theo khu vực (region
+// lấy từ tỉnh/thành của đơn). Không có tên chi nhánh thì hiện tên khu vực thay vì
+// để trống cả biểu đồ lẫn bảng xếp hạng.
+const REGION_NAMES = { HCM: 'TP. Hồ Chí Minh', HN: 'Hà Nội', DN: 'Đà Nẵng' };
+function branchLabel(b) {
+  if (b?.branch_name) return b.branch_name.split(' - ').pop();
+  return REGION_NAMES[b?.region] || b?.region || 'Chưa gán khu vực';
 }
 
 const cityOptions = [
@@ -130,27 +146,35 @@ export default function Dashboard() {
 
   useEffect(() => { loadMasterData(); }, [loadMasterData]);
 
-  const load = useCallback(async () => {
+  // Phần nào lỗi thì chỉ phần đó trống. Trước 11/11/2026 dùng Promise.all: KPI
+  // 503 (circuit breaker, cache trống ngay sau khi khởi động server) kéo theo cả 4
+  // biểu đồ còn lại không được set dù chúng đã tải xong, và thẻ KPI hiện "0", "%",
+  // "0 nghìn đ" như thể số liệu thật bằng 0. Giờ: allSettled + tự thử lại 2 lần.
+  const [failedParts, setFailedParts] = useState([]);
+  const retryTimer = useRef(null);
+  useEffect(() => () => clearTimeout(retryTimer.current), []);
+
+  const load = useCallback(async (attempt) => {
+    const n = typeof attempt === 'number' ? attempt : 0;
+    clearTimeout(retryTimer.current);
     setLoading(true);
-    try {
-      const dateStr = date.format('YYYY-MM-DD');
-      const [k, h, b, c, tr] = await Promise.all([
-        api.kpis({ branch_id: branch, date: dateStr }),
-        api.revenueByHour({ branch_id: branch, date: dateStr }),
-        api.revenueByBranch({ branch_id: branch }),
-        api.revenueByCategory({ branch_id: branch }),
-        api.revenueTrend({ days: 30, branch_id: branch }),
-      ]);
-      setKpis(k);
-      setHourData(h);
-      setBranchData(b);
-      setCatData(c);
-      setTrendData(tr);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+    const dateStr = date.format('YYYY-MM-DD');
+    const parts = [
+      ['KPI',                  () => api.kpis({ branch_id: branch, date: dateStr }),     setKpis],
+      ['doanh thu theo giờ',   () => api.revenueByHour({ branch_id: branch, date: dateStr }), setHourData],
+      ['chi nhánh / khu vực',  () => api.revenueByBranch({ branch_id: branch }),           setBranchData],
+      ['danh mục',             () => api.revenueByCategory({ branch_id: branch }),         setCatData],
+      ['xu hướng 30 ngày',     () => api.revenueTrend({ days: 30, branch_id: branch }),    setTrendData],
+    ];
+    const results = await Promise.allSettled(parts.map(([, fn]) => fn()));
+    const failed = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') parts[i][2](r.value);
+      else { failed.push(parts[i][0]); console.error(r.reason); }
+    });
+    setFailedParts(failed);
+    setLoading(false);
+    if (failed.length && n < 2) retryTimer.current = setTimeout(() => load(n + 1), 4000);
   }, [branch, date]);
 
   useEffect(() => { load(); }, [load]);
@@ -206,7 +230,8 @@ export default function Dashboard() {
     },
     yAxis: [
       { type: 'value', axisLabel: { ...axisLabel, formatter: v => fmtVND(v) }, splitLine: { lineStyle: { color: gridColor } } },
-      { type: 'value', axisLabel, splitLine: { show: false } },
+      // Trục số đơn: chỉ số nguyên — trước đây hiện 0,2 / 0,4 ... khi ít đơn
+      { type: 'value', minInterval: 1, axisLabel: { ...axisLabel, formatter: v => Number(v).toLocaleString('vi-VN') }, splitLine: { show: false } },
     ],
     series: [
       {
@@ -234,7 +259,7 @@ export default function Dashboard() {
     tooltip: { trigger: 'axis', ...tipStyle, formatter: p => `<b>${p[0].name}</b><br/>Doanh thu: ${fmtVND(p[0].value)}` },
     xAxis: { type: 'value', axisLabel: { ...axisLabel, formatter: v => fmtVND(v) }, splitLine: { lineStyle: { color: gridColor } } },
     yAxis: {
-      type: 'category', data: branchData.slice(0, 7).map(b => b.branch_name.split(' - ')[1] || b.branch_name),
+      type: 'category', data: branchData.slice(0, 7).map(branchLabel),
       axisLabel, axisLine: { lineStyle: { color: M.line } }, axisTick: { show: false },
     },
     series: [{
@@ -317,33 +342,44 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {failedParts.length > 0 && !loading && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={`Chưa tải được: ${failedParts.join(', ')}`}
+          description="Kho dữ liệu đang bận hoặc vừa khởi động, trang sẽ tự thử lại. Ô hiện “—” là chưa có số liệu, không phải bằng 0."
+          action={<Button size="small" onClick={() => load(0)}>Tải lại</Button>}
+        />
+      )}
+
       {/* KPI Cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
         <Col xs={24} sm={12} lg={6}>
           <KPICard
             loading={loading} title={t('dashboard.revenue_today')}
-            value={fmtVND(kpis?.revenue_today)} change={kpis?.revenue_vs_yesterday_pct}
+            value={kpis ? fmtVND(kpis.revenue_today) : '—'} change={kpis?.revenue_vs_yesterday_pct}
             icon={<DollarOutlined />}
           />
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <KPICard
             loading={loading} title={t('dashboard.orders_today')}
-            value={kpis?.orders_today?.toLocaleString()} suffix=" đơn"
+            value={kpis ? (kpis.orders_today ?? 0).toLocaleString('vi-VN') : '—'} suffix={kpis ? ' đơn' : ''}
             icon={<ShoppingCartOutlined />}
           />
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <KPICard
             loading={loading} title={t('dashboard.cash_collected')}
-            value={fmtVND(kpis?.cash_collected)}
+            value={kpis ? fmtVND(kpis.cash_collected) : '—'}
             icon={<BankOutlined />}
           />
         </Col>
         <Col xs={24} sm={12} lg={6}>
           <KPICard
             loading={loading} title={t('dashboard.void_rate')}
-            value={kpis?.void_rate} suffix="%"
+            value={kpis ? (kpis.void_rate ?? 0) : '—'} suffix={kpis ? '%' : ''}
             icon={<WarningOutlined />}
           />
         </Col>
@@ -355,8 +391,8 @@ export default function Dashboard() {
           <Card className="glass-panel glass-panel-elevated" style={cardStyle} styles={{ body: {} }}>
             <Statistic
               title={<span style={{ color: subColor, fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{t('dashboard.avg_order')}</span>}
-              value={kpis?.avg_order_value ? Math.round(kpis.avg_order_value / 1000) : 0}
-              suffix=" nghìn đ"
+              value={kpis ? fmtVND(kpis.avg_order_value) : '—'}
+              suffix={kpis ? ' đ' : ''}
               valueStyle={{ color: textColor, fontWeight: 700 }}
               loading={loading}
             />
@@ -366,8 +402,8 @@ export default function Dashboard() {
           <Card className="glass-panel glass-panel-elevated" style={cardStyle} styles={{ body: {} }}>
             <Statistic
               title={<span style={{ color: subColor, fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{t('dashboard.net_cash')}</span>}
-              value={fmtVND(kpis?.net_cash)}
-              valueStyle={{ color: kpis?.net_cash >= 0 ? textColor : M.danger, fontWeight: 700 }}
+              value={kpis ? fmtVND(kpis.net_cash) : '—'}
+              valueStyle={{ color: kpis && Number(kpis.net_cash) < 0 ? M.danger : textColor, fontWeight: 700 }}
               loading={loading}
             />
           </Card>
@@ -376,8 +412,9 @@ export default function Dashboard() {
           <Card className="glass-panel glass-panel-elevated" style={cardStyle} styles={{ body: {} }}>
             <Statistic
               title={<span style={{ color: subColor, fontSize: 12, fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>{t('dashboard.pending_recon')}</span>}
-              value={kpis?.pending_recon}
-              suffix=" hóa đơn"
+              value={kpis ? (kpis.pending_recon ?? 0) : '—'}
+              groupSeparator="."
+              suffix={kpis ? ' hóa đơn' : ''}
               valueStyle={{ color: textColor, fontWeight: 700 }}
               loading={loading}
             />
@@ -437,7 +474,7 @@ export default function Dashboard() {
         </Col>
         <Col xs={24} lg={10}>
           <Card
-            title={<span style={{ color: textColor, fontWeight: 600 }}>Top chi nhánh</span>}
+            title={<span style={{ color: textColor, fontWeight: 600 }}>Top chi nhánh / khu vực</span>}
             className="glass-panel"
             style={{ ...cardStyle, height: '100%' }}
             styles={{ body: {} }}
@@ -464,7 +501,7 @@ export default function Dashboard() {
                       }}>{v}</span>
                     ),
                   },
-                  { title: 'Chi nhánh', dataIndex: 'branch_name', render: v => <span style={{ color: textColor, fontSize: 12.5 }}>{v.split(' - ').pop()}</span> },
+                  { title: 'Chi nhánh / khu vực', dataIndex: 'branch_name', render: (_, r) => <span style={{ color: textColor, fontSize: 12.5 }}>{branchLabel(r)}</span> },
                   { title: 'Doanh thu', dataIndex: 'revenue', align: 'right', render: v => <span style={{ color: textColor, fontWeight: 700, fontSize: 12.5 }}>{fmtVND(v)}</span> },
                 ]}
               />

@@ -1194,7 +1194,7 @@ function ProductTabs({ product, specs, highlights, description, isDark,
 
       {/* ── Tab Content with Fade+Slide animation */}
       <div style={{
-        padding: '36px 40px 48px',
+        padding: 'clamp(20px, 5vw, 36px) clamp(14px, 5vw, 40px) 48px',
         opacity: animating ? 0 : 1,
         transform: animating ? 'translateY(10px)' : 'translateY(0)',
         transition: 'opacity 0.22s ease, transform 0.22s ease',
@@ -1604,7 +1604,7 @@ export default function ProductDetail() {
   return (
     // key={product.id} buộc React unmount/remount div mới mỗi lần đổi sản phẩm
     // → animation pageIn chạy lại từ đầu, không bị kẹt ở opacity:0
-    <div key={product.id} style={{ padding: '100px 48px 48px', maxWidth: 1400, margin: '0 auto', animation: 'pageIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
+    <div key={product.id} style={{ padding: 'clamp(20px, 7vw, 100px) clamp(12px, 4vw, 48px) 48px', maxWidth: 1400, margin: '0 auto', animation: 'pageIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) both' }}>
       <Breadcrumb style={{ marginBottom: 24, fontSize: 14 }} items={[
         { title: <span onClick={() => navigate('/')} style={{ cursor: 'pointer', color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>{t('nav.home')}</span> },
         { title: <span style={{ color: isDark ? 'rgba(255,255,255,0.5)' : '#888' }}>{t(`home.category_${product.category_id}`)}</span> },
@@ -1612,17 +1612,17 @@ export default function ProductDetail() {
       ]} />
 
       {/* ── MAIN PANEL ─────────────────────────────────────────── */}
-      <div className="glass-panel" style={{ padding: 48, borderRadius: 24, marginBottom: 24 }}>
-        <Row gutter={[48, 48]} align="top">
+      <div className="glass-panel" style={{ padding: 'clamp(14px, 4.5vw, 48px)', borderRadius: 24, marginBottom: 24 }}>
+        <Row gutter={[{ xs: 0, md: 32, lg: 48 }, { xs: 24, md: 48 }]} align="top">
           {/* IMAGE */}
           <Col xs={24} md={11}>
-            <div style={{ background: isDark ? 'rgba(255,255,255,0.02)' : '#f9f9f9', borderRadius: 24, padding: 40, marginBottom: 16 }}>
+            <div style={{ background: isDark ? 'rgba(255,255,255,0.02)' : '#f9f9f9', borderRadius: 24, padding: 'clamp(12px, 4vw, 40px)', marginBottom: 16 }}>
               <Carousel ref={carouselRef} dots={false} effect="scrollx"
                 beforeChange={(from, to) => { setMainImage(allImages[to]); setZoomScale(1); }}>
                 {allImages.map((img, idx) => (
                   <div key={idx}>
                     <div onMouseEnter={handleMouseEnter} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
-                      style={{ display: 'flex', justifyContent: 'center', width: '100%', height: 400, overflow: 'hidden', cursor: 'zoom-in' }}>
+                      style={{ display: 'flex', justifyContent: 'center', width: '100%', height: 'clamp(240px, 72vw, 400px)', overflow: 'hidden', cursor: 'zoom-in' }}>
                       <img src={img} alt={`${product.name} - ${idx}`} width={400} height={400}
                         style={{ width: '100%', maxWidth: 400, height: '100%', objectFit: 'contain',
                           transform: `scale(${zoomScale})`, transformOrigin,
@@ -1694,9 +1694,9 @@ export default function ProductDetail() {
             <div style={{
               background: isDark ? 'rgba(255,255,255,0.03)' : '#f9f9f9',
               border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e4e4e7', borderRadius: 16,
-              padding: '16px 24px', marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16
+              padding: 'clamp(12px, 4vw, 16px) clamp(14px, 5vw, 24px)', marginBottom: 24, display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '4px 16px'
             }}>
-              <span style={{ fontSize: 36, fontWeight: 800, color: isDark ? '#fff' : '#18181b' }}>
+              <span style={{ fontSize: 'clamp(26px, 8vw, 36px)', fontWeight: 800, color: isDark ? '#fff' : '#18181b', whiteSpace: 'nowrap' }}>
                 {currentPrice.toLocaleString('vi-VN')} đ
               </span>
               {product.original_price > currentPrice && (
@@ -1867,7 +1867,7 @@ export default function ProductDetail() {
             <Divider style={{ borderColor: isDark ? 'rgba(255,255,255,0.08)' : '#eee', margin: '0 0 24px 0' }} />
 
             {/* Action buttons */}
-            <div style={{ display: 'flex', gap: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
               <Button type="default" size="large"
                 icon={isWished ? <HeartFilled style={{ color: '#ef4444' }} /> : <HeartOutlined />}
                 onClick={() => {
@@ -1885,12 +1885,12 @@ export default function ProductDetail() {
                 style={{ height: 56, width: 56, borderRadius: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', borderColor: isCompared ? '#8b5cf6' : (isDark ? '#444' : '#d9d9d9') }} />
               <Button type="primary" size="large" icon={<ShoppingCartOutlined />}
                 onClick={handleAddToCart} disabled={currentStock <= 0}
-                style={{ height: 56, borderRadius: 16, fontSize: 15, fontWeight: 600, flex: 1, background: isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6', color: isDark ? '#fff' : '#000', border: 'none' }}>
+                style={{ height: 56, borderRadius: 16, fontSize: 15, fontWeight: 600, flex: '1 1 140px', background: isDark ? 'rgba(255,255,255,0.1)' : '#f3f4f6', color: isDark ? '#fff' : '#000', border: 'none' }}>
                 {t('product.add_to_cart')}
               </Button>
               <Button type="primary" size="large" icon={<ThunderboltOutlined />}
                 onClick={handleBuyNow} disabled={currentStock <= 0}
-                style={{ height: 56, borderRadius: 16, fontSize: 15, fontWeight: 700, flex: 1, background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b', border: 'none' }}>
+                style={{ height: 56, borderRadius: 16, fontSize: 15, fontWeight: 700, flex: '1 1 140px', background: isDark ? '#3f3f46' : '#e4e4e7', color: isDark ? '#fff' : '#18181b', border: 'none' }}>
                 {t('product.buy_now')}
               </Button>
             </div>

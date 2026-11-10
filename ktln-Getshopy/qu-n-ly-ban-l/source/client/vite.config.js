@@ -40,9 +40,14 @@ export default defineConfig({
           // ── Animation ───────────────────────────────────────────────────
           'vendor-gsap':    ['gsap', '@gsap/react'],
 
-          // ── 3D rendering ─────────────────────────────────────────────────
-          'vendor-three':   ['three'],
-          'vendor-r3f':     ['@react-three/fiber', '@react-three/drei'],
+          // ── 3D rendering: CỐ Ý không tách chunk riêng ──────────────────
+          // Từng có 'vendor-three' / 'vendor-r3f' ở đây. Dạng object của manualChunks
+          // kéo cả thư viện phụ thuộc của r3f (zustand, use-sync-external-store...) vào
+          // chunk đó; bundle chính cũng dùng các thư viện ấy nên index.html phải
+          // modulepreload luôn vendor-three + vendor-r3f (~918 KB JS) ở MỌI trang — kể
+          // cả trang admin và điện thoại, nơi không có khung 3D nào (đo 11/11/2026).
+          // Để Rollup tự xếp: three + r3f chỉ được import từ Category3DModel (lazy) nên
+          // nằm trong chunk lazy của nó, chỉ tải khi trang chủ thật sự dựng mô hình 3D.
 
           // ── UI (Ant Design) ───────────────────────────────────────────────
           // antd alone is ~1.8MB — must be its own chunk

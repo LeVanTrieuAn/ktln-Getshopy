@@ -153,10 +153,10 @@ export default function BehaviorAnalytics() {
       { type: 'value', axisLabel: { color: subColor, formatter: v => fmtNum(v) }, splitLine: { lineStyle: { color: gridColor } } },
     ],
     series: [
-      { name: 'Views', type: 'line', data: dailyTrend.map(d => d.views), smooth: true, lineStyle: { color: '#6366f1', width: 2 }, itemStyle: { color: '#6366f1' }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(99,102,241,0.2)' }, { offset: 1, color: 'rgba(99,102,241,0)' }] } } },
-      { name: 'Carts', type: 'line', data: dailyTrend.map(d => d.carts), smooth: true, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbol: 'none' },
-      { name: 'Purchases', type: 'line', data: dailyTrend.map(d => d.purchases), smooth: true, lineStyle: { color: '#10b981', width: 2 }, itemStyle: { color: '#10b981' }, symbol: 'none' },
-      { name: 'Sessions', type: 'bar', data: dailyTrend.map(d => d.sessions), itemStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 20 },
+      { name: 'Lượt xem', type: 'line', data: dailyTrend.map(d => d.views), smooth: true, lineStyle: { color: '#6366f1', width: 2 }, itemStyle: { color: '#6366f1' }, symbol: 'none', areaStyle: { color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: 'rgba(99,102,241,0.2)' }, { offset: 1, color: 'rgba(99,102,241,0)' }] } } },
+      { name: 'Thêm giỏ', type: 'line', data: dailyTrend.map(d => d.carts), smooth: true, lineStyle: { color: '#f59e0b', width: 2 }, itemStyle: { color: '#f59e0b' }, symbol: 'none' },
+      { name: 'Mua hàng', type: 'line', data: dailyTrend.map(d => d.purchases), smooth: true, lineStyle: { color: '#10b981', width: 2 }, itemStyle: { color: '#10b981' }, symbol: 'none' },
+      { name: 'Phiên', type: 'bar', data: dailyTrend.map(d => d.sessions), itemStyle: { color: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderRadius: [4, 4, 0, 0] }, barMaxWidth: 20 },
     ],
     grid: { left: 8, right: 8, top: 16, bottom: 36, containLabel: true },
   };
@@ -168,9 +168,9 @@ export default function BehaviorAnalytics() {
     xAxis: { type: 'category', data: hourly.map(h => `${h.hour}h`), axisLabel: { color: subColor }, axisLine: { lineStyle: { color: gridColor } } },
     yAxis: { type: 'value', axisLabel: { color: subColor }, splitLine: { lineStyle: { color: gridColor } } },
     series: [
-      { name: 'Views', type: 'bar', data: hourly.map(h => h.views), itemStyle: { borderRadius: [4, 4, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#6366f1' }, { offset: 1, color: '#818cf8' }] } }, barMaxWidth: 18 },
-      { name: 'Carts', type: 'bar', data: hourly.map(h => h.carts), itemStyle: { borderRadius: [4, 4, 0, 0], color: '#f59e0b' }, barMaxWidth: 18 },
-      { name: 'Purchases', type: 'bar', data: hourly.map(h => h.purchases), itemStyle: { borderRadius: [4, 4, 0, 0], color: '#10b981' }, barMaxWidth: 18 },
+      { name: 'Lượt xem', type: 'bar', data: hourly.map(h => h.views), itemStyle: { borderRadius: [4, 4, 0, 0], color: { type: 'linear', x: 0, y: 0, x2: 0, y2: 1, colorStops: [{ offset: 0, color: '#6366f1' }, { offset: 1, color: '#818cf8' }] } }, barMaxWidth: 18 },
+      { name: 'Thêm giỏ', type: 'bar', data: hourly.map(h => h.carts), itemStyle: { borderRadius: [4, 4, 0, 0], color: '#f59e0b' }, barMaxWidth: 18 },
+      { name: 'Mua hàng', type: 'bar', data: hourly.map(h => h.purchases), itemStyle: { borderRadius: [4, 4, 0, 0], color: '#10b981' }, barMaxWidth: 18 },
     ],
     grid: { left: 8, right: 8, top: 16, bottom: 8, containLabel: true },
   };
@@ -218,7 +218,7 @@ export default function BehaviorAnalytics() {
         </div>
       ),
     },
-    { title: <><EyeOutlined /> Views</>, dataIndex: 'view_count', width: 90, sorter: (a, b) => a.view_count - b.view_count, render: v => <span style={{ fontWeight: 600 }}>{fmtNum(v)}</span> },
+    { title: <><EyeOutlined /> Lượt xem</>, dataIndex: 'view_count', width: 90, sorter: (a, b) => a.view_count - b.view_count, render: v => <span style={{ fontWeight: 600 }}>{fmtNum(v)}</span> },
     { title: <><ShoppingCartOutlined /> Giỏ</>, dataIndex: 'cart_count', width: 80, sorter: (a, b) => a.cart_count - b.cart_count, render: v => <span style={{ color: '#f59e0b', fontWeight: 600 }}>{fmtNum(v)}</span> },
     { title: <><DollarOutlined /> Mua</>, dataIndex: 'purchase_count', width: 80, sorter: (a, b) => a.purchase_count - b.purchase_count, render: v => <span style={{ color: '#10b981', fontWeight: 600 }}>{fmtNum(v)}</span> },
     {
@@ -226,7 +226,7 @@ export default function BehaviorAnalytics() {
       render: v => <Tag color={v > 10 ? 'green' : v > 5 ? 'orange' : 'red'} style={{ fontWeight: 600 }}>{v}%</Tag>,
     },
     {
-      title: <><ClockCircleOutlined /> Dwell</>, dataIndex: 'avg_dwell_sec', width: 80,
+      title: <><ClockCircleOutlined /> Thời gian xem</>, dataIndex: 'avg_dwell_sec', width: 80,
       render: v => <span>{v}s</span>,
     },
     {
@@ -241,7 +241,7 @@ export default function BehaviorAnalytics() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, color: textColor, fontSize: 22, fontWeight: 800, display: 'flex', alignItems: 'center', gap: 10 }}>
-            <BarChartOutlined style={{ color: '#6366f1' }} /> Behavior Analytics
+            <BarChartOutlined style={{ color: '#6366f1' }} /> Phân tích hành vi
           </h2>
           <p style={{ margin: '4px 0 0', color: subColor, fontSize: 13 }}>
             Phân tích hành vi người dùng — Dữ liệu từ ClickHouse OLAP
@@ -256,7 +256,7 @@ export default function BehaviorAnalytics() {
               { label: '📊 Tổng quan', value: 'overview' },
               { label: '🔥 Sản phẩm', value: 'products' },
               { label: '🔍 Tìm kiếm', value: 'search' },
-              { label: '🤖 AI Insights', value: 'ai' },
+              { label: '🤖 Hiệu quả AI', value: 'ai' },
             ]}
             size="middle"
           />
@@ -279,8 +279,8 @@ export default function BehaviorAnalytics() {
         <>
           {/* KPI Cards */}
           <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-            <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Tổng Events" value={fmtNum(overview?.total_events)} icon={<ThunderboltOutlined />} color="#6366f1" change={overview?.events_change} isDark={isDark} /></Col>
-            <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Sessions" value={fmtNum(overview?.unique_sessions)} icon={<UserOutlined />} color="#10b981" change={overview?.sessions_change} isDark={isDark} /></Col>
+            <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Tổng sự kiện" value={fmtNum(overview?.total_events)} icon={<ThunderboltOutlined />} color="#6366f1" change={overview?.events_change} isDark={isDark} /></Col>
+            <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Phiên truy cập" value={fmtNum(overview?.unique_sessions)} icon={<UserOutlined />} color="#10b981" change={overview?.sessions_change} isDark={isDark} /></Col>
             <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Lượt xem" value={fmtNum(overview?.total_views)} icon={<EyeOutlined />} color="#6366f1" change={overview?.views_change} isDark={isDark} /></Col>
             <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Thêm giỏ" value={fmtNum(overview?.total_carts)} icon={<ShoppingCartOutlined />} color="#f59e0b" isDark={isDark} /></Col>
             <Col xs={12} sm={8} lg={4}><MetricCard loading={loading} title="Mua hàng" value={fmtNum(overview?.total_purchases)} icon={<DollarOutlined />} color="#10b981" change={overview?.purchases_change} isDark={isDark} /></Col>
@@ -301,13 +301,13 @@ export default function BehaviorAnalytics() {
             </Col>
             <Col xs={8}>
               <Card className="glass-panel" style={cardStyle} styles={{ body: { textAlign: 'center', padding: '24px 16px' } }}>
-                <Statistic title={<span style={{ color: subColor }}>Avg Dwell Time</span>} value={overview?.avg_dwell_sec || 0} suffix="s" valueStyle={{ color: '#6366f1', fontWeight: 800 }} loading={loading} />
+                <Statistic title={<span style={{ color: subColor }}>Thời gian xem TB</span>} value={overview?.avg_dwell_sec || 0} suffix="s" valueStyle={{ color: '#6366f1', fontWeight: 800 }} loading={loading} />
               </Card>
             </Col>
           </Row>
 
           {/* Funnel */}
-          <Card title={<span style={{ color: textColor, fontWeight: 700 }}><FunnelPlotOutlined style={{ color: '#6366f1' }} /> Conversion Funnel</span>} className="glass-panel" style={{ ...cardStyle, marginBottom: 24 }} styles={{ body: {} }}>
+          <Card title={<span style={{ color: textColor, fontWeight: 700 }}><FunnelPlotOutlined style={{ color: '#6366f1' }} /> Phễu chuyển đổi</span>} className="glass-panel" style={{ ...cardStyle, marginBottom: 24 }} styles={{ body: {} }}>
             {loading ? <div style={{ height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><Spin /></div> : (
               <div style={{ display: 'flex', gap: 12, padding: '8px 0' }}>
                 <FunnelStage label="Lượt xem" value={Number(funnel?.views || 0)} total={Number(funnel?.views || 1)} color="#6366f1" icon={<EyeOutlined />} isDark={isDark} />
@@ -394,7 +394,7 @@ export default function BehaviorAnalytics() {
                 { value: 'views', label: '👁 Lượt xem' },
                 { value: 'carts', label: '🛒 Thêm giỏ' },
                 { value: 'purchases', label: '💰 Mua hàng' },
-                { value: 'score', label: '⚡ Behavior Score' },
+                { value: 'score', label: '⚡ Điểm hành vi' },
               ]}
             />
           }
@@ -464,7 +464,7 @@ export default function BehaviorAnalytics() {
             <Col xs={24} sm={8}>
               <Card className="glass-panel" style={cardStyle} styles={{ body: { textAlign: 'center', padding: 24 } }}>
                 <RobotOutlined style={{ fontSize: 36, color: '#6366f1', marginBottom: 12 }} />
-                <Statistic title={<span style={{ color: subColor }}>Recommendation Events</span>} value={aiPerf?.recommendation?.events || 0} valueStyle={{ color: textColor, fontWeight: 800 }} loading={loading} />
+                <Statistic title={<span style={{ color: subColor }}>Sự kiện từ gợi ý</span>} value={aiPerf?.recommendation?.events || 0} valueStyle={{ color: textColor, fontWeight: 800 }} loading={loading} />
                 <div style={{ marginTop: 8 }}>
                   <Tag color="purple" style={{ fontWeight: 600 }}>CTR: {aiPerf?.recommendation?.ctr || 0}%</Tag>
                 </div>
@@ -473,7 +473,7 @@ export default function BehaviorAnalytics() {
             <Col xs={24} sm={8}>
               <Card className="glass-panel" style={cardStyle} styles={{ body: { textAlign: 'center', padding: 24 } }}>
                 <RobotOutlined style={{ fontSize: 36, color: '#10b981', marginBottom: 12 }} />
-                <Statistic title={<span style={{ color: subColor }}>Chatbot Events</span>} value={aiPerf?.chatbot?.events || 0} valueStyle={{ color: textColor, fontWeight: 800 }} loading={loading} />
+                <Statistic title={<span style={{ color: subColor }}>Sự kiện từ chatbot</span>} value={aiPerf?.chatbot?.events || 0} valueStyle={{ color: textColor, fontWeight: 800 }} loading={loading} />
                 <div style={{ marginTop: 8 }}>
                   <Tag color="green" style={{ fontWeight: 600 }}>Carts: {aiPerf?.chatbot?.carts || 0}</Tag>
                 </div>
@@ -482,7 +482,7 @@ export default function BehaviorAnalytics() {
             <Col xs={24} sm={8}>
               <Card className="glass-panel" style={cardStyle} styles={{ body: { textAlign: 'center', padding: 24 } }}>
                 <ThunderboltOutlined style={{ fontSize: 36, color: '#f59e0b', marginBottom: 12 }} />
-                <Statistic title={<span style={{ color: subColor }}>Behavior Coverage</span>} value={aiPerf?.coverage?.pct || 0} suffix="%" valueStyle={{ color: textColor, fontWeight: 800 }} loading={loading} />
+                <Statistic title={<span style={{ color: subColor }}>Độ phủ hành vi</span>} value={aiPerf?.coverage?.pct || 0} suffix="%" valueStyle={{ color: textColor, fontWeight: 800 }} loading={loading} />
                 <div style={{ marginTop: 8 }}>
                   <span style={{ color: subColor, fontSize: 12 }}>{fmtNum(aiPerf?.coverage?.sessions_with_data || 0)} / {fmtNum(aiPerf?.coverage?.total_sessions || 0)} sessions</span>
                 </div>
@@ -496,18 +496,18 @@ export default function BehaviorAnalytics() {
                 <div style={{ padding: 24, background: isDark ? 'rgba(99,102,241,0.08)' : '#eef2ff', borderRadius: 16, border: '1px solid rgba(99,102,241,0.2)' }}>
                   <h4 style={{ color: '#6366f1', margin: '0 0 16px', fontWeight: 700 }}>📊 Recommendation Engine</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Events</div><div style={{ fontSize: 24, fontWeight: 800, color: textColor }}>{fmtNum(aiPerf?.recommendation?.events || 0)}</div></div>
-                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Carts from Rec</div><div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{fmtNum(aiPerf?.recommendation?.carts || 0)}</div></div>
-                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Purchases from Rec</div><div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{fmtNum(aiPerf?.recommendation?.purchases || 0)}</div></div>
+                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Sự kiện</div><div style={{ fontSize: 24, fontWeight: 800, color: textColor }}>{fmtNum(aiPerf?.recommendation?.events || 0)}</div></div>
+                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Thêm giỏ từ gợi ý</div><div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{fmtNum(aiPerf?.recommendation?.carts || 0)}</div></div>
+                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Mua từ gợi ý</div><div style={{ fontSize: 24, fontWeight: 800, color: '#10b981' }}>{fmtNum(aiPerf?.recommendation?.purchases || 0)}</div></div>
                     <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Click-Through Rate</div><div style={{ fontSize: 24, fontWeight: 800, color: '#6366f1' }}>{aiPerf?.recommendation?.ctr || 0}%</div></div>
                   </div>
                 </div>
               </Col>
               <Col xs={24} md={12}>
                 <div style={{ padding: 24, background: isDark ? 'rgba(16,185,129,0.08)' : '#ecfdf5', borderRadius: 16, border: '1px solid rgba(16,185,129,0.2)' }}>
-                  <h4 style={{ color: '#10b981', margin: '0 0 16px', fontWeight: 700 }}>💬 Chatbot Conversion</h4>
+                  <h4 style={{ color: '#10b981', margin: '0 0 16px', fontWeight: 700 }}>💬 Chuyển đổi từ chatbot</h4>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Chatbot Events</div><div style={{ fontSize: 24, fontWeight: 800, color: textColor }}>{fmtNum(aiPerf?.chatbot?.events || 0)}</div></div>
+                    <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Sự kiện từ chatbot</div><div style={{ fontSize: 24, fontWeight: 800, color: textColor }}>{fmtNum(aiPerf?.chatbot?.events || 0)}</div></div>
                     <div><div style={{ color: subColor, fontSize: 12, marginBottom: 4 }}>Cart from Chat</div><div style={{ fontSize: 24, fontWeight: 800, color: '#f59e0b' }}>{fmtNum(aiPerf?.chatbot?.carts || 0)}</div></div>
                   </div>
                   <div style={{ marginTop: 16, padding: 12, background: isDark ? 'rgba(0,0,0,0.2)' : '#fff', borderRadius: 10 }}>

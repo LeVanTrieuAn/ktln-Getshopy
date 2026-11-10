@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Typography, Table, Tag, Button, Modal, Input, message, Rate } from 'antd';
 import { api } from '../services/api';
 
-const { Title } = Typography;
+const { Title, Text } = Typography;
 
 export default function Reviews() {
   const [reviews, setReviews] = useState([]);
@@ -98,9 +98,14 @@ export default function Reviews() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <Title level={2}>Quản lý Đánh giá (Reviews)</Title>
-      
+    <div>
+      {/* Cùng kiểu tiêu đề với các trang admin khác (Alerts, Financial...): layout đã
+          có padding, nên không thêm padding riêng — trước đây lề trang này gấp đôi. */}
+      <div style={{ marginBottom: 24 }}>
+        <Title level={2} style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>Quản lý đánh giá</Title>
+        <Text type="secondary" style={{ fontSize: 13 }}>Xem và phản hồi đánh giá của khách hàng về sản phẩm</Text>
+      </div>
+
       <div className="glass-panel" style={{ padding: 24, borderRadius: 16 }}>
         <Table 
           columns={columns} 
