@@ -48,33 +48,16 @@ import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 import { useTracking } from '../../hooks/useTracking';
+import { getProductImage, handleImageError, resolveCategory, CATEGORY_FALLBACK_IMAGES } from '../../utils/categoryResolver';
 
 // ── Category-aware image fallback ───────────────────────────────
-const FALLBACK_BY_CAT = {
-  phone:   'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&q=80&auto=format',
-  laptop:  'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format',
-  tablet:  'https://images.unsplash.com/photo-1544244015-0df4512b8c72?w=400&h=400&fit=crop&q=80&auto=format',
-  watch:   'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop&q=80&auto=format',
-  audio:   'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop&q=80&auto=format',
-  camera:  'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400&h=400&fit=crop&q=80&auto=format',
-  default: 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format',
-};
-function getFallback(categoryId) {
-  const c = categoryId || '';
-  if (c === 'cat-phone' || c.startsWith('c1')) return FALLBACK_BY_CAT.phone;
-  if (c === 'cat-laptop' || c.startsWith('c2')) return FALLBACK_BY_CAT.laptop;
-  if (c === 'cat-tablet' || c.startsWith('c3')) return FALLBACK_BY_CAT.tablet;
-  if (c.startsWith('c7')) return FALLBACK_BY_CAT.watch;
-  if (c.startsWith('cat-av') || c.includes('earphone') || c.includes('headphone') || c.includes('speaker')) return FALLBACK_BY_CAT.audio;
-  if (c.startsWith('cat-cam') || c.startsWith('c6')) return FALLBACK_BY_CAT.camera;
-  return FALLBACK_BY_CAT.default;
+function getFallback(categoryId, product = {}) {
+  const catKey = resolveCategory({ category_id: categoryId, ...product });
+  return CATEGORY_FALLBACK_IMAGES[catKey] || CATEGORY_FALLBACK_IMAGES['cat-phone'];
 }
-/** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB (vd: /assets/speaker.jpg) */
-function getSafeImageUrl(url, categoryId) {
-  if (!url) return getFallback(categoryId);
-  // Bỏ qua relative path hoặc URL không có protocol (dữ liệu cũ)
-  if (!url.startsWith('http://') && !url.startsWith('https://')) return getFallback(categoryId);
-  return url;
+/** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB */
+function getSafeImageUrl(url, categoryId, product = {}) {
+  return getProductImage({ image: url, category_id: categoryId, ...product });
 }
 
 const { Title, Text } = Typography;
@@ -229,6 +212,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
         <img
           alt={p.name}
           src={getSafeImageUrl(p.image, p.category_id)}
+          referrerPolicy="no-referrer"
           loading="lazy"
           style={{
             maxWidth: '85%',
@@ -238,7 +222,7 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
             transform: hovered ? 'scale(1.06)' : 'scale(1)',
             transition: 'transform 0.35s ease',
           }}
-          onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }}
+          onError={(e) => handleImageError(e, p)}
         />
       </div>
 
@@ -1480,7 +1464,8 @@ export default function ProductList() {
                   >
                     <img
                       alt={p.name}
-                      src={p.image}
+                      src={getSafeImageUrl(p.image, p.category_id, p)}
+                      referrerPolicy="no-referrer"
                       width={84}
                       height={84}
                       style={{
@@ -1490,7 +1475,7 @@ export default function ProductList() {
                         padding: 8,
                         mixBlendMode: isDark ? 'normal' : 'multiply',
                       }}
-                      onError={e => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }}
+                      onError={e => handleImageError(e, p)}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', color: subCol, marginBottom: 2 }}>

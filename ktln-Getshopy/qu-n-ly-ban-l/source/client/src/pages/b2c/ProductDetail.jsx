@@ -18,6 +18,7 @@ import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 import { useProductViewTracker, useTracking } from '../../hooks/useTracking';
+import { getProductImage, handleImageError, resolveCategory, CATEGORY_FALLBACK_IMAGES } from '../../utils/categoryResolver';
 
 const { Title, Text } = Typography;
 
@@ -1446,23 +1447,13 @@ export default function ProductDetail() {
   const [submittingReview, setSubmittingReview] = useState(false);
 
   // Category-aware fallback
-  function getFallback(categoryId) {
-    const c = categoryId || '';
-    if (c === 'cat-phone') return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c === 'cat-laptop') return 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c === 'cat-tablet') return 'https://images.unsplash.com/photo-1544244015-0df4512b8c72?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c === 'cat-watch') return 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c.startsWith('cat-av') || c.includes('earphone') || c.includes('headphone') || c.includes('speaker')) return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c.startsWith('cat-cam')) return 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c.startsWith('cat-mobile-acc')) return 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=400&h=400&fit=crop&q=80&auto=format';
-    if (c.startsWith('cat-laptop-acc')) return 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format';
-    return 'https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=400&h=400&fit=crop&q=80&auto=format';
+  function getFallback(categoryId, p = {}) {
+    const catKey = resolveCategory({ category_id: categoryId, ...p });
+    return CATEGORY_FALLBACK_IMAGES[catKey] || CATEGORY_FALLBACK_IMAGES['cat-phone'];
   }
-  /** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB (vd: /assets/speaker.jpg) */
-  function getSafeImageUrl(url, categoryId) {
-    if (!url) return getFallback(categoryId);
-    if (!url.startsWith('http://') && !url.startsWith('https://')) return getFallback(categoryId);
-    return url;
+  /** Trả về URL hợp lệ hoặc fallback nếu URL là local path cũ từ DB */
+  function getSafeImageUrl(url, categoryId, p = {}) {
+    return getProductImage({ image: url, category_id: categoryId, ...p });
   }
 
   useEffect(() => {
@@ -1624,10 +1615,11 @@ export default function ProductDetail() {
                     <div onMouseEnter={handleMouseEnter} onMouseMove={handleMouseMove} onMouseLeave={handleMouseLeave}
                       style={{ display: 'flex', justifyContent: 'center', width: '100%', height: 400, overflow: 'hidden', cursor: 'zoom-in' }}>
                       <img src={img} alt={`${product.name} - ${idx}`} width={400} height={400}
+                        referrerPolicy="no-referrer"
                         style={{ width: '100%', maxWidth: 400, height: '100%', objectFit: 'contain',
                           transform: `scale(${zoomScale})`, transformOrigin,
                           transition: zoomScale === 1 ? 'transform 0.3s ease' : 'none' }}
-                        onError={(e) => { e.target.onerror = null; e.target.src = getFallback(product.category_id); }} />
+                        onError={(e) => { e.target.onerror = null; e.target.src = getFallback(product.category_id, product); }} />
                     </div>
                   </div>
                 ))}
@@ -1640,8 +1632,8 @@ export default function ProductDetail() {
                     style={{ width: 80, height: 80, borderRadius: 12, cursor: 'pointer', flexShrink: 0,
                       border: mainImage === img ? (isDark ? '2px solid #fff' : '2px solid #18181b') : (isDark ? '2px solid #333' : '2px solid #eee'),
                       padding: 8, background: isDark ? '#111' : '#fff' }}>
-                    <img src={img} width={64} height={64} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="thumb"
-                      onError={(e) => { e.target.onerror = null; e.target.src = getFallback(product.category_id); }} />
+                    <img src={img} width={64} height={64} referrerPolicy="no-referrer" style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="thumb"
+                      onError={(e) => { e.target.onerror = null; e.target.src = getFallback(product.category_id, product); }} />
                   </div>
                 ))}
               </div>
@@ -1928,9 +1920,10 @@ export default function ProductDetail() {
                   cover={
                     <div style={{ position: 'relative' }}>
                       <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
-                        <img alt={p.name} src={p.image} width={160} height={160}
+                        <img alt={p.name} src={getSafeImageUrl(p.image, p.category_id, p)} width={160} height={160}
+                          referrerPolicy="no-referrer"
                           style={{ height: 160, objectFit: 'contain' }}
-                          onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }} />
+                          onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id, p); }} />
                       </div>
                       <div style={{ position: 'absolute', top: 12, right: 12 }}>
                         <Button type="text"
@@ -1974,9 +1967,10 @@ export default function ProductDetail() {
                   style={{ background: isDark ? 'rgba(255,255,255,0.02)' : '#fff', borderColor: isDark ? '#333' : '#f0f0f0', borderRadius: 16, overflow: 'hidden' }}
                   cover={
                     <div style={{ padding: 24, display: 'flex', justifyContent: 'center' }}>
-                      <img alt={p.name} src={p.image || (p.images && p.images[0])} width={140} height={140}
+                      <img alt={p.name} src={getSafeImageUrl(p.image || (p.images && p.images[0]), p.category_id, p)} width={140} height={140}
+                        referrerPolicy="no-referrer"
                         style={{ height: 140, objectFit: 'contain' }}
-                        onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id); }} />
+                        onError={(e) => { e.target.onerror = null; e.target.src = getFallback(p.category_id, p); }} />
                     </div>
                   }>
                   <div style={{ fontWeight: 700, fontSize: 14, color: isDark ? '#fff' : '#1a1a1a', marginBottom: 8, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>

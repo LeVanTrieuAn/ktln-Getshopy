@@ -4,6 +4,7 @@ import { SketchOutlined, CrownOutlined, StarOutlined, TrophyOutlined, GiftOutlin
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
+import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 import html2pdf from 'html2pdf.js';
 import OrderTrackingMap from '../../components/b2c/OrderTrackingMap';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -488,7 +489,13 @@ export default function Account() {
                         {order.items.slice(0, 2).map((item, idx) => (
                           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                             <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                              <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0])} alt={item.name} style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'contain', background: '#fff', border: '1px solid #eee' }} />
+                              <img 
+                                src={getProductImage(item)} 
+                                alt={item.name} 
+                                referrerPolicy="no-referrer"
+                                onError={(e) => handleImageError(e, item)}
+                                style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'contain', background: '#fff', border: '1px solid #eee' }} 
+                              />
                               <div>
                                 <div style={{ color: isDark ? '#f4f4f5' : '#18181b', fontWeight: 600, fontSize: 14 }}>{item.name}</div>
                                 {item.selectedVariant && <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a' }}>{item.selectedVariant.color} {item.selectedVariant.storage}</div>}
@@ -1108,7 +1115,13 @@ export default function Account() {
                             onClick={() => navigate(`/product/${p.id}`)} 
                             style={{ padding: 16, display: 'flex', justifyContent: 'center', cursor: 'pointer', background: '#ffffff', borderRadius: 12, marginBottom: 12 }}
                           >
-                            <img alt={p.name} src={p.image} style={{ height: 140, objectFit: 'contain' }} />
+                            <img 
+                              alt={p.name} 
+                              src={getProductImage(p)} 
+                              referrerPolicy="no-referrer"
+                              onError={(e) => handleImageError(e, p)}
+                              style={{ height: 140, objectFit: 'contain' }} 
+                            />
                           </div>
                           <div style={{ fontWeight: 700, fontSize: 15, color: isDark ? '#fff' : '#18181b', marginBottom: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {p.name}
@@ -1201,7 +1214,13 @@ export default function Account() {
               {selectedOrder.items.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: 14, border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`, borderRadius: 12, background: isDark ? '#202024' : '#ffffff' }}>
                   <div style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                    <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0])} alt={item.name} style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain', background: '#fff', border: '1px solid #eee' }} />
+                    <img 
+                      src={getProductImage(item)} 
+                      alt={item.name} 
+                      referrerPolicy="no-referrer"
+                      onError={(e) => handleImageError(e, item)}
+                      style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'contain', background: '#fff', border: '1px solid #eee' }} 
+                    />
                     <div>
                       <div style={{ color: isDark ? '#f4f4f5' : '#18181b', fontWeight: 600, fontSize: 14 }}>{item.name}</div>
                       {item.selectedVariant && <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a' }}>{item.selectedVariant.color} {item.selectedVariant.storage}</div>}
