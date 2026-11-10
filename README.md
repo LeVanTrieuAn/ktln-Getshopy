@@ -116,7 +116,7 @@ Lưu ý khi giữ máy demo chạy lâu dài:
 - **Không `docker compose down`** (dùng `stop`/`start`). Kafka không có volume, tạo
   lại container là Debezium chụp lại TOÀN BỘ bảng — ~9,5 triệu bản ghi trùng vào
   lake mỗi lần (dbt khử trùng được, nhưng lake phình và mỗi lượt dbt quét lâu hơn).
-- dbt quét toàn bộ parquet mỗi lượt, mà `flush.size = 1000` nên lake có ~9.500 file
+- dbt quét toàn bộ parquet mỗi lượt; `flush.size = 10000` nên lake có khoảng 950 file
   nhỏ. Máy chậm thì đặt `DBT_SCHEDULE=30m` trong `.env`.
 - Tài khoản demo: `test@getshopy.vn` có gu cố định (Apple, điện thoại + phụ kiện) để
   người xem thấy ngay gợi ý khớp lịch sử; 40k khách `kh00001@demo.getshopy.vn` …
