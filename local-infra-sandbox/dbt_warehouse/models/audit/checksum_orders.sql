@@ -22,14 +22,25 @@ WITH
             '{{ env_var("PG_SOURCE_PASSWORD") }}')
     ),
     stg AS (
-        -- Dedup trước khi đếm: CDC sinh nhiều bản ghi cho cùng một dòng
-        SELECT count() AS c, sum(net_amount) AS s
+        -- Dedup trước khi đếm: CDC sinh nhiều bản ghi cho cùng một dòng — lấy phiên bản
+        -- MỚI NHẤT của mỗi item_id.
+        --
+        -- GROUP BY + argMax thay cho row_number() OVER (PARTITION BY item_id ...) từ
+        -- 08/10/2026: hàm cửa sổ sắp xếp TOÀN BỘ lake với mọi cột trong RAM, không tràn
+        -- đĩa được — 4,74 GB ở 2,77 triệu đơn, vượt trần RAM của ClickHouse. GROUP BY chỉ
+        -- giữ hai cột cần dùng và tràn đĩa được: 1,88 GB, nhanh gần gấp đôi. Đã đối chiếu
+        -- hai cách trên cùng dữ liệu: khớp tuyệt đối (6.276.950 dòng, cùng tổng tiền).
+        -- tuple() để net_amount và is_deleted lấy từ CÙNG một bản ghi; coalesce giữ đúng
+        -- thứ tự cũ nếu event_ts rỗng (NULLS LAST khi ORDER BY ... DESC).
+        SELECT count() AS c, sum(tupleElement(t, 1)) AS s
         FROM (
-            SELECT * EXCEPT rn FROM (
-                SELECT *, row_number() OVER (PARTITION BY item_id ORDER BY event_ts DESC) AS rn
-                FROM {{ ref('stg_order_items') }}
-            ) WHERE rn = 1 AND is_deleted = 0
+            SELECT item_id,
+                   argMax(tuple(net_amount, is_deleted),
+                          coalesce(event_ts, toDateTime64(0, 3, 'UTC'))) AS t
+            FROM {{ ref('stg_order_items') }}
+            GROUP BY item_id
         )
+        WHERE tupleElement(t, 2) = 0
     ),
     wh AS (
         SELECT count() AS c, sum(net_amount) AS s

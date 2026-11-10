@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Typography, Select, Button, Spin, Row, Col, message } from 'antd';
+import { CloseOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useCart } from '../../context/CartContext';
@@ -20,55 +21,37 @@ export default function Compare() {
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(true);
-  const [products, setProducts] = useState([]);
   const [device1Id, setDevice1Id] = useState(null);
   const [device2Id, setDevice2Id] = useState(null);
 
-  // Fetch product list for selectors
+  // Initialize selected devices from compareList
   useEffect(() => {
-    async function loadProducts() {
-      try {
-        setLoading(true);
-        const res = await api.b2c.getProducts('ALL', '', 'newest', '', 1, 100);
-        const list = Array.isArray(res) ? res : (res?.data || []);
-        setProducts(list);
-
-        // Pre-select devices based on compareList or first available products
-        if (compareList && compareList.length >= 2) {
-          setDevice1Id(compareList[0].id);
-          setDevice2Id(compareList[1].id);
-        } else if (compareList && compareList.length === 1) {
-          setDevice1Id(compareList[0].id);
-          const other = list.find(p => p.id !== compareList[0].id);
-          if (other) setDevice2Id(other.id);
-        } else if (list.length >= 2) {
-          setDevice1Id(list[0].id);
-          setDevice2Id(list[1].id);
-        }
-      } catch (err) {
-        message.error('Không thể tải danh sách sản phẩm để so sánh');
-      } finally {
-        setLoading(false);
-      }
+    setLoading(true);
+    if (compareList && compareList.length >= 2) {
+      if (!device1Id) setDevice1Id(compareList[0].id);
+      if (!device2Id) setDevice2Id(compareList[1].id);
+    } else if (compareList && compareList.length === 1) {
+      if (!device1Id) setDevice1Id(compareList[0].id);
     }
-    loadProducts();
-  }, []);
+    setLoading(false);
+  }, [compareList]);
 
   const device1 = useMemo(() => {
-    return products.find(p => p.id === device1Id) || (compareList && compareList.find(p => p.id === device1Id)) || null;
-  }, [products, device1Id, compareList]);
+    return (compareList && compareList.find(p => p.id === device1Id)) || null;
+  }, [device1Id, compareList]);
 
   const device2 = useMemo(() => {
-    return products.find(p => p.id === device2Id) || (compareList && compareList.find(p => p.id === device2Id)) || null;
-  }, [products, device2Id, compareList]);
+    return (compareList && compareList.find(p => p.id === device2Id)) || null;
+  }, [device2Id, compareList]);
 
   // Options for device selectors
   const productOptions = useMemo(() => {
-    return products.map(p => ({
+    if (!compareList) return [];
+    return compareList.map(p => ({
       value: p.id,
       label: `${p.name} — ${(Number(p.price) || 0).toLocaleString('vi-VN')} đ`
     }));
-  }, [products]);
+  }, [compareList]);
 
   // Generate and align specifications for side-by-side comparison
   const comparisonSections = useMemo(() => {
@@ -170,6 +153,38 @@ export default function Compare() {
         <p style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 15, maxWidth: 640, margin: '0 auto' }}>
           Chọn 2 thiết bị bất kỳ trong cửa hàng để đối chiếu bảng thông số kỹ thuật song song, giúp bạn đưa ra lựa chọn mua sắm chính xác nhất.
         </p>
+        
+        {/* Saved products list */}
+        {compareList && compareList.length > 0 && (
+          <div style={{ marginTop: 24 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#a1a1aa' : '#71717a', marginBottom: 12 }}>
+              Các sản phẩm bạn đã chọn để so sánh:
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
+              {compareList.map(p => (
+                <div key={p.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
+                  background: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
+                  border: `1px solid ${isDark ? '#3f3f46' : '#e4e4e7'}`,
+                  borderRadius: 20, fontSize: 13, color: isDark ? '#e4e4e7' : '#18181b',
+                  boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                  <span style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {p.name}
+                  </span>
+                  <CloseOutlined 
+                    onClick={() => {
+                      toggleCompare(p);
+                      if (device1Id === p.id) setDevice1Id(null);
+                      if (device2Id === p.id) setDevice2Id(null);
+                    }}
+                    style={{ fontSize: 11, cursor: 'pointer', color: '#ef4444' }} 
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Device Selectors Card */}
@@ -190,6 +205,7 @@ export default function Compare() {
             </div>
             <Select
               showSearch
+              allowClear
               size="large"
               placeholder="Tìm kiếm và chọn thiết bị 1..."
               optionFilterProp="label"
@@ -224,6 +240,7 @@ export default function Compare() {
             </div>
             <Select
               showSearch
+              allowClear
               size="large"
               placeholder="Tìm kiếm và chọn thiết bị 2..."
               optionFilterProp="label"

@@ -234,6 +234,25 @@ router.post('/products', async (req, res) => {
         branch_ids: branch_ids || []
       }
     });
+
+    // Đồng bộ bản ghi Inventory cho sản phẩm mới để B2C đặt hàng không bị lỗi thiếu bản ghi tồn kho
+    await prisma.inventory.upsert({
+      where: {
+        product_id_variant_id_branch_id: {
+          product_id: newProduct.id,
+          variant_id: '',
+          branch_id: '',
+        },
+      },
+      update: { on_hand: Math.max(0, newProduct.stock) },
+      create: {
+        product_id: newProduct.id,
+        variant_id: '',
+        branch_id: '',
+        on_hand: Math.max(0, newProduct.stock),
+        reserved: 0,
+      },
+    });
     
     res.json({ message: 'Product added successfully', product: { ...newProduct, id: Number(newProduct.id) } });
   } catch (err) {
@@ -244,9 +263,10 @@ router.post('/products', async (req, res) => {
 router.put('/products/:id', async (req, res) => {
   try {
     const { name, category_id, price, image, images, branch_ids, stock, is_banner } = req.body;
+    const productId = BigInt(req.params.id);
     
     const product = await prisma.product.update({
-      where: { id: BigInt(req.params.id) },
+      where: { id: productId },
       data: {
         ...(name && { name }),
         ...(category_id && { category_id }),
@@ -258,6 +278,45 @@ router.put('/products/:id', async (req, res) => {
         ...(is_banner !== undefined && { is_banner })
       }
     });
+
+    // Nếu admin sửa stock trên B2B, đồng bộ xuống bảng Inventory
+    if (stock !== undefined) {
+      const targetStock = Math.max(0, Number(stock));
+      const invRows = await prisma.inventory.findMany({
+        where: { product_id: productId },
+        orderBy: { id: 'asc' },
+      });
+      if (invRows.length === 0) {
+        await prisma.inventory.create({
+          data: {
+            product_id: productId,
+            variant_id: '',
+            branch_id: '',
+            on_hand: targetStock,
+            reserved: 0,
+          },
+        });
+      } else if (invRows.length === 1) {
+        await prisma.inventory.update({
+          where: { id: invRows[0].id },
+          data: { on_hand: invRows[0].reserved + targetStock },
+        });
+      } else {
+        // Nhiều biến thể: điều chỉnh chênh lệch vào biến thể đầu tiên và đồng bộ lại variants JSONB
+        const currentAvail = invRows.reduce((s, r) => s + Math.max(0, r.on_hand - r.reserved), 0);
+        const diff = targetStock - currentAvail;
+        if (diff !== 0) {
+          const first = invRows[0];
+          const nextOnHand = Math.max(first.reserved, first.on_hand + diff);
+          await prisma.inventory.update({
+            where: { id: first.id },
+            data: { on_hand: nextOnHand },
+          });
+          const { syncProductStock } = require('../services/payment/inventoryService');
+          await syncProductStock(prisma, invRows.map(r => r.id));
+        }
+      }
+    }
     
     res.json({ message: 'Product updated successfully', product: { ...product, id: Number(product.id) } });
   } catch (err) {

@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Getshopy Knowledge Graph ✦ Enhanced</title>
+<script src="https://cdn.jsdelivr.net/npm/3d-force-graph@1/dist/3d-force-graph.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080810;--surface:#0e0e1c;--surface2:#161628;--surface3:#1e1e38;
+  --border:#1e1e38;--border2:#2a2a4a;--border3:#363660;
+  --text:#dde0f0;--text-muted:#8890b0;--text-dim:#404468;
+  --accent:#7c6ef5;--accent2:#9d87ff;--accent-glow:rgba(124,110,245,0.15);
+  --fe:#38bdf8;--be:#fb923c;--ai:#4ade80;--sc:#f472b6;--ot:#a78bfa;
+  --path:#fbbf24;--path2:#f59e0b;
+  --topbar:48px;--lsb:270px;--rsb:252px;
+  --r4:4px;--r6:6px;--r8:8px;--r10:10px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;font-size:13px}
+
+/* ── LOADING ── */
+#loading{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s}
+.ld-ring{width:52px;height:52px;border:2.5px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ld-text{font-size:13px;color:var(--text-muted);letter-spacing:.04em;font-weight:500}
+.ld-sub{font-size:11.5px;color:var(--text-dim)}
+.ld-hint{margin-top:10px;padding:12px 18px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r8);font-size:11.5px;color:var(--text-muted);text-align:center;line-height:1.8;display:none;max-width:380px}
+.ld-hint code{background:var(--surface3);padding:1px 6px;border-radius:3px;font-family:'JetBrains Mono',monospace;color:var(--accent2)}
+
+/* ── APP LAYOUT ── */
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ── TOPBAR ── */
+#topbar{height:var(--topbar);flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 12px;z-index:100;overflow-x:auto}
+.tb-logo{font-size:12.5px;font-weight:700;color:var(--text);white-space:nowrap;letter-spacing:-.02em;display:flex;align-items:center;gap:6px}
+.tb-logo .logo-icon{width:24px;height:24px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.tb-logo span{color:var(--accent2)}
+.sep{width:1px;height:20px;background:var(--border2);flex-shrink:0;margin:0 2px}
+
+/* Layer buttons */
+.layer-grp{display:flex;gap:3px;flex-shrink:0}
+.lb{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;cursor:pointer;border:1.5px solid transparent;background:transparent;color:var(--text-dim);transition:all .15s;letter-spacing:.01em;white-space:nowrap}
+.lb:hover{background:var(--surface2);color:var(--text-muted)}
+.lb.on{color:var(--text);background:var(--surface3)}
+.lb[data-l=all].on{border-color:var(--accent);color:var(--accent)}
+.lb[data-l=client].on{border-color:var(--fe);color:var(--fe)}
+.lb[data-l=server].on{border-color:var(--be);color:var(--be)}
+.lb[data-l=ai].on{border-color:var(--ai);color:var(--ai)}
+.lb[data-l=scripts].on{border-color:var(--sc);color:var(--sc)}
+
+/* Detail level */
+.detail-grp{display:flex;gap:2px;background:var(--surface2);border:1px solid var(--border2);border-radius:var(--r6);padding:2px;flex-shrink:0}
+.dlb{padding:2px 8px;border-radius:4px;font-size:10.5px;font-weight:600;cursor:pointer;color:var(--text-dim);background:transparent;border:none;transition:all .12s;white-space:nowrap}
+.dlb.on{background:var(--surface3);color:var(--text);border:1px solid var(--border2)}
+
+/* Path finder */
+.pf{display:flex;align-items:center;gap:5px;flex-shrink:0}
+.pf label{font-size:10.5px;color:var(--text-dim);white-space:nowrap}
+.pi{background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:4px 8px;border-radius:var(--r6);font-size:11.5px;width:130px;outline:none;font-family:'JetBrains Mono',monospace;transition:border-color .15s}
+.pi:focus{border-color:var(--accent)}
+.pi::placeholder{color:var(--text-dim)}
+.pf-arr{color:var(--accent);font-size:12px}
+.pbtn{padding:4px 10px;background:var(--accent);color:#fff;border:none;border-radius:var(--r6);font-size:11px;font-weight:600;cursor:pointer;transition:opacity .15s;white-space:nowrap}
+.pbtn:hover{opacity:.85}
+.pclr{padding:4px 6px;background:transparent;border:1px solid var(--border2);color:var(--text-muted);border-radius:var(--r6);font-size:11px;cursor:pointer}
+.pclr:hover{background:var(--surface2)}
+
+/* Icon buttons */
+.ibtn{width:28px;height:28px;border:1px solid var(--border2);background:transparent;color:var(--text-muted);border-radius:var(--r6);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0}
+.ibtn:hover{background:var(--surface2);color:var(--text);border-color:var(--border3)}
+.ibtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── MAIN ── */
+#main{display:flex;flex:1;overflow:hidden;position:relative}
+
+/* ── LEFT SIDEBAR ── */
+#lsb{width:var(--lsb);flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab{flex:1;padding:9px 0;text-align:center;font-size:11px;font-weight:600;cursor:pointer;color:var(--text-dim);transition:all .15s;letter-spacing:.03em;text-transform:uppercase;position:relative}
+.tab:hover{color:var(--text-muted);background:var(--surface2)}
+.tab.on{color:var(--accent);background:var(--surface)}
+.tab.on::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);border-radius:1px 1px 0 0}
+.tab-pane{display:none;flex-direction:column;flex:1;overflow:hidden}
+.tab-pane.on{display:flex}
+
+/* Search pane */
+.srch-wrap{padding:10px 10px 6px;position:relative}
+.srch-ico{position:absolute;left:19px;top:50%;transform:translateY(-50%);color:var(--text-dim);font-size:12px;pointer-events:none}
+#search{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:7px 10px 7px 30px;border-radius:var(--r8);font-size:12px;outline:none;font-family:'Inter',sans-serif;transition:border-color .15s}
+#search:focus{border-color:var(--accent)}
+#search::placeholder{color:var(--text-dim)}
+#s-results{flex:1;overflow-y:auto}
+.sr-item{display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s}
+.sr-item:hover{background:var(--surface2)}
+.sr-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sr-label{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px}
+.sr-meta{font-size:10px;color:var(--text-dim);flex-shrink:0;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
+
+/* Info pane */
+#info-pane{flex:1;overflow-y:auto;padding:12px}
+.empty-st{text-align:center;padding:30px 16px;color:var(--text-dim);font-size:12px;line-height:1.7}
+.empty-st .ei{font-size:28px;margin-bottom:8px}
+.ni-name{font-size:13.5px;font-weight:700;color:var(--text);word-break:break-all;margin-bottom:6px;font-family:'JetBrains Mono',monospace;line-height:1.4}
+.badges{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px}
+.badge{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:12px;font-size:10px;font-weight:600}
+.ni-fields{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}
+.nif{font-size:11.5px;color:var(--text-muted);display:flex;gap:6px;align-items:flex-start}
+.nif b{color:var(--text-dim);font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;min-width:52px;flex-shrink:0;padding-top:2px}
+.nif code{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent2);background:var(--surface2);padding:1px 5px;border-radius:3px;word-break:break-all}
+.nif .copy-btn{background:transparent;border:none;cursor:pointer;color:var(--text-dim);font-size:10px;padding:1px 4px;border-radius:3px;transition:all .15s}
+.nif .copy-btn:hover{background:var(--surface3);color:var(--accent)}
+.nb-hdr{font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:.06em;text-transform:uppercase;margin:8px 0 5px;display:flex;align-items:center;justify-content:space-between}
+.nb-hdr span{color:var(--accent);font-weight:500;font-size:10px}
+.nb-item{display:flex;align-items:center;gap:5px;padding:4px 5px;border-radius:5px;cursor:pointer;transition:background .1s}
+.nb-item:hover{background:var(--surface2)}
+.nb-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.nb-dir{font-size:9.5px;color:var(--text-dim);flex-shrink:0;width:10px;text-align:center}
+.nb-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11.5px;color:var(--text-muted)}
+.nb-rel{font-size:9px;color:var(--text-dim);background:var(--surface2);padding:1px 5px;border-radius:3px;flex-shrink:0;white-space:nowrap}
+
+/* ── CANVAS ── */
+#cvs{flex:1;position:relative;overflow:hidden}
+#cvs canvas{display:block}
+
+/* ── OVERLAYS ON CANVAS ── */
+#path-result{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(8,8,16,.95);border:1.5px solid var(--path);border-radius:var(--r10);padding:7px 14px;font-size:11.5px;color:var(--path);display:none;backdrop-filter:blur(10px);max-width:580px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.02em}
+#path-result.v{display:block}
+
+/* Edge legend */
+#eleg{position:absolute;bottom:40px;left:12px;z-index:10;background:rgba(14,14,28,.9);border:1px solid var(--border2);border-radius:var(--r8);padding:10px 12px;backdrop-filter:blur(8px);min-width:148px}
+.el-hdr{font-size:9px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-dim);margin-bottom:7px;font-weight:700}
+.el-row{display:flex;align-items:center;gap:7px;margin-bottom:4px;font-size:10.5px;color:var(--text-muted)}
+.el-line{width:22px;height:2px;border-radius:1px;flex-shrink:0}
+
+/* Minimap */
+#minimap{position:absolute;bottom:10px;right:10px;z-index:10;width:150px;height:100px;background:rgba(14,14,28,.85);border:1px solid var(--border2);border-radius:var(--r8);overflow:hidden;backdrop-filter:blur(6px)}
+#minimap canvas{width:100%;height:100%}
+.mm-lbl{position:absolute;top:4px;left:6px;font-size:9px;color:var(--text-dim);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+
+/* Physics status */
+#phys-status{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:10;font-size:10px;color:var(--text-dim);background:rgba(14,14,28,.8);padding:3px 9px;border-radius:10px;border:1px solid var(--border);display:none}
+#phys-status.v{display:block}
+
+/* ── RIGHT SIDEBAR (Communities) ── */
+#rsb{width:var(--rsb);flex-shrink:0;background:var(--surface);border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;transition:width .2s}
+#rsb.closed{width:0;overflow:hidden}
+.rsb-hdr{padding:10px 10px 6px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border)}
+.rsb-title{font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:.07em;text-transform:uppercase}
+#comm-srch-wrap{padding:8px 10px;border-bottom:1px solid var(--border)}
+#comm-srch{width:100%;background:var(--surface2);border:1px solid var(--border2);color:var(--text);padding:5px 9px;border-radius:var(--r6);font-size:11.5px;outline:none}
+#comm-srch:focus{border-color:var(--accent)}
+#comm-srch::placeholder{color:var(--text-dim)}
+.comm-ctrl{display:flex;gap:4px;padding:5px 10px;border-bottom:1px solid var(--border)}
+.cc-btn{font-size:10px;color:var(--text-muted);cursor:pointer;padding:2px 7px;border-radius:4px;background:transparent;border:1px solid var(--border2);transition:all .12s}
+.cc-btn:hover{background:var(--surface2);color:var(--text)}
+#comm-list{flex:1;overflow-y:auto;padding:5px}
+.ci{display:flex;align-items:center;gap:6px;padding:5px 6px;border-radius:5px;cursor:pointer;transition:background .1s}
+.ci:hover{background:var(--surface2)}
+.ci-cb{width:13px;height:13px;border-radius:3px;border:1.5px solid var(--border3);background:var(--bg);flex-shrink:0;position:relative;cursor:pointer;transition:all .12s}
+.ci-cb.on{background:var(--accent);border-color:var(--accent)}
+.ci-cb.on::after{content:'';position:absolute;left:2.5px;top:.5px;width:3.5px;height:6.5px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ci-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0}
+.ci-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-muted)}
+.ci-cnt{font-size:9.5px;color:var(--text-dim);flex-shrink:0}
+
+/* ── BOTTOM STAT BAR ── */
+#statbar{height:30px;flex-shrink:0;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;gap:16px;padding:0 12px;font-size:10.5px;color:var(--text-dim)}
+.stv{color:var(--text-muted);font-weight:500}
+.stbar-sep{width:1px;height:14px;background:var(--border2)}
+
+/* ── TOOLTIP ── */
+#tip{position:fixed;pointer-events:none;z-index:200;background:rgba(8,8,16,.95);border:1px solid var(--border2);border-radius:var(--r8);padding:8px 11px;font-size:11px;color:var(--text);display:none;backdrop-filter:blur(10px);max-width:260px;line-height:1.5}
+.tip-n{font-weight:700;color:var(--text);font-family:'JetBrains Mono',monospace;word-break:break-all;font-size:11.5px}
+.tip-f{color:var(--text-dim);font-size:9.5px;margin-top:2px}
+.tip-c{font-size:9.5px;margin-top:1px}
+.tip-d{color:var(--text-muted);font-size:9.5px;margin-top:1px}
+
+/* ── EDGE FILTER TOGGLES (inside rsb) ── */
+.edge-filter-hdr{padding:7px 10px 4px;font-size:9px;font-weight:700;color:var(--text-dim);letter-spacing:.07em;text-transform:uppercase;border-top:1px solid var(--border)}
+.ef-list{padding:0 10px 8px;display:flex;flex-direction:column;gap:3px}
+.ef-row{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer}
+.ef-cb{width:12px;height:12px;border-radius:2px;border:1.5px solid var(--border3);background:var(--bg);flex-shrink:0;position:relative;transition:all .12s}
+.ef-cb.on{background:var(--accent);border-color:var(--accent)}
+.ef-cb.on::after{content:'';position:absolute;left:2px;top:0px;width:3px;height:6px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.ef-line{width:18px;height:1.5px;border-radius:1px;flex-shrink:0}
+.ef-name{font-size:10.5px;color:var(--text-muted)}
+
+/* scrollbars */
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+::-webkit-scrollbar-thumb:hover{background:var(--border3)}
+</style>
+</head>
+<body>
+
+<div id="loading">
+  <div class="ld-ring"></div>
+  <div class="ld-text">Đang tải Knowledge Graph…</div>
+  <div class="ld-sub" id="ld-sub">Fetching graph.json</div>
+  <div class="ld-hint" id="ld-hint"></div>
+</div>
+
+<div id="tip">
+  <div class="tip-n" id="tip-n"></div>
+  <div class="tip-f" id="tip-f"></div>
+  <div class="tip-c" id="tip-c"></div>
+  <div class="tip-d" id="tip-d"></div>
+</div>
+
+<div id="app" style="display:none">
+
+  <!-- TOPBAR -->
+  <div id="topbar">
+    <div class="tb-logo">
+      <div class="logo-icon">⬡</div>
+      Getshopy <span>Graph</span>
+    </div>
+    <div class="sep"></div>
+
+    <!-- Layer Filter -->
+    <div class="layer-grp">
+      <button class="lb on" data-l="all"     onclick="setLayer('all')">All</button>
+      <button class="lb"    data-l="client"  onclick="setLayer('client')">🖥 Frontend</button>
+      <button class="lb"    data-l="server"  onclick="setLayer('server')">⚙ Backend</button>
+      <button class="lb"    data-l="ai"      onclick="setLayer('ai')">🤖 AI</button>
+      <button class="lb"    data-l="scripts" onclick="setLayer('scripts')">📜 Scripts</button>
+    </div>
+    <div class="sep"></div>
+
+    <!-- Detail Level -->
+    <div class="detail-grp">
+      <button class="dlb" onclick="setDetail('fast')">⚡ Fast</button>
+      <button class="dlb on" onclick="setDetail('normal')">Normal</button>
+      <button class="dlb" onclick="setDetail('full')">🔍 Full</button>
+    </div>
+    <div class="sep"></div>
+
+    <!-- Path Finder -->
+    <div class="pf">
+      <label>Path:</label>
+      <input id="pf-from" class="pi" placeholder="From…" list="nd-list">
+      <span class="pf-arr">→</span>
+      <input id="pf-to"   class="pi" placeholder="To…"   list="nd-list">
+      <datalist id="nd-list"></datalist>
+      <button class="pbtn" onclick="findPath()">Find</button>
+      <button class="pclr" onclick="clearPath()" title="Clear path">✕</button>
+    </div>
+
+    <div class="sep"></div>
+
+    <!-- Controls -->
+    <button class="ibtn on" id="phys-btn" title="Pause/Resume physics" onclick="togglePhys()">⏸</button>
+    <button class="ibtn" title="Fit all" onclick="fitAll()">⊡</button>
+    <button class="ibtn" id="rsb-btn" title="Toggle communities panel" onclick="toggleRSB()">☰</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- LEFT SIDEBAR -->
+    <div id="lsb">
+      <div class="tabs">
+        <div class="tab on" onclick="switchTab('search')">Search</div>
+        <div class="tab"    onclick="switchTab('info')">Node Info</div>
+      </div>
+
+      <!-- Search Tab -->
+      <div class="tab-pane on" id="tp-search">
+        <div class="srch-wrap">
+          <span class="srch-ico">🔍</span>
+          <input id="search" type="text" placeholder="Node name, file path…" autocomplete="off">
+        </div>
+        <div id="s-results" style="flex:1;overflow-y:auto"></div>
+      </div>
+
+      <!-- Info Tab -->
+      <div class="tab-pane" id="tp-info">
+        <div id="info-pane">
+          <div class="empty-st">
+            <div class="ei">🔍</div>
+            Click any node<br>to inspect its details,<br>connections & file location
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CANVAS -->
+    <div id="cvs">
+      <div id="path-result"></div>
+      <div id="eleg">
+        <div class="el-hdr">Edge Types</div>
+        <div class="el-row"><div class="el-line" style="background:rgba(255,255,255,.75)"></div>calls</div>
+        <div class="el-row"><div class="el-line" style="background:rgba(56,189,248,.7)"></div>imports</div>
+        <div class="el-row"><div class="el-line" style="background:rgba(244,114,182,.85)"></div>inherits</div>
+        <div class="el-row"><div class="el-line" style="background:rgba(251,146,60,.65)"></div>uses / ref</div>
+        <div class="el-row"><div class="el-line" style="background:rgba(255,255,255,.12)"></div>contains</div>
+        <div class="el-row"><div class="el-line" style="background:#fbbf24"></div>path</div>
+      </div>
+      <div id="phys-status">Physics: running…</div>
+      <div id="minimap">
+        <canvas id="mm-canvas" width="150" height="100"></canvas>
+        <div class="mm-lbl">Overview</div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDEBAR -->
+    <div id="rsb">
+      <div class="rsb-hdr">
+        <span class="rsb-title">Communities</span>
+        <span style="font-size:10px;color:var(--text-dim)" id="comm-cnt-lbl"></span>
+      </div>
+      <div id="comm-srch-wrap">
+        <input id="comm-srch" type="text" placeholder="Filter communities…" oninput="filterComm()">
+      </div>
+      <div class="comm-ctrl">
+        <button class="cc-btn" onclick="allComm(true)">Show All</button>
+        <button class="cc-btn" onclick="allComm(false)">Hide All</button>
+      </div>
+      <div id="comm-list" style="flex:1;overflow-y:auto;padding:5px"></div>
+
+      <!-- Edge type filter -->
+      <div class="edge-filter-hdr">Edge Visibility</div>
+      <div class="ef-list" id="ef-list"></div>
+    </div>
+
+  </div>
+
+  <!-- STAT BAR -->
+  <div id="statbar">
+    <span>Nodes: <span class="stv" id="st-n">—</span></span>
+    <span>Edges: <span class="stv" id="st-e">—</span></span>
+    <span>Communities: <span class="stv" id="st-c">—</span></span>
+    <div class="stbar-sep"></div>
+    <span>Visible: <span class="stv" id="st-vis">—</span></span>
+    <span>Layer: <span class="stv" id="st-lay">All</span></span>
+    <span>Detail: <span class="stv" id="st-det">Normal</span></span>
+    <div class="stbar-sep" style="margin-left:auto"></div>
+    <span style="color:var(--text-dim)">Scroll: zoom · Drag: rotate · Click: inspect</span>
+  </div>
+</div>
+
+<script>
+/* ═══════ PALETTE & CONSTANTS ═══════ */
+const PALETTE = [
+  '#4E79A7','#F28E2B','#E15759','#76B7B2','#59A14F',
+  '#EDC948','#B07AA1','#FF9DA7','#9C755F','#BAB0AC',
+  '#38bdf8','#fb923c','#f472b6','#4ade80','#a78bfa',
+  '#67e8f9','#fda4af','#86efac','#c4b5fd','#fcd34d',
+  '#0ea5e9','#f97316','#ec4899','#22c55e','#8b5cf6',
+  '#06b6d4','#ef4444','#84cc16','#d946ef','#f59e0b',
+];
+const LAYER_COLOR = {client:'#38bdf8',server:'#fb923c','ai-rec':'#4ade80','ai-bot':'#6ee7b7',scripts:'#f472b6',other:'#a78bfa'};
+const EDGE_CFG = {
+  calls:         {r:1.00,g:1.00,b:1.00,a:0.75,w:1.4,arrow:true},
+  imports:       {r:0.22,g:0.74,b:0.98,a:0.65,w:1.1,arrow:true},
+  imports_from:  {r:0.22,g:0.74,b:0.98,a:0.55,w:1.0,arrow:true},
+  re_exports:    {r:0.22,g:0.74,b:0.98,a:0.40,w:0.8,arrow:false},
+  dynamic_import:{r:0.22,g:0.74,b:0.98,a:0.35,w:0.7,arrow:false},
+  inherits:      {r:0.96,g:0.45,b:0.71,a:0.85,w:1.5,arrow:true},
+  method:        {r:0.96,g:0.45,b:0.71,a:0.60,w:0.9,arrow:false},
+  uses:          {r:0.98,g:0.57,b:0.24,a:0.60,w:0.9,arrow:false},
+  references:    {r:0.66,g:0.55,b:0.98,a:0.45,w:0.7,arrow:false},
+  indirect_call: {r:1.00,g:1.00,b:1.00,a:0.25,w:0.6,arrow:false},
+  contains:      {r:1.00,g:1.00,b:1.00,a:0.08,w:0.3,arrow:false},
+  rationale_for: {r:0.50,g:0.52,b:0.65,a:0.15,w:0.3,arrow:false},
+};
+const PATH_C = [0.98,0.75,0.14,1.0];
+
+/* ═══════ STATE ═══════ */
+let G, allN=[], allE=[], nById={}, adj={};
+let commColors={}, visCom=new Set(), visEdgeRel=new Set();
+let layer='all', detail='fast', physRunning=true;
+let pathIds=[], selNode=null;
+let mmCtx;
+let lastInteract=0, idleTimer=null;
+
+/* ═══════ DETAIL LEVELS ═══════ */
+const DETAIL = {
+  fast:   {minDeg:2, hideRels:new Set(['contains','rationale_for','indirect_call'])},
+  normal: {minDeg:1, hideRels:new Set(['rationale_for'])},
+  full:   {minDeg:0, hideRels:new Set()},
+};
+
+/* ═══════ HELPERS ═══════ */
+function getLayer(src){
+  if(!src) return 'other';
+  if(src.startsWith('client/')) return 'client';
+  if(src.startsWith('server/')) return 'server';
+  if(src.startsWith('ai-rec/')) return 'ai-rec';
+  if(src.startsWith('ai-bot/')) return 'ai-bot';
+  return 'scripts';
+}
+function layerColor(n){ return LAYER_COLOR[getLayer(n.source_file)]||LAYER_COLOR.other; }
+function commColor(id){ return commColors[id]||'#888'; }
+
+function nodeVisible(n){
+  const d = DETAIL[detail];
+  if((n._deg||0) < d.minDeg && (n._deg||0) > 0) return false;
+  if(!visCom.has(n.community)) return false;
+  if(layer==='all') return true;
+  if(layer==='ai') return n.source_file&&(n.source_file.startsWith('ai-rec/')||n.source_file.startsWith('ai-bot/'));
+  if(layer==='scripts') return getLayer(n.source_file)==='scripts';
+  return n.source_file&&n.source_file.startsWith(layer+'/');
+}
+function edgeVisible(e){
+  const rel = (e.relation||'').toLowerCase();
+  if(!visEdgeRel.has(rel)) return false;
+  if(DETAIL[detail].hideRels.has(rel)) return false;
+  const sid = e.source?.id??e.source, tid = e.target?.id??e.target;
+  if(layer!=='all'){
+    const sn=nById[sid], tn=nById[tid];
+    if(!sn||!tn) return false;
+    if(!nodeVisible(sn)&&!nodeVisible(tn)) return false;
+  }
+  return true;
+}
+
+function nodeColor(n){
+  if(pathIds.length){
+    const i=pathIds.indexOf(n.id);
+    if(i===0||i===pathIds.length-1) return '#fbbf24';
+    if(i>0) return '#f59e0b';
+    return '#111122';
+  }
+  if(selNode&&n.id===selNode.id) return '#fff';
+  return layerColor(n);
+}
+function nodeSize(n){ return Math.min(3+Math.sqrt(n._deg||1)*1.2, 14); }
+
+function edgeColor(e){
+  const rel=(e.relation||'other').toLowerCase();
+  if(pathIds.length>1){
+    const si=pathIds.indexOf(e.source?.id??e.source);
+    const ti=pathIds.indexOf(e.target?.id??e.target);
+    if(si!==-1&&ti!==-1&&Math.abs(si-ti)===1) return `rgba(${PATH_C.map((v,i)=>i<3?Math.round(v*255):v).join(',')})`;
+    return 'rgba(255,255,255,0.03)';
+  }
+  const c=EDGE_CFG[rel]||{r:.4,g:.4,b:.6,a:.2};
+  return `rgba(${Math.round(c.r*255)},${Math.round(c.g*255)},${Math.round(c.b*255)},${c.a})`;
+}
+function edgeWidth(e){
+  if(pathIds.length>1){
+    const si=pathIds.indexOf(e.source?.id??e.source),ti=pathIds.indexOf(e.target?.id??e.target);
+    if(si!==-1&&ti!==-1&&Math.abs(si-ti)===1) return 3;
+    return 0.3;
+  }
+  const rel=(e.relation||'').toLowerCase();
+  return (EDGE_CFG[rel]||{w:.6}).w;
+}
+function edgeArrow(e){
+  const rel=(e.relation||'').toLowerCase();
+  if(pathIds.length) return 0;
+  return (EDGE_CFG[rel]?.arrow)?3.5:0;
+}
+
+/* ═══════ BFS PATH ═══════ */
+function bfs(a,b){
+  if(a===b) return [a];
+  const vis=new Set([a]), q=[[a]];
+  while(q.length){
+    const p=q.shift(), cur=p[p.length-1];
+    for(const nb of (adj[cur]||[])){
+      if(nb===b) return [...p,b];
+      if(!vis.has(nb)){vis.add(nb);q.push([...p,nb])}
+    }
+  }
+  return null;
+}
+function findByLabel(txt){
+  const l=txt.toLowerCase().trim();
+  return allN.find(n=>n.label.toLowerCase()===l)||allN.find(n=>n.id===l)||allN.find(n=>n.label.toLowerCase().includes(l));
+}
+
+/* ═══════ REFRESH (fast path — no data rebuild) ═══════ */
+let refreshTimer=null;
+function refresh(){
+  clearTimeout(refreshTimer);
+  refreshTimer=setTimeout(()=>{
+    if(!G) return;
+    G.nodeVisibility(nodeVisible).linkVisibility(edgeVisible)
+      .nodeColor(nodeColor).linkColor(edgeColor).linkWidth(edgeWidth)
+      .linkDirectionalArrowLength(edgeArrow);
+    const visCnt = allN.filter(nodeVisible).length;
+    document.getElementById('st-vis').textContent=visCnt;
+    drawMinimap();
+  }, 30);
+}
+
+/* ═══════ ACTIONS ═══════ */
+function setLayer(l){
+  layer=l;
+  document.querySelectorAll('.lb').forEach(b=>b.classList.toggle('on',b.dataset.l===l));
+  document.getElementById('st-lay').textContent=l==='all'?'All':l;
+  refresh();
+}
+function setDetail(d){
+  detail=d;
+  document.querySelectorAll('.dlb').forEach((b,i)=>{b.classList.toggle('on',b.textContent.toLowerCase().includes(d)||b.textContent.includes('⚡')&&d==='fast'||b.textContent.includes('🔍')&&d==='full'||b.textContent==='Normal'&&d==='normal')});
+  document.getElementById('st-det').textContent=d[0].toUpperCase()+d.slice(1);
+  refresh();
+}
+function togglePhys(){
+  physRunning=!physRunning;
+  const btn=document.getElementById('phys-btn');
+  btn.textContent=physRunning?'⏸':'▶';
+  btn.classList.toggle('on',physRunning);
+  const st=document.getElementById('phys-status');
+  if(physRunning){G.d3ReheatSimulation();st.textContent='Physics: running…';st.classList.add('v')}
+  else{G.pauseAnimation();st.textContent='Physics: frozen';setTimeout(()=>st.classList.remove('v'),2000)}
+}
+function fitAll(){ G&&G.zoomToFit(800,60); }
+function toggleRSB(){
+  document.getElementById('rsb').classList.toggle('closed');
+  document.getElementById('rsb-btn').classList.toggle('on');
+}
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('on',i===(t==='search'?0:1)));
+  document.getElementById('tp-search').classList.toggle('on',t==='search');
+  document.getElementById('tp-info').classList.toggle('on',t==='info');
+}
+function findPath(){
+  const ft=document.getElementById('pf-from').value.trim(), tt=document.getElementById('pf-to').value.trim();
+  if(!ft||!tt) return;
+  const fn=findByLabel(ft), tn=findByLabel(tt);
+  const pr=document.getElementById('path-result');
+  if(!fn||!tn){pr.textContent='⚠ Node not found';pr.classList.add('v');return}
+  const p=bfs(fn.id,tn.id);
+  if(!p){pathIds=[];pr.textContent=`No path: ${fn.label} → ${tn.label}`;pr.classList.add('v')}
+  else{
+    pathIds=p;
+    const lbls=p.map(id=>nById[id]?.label||id);
+    pr.textContent=`Path (${p.length} hops): ${lbls.join(' → ')}`;
+    pr.classList.add('v');
+  }
+  refresh();
+}
+function clearPath(){
+  pathIds=[];
+  document.getElementById('path-result').classList.remove('v');
+  document.getElementById('pf-from').value='';
+  document.getElementById('pf-to').value='';
+  refresh();
+}
+
+/* ═══════ NODE INFO ═══════ */
+function showInfo(n){
+  selNode=n; switchTab('info');
+  const lc=layerColor(n), cc=commColor(n.community), lr=getLayer(n.source_file);
+  const nbData=[];
+  for(const e of allE){
+    const s=e.source?.id??e.source, t=e.target?.id??e.target;
+    if(s===n.id) nbData.push({id:t,rel:e.relation,dir:'→'});
+    else if(t===n.id) nbData.push({id:s,rel:e.relation,dir:'←'});
+  }
+  const nbHtml=nbData.slice(0,40).map(nb=>{
+    const nn=nById[nb.id]; if(!nn) return '';
+    const nc=layerColor(nn);
+    return `<div class="nb-item" onclick="focusNode('${nn.id}')">
+      <span class="nb-dir">${nb.dir}</span>
+      <div class="nb-dot" style="background:${nc}"></div>
+      <span class="nb-lbl" title="${nn.label}">${nn.label}</span>
+      <span class="nb-rel">${nb.rel||''}</span>
+    </div>`;
+  }).join('');
+  document.getElementById('info-pane').innerHTML=`
+    <div class="ni-name">${n.label}</div>
+    <div class="badges">
+      <span class="badge" style="background:${lc}22;color:${lc};border:1px solid ${lc}44">${lr}</span>
+      <span class="badge" style="background:${cc}22;color:${cc};border:1px solid ${cc}44">#${n.community} ${n.community_name||''}</span>
+      ${n.file_type?`<span class="badge" style="background:var(--surface2);color:var(--text-muted);border:1px solid var(--border2)">${n.file_type}</span>`:''}
+    </div>
+    <div class="ni-fields">
+      <div class="nif"><b>File</b><div style="flex:1;display:flex;gap:4px;flex-wrap:wrap;align-items:center"><code>${n.source_file||'—'}</code>${n.source_file?`<button class="copy-btn" onclick="navigator.clipboard.writeText('${n.source_file||''}');this.textContent='✓';setTimeout(()=>this.textContent='⧉',1500)" title="Copy path">⧉</button>`:''}</div></div>
+      <div class="nif"><b>Line</b><code>${n.source_location||'—'}</code></div>
+      <div class="nif"><b>Degree</b><span style="color:${lc};font-weight:600;font-size:12px">${n._deg||0} connections</span></div>
+    </div>
+    <div class="nb-hdr">Connections <span>${nbData.length}${nbData.length>40?' (showing 40)':''}</span></div>
+    ${nbHtml||'<div style="color:var(--text-dim);font-size:11px;padding:4px 0;font-style:italic">No connections</div>'}
+  `;
+}
+function focusNode(id){
+  const n=nById[id]; if(!n) return;
+  showInfo(n);
+  if(n.x!==undefined) G.centerAt(n.x,n.y,n.z,700);
+}
+
+/* ═══════ COMMUNITY PANEL ═══════ */
+function buildCommPanel(comms){
+  const list=document.getElementById('comm-list');
+  const sorted=[...comms].sort((a,b)=>b.count-a.count);
+  document.getElementById('comm-cnt-lbl').textContent=`${comms.length} total`;
+  list.innerHTML=sorted.map(c=>{
+    const col=commColor(c.id);
+    return `<div class="ci" data-cid="${c.id}" onclick="toggleCom(${c.id})">
+      <div class="ci-cb on" id="cc-${c.id}"></div>
+      <div class="ci-dot" style="background:${col}"></div>
+      <span class="ci-name" title="${c.name}">${c.name}</span>
+      <span class="ci-cnt">${c.count}</span>
+    </div>`;
+  }).join('');
+}
+function toggleCom(cid){
+  visCom.has(cid)?visCom.delete(cid):visCom.add(cid);
+  const el=document.getElementById(`cc-${cid}`);
+  if(el) el.classList.toggle('on',visCom.has(cid));
+  refresh();
+}
+function allComm(on){
+  if(on) allN.forEach(n=>visCom.add(n.community));
+  else visCom.clear();
+  document.querySelectorAll('.ci-cb').forEach(el=>el.classList.toggle('on',on));
+  refresh();
+}
+function filterComm(){
+  const q=document.getElementById('comm-srch').value.toLowerCase();
+  document.querySelectorAll('.ci').forEach(el=>{
+    el.style.display=el.querySelector('.ci-name').textContent.toLowerCase().includes(q)?'':'none';
+  });
+}
+
+/* ═══════ EDGE TYPE FILTER ═══════ */
+// Edges hidden by default in fast mode for performance
+const HIDDEN_BY_DEFAULT = new Set(['contains','rationale_for','indirect_call']);
+function buildEdgeFilter(){
+  const ecDefs=[
+    {k:'calls',css:'rgba(255,255,255,.75)'},{k:'imports',css:'rgba(56,189,248,.7)'},
+    {k:'imports_from',css:'rgba(56,189,248,.55)'},{k:'inherits',css:'rgba(244,114,182,.85)'},
+    {k:'uses',css:'rgba(251,146,60,.65)'},{k:'references',css:'rgba(167,139,250,.55)'},
+    {k:'contains',css:'rgba(255,255,255,.12)'},{k:'rationale_for',css:'rgba(128,132,160,.25)'},
+    {k:'method',css:'rgba(244,114,182,.6)'},{k:'indirect_call',css:'rgba(255,255,255,.25)'},
+    {k:'dynamic_import',css:'rgba(56,189,248,.35)'},{k:'re_exports',css:'rgba(56,189,248,.4)'},
+  ];
+  // Default: only show meaningful edges
+  ecDefs.forEach(e=>{ if(!HIDDEN_BY_DEFAULT.has(e.k)) visEdgeRel.add(e.k); });
+  document.getElementById('ef-list').innerHTML=ecDefs.map(e=>{
+    const on=visEdgeRel.has(e.k);
+    return `<div class="ef-row" onclick="toggleEdgeRel('${e.k}')">
+      <div class="ef-cb ${on?'on':''}" id="ef-${e.k}"></div>
+      <div class="ef-line" style="background:${e.css}"></div>
+      <span class="ef-name">${e.k}</span>
+    </div>`;
+  }).join('');
+}
+function toggleEdgeRel(rel){
+  visEdgeRel.has(rel)?visEdgeRel.delete(rel):visEdgeRel.add(rel);
+  const el=document.getElementById(`ef-${rel}`);
+  if(el) el.classList.toggle('on',visEdgeRel.has(rel));
+  refresh();
+}
+
+/* ═══════ SEARCH ═══════ */
+function initSearch(){
+  const inp=document.getElementById('search'), res=document.getElementById('s-results');
+  inp.addEventListener('input',()=>{
+    const q=inp.value.toLowerCase().trim();
+    if(!q){res.innerHTML='';return}
+    const hits=allN.filter(n=>n.label.toLowerCase().includes(q)||(n.source_file||'').toLowerCase().includes(q)).slice(0,25);
+    res.innerHTML=hits.map(n=>{
+      const c=layerColor(n), sf=(n.source_file||'').split('/').slice(-1)[0]||'';
+      return `<div class="sr-item" onclick="selectSN('${n.id}')">
+        <div class="sr-dot" style="background:${c}"></div>
+        <span class="sr-label">${n.label}</span>
+        <span class="sr-meta">${sf}</span>
+      </div>`;
+    }).join('');
+  });
+}
+function selectSN(id){
+  const n=nById[id]; if(!n) return;
+  showInfo(n);
+  if(n.x!==undefined) G.centerAt(n.x,n.y,n.z,700);
+}
+
+/* ═══════ MINIMAP ═══════ */
+let mmBounds={minX:0,maxX:1,minY:0,maxY:1};
+function drawMinimap(){
+  // Use mmCtx.canvas to avoid getElementById returning null if DOM not ready
+  if(!mmCtx||!allN.length) return;
+  const W=mmCtx.canvas.width, H=mmCtx.canvas.height;
+  if(!W||!H) return;
+  mmCtx.clearRect(0,0,W,H);
+  mmCtx.fillStyle='rgba(14,14,28,0.95)';
+  mmCtx.fillRect(0,0,W,H);
+  const ns=allN.filter(n=>n.x!==undefined&&nodeVisible(n));
+  if(!ns.length) return;
+  const xs=ns.map(n=>n.x), ys=ns.map(n=>n.y);
+  const mix=Math.min(...xs),max_=Math.max(...xs),miy=Math.min(...ys),may=Math.max(...ys);
+  const rw=max_-mix||1, rh=may-miy||1;
+  const pad=8, uw=(W-pad*2)/rw, uh=(H-pad*2)/rh, sc=Math.min(uw,uh)*.9;
+  const ox=pad+(W-pad*2-rw*sc)/2-mix*sc, oy=pad+(H-pad*2-rh*sc)/2-miy*sc;
+  for(const n of ns){
+    mmCtx.beginPath();
+    mmCtx.arc(n.x*sc+ox, n.y*sc+oy, Math.min(1.5+n._deg*.08,4), 0, Math.PI*2);
+    mmCtx.fillStyle=layerColor(n);
+    mmCtx.globalAlpha=.7;
+    mmCtx.fill();
+  }
+  mmCtx.globalAlpha=1;
+}
+
+/* ═══════ TOOLTIP ═══════ */
+const tip=document.getElementById('tip');
+document.addEventListener('mousemove',e=>{tip.style.left=(e.clientX+14)+'px';tip.style.top=(e.clientY-8)+'px'});
+
+/* ═══════ INIT GRAPH ═══════ */
+function initGraph(data){
+  document.getElementById('ld-sub').textContent='Building graph…';
+  allN=data.nodes||[];
+  allE=data.edges||data.links||[];
+
+  // degree
+  const dm={};
+  allE.forEach(e=>{dm[e.source]=(dm[e.source]||0)+1;dm[e.target]=(dm[e.target]||0)+1});
+  allN.forEach(n=>{n._deg=dm[n.id]||0;nById[n.id]=n});
+
+  // adjacency
+  allE.forEach(e=>{
+    (adj[e.source]=adj[e.source]||[]).push(e.target);
+    (adj[e.target]=adj[e.target]||[]).push(e.source);
+  });
+
+  // communities
+  const comMap={};
+  allN.forEach(n=>{
+    visCom.add(n.community);
+    commColors[n.community]=PALETTE[n.community%PALETTE.length];
+    if(!comMap[n.community]) comMap[n.community]={id:n.community,name:n.community_name||`Community ${n.community}`,count:0};
+    comMap[n.community].count++;
+  });
+
+  // stats
+  document.getElementById('st-n').textContent=allN.length;
+  document.getElementById('st-e').textContent=allE.length;
+  document.getElementById('st-c').textContent=Object.keys(comMap).length;
+  document.getElementById('st-vis').textContent=allN.length;
+
+  buildCommPanel(Object.values(comMap));
+  buildEdgeFilter();
+  initSearch();
+
+  // datalist
+  const dl=document.getElementById('nd-list');
+  allN.forEach(n=>{const o=document.createElement('option');o.value=n.label;dl.appendChild(o)});
+
+  // minimap canvas
+  const mc=document.getElementById('mm-canvas'); mmCtx=mc.getContext('2d');
+
+  const cvsEl = document.getElementById('cvs');
+
+  /* ─── 3D FORCE GRAPH ─── */
+  // Show app first so layout is computed before graph init
+  document.getElementById('app').style.display='flex';
+  const ld=document.getElementById('loading');
+  ld.style.opacity='0';
+  setTimeout(()=>ld.style.display='none',400);
+
+  // Wait for flex layout to compute dimensions
+  requestAnimationFrame(()=>{
+    const W = cvsEl.offsetWidth || window.innerWidth - 270 - 252;
+    const H = cvsEl.offsetHeight || window.innerHeight - 48 - 30;
+
+    G = ForceGraph3D()(cvsEl)
+      .width(W).height(H)
+      .backgroundColor('#080810')
+      .enableNodeDrag(true)         // ✅ explicit drag
+      .showNavInfo(false)           // ⚡ remove bottom-left nav hint
+      // ⚡ PERFORMANCE: pre-run + auto-stop physics
+      .warmupTicks(80)
+      .cooldownTicks(150)
+      .cooldownTime(8000)
+      .d3AlphaDecay(0.05)
+      .d3VelocityDecay(0.4)
+      // ⚡ PERFORMANCE: low-poly nodes (4 = octahedron-like)
+      .nodeResolution(4)
+      .nodeOpacity(0.88)
+      // Data
+      .graphData({nodes:allN, links:allE})
+      .nodeId('id')
+      .nodeLabel(()=>'')  // tooltip handled manually
+      .nodeVal(n=>Math.pow(nodeSize(n),2)/5)
+      .nodeColor(nodeColor)
+      .nodeVisibility(nodeVisible)
+      // Edges — ⚡ NO particles, NO curvature, straight lines
+      .linkSource('source').linkTarget('target')
+      .linkColor(edgeColor)
+      .linkWidth(edgeWidth)
+      .linkVisibility(edgeVisible)
+      .linkDirectionalArrowLength(edgeArrow)
+      .linkDirectionalArrowRelPos(0.9)
+      .linkCurvature(0)
+      // Interactions
+      .onNodeHover(n=>{
+        if(n){
+          document.getElementById('tip-n').textContent=n.label;
+          document.getElementById('tip-f').textContent=`${n.source_file||''} ${n.source_location||''}`.trim();
+          document.getElementById('tip-c').textContent=n.community_name?`Community: ${n.community_name}`:'';
+          document.getElementById('tip-d').textContent=`Degree: ${n._deg||0}`;
+          tip.style.display='block';
+          document.body.style.cursor='pointer';
+        } else {
+          tip.style.display='none';
+          document.body.style.cursor='default';
+        }
+      })
+      .onNodeClick(n=>showInfo(n))
+      .onBackgroundClick(()=>{
+        selNode=null;
+        document.getElementById('info-pane').innerHTML='<div class="empty-st"><div class="ei">🔍</div>Click any node<br>to inspect its details,<br>connections & file location</div>';
+      })
+      .onEngineStop(()=>{
+        // ✅ FIX: do NOT call G.pauseAnimation() — it kills OrbitControls (drag/rotate)
+        physRunning=false;
+        // Null-safe DOM updates (engine can stop before RAF completes)
+        const btn=document.getElementById('phys-btn');
+        if(btn){ btn.textContent='▶'; btn.classList.remove('on'); }
+        // ⚡ Throttle renderer to ~15fps when idle (saves GPU)
+        scheduleIdleThrottle();
+        const ps=document.getElementById('phys-status');
+        if(ps){
+          ps.textContent='✓ Physics settled — drag to rotate';
+          ps.classList.add('v');
+          setTimeout(()=>ps.classList.remove('v'),3000);
+        }
+        drawMinimap();
+      });
+
+    // ⚡ IDLE THROTTLE: hoisted before graph init so onEngineStop can close over it
+    let lastFrame=0;
+    function scheduleIdleThrottle(){
+      if(!G) return;
+      G.renderer().setAnimationLoop(ts=>{
+        if(!physRunning){
+          const idle = Date.now()-lastInteract > 2000;
+          if(idle && ts-lastFrame < 60) return;  // ~15fps when idle
+          lastFrame=ts;
+        }
+        G.renderer().render(G.scene(), G.camera());
+      });
+    }
+
+    // Track interaction to reset idle timer
+    cvsEl.addEventListener('pointerdown',()=>{ lastInteract=Date.now(); });
+    cvsEl.addEventListener('pointermove',()=>{ lastInteract=Date.now(); });
+    cvsEl.addEventListener('wheel',()=>{ lastInteract=Date.now(); });
+
+    // ✅ ResizeObserver for responsive sizing
+    new ResizeObserver(()=>{
+      if(G) G.width(cvsEl.offsetWidth).height(cvsEl.offsetHeight);
+    }).observe(cvsEl);
+
+    // Fit all after physics settle
+    setTimeout(()=>{ if(G) G.zoomToFit(1200,60); }, 4000);
+    // Minimap update loop
+    const mmTimer=setInterval(()=>{ if(!physRunning){clearInterval(mmTimer);} drawMinimap(); },600);
+  });
+}
+
+/* ═══════ BOOTSTRAP ═══════ */
+fetch('./graph.json')
+  .then(r=>{
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    document.getElementById('ld-sub').textContent='Parsing JSON…';
+    return r.json();
+  })
+  .then(initGraph)
+  .catch(err=>{
+    document.getElementById('ld-sub').textContent='❌ '+err.message;
+    const h=document.getElementById('ld-hint');
+    h.style.display='block';
+    h.innerHTML='Cần mở qua HTTP server:<br><code>py -m http.server 8080</code><br>Truy cập: <code>http://localhost:8080/graph_enhanced.html</code>';
+  });
+</script>
+</body>
+</html>

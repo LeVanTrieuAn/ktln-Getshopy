@@ -1,0 +1,644 @@
+{
+  "summary": {
+    "total": 39,
+    "passed": 39,
+    "failed": 0,
+    "timeouts": 0,
+    "avgMs": 107,
+    "p95Ms": 689,
+    "passRate": "100.00%"
+  },
+  "byGroup": {
+    "EDGE": {
+      "total": 39,
+      "passed": 39,
+      "totalMs": 4189
+    }
+  },
+  "results": [
+    {
+      "id": "EDGE-0990",
+      "group": "EDGE",
+      "description": "Chỉ dấu chấm than",
+      "message": "!!!",
+      "ms": 86,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0989",
+      "group": "EDGE",
+      "description": "Tin nhắn rỗng",
+      "message": " ",
+      "ms": 133,
+      "status": 400,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0991",
+      "group": "EDGE",
+      "description": "Chỉ số",
+      "message": "123",
+      "ms": 91,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0992",
+      "group": "EDGE",
+      "description": "Tiếng Anh thuần",
+      "message": "I want to buy a smartphone",
+      "ms": 18,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0993",
+      "group": "EDGE",
+      "description": "Tiếng Trung",
+      "message": "我要买手机",
+      "ms": 17,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0994",
+      "group": "EDGE",
+      "description": "Emoji only",
+      "message": "📱💻⌚",
+      "ms": 17,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0997",
+      "group": "EDGE",
+      "description": "Typo brand Samsung",
+      "message": "samung s25 ultra",
+      "ms": 31,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0996",
+      "group": "EDGE",
+      "description": "Typo brand Apple",
+      "message": "iphon 17 pro max bao nhieu",
+      "ms": 37,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB 6GB/256GB - Đen** — 8.209.000 ₫, **Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB 12GB",
+        "productCount": 4,
+        "topBrand": "br-xiaomi",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-0995",
+      "group": "EDGE",
+      "description": "Câu rất dài",
+      "message": "tôi đang muốn mua một chiếc điện thoại tầm giá từ 15 đến 20 triệu đồng, có camera tốt để chụp ảnh đẹp, pin lâu khoảng 5000mAh, chạy 5G, màn hình AMOLED 120Hz, chip Snapdragon 8 thế hệ mới nhất, RAM 12GB, bộ nhớ trong 256GB, thiết kế mỏng nhẹ dưới 200 gram, màu đen hoặc xám, hãng Samsung hoặc Xiaomi, anh ơi em có gợi ý không",
+      "ms": 73,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại Samsung Galaxy S26 FE 5G 8GB/128GB 6GB/256GB - Xanh dương** — 18.722.000 ₫, **Điện thoại Samsung Galaxy A37 5G 6GB/128",
+        "productCount": 4,
+        "topBrand": "br-samsung",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-0998",
+      "group": "EDGE",
+      "description": "Viết tắt common",
+      "message": "dt samsung 15tr",
+      "ms": 10,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-0999",
+      "group": "EDGE",
+      "description": "Hỏi về thực phẩm",
+      "message": "bán đồ ăn không",
+      "ms": 17,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1002",
+      "group": "EDGE",
+      "description": "Hỏi thời tiết",
+      "message": "thời tiết hôm nay thế nào",
+      "ms": 27,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1001",
+      "group": "EDGE",
+      "description": "Hỏi về quần áo",
+      "message": "áo thun Nike giá",
+      "ms": 37,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB 6GB/256GB - Đen** — 8.209.000 ₫, **Điện thoại Xiaomi Redmi Note 17 4G 4GB/128GB 12GB",
+        "productCount": 4,
+        "topBrand": "br-xiaomi",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1003",
+      "group": "EDGE",
+      "description": "Hỏi toán học",
+      "message": "2 + 2 = ?",
+      "ms": 23,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1004",
+      "group": "EDGE",
+      "description": "Hỏi lịch sử",
+      "message": "thế chiến 2 bắt đầu năm nào",
+      "ms": 24,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1006",
+      "group": "EDGE",
+      "description": "Tên người không liên quan",
+      "message": "Nguyễn Văn A là ai",
+      "ms": 11,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1000",
+      "group": "EDGE",
+      "description": "Hỏi về xe cộ",
+      "message": "xe máy Honda giá bao nhiêu",
+      "ms": 404,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Giá Đỡ Điện Thoại Kẹp Cửa Gió Xe Hơi Havit ST7211 - Màu Trắng** — 127.000 ₫, **Giá Đỡ Điện Thoại Kẹp Cửa Gió Xe Hơi Havit ST7211 ",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-mobile-acc-stand"
+      }
+    },
+    {
+      "id": "EDGE-1005",
+      "group": "EDGE",
+      "description": "Câu phủ định sản phẩm",
+      "message": "tôi không muốn mua iPhone",
+      "ms": 92,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại iPhone 17 Pro Max 256GB 12GB/1TB - Trắng** — 41.096.000 ₫, **Điện thoại iPhone 17 Pro Max 256GB 12GB/256GB - Trắng** —",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1007",
+      "group": "EDGE",
+      "description": "URL trong câu hỏi",
+      "message": "tìm sản phẩm tại https://example.com",
+      "ms": 25,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1008",
+      "group": "EDGE",
+      "description": "Trộn Anh-Việt",
+      "message": "tôi muốn buy iPhone 17 Pro Max bao nhiêu tiền",
+      "ms": 22,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại iPhone 17 Pro Max 256GB 12GB/1TB - Trắng** — 41.096.000 ₫, **Điện thoại iPhone 17 Pro Max 256GB 12GB/256GB - Trắng** —",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1009",
+      "group": "EDGE",
+      "description": "SQL injection attempt",
+      "message": "'; DROP TABLE Product; --",
+      "ms": 23,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ cảm ơn anh/chị rất nhiều! 🌟 Getshopy luôn cố gắng phục vụ tốt nhất ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1010",
+      "group": "EDGE",
+      "description": "Script tag",
+      "message": "<script>alert(1)</script>",
+      "ms": 22,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1011",
+      "group": "EDGE",
+      "description": "XSS attempt",
+      "message": "\"><img src=x onerror=alert(1)>",
+      "ms": 14,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1012",
+      "group": "EDGE",
+      "description": "Lặp lại 3 lần iPhone",
+      "message": "iPhone iPhone iPhone",
+      "ms": 24,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1014",
+      "group": "EDGE",
+      "description": "Sản phẩm ngừng sản xuất",
+      "message": "iPhone 6 có không",
+      "ms": 23,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1015",
+      "group": "EDGE",
+      "description": "Sản phẩm chưa ra mắt",
+      "message": "iPhone 20 giá bao nhiêu",
+      "ms": 32,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại iPhone 17 Pro Max 256GB 12GB/1TB - Trắng** — 41.096.000 ₫, **Điện thoại iPhone 17 Pro Max 256GB 12GB/256GB - Trắng** —",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1016",
+      "group": "EDGE",
+      "description": "Hỏi về màu không tồn tại",
+      "message": "iPhone màu hồng tím không",
+      "ms": 33,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại iPhone 17 Pro Max 256GB 12GB/1TB - Trắng** — 41.096.000 ₫, **Điện thoại iPhone 17 Pro Max 256GB 12GB/256GB - Trắng** —",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1017",
+      "group": "EDGE",
+      "description": "Hỏi đặt hàng",
+      "message": "đặt hàng iPhone 17 được không",
+      "ms": 23,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1018",
+      "group": "EDGE",
+      "description": "Hỏi kiểm tra đơn + sản phẩm",
+      "message": "đơn mua iPhone của tôi đâu rồi",
+      "ms": 28,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại iPhone 17 Pro Max 256GB 12GB/1TB - Trắng** — 41.096.000 ₫, **Điện thoại iPhone 17 Pro Max 256GB 12GB/256GB - Trắng** —",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1019",
+      "group": "EDGE",
+      "description": "Giá 0 đồng",
+      "message": "có điện thoại nào miễn phí không",
+      "ms": 26,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1020",
+      "group": "EDGE",
+      "description": "Giá rất cao",
+      "message": "điện thoại 1 tỷ có không",
+      "ms": 25,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1021",
+      "group": "EDGE",
+      "description": "Dải giá ngược",
+      "message": "từ 30 triệu đến 5 triệu",
+      "ms": 26,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ anh/chị cần tư vấn sản phẩm nào? Bên em có hơn 600.000 sản phẩm từ 67 thương hiệu, 8 danh mục chính ạ!",
+        "productCount": 0,
+        "topBrand": null,
+        "topCat": null
+      }
+    },
+    {
+      "id": "EDGE-1023",
+      "group": "EDGE",
+      "description": "Giá k (1000)",
+      "message": "tai nghe 500k có không",
+      "ms": 58,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Tai nghe Bluetooth True Wireless Machenike TH60** — 549.000 ₫, **Tai nghe Bluetooth True Wireless Machenike TH60** — 633.000 ₫, *",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-av-bt-earphone"
+      }
+    },
+    {
+      "id": "EDGE-1022",
+      "group": "EDGE",
+      "description": "Đơn vị không chuẩn",
+      "message": "laptop tầm 20 đô",
+      "ms": 180,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Laptop HP 15 fc0023AU - D0BH1PA (R5 7520U, 16GB, 512GB, Full HD, Win11) RAM 32GB 256GB SSD - Bạc** — 26.956.000 ₫, **Laptop HP 15",
+        "productCount": 4,
+        "topBrand": "br-hp",
+        "topCat": "cat-laptop"
+      }
+    },
+    {
+      "id": "EDGE-1024",
+      "group": "EDGE",
+      "description": "Số lượng mua",
+      "message": "mua 3 cái iPhone 17",
+      "ms": 20,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại iPhone 17 Pro Max 256GB 12GB/1TB - Trắng** — 41.096.000 ₫, **Điện thoại iPhone 17 Pro Max 256GB 12GB/256GB - Trắng** —",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1026",
+      "group": "EDGE",
+      "description": "Hỏi thông tin cá nhân",
+      "message": "ai là chủ shop này",
+      "ms": 213,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Laptop MacBook Air 13 inch M5 16GB/512GB/8GPU 70W RAM 16GB 256GB SSD - Vàng** — 38.560.000 ₫, **Laptop MacBook Air 13 inch M5 16G",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-laptop"
+      }
+    },
+    {
+      "id": "EDGE-1013",
+      "group": "EDGE",
+      "description": "Câu hỏi ngược",
+      "message": "không mua Samsung thì mua gì",
+      "ms": 1203,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại Samsung Galaxy A37 5G 6GB/128GB** — 9.976.000 ₫, **Bao da Galaxy Tab A11 Samsung Chính hãng** — 796.000 ₫, **Sạc nhanh",
+        "productCount": 4,
+        "topBrand": "br-samsung",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1025",
+      "group": "EDGE",
+      "description": "Địa chỉ trong câu hỏi",
+      "message": "mua điện thoại giao về quận 7",
+      "ms": 689,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Điện thoại Vivo X300 Ultra 16GB/512GB** — 41.516.000 ₫, **Điện thoại Samsung Galaxy A37 5G 6GB/128GB** — 9.976.000 ₫, **Điện thoạ",
+        "productCount": 4,
+        "topBrand": "br-vivo",
+        "topCat": "cat-phone"
+      }
+    },
+    {
+      "id": "EDGE-1027",
+      "group": "EDGE",
+      "description": "Câu hỏi ngắn nhất có nghĩa",
+      "message": "mua gì tốt",
+      "ms": 332,
+      "status": 200,
+      "passed": true,
+      "failures": [],
+      "response": {
+        "textSnippet": "Dạ bên em đang có: **Chân đế máy chiếu Wanbo Small - Màu Đen** — 167.000 ₫, **Loa Bluetooth Alpha Works AW-IKON12** — 1.647.000 ₫, **Máy Chiếu Xiaomi ",
+        "productCount": 4,
+        "topBrand": "br-apple",
+        "topCat": "cat-av-projector"
+      }
+    }
+  ]
+}

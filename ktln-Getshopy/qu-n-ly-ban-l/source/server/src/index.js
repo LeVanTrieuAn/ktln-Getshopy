@@ -608,6 +608,14 @@ wss.on('connection', (ws) => {
   ws.on('close', () => wsClients.delete(ws));
 });
 
+function broadcastStockUpdate() {
+  const payload = JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() });
+  wsClients.forEach(ws => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
+  });
+}
+app.locals.broadcastStockUpdate = broadcastStockUpdate;
+
 // P-04: Shared KPI cache — 1 query duy nhất mỗi 5s, broadcast cho TẤT CẢ clients
 // Tránh N×query khi có N admin dashboard mở đồng thời
 let _wsKpiCache = null;
@@ -772,31 +780,52 @@ const paymentRouter        = require('./routes/payment');
 app.use('/api', paymentRouter);
 
 // ─── AI SERVICES (tách thành container riêng: ai-bot) ────────────────────────
-// Proxy tất cả request AI (chat, search) sang container ai-bot
-const { createProxyMiddleware } = require('http-proxy-middleware');
+// Dùng direct fetch thay vì http-proxy-middleware để tránh các vấn đề
+// về path stripping và response piping của http-proxy-middleware v3.
+//
+// Mỗi endpoint gọi thẳng ai-bot và pipe JSON response về client.
 const AI_BOT_URL = process.env.AI_BOT_URL || 'http://localhost:3001';
+const AI_BOT_TIMEOUT_MS = 30_000; // 30s hard cap
 
-const aiProxy = createProxyMiddleware({
-  target: AI_BOT_URL,
-  changeOrigin: true,
-  timeout: 120000,       // 2 phút — LLM cold start có thể lâu
-  proxyTimeout: 120000,
-  onError: (err, req, res) => {
-    console.error('[AI Proxy] Error:', err.message);
+async function forwardToAiBot(req, res, botPath) {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), AI_BOT_TIMEOUT_MS);
+
+    const botRes = await fetch(`${AI_BOT_URL}${botPath}`, {
+      method: req.method,
+      headers: { 'Content-Type': 'application/json' },
+      body: req.method !== 'GET' ? JSON.stringify(req.body) : undefined,
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+
+    const data = await botRes.json();
+    res.status(botRes.status).json(data);
+  } catch (err) {
+    const isTimeout = err.name === 'AbortError';
+    console.error(`[AI Forward] ${botPath} ${isTimeout ? 'timeout' : err.message}`);
     if (!res.headersSent) {
-      res.status(502).json({
-        error: 'AI Bot service unavailable',
-        text: 'Dạ hệ thống AI đang bảo trì, anh/chị vui lòng thử lại sau ít phút nhé ạ!',
+      res.status(isTimeout ? 504 : 502).json({
+        error: isTimeout ? 'AI timeout' : 'AI Bot service unavailable',
+        text: isTimeout
+          ? 'Dạ AI đang hơi chậm, anh/chị thử lại sau vài giây nhé! Hoặc tìm trực tiếp trên Shop 🛍️'
+          : 'Dạ hệ thống AI đang bảo trì, anh/chị vui lòng thử lại sau ít phút nhé ạ!',
+        link: '/shop',
+        products: [],
       });
     }
-  },
-});
+  }
+}
 
 // Forward các path AI sang container ai-bot
-app.use('/api/b2c/chat', aiProxy);
-app.use('/api/ai/smart-search', aiProxy);
-app.use('/api/b2c/visual-search', aiProxy);
-app.use('/api/ai/smart-search-image', aiProxy);
+app.post('/api/b2c/chat',              (req, res) => forwardToAiBot(req, res, '/api/b2c/chat'));
+app.post('/api/ai/smart-search',       (req, res) => forwardToAiBot(req, res, '/api/ai/smart-search'));
+app.post('/api/b2c/visual-search',     (req, res) => forwardToAiBot(req, res, '/api/b2c/visual-search'));
+app.post('/api/ai/smart-search-image', (req, res) => forwardToAiBot(req, res, '/api/ai/smart-search-image'));
+// Giọng nói → chữ (voice input). Âm thanh base64 tối đa ~60 KB nên nằm gọn trong
+// giới hạn mặc định của express.json(); client ghi tối đa 15 giây.
+app.post('/api/ai/transcribe',         (req, res) => forwardToAiBot(req, res, '/api/ai/transcribe'));
 
 // Recommendation vẫn ở server (gọi ai-rec container qua HTTP trong RecommendationService)
 const recommendationRouter = require('./routes/recommendation');

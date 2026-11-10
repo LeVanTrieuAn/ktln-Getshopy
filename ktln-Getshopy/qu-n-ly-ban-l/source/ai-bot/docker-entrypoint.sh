@@ -1,4 +1,4 @@
-#!/bin/sh
+﻿#!/bin/sh
 set -eu
 
 : "${POSTGRES_HOST:=postgres}"

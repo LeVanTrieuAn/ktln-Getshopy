@@ -1,0 +1,7 @@
+# Temporary files
+*.tmp
+.gfy-replace-bak-*.tmp
+
+# Cache AST có thể regenerate bằng: graphify update .
+# Uncomment dòng dưới nếu muốn bỏ cache (tiết kiệm space)
+# cache/

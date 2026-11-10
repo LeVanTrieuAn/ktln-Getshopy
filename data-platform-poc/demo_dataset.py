@@ -595,6 +595,7 @@ def reset(conn, cur, a) -> None:
     """Tháo TOÀN BỘ dữ liệu do script này sinh. Đơn tạo tay trên tài khoản demo (không mang dấu)
     được giữ nguyên. Lưu ý: xoá hàng triệu đơn cũng sinh hàng triệu sự kiện xoá qua CDC."""
     like = f"%@{a.email_domain}"
+    restore_stock(conn, cur)      # trả tồn kho TRƯỚC khi xoá đơn — số trừ ghi riêng, không tính lại từ đơn
     print("reset: xoá đơn mang dấu _seed (dòng đơn xoá theo ON DELETE CASCADE)…", flush=True)
     cur.execute("""DELETE FROM "Order" WHERE customer->>'_seed' = %s""", (SEED_TAG,))
     print(f"  {cur.rowcount:,} đơn", flush=True)
@@ -691,6 +692,84 @@ def sync_sold(conn, cur) -> None:
     print(f"Product.sold: cập nhật {changed:,} sản phẩm theo đơn đã thanh toán", flush=True)
 
 
+# Số đã trừ vào tồn kho cho từng dòng "Inventory" — ở schema riêng (Prisma chỉ quản lý
+# `public` nên không coi là lệch schema). Có bảng = đã trừ: chạy lại không trừ chồng, và
+# --reset cộng trả đúng số đã trừ.
+STOCK_TABLE = "seed.demo_stock_deductions"
+
+
+def _sync_product_stock(cur) -> int:
+    """Product.stock = tổng on_hand các biến thể, cho các sản phẩm vừa đổi tồn. (Migration
+    20261008100000 có trigger làm việc này; gọi tay để đúng cả trên DB chưa có migration.)"""
+    cur.execute(f"""
+        UPDATE "Product" p SET stock = s.total
+        FROM (SELECT i.product_id, SUM(i.on_hand)::int AS total FROM "Inventory" i
+              WHERE i.product_id IN (SELECT DISTINCT i2.product_id FROM "Inventory" i2
+                                     JOIN {STOCK_TABLE} d ON d.inventory_id = i2.id)
+              GROUP BY i.product_id) s
+        WHERE p.id = s.product_id AND p.stock <> s.total""")
+    return cur.rowcount
+
+
+def apply_stock(conn, cur) -> dict:
+    """TRỪ THẲNG số đã bán của đơn demo khỏi tồn kho, chặn ở 0 (quyết định 08/10/2026).
+
+    "Đã bán" = đơn ĐÃ THANH TOÁN và KHÔNG HUỶ — cùng điều kiện với Product.sold và dbt.
+    Khớp dòng tồn kho theo bộ ba (product_id, variant_id, branch_id) của dòng đơn, như
+    inventoryService. Trừ tối đa on_hand - reserved, để giữ ràng buộc reserved <= on_hand.
+    Đơn COD đang giao chưa thu tiền (~0,3%) KHÔNG được giữ chỗ — giản lược của bộ sinh.
+    Hệ quả đã biết: món bán chạy nhất về 0 trên web.
+    """
+    cur.execute("SELECT to_regclass(%s) IS NOT NULL", (STOCK_TABLE,))
+    if cur.fetchone()[0]:
+        print(f"tồn kho: đã trừ ở lượt trước ({STOCK_TABLE}) — bỏ qua; --reset để tháo", flush=True)
+        return {"skipped": True}
+    cur.execute("CREATE SCHEMA IF NOT EXISTS seed")
+    cur.execute(f"""
+        CREATE TABLE {STOCK_TABLE} AS
+        WITH sold AS (
+            SELECT i.id AS inventory_id, SUM(oi.quantity)::int AS qty
+            FROM "OrderItem" oi
+            JOIN "Order" o ON o.id = oi.order_id
+            JOIN "Inventory" i ON i.product_id = oi.product_id
+                              AND i.variant_id = COALESCE(oi.variant_id, '')
+                              AND i.branch_id  = COALESCE(oi.branch_id, '')
+            WHERE o.customer->>'_seed' = %s AND o.payment_status = 'PAID' AND o.status <> 'CANCELLED'
+            GROUP BY i.id)
+        SELECT s.inventory_id, s.qty AS sold,
+               LEAST(s.qty, GREATEST(i.on_hand - i.reserved, 0)) AS applied, now() AS applied_at
+        FROM sold s JOIN "Inventory" i ON i.id = s.inventory_id""", (SEED_TAG,))
+    cur.execute(f"""UPDATE "Inventory" i SET on_hand = i.on_hand - d.applied, updated_at = NOW()
+                    FROM {STOCK_TABLE} d WHERE i.id = d.inventory_id AND d.applied > 0""")
+    _sync_product_stock(cur)
+    cur.execute(f"""SELECT count(*), COALESCE(sum(sold), 0), COALESCE(sum(applied), 0),
+                           count(*) FILTER (WHERE applied < sold)
+                    FROM {STOCK_TABLE}""")
+    rows, sold, applied, capped = cur.fetchone()
+    cur.execute(f"""SELECT count(*) FROM "Inventory" i JOIN {STOCK_TABLE} d ON d.inventory_id = i.id
+                    WHERE i.on_hand = 0""")
+    zero = cur.fetchone()[0]
+    conn.commit()
+    print(f"tồn kho: trừ {applied:,}/{sold:,} đơn vị trên {rows:,} dòng tồn kho; {capped:,} dòng bán "
+          f"vượt tồn nên chặn ở 0; {zero:,} dòng giờ hết hàng", flush=True)
+    return {"inventory_rows": rows, "units_sold": int(sold), "units_deducted": int(applied),
+            "rows_capped_at_zero": capped, "rows_now_out_of_stock": zero}
+
+
+def restore_stock(conn, cur) -> None:
+    """Cộng trả đúng số apply_stock đã trừ (dùng trong --reset)."""
+    cur.execute("SELECT to_regclass(%s) IS NOT NULL", (STOCK_TABLE,))
+    if not cur.fetchone()[0]:
+        return
+    cur.execute(f"""UPDATE "Inventory" i SET on_hand = i.on_hand + d.applied, updated_at = NOW()
+                    FROM {STOCK_TABLE} d WHERE i.id = d.inventory_id AND d.applied > 0""")
+    restored = cur.rowcount
+    _sync_product_stock(cur)
+    cur.execute(f"DROP TABLE {STOCK_TABLE}")
+    conn.commit()
+    print(f"reset: cộng trả tồn kho cho {restored:,} dòng", flush=True)
+
+
 def find_test_account(cur, email: str) -> Optional[dict]:
     cur.execute('SELECT id, full_name, email, phone FROM "B2CCustomer" WHERE email = %s', (email,))
     row = cur.fetchone()
@@ -739,6 +818,10 @@ def parse_args(argv=None):
     g.add_argument("--onboard-accuracy", type=float, default=0.8)
     g = ap.add_argument_group("vận hành")
     g.add_argument("--sold-mode", choices=("sync", "keep"), default="sync")
+    g.add_argument("--stock-mode", choices=("deduct", "keep"), default="deduct",
+                   help="deduct = trừ số đã bán của đơn demo khỏi tồn kho, chặn ở 0 (một lần, --reset trả lại)")
+    g.add_argument("--post-process", action="store_true",
+                   help="KHÔNG sinh gì: chỉ đồng bộ Product.sold và trừ tồn kho cho dữ liệu demo đã có")
     g.add_argument("--min-products", type=int, default=500_000,
                    help="chặn chạy khi catalog chưa seed (seed-catalog phải chạy trước)")
     g.add_argument("--reset", action="store_true", help="xoá dữ liệu demo cũ rồi sinh lại")

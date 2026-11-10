@@ -60,8 +60,8 @@ model Brand {
 model Product {
   id             BigInt   @id @default(autoincrement())
   name           String
-  price          Float
-  original_price Float
+  price          Int      // VND — đơn vị đồng, không có phần lẻ
+  original_price Int      // VND
   category_id    String
   brand_id       String
   stock          Int      @default(0)
@@ -121,7 +121,7 @@ model FlashSaleItem {
   id             BigInt   @id @default(autoincrement())
   flash_sale_id  BigInt
   product_id     BigInt
-  discount_price Float
+  discount_price Int      // VND
   limit          Int      @default(100)
   sold           Int      @default(0)
 }
