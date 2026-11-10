@@ -1,3 +1,9 @@
+{#- query_settings ghi đè max_threads = 4 chung của users.d/memory-limits.xml
+    (0 = tự chọn theo số vCPU, như mặc định của ClickHouse). Model này nằm trên
+    đường đi của đơn (SLA 5 phút): luồng ít đi là đơn vào kho chậm đi. Lượt
+    incremental chỉ dùng ~0,2 GiB (đo 08/11/2026). Riêng --full-refresh trên toàn
+    bộ dữ liệu, 16 luồng có thể chạm trần mỗi truy vấn (CLICKHOUSE_QUERY_MAX_MEMORY):
+    gặp lỗi MEMORY_LIMIT_EXCEEDED thì tạm bỏ dòng query_settings khi chạy lệnh đó. -#}
 {{
     config(
         materialized       = 'incremental',
@@ -6,7 +12,8 @@
         order_by           = '(item_id)',
         partition_by       = 'toYYYYMM(order_date)',
         incremental_strategy = 'append',
-        unique_key         = 'item_id'
+        unique_key         = 'item_id',
+        query_settings     = {'max_threads': 0}
     )
 }}
 

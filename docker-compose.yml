@@ -227,6 +227,9 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      # Heap JVM — mặc định 512 MB. Một broker, vài topic: đo được 0,17 GiB.
+      # JVM giữ phần heap đã chiếm chứ không trả lại, nên heap thừa là RAM mất.
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
     restart: unless-stopped
 
   kafka:
@@ -240,6 +243,10 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:${KAFKA_PORT:-9092}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Heap JVM — mặc định 1 GB, đo được 1,14 GiB (benchmark 23/10). Dữ liệu
+      # topic nằm trên đĩa và page cache của hệ điều hành, heap chỉ để xử lý
+      # request — một broker cỡ này không cần tới 1 GB.
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
     restart: unless-stopped
 
   kafka-connect:
@@ -302,6 +309,10 @@ services:
     image: metabase/metabase:latest
     # 3000 đã dành cho client Getshopy
     ports: ["${METABASE_PORT:-3001}:3000"]
+    environment:
+      # Heap JVM — không đặt thì JVM lấy tối đa 1/4 RAM máy ảo (~2,2 GB) và giữ
+      # 1,45 GiB kể cả khi không ai mở dashboard (benchmark 23/10).
+      JAVA_OPTS: "-Xmx1g"
     depends_on:
       clickhouse: {condition: service_healthy}
     restart: unless-stopped
@@ -437,6 +448,10 @@ services:
       ofelia.job-run.dbt-build.network: "kltn_default"
       ofelia.job-run.dbt-build.volume: "${PWD}/local-infra-sandbox/dbt_warehouse:/dbt"
       ofelia.job-run.dbt-build.command: "build"
+      # Lượt trước chưa xong thì bỏ qua lượt này. Mặc định ofelia cho chạy chồng
+      # (no-overlap = false): hai lượt cùng lúc là nhân đôi phần RAM ClickHouse
+      # của dbt — benchmark 23/10, B6.
+      ofelia.job-run.dbt-build.no-overlap: "true"
       # ofelia đọc trường `environment` theo cú pháp MẢNG JSON. Chuỗi ngăn bằng
       # dấu phẩy được nhận nguyên khối thành MỘT biến, nên dbt báo
       # "Env var required but not provided: MINIO_ACCESS_KEY" dù nhãn có đủ giá

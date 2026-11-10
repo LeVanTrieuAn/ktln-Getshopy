@@ -1,4 +1,5 @@
-{{ config(materialized='table', schema='audit', engine='MergeTree()', order_by='checked_at', tags=['audit']) }}
+{{ config(materialized='table', schema='audit', engine='MergeTree()', order_by='checked_at', tags=['audit'],
+          query_settings={'max_threads': 2}) }}
 
 -- =====================================================================
 -- CHECKSUM 3 TẦNG — mục 3.5 của checklist.
@@ -10,6 +11,11 @@
 --   src : Postgres  (nguồn nghiệp vụ, sự thật gốc)
 --   stg : parquet trên MinIO qua view s3()
 --   wh  : fact_orders_detail sau khi ReplacingMergeTree khử trùng
+--
+-- max_threads = 2 (query_settings ở trên, thấp hơn mức 4 chung trong
+-- users.d/memory-limits.xml): đo 05/11/2026 ở 3 triệu đơn, phần khử trùng 4 luồng
+-- 1,78 GiB / 3,1 s, 2 luồng 1,52 GiB / 4,5 s — mỗi luồng đọc parquet giữ bộ đệm
+-- riêng. Chậm vài giây không ảnh hưởng SLA: model này chạy sau fact_orders_detail.
 -- =====================================================================
 WITH
     src AS (
