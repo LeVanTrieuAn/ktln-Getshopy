@@ -921,8 +921,8 @@ export default function Account() {
                           whenCreated={(mapInstance) => { setTimeout(() => mapInstance.invalidateSize(), 300); }}
                         >
                           <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                            attribution='&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                            url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
                           />
                           <LocationMarker />
                           <MapResizer />
