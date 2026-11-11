@@ -560,7 +560,19 @@ export default function Checkout() {
             }
           `}</style>
           <ConfigProvider theme={{ components: { Input: { borderRadius: 10, colorBgContainer: isDark ? '#202024' : '#f4f4f5', colorBorder: isDark ? '#27272a' : '#e4e4e7', colorText: isDark ? '#fff' : '#000', controlHeightLG: 45 }, Select: { borderRadius: 10, colorBgContainer: isDark ? '#202024' : '#f4f4f5', colorBorder: isDark ? '#27272a' : '#e4e4e7', colorText: isDark ? '#fff' : '#000', controlHeightLG: 45 } } }}>
-            <Form form={form} layout="vertical" onFinish={onFinish} requiredMark={false} className="checkout-form">
+            {/* Điện thoại: form ở trên, nút "Xác nhận đặt hàng" ở cuối trang — thiếu ô nào thì lỗi
+                hiện TRÊN màn hình, khách bấm nút thấy "không có gì xảy ra" và tưởng không đặt
+                được (thử 11/11/2026: 4 lỗi địa chỉ nằm cách mép trên 200–519 px, không cuộn,
+                không có thông báo). Cuộn tới ô lỗi đầu tiên + báo một dòng ở đầu màn hình. */}
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={onFinish}
+              onFinishFailed={() => message.error('Vui lòng điền đủ thông tin giao hàng (ô còn thiếu đã được đánh dấu)')}
+              scrollToFirstError={{ behavior: 'smooth', block: 'center' }}
+              requiredMark={false}
+              className="checkout-form"
+            >
               <Row gutter={16}>
               <Col xs={24} md={12}>
                 <Form.Item name="full_name" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Họ và tên</span>} rules={fullNameRules}>
