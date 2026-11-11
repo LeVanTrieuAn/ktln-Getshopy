@@ -348,6 +348,7 @@ async function appendSearchConditions(conditions, params, rawSearch, category_id
   if (!rawSearch || !rawSearch.trim()) return;
 
   await refreshUnaccentFlag();
+  let rankSQL = null;
   const trimmed = rawSearch.trim();
   const extracted = extractCategoryAndTokens(trimmed);
   const isSpecificCatSelected = category_id && category_id !== 'ALL';
@@ -369,6 +370,10 @@ async function appendSearchConditions(conditions, params, rawSearch, category_id
       // Chỉ gõ tên danh mục (ví dụ "dien thoai", "dong ho", "sac, cap", "may tinh bang")
       // -> Lấy tất cả sản phẩm thuộc danh mục đó HOẶC có tên chứa từ khóa
       params.push(catIds, `%${trimmed}%`, `%${stripVi(trimmed)}%`);
+      // Xếp hạng: sản phẩm ĐÚNG danh mục lên trước, sản phẩm chỉ trùng chữ trong tên
+      // xếp sau. Không có thì "dien thoai" ra trang đầu toàn "Giá đỡ điện thoại" (mã
+      // mới nhất) — thấy trên giao diện 11/11/2026.
+      rankSQL = `(category_id = ANY($${params.length - 2})) DESC`;
       if (hasUnaccent) {
         conditions.push(
           `(category_id = ANY($${params.length - 2}) OR name ILIKE $${params.length - 1} OR unaccent(name) ILIKE unaccent($${params.length}))`
@@ -393,6 +398,13 @@ async function appendSearchConditions(conditions, params, rawSearch, category_id
       conditions.push(addNameCond(t));
     });
   }
+  return rankSQL;
+}
+
+/** ORDER BY: tiêu chí xếp hạng của tìm kiếm (nếu có) chỉ áp khi sắp mặc định / mới nhất. */
+function buildOrderSQL(orderMap, sort, rankSQL) {
+  const base = orderMap[sort] ?? 'id DESC';
+  return rankSQL && (!sort || sort === 'newest') ? `${rankSQL}, ${base}` : base;
 }
 
 // Get Products (with Filter/Sort)
@@ -479,7 +491,7 @@ router.get('/products', async (req, res) => {
       }
       
       // Tokenized search với unaccent() và tự động nhận diện danh mục
-      await appendSearchConditions(conditions, params, search, category_id);
+      const searchRank = await appendSearchConditions(conditions, params, search, category_id);
 
       // Price range for raw SQL
       if (parsedMinPrice !== null) {
@@ -502,7 +514,7 @@ router.get('/products', async (req, res) => {
         sold_desc:    'sold DESC',
         newest:       'id DESC',
       };
-      const orderSQL = ORDER_MAP[sort] ?? 'id DESC';
+      const orderSQL = buildOrderSQL(ORDER_MAP, sort, searchRank);
 
       const [rows, countRows] = await Promise.all([
         prisma.$queryRawUnsafe(
@@ -548,13 +560,13 @@ router.get('/products', async (req, res) => {
       if (parsedMaxPrice !== null) { params2.push(parsedMaxPrice); conditions2.push(`price <= $${params2.length}`); }
 
       // unaccent search + auto-resolve category
-      await appendSearchConditions(conditions2, params2, search, category_id);
+      const searchRank2 = await appendSearchConditions(conditions2, params2, search, category_id);
 
       const ORDER_MAP2 = {
         price_asc: 'price ASC', price_desc: 'price DESC',
         best_selling: 'sold DESC', bestseller: 'sold DESC', sold_desc: 'sold DESC', newest: 'id DESC',
       };
-      const orderSQL2 = ORDER_MAP2[sort] ?? 'id DESC';
+      const orderSQL2 = buildOrderSQL(ORDER_MAP2, sort, searchRank2);
       const whereSQL2 = conditions2.join(' AND ');
 
       const [rows2, countRows2] = await Promise.all([
