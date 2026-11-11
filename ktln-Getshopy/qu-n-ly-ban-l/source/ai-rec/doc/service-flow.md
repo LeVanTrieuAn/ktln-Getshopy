@@ -18,6 +18,7 @@
    - 4.1 [API endpoint](#41-api-endpoint)
    - 4.2 [Xử lý 1 request](#42-xử-lý-1-request)
    - 4.3 [Phân luồng theo loại khách](#43-phân-luồng-theo-loại-khách)
+   - 4.4 [Gợi ý realtime — đơn mua sau lần train](#44-gợi-ý-realtime--đơn-mua-sau-lần-train)
 5. [Xử lý lỗi và dự phòng](#5-xử-lý-lỗi-và-dự-phòng)
 6. [Endpoint Health](#6-endpoint-health)
 7. [Tương tác với hệ thống khác](#7-tương-tác-với-hệ-thống-khác)
@@ -376,6 +377,7 @@ def _precompute(model, top_k, budget_s):
 | `GET` | `/` | Redirect → `/docs` |
 | `GET` | `/health` | Trạng thái service + model |
 | `GET` | `/api/v1/recommend/customer/{customer_id}?top_k=10` | Gợi ý top-K cho khách |
+| `POST` | `/api/v1/recommend/realtime` | Như GET, có ghép đơn mua sau lần train — §4.4 |
 | `GET` | `/docs` | Swagger UI |
 | `GET` | `/redoc` | ReDoc UI |
 
@@ -502,6 +504,53 @@ rank(components, params, top_k)
 | Khách nhiều lịch sử | `alpha ≈ 1` → dùng thuần CF cho phần khám phá |
 | Món đã mua (allow_repeat=False) | Bị loại khỏi kết quả |
 | Món bị "không quan tâm" | Bị loại cứng (blocked mask) |
+
+### 4.4 Gợi ý realtime — đơn mua sau lần train
+
+*(12/11/2026)* Train chạy mỗi ngày lúc 22:00 (`TRAIN_DAILY_AT`), nên đơn mua trong ngày chưa có
+trong hồ sơ khách. Item-based CF tách được hai phần: độ tương đồng món–món là phần học offline,
+còn hồ sơ khách chỉ là vector đầu vào lúc suy luận (Sarwar et al., 2001; Linden et al., 2003) —
+nên ghép món vừa mua vào hồ sơ rồi nhân với ma trận đã train là đủ, không train lại.
+
+**Request** (server Node gửi; `customer_id` lấy từ token, không bao giờ từ client):
+
+```json
+POST /api/v1/recommend/realtime
+{"customer_id": "3822", "purchased_product_ids": ["1043", "877", "..."], "top_k": 8}
+```
+
+`top_k` mặc định `DEFAULT_TOP_K`; danh sách tối đa `REALTIME_MAX_PURCHASES` (1.000) mã, nhận cả
+số lẫn chuỗi. **Response**: cùng schema với GET (§4.1).
+
+**Ghép vào model** (`HybridRecommender.live_purchases`) — chỉ phần bản train CHƯA biết:
+
+| Thành phần | Món mới (bản train chưa có) | Món bản train đã có |
+|---|---|---|
+| Hồ sơ CF | Thêm cột, trọng số `fresh_purchase_weight()` = log1p(1) ≈ 0,693: một cái, cách 0 ngày → hệ số giảm theo thời gian = 1, rồi thang log của bản train | Giữ trọng số đã học |
+| Tập đã mua | Đánh dấu đã mua → CF thôi chấm; `allow_repeat=False` thì loại hẳn | Như GET |
+| Kênh mua lại | `order_freq`: +1 (một đơn hôm nay = 0,5^0); `cf_weight`: trọng số ma trận mua | Giữ điểm đã học |
+| Content-based | Không ghép — với k = 0 đang chạy, khách có ≥ 1 món CF thì α = 1 nên CB nặng 0; món ngoài không gian CF cũng không vào hồ sơ CB khi train lại (CB lấy lịch sử từ ma trận CF) | Như GET |
+| Mã lạ (món mới tinh, dưới ngưỡng số người mua) | Bỏ qua ở CF; nếu là ứng viên thì vẫn đánh dấu đã mua | — |
+
+`test_realtime.FoldInMatchesRetrainTests` kiểm: hồ sơ CF, tập đã mua và kênh mua lại mà realtime
+dựng ra TRÙNG với thứ lượt train kế tiếp dựng khi đơn đã vào warehouse. Chỉ độ tương đồng món–món
+còn là của lần train trước (thiếu các lượt đồng mua trong ngày).
+
+**Cache:** danh sách không thêm gì (mọi món bản train đã biết, hoặc toàn mã lạ) → kết quả trùng
+hẳn GET → đi đường GET (cache tính sẵn). Có phần mới → tính tại chỗ; cache tính từ hồ sơ cũ.
+
+**Độ trễ** (`evaluation/realtime_latency.py`, model tổng hợp 39.577 khách × 15.027 món, 3,77 triệu
+tương tác, 300 khách, top-8, 2 CPU, máy đang chạy cả hệ): GET không cache p50 9,1 ms / p95 15,5 ms;
+POST có 3 món mới p50 9,7 ms / p95 16,1 ms; POST không có gì mới 0,5 ms (phần tách) + cache;
+qua FastAPI kèm body 200 mã p50 17,2 ms / p95 25,9 ms.
+
+**Phía server** (`server/src/services/RecommendationService.js`): đọc tối đa 200 món đã mua gần
+nhất (đơn `payment_status = 'PAID' AND status <> 'CANCELLED'`, sản phẩm còn bán — cùng định nghĩa
+với dbt) → POST (timeout 1,5 s) → lỗi/hết giờ thì GET cũ → lỗi nữa thì rule-based.
+
+**Hạn chế:** chỉ gửi mã món nên món đã có trong hồ sơ mà khách mua thêm hôm nay chưa được tăng
+trọng số; đơn huỷ sau lần train còn trong hồ sơ tới 22:00 (danh sách chỉ cộng, không bớt); giả
+định 1 cái/món.
 
 ---
 

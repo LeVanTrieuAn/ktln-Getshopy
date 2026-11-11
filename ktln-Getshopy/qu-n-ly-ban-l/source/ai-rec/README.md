@@ -2,7 +2,8 @@
 
 Hybrid có trọng số gồm Item-based CF, content-based và kênh mua lại. Hỗ trợ thêm tín hiệu
 hành vi phụ (tuỳ chọn). Dữ liệu đọc từ warehouse ClickHouse (schema `serving`); mô hình train
-lại mỗi 5 phút và phục vụ qua FastAPI.
+lại mỗi ngày lúc 22:00 (`TRAIN_DAILY_AT`, từ 11/11/2026) và phục vụ qua FastAPI. Đơn mua
+trong ngày được ghép vào hồ sơ khách lúc suy luận qua `POST /api/v1/recommend/realtime`.
 
 - Đánh giá (giao thức, kết quả, hạn chế): [`evaluation/README.md`](evaluation/README.md)
 - Báo cáo hiện trạng: [`doc/result-sep30.md`](doc/result-sep30.md)
@@ -73,6 +74,16 @@ im lặng.
 |---|---|---|
 | `GET` | `/health` | Trạng thái, số khách/món, bản train, nguồn đang dùng, lỗi gần nhất |
 | `GET` | `/api/v1/recommend/customer/{customer_id}?top_k=10` | `{customer_id, recommendations: [{product_id, reason}]}` — `reason ∈ cf, content, repeat, popular` |
+| `POST` | `/api/v1/recommend/realtime` — body `{customer_id, purchased_product_ids: [..], top_k?}` | Cùng schema với GET. Món bản train chưa biết được ghép vào hồ sơ khách lúc suy luận (không train lại); không có gì mới thì trùng hẳn GET (dùng cache) |
+
+**Realtime (12/11/2026).** Train chỉ chạy mỗi ngày một lần nên đơn trong ngày chưa có trong
+hồ sơ khách. Item-based CF tách được hai phần — độ tương đồng món–món học offline, hồ sơ khách
+chỉ là vector đầu vào lúc suy luận (Sarwar et al., 2001; Linden et al., 2003) — nên server Node
+gửi kèm mã các món đã mua (đơn đã thanh toán, không huỷ — cùng định nghĩa tập train), AI-Rec
+ghép phần mới vào hồ sơ với trọng số đúng như lượt train tối nay sẽ cho (một cái, cách 0 ngày,
+thang log) rồi nhân với ma trận đã train. Món đã có giữ nguyên trọng số; mã lạ (món mới tinh)
+bị bỏ qua ở CF. Chi tiết: `models/hybrid.py` (`live_purchases`), `doc/service-flow.md` §4.4;
+độ trễ đo bằng `evaluation/realtime_latency.py`.
 
 ## Chạy
 
@@ -109,6 +120,7 @@ config.py       mọi tham số và truy vấn (đọc từ biến môi trườn
 - Burke, R. (2002). Hybrid recommender systems: Survey and experiments. *UMUAI*, 12(4).
 - Gao, C., He, X., Gan, D., Chen, X., Feng, F., Li, Y., Chua, T.-S., & Jin, D. (2019). Neural multi-task recommendation from multi-behavior data. *ICDE '19*.
 - Hu, Y., Koren, Y., & Volinsky, C. (2008). Collaborative filtering for implicit feedback datasets. *ICDM '08*.
+- Linden, G., Smith, B., & York, J. (2003). Amazon.com recommendations: Item-to-item collaborative filtering. *IEEE Internet Computing*, 7(1), 76–80.
 - Pazzani, M. J., & Billsus, D. (2007). Content-based recommendation systems. *The Adaptive Web*, LNCS 4321.
 - Sarwar, B., Karypis, G., Konstan, J., & Riedl, J. (2001). Item-based collaborative filtering recommendation algorithms. *WWW '01*.
 - Yi, X., Hong, L., Zhong, E., Liu, N. N., & Rajan, S. (2014). Beyond clicks: Dwell time for personalization. *RecSys '14*.

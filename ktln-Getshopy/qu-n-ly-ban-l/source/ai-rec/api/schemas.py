@@ -2,7 +2,31 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
+
+from config import DEFAULT_TOP_K, REALTIME_MAX_PURCHASES
+
+
+class RealtimeRecommendationRequest(BaseModel):
+    """Body của POST /api/v1/recommend/realtime (12/11/2026).
+
+    Chỉ nhận MÃ món đã mua — đơn đã thanh toán, không huỷ, đúng định nghĩa của tập
+    train (dbt purchase_events_for_AI_rec) — chưa nhận hành vi xem/giỏ: phạm vi
+    giai đoạn 1 người dùng đã duyệt.
+    """
+
+    # Server Node đọc product_id từ Postgres (BigInt): gửi số thay vì chuỗi cũng phải
+    # được nhận, vì mã chỉ dùng để tra như chuỗi — đúng cách tập train ép toString().
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+    customer_id: str = Field(..., min_length=1, max_length=64, description="Mã khách hàng (CustomerID)")
+    purchased_product_ids: list[str] = Field(
+        default_factory=list,
+        max_length=REALTIME_MAX_PURCHASES,
+        description="Mã các món khách đã mua tới lúc gọi (mới nhất trước). Món bản train "
+                    "đã biết giữ trọng số cũ; mã lạ (món mới tinh) bị bỏ qua.",
+    )
+    top_k: int = Field(DEFAULT_TOP_K, ge=1, le=50, description="Số lượng sản phẩm đề xuất tối đa")
 
 
 class RecommendationItem(BaseModel):

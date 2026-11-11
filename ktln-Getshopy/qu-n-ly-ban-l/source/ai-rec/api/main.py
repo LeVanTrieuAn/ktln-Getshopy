@@ -13,6 +13,7 @@ from fastapi.responses import RedirectResponse
 from api.schemas import (
     CustomerRecommendationResponse,
     HealthResponse,
+    RealtimeRecommendationRequest,
 )
 from api.service import CFModelService
 from config import (
@@ -119,5 +120,36 @@ def recommend_for_customer(
         return service.recommend_for_customer(customer_id=customer_id, top_k=top_k)
     except Exception as exc:
         logger.error("Error generating recommendations for customer %s: %s", customer_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# 12/11/2026 — train chạy mỗi ngày một lần (22:00), nên khách mua trong ngày chưa thấy
+# gợi ý đổi theo đơn vừa mua. Endpoint này nhận kèm danh sách món đã mua (server Node
+# đọc từ Postgres) và ghép phần mới vào hồ sơ khách lúc suy luận. GET ở trên giữ nguyên;
+# response cùng schema để server đọc hai đường như nhau. POST vì danh sách có thể dài
+# (tới hàng trăm mã) — nhét vào query string thì đụng giới hạn độ dài URL.
+@app.post(
+    "/api/v1/recommend/realtime",
+    response_model=CustomerRecommendationResponse,
+    tags=["Recommendations"],
+    summary="Recommend products, folding in purchases made after the last training run",
+    description=(
+        "Same hybrid as GET /api/v1/recommend/customer/{customer_id}, but the purchased product "
+        "ids sent in the body are folded into the customer's profile at inference time and scored "
+        "with the already-trained item similarity (no retraining). Items the trained profile already "
+        "has keep their learned weights; ids unknown to the trained item space are ignored. When the "
+        "list adds nothing new, the result is identical to the GET endpoint (precomputed cache)."
+    ),
+)
+def recommend_realtime(body: RealtimeRecommendationRequest) -> CustomerRecommendationResponse:
+    service = CFModelService.get_instance()
+    try:
+        return service.recommend_realtime(
+            customer_id=body.customer_id,
+            purchased_product_ids=body.purchased_product_ids,
+            top_k=body.top_k,
+        )
+    except Exception as exc:
+        logger.error("Error generating realtime recommendations for customer %s: %s", body.customer_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

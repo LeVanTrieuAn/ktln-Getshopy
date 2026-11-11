@@ -449,6 +449,23 @@ class CFModelService:
             last_error=self._last_error,
         )
 
+    @staticmethod
+    def _cached_or_computed(bundle: ModelBundle, cid: str, top_k: int) -> list[tuple[str, str]]:
+        """Top-K theo những gì bản train biết: cache tính sẵn nếu đủ, không thì tính tại chỗ."""
+        cached = bundle.cache.get(cid)
+        if cached is not None and len(cached) >= top_k:
+            return cached[:top_k]
+        # Không có trong cache (khách mới mua lần đầu, hoặc xin nhiều hơn
+        # số đã tính sẵn) thì tính tại chỗ từ CHÍNH bản model này.
+        return [(pid, reason) for pid, _, reason in bundle.model.recommend(cid, top_k=top_k)]
+
+    @staticmethod
+    def _response(cid: str, items: list[tuple[str, str]]) -> CustomerRecommendationResponse:
+        return CustomerRecommendationResponse(
+            customer_id=cid,
+            recommendations=[RecommendationItem(product_id=p, reason=r) for p, r in items],
+        )
+
     def recommend_for_customer(
         self, customer_id: str, top_k: int = 10
     ) -> CustomerRecommendationResponse:
@@ -460,15 +477,36 @@ class CFModelService:
             return CustomerRecommendationResponse(customer_id=customer_id, recommendations=[])
 
         cid = str(customer_id)
-        cached = bundle.cache.get(cid)
-        if cached is not None and len(cached) >= top_k:
-            items = cached[:top_k]
-        else:
-            # Không có trong cache (khách mới mua lần đầu, hoặc xin nhiều hơn
-            # số đã tính sẵn) thì tính tại chỗ từ CHÍNH bản model này.
-            items = [(pid, reason) for pid, _, reason in bundle.model.recommend(cid, top_k=top_k)]
+        return self._response(cid, self._cached_or_computed(bundle, cid, top_k))
 
-        return CustomerRecommendationResponse(
-            customer_id=cid,
-            recommendations=[RecommendationItem(product_id=p, reason=r) for p, r in items],
+    def recommend_realtime(
+        self, customer_id: str, purchased_product_ids: list[str], top_k: int = 10
+    ) -> CustomerRecommendationResponse:
+        """Gợi ý có tính cả đơn mua SAU lần train gần nhất (12/11/2026).
+
+        Train chạy mỗi ngày một lần (TRAIN_DAILY_AT) nên đơn trong ngày chưa vào hồ sơ
+        khách. Server gửi kèm mã các món khách đã mua (đọc Postgres lúc request); phần
+        bản train đã biết giữ nguyên, phần mới ghép vào hồ sơ rồi chấm bằng ma trận
+        tương đồng ĐÃ TRAIN — không train lại (HybridRecommender.live_purchases).
+
+        Danh sách không thêm được gì (mọi món bản train đã biết, hoặc toàn mã lạ) thì
+        kết quả trùng hẳn GET -> đi chung đường với GET để dùng cache tính sẵn. Có phần
+        mới thì tính tại chỗ: cache được tính từ hồ sơ CŨ, trả nó là trả gợi ý sai.
+        """
+        bundle = self._bundle                         # chụp MỘT lần, như GET
+        if bundle is None:
+            return CustomerRecommendationResponse(customer_id=customer_id, recommendations=[])
+
+        cid = str(customer_id)
+        live = bundle.model.live_purchases(cid, purchased_product_ids)
+        if live.empty:
+            items = self._cached_or_computed(bundle, cid, top_k)
+        else:
+            items = [(pid, reason) for pid, _, reason in bundle.model.recommend(cid, top_k=top_k, live=live)]
+        logger.debug(
+            "Realtime khách %s: %d mã gửi lên, %d món mới vào hồ sơ CF, %d món mới đã mua, "
+            "%d mã lạ bị bỏ qua%s.",
+            cid, len(purchased_product_ids), live.cf_cols.size, live.cand.size, live.unknown,
+            " (dùng đường GET)" if live.empty else "",
         )
+        return self._response(cid, items)
