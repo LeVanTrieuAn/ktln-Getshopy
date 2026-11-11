@@ -194,16 +194,8 @@ export default function StoreLayout() {
       }
     }).catch(() => setHasFlashSale(false));
   }, []);
-
-  useEffect(() => {
-    api.b2c.getFlashSales().then(data => {
-      if (data && data.items && data.items.length > 0 && new Date(data.end_time).getTime() > Date.now()) {
-        setHasFlashSale(true);
-      } else {
-        setHasFlashSale(false);
-      }
-    }).catch(() => setHasFlashSale(false));
-  }, []);
+  // (12/11/2026) Đã bỏ một useEffect y hệt ngay dưới đây — mỗi lần vào trang gọi
+  // /api/b2c/flash-sales hai lần cho cùng một kết quả.
 
   // Live Search States
   const [searchKeyword, setSearchKeyword] = useState('');

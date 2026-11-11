@@ -1,6 +1,9 @@
 const express = require('express');
 const { prisma } = require('../db');
 const { invalidate } = require('../redis');
+// Cache số đếm / thứ hạng danh sách sản phẩm của cửa hàng (routes/b2c.js, 12/11/2026):
+// xoá khi thêm/sửa/xoá sản phẩm để "N sản phẩm" và danh mục cập nhật ngay.
+const { invalidateListingCache } = require('./b2c');
 const router = express.Router();
 
 // Get all reviews
@@ -258,6 +261,7 @@ router.post('/products', async (req, res) => {
       },
     });
     
+    invalidateListingCache();   // chạy nền, tự bắt lỗi — không bắt quản trị chờ
     res.json({ message: 'Product added successfully', product: { ...newProduct, id: Number(newProduct.id) } });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -322,6 +326,7 @@ router.put('/products/:id', async (req, res) => {
       }
     }
     
+    invalidateListingCache();
     res.json({ message: 'Product updated successfully', product: { ...product, id: Number(product.id) } });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Product not found' });
@@ -335,6 +340,7 @@ router.delete('/products/:id', async (req, res) => {
       where: { id: BigInt(req.params.id) },
       data: { is_deleted: true }
     });
+    invalidateListingCache();
     res.json({ message: 'Product soft-deleted successfully' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Product not found' });

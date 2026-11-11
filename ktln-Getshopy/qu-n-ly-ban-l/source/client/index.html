@@ -10,6 +10,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
 
+    <!-- Ảnh sản phẩm lấy từ CDN Thế Giới Di Động (12/11/2026): mở sẵn DNS + TCP + TLS trong lúc
+         JS còn tải, ảnh đầu tiên khỏi phải chờ bắt tay. Đo từ mạng nhà ~65 ms, trên 4G ước
+         150–300 ms. Không crossorigin: thẻ <img> tải không qua CORS. -->
+    <link rel="preconnect" href="https://cdnv2.tgdd.vn" />
+    <link rel="preconnect" href="https://cdn.tgdd.vn" />
+
     <!-- Google Fonts: preconnect trước, load non-blocking với media trick -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

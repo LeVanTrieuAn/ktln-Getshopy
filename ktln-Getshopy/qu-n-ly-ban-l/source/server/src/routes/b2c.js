@@ -486,6 +486,24 @@ async function listingCached(key, compute) {
   return entry.v;
 }
 
+/**
+ * Xoá cache danh sách (số đếm, thứ hạng bán chạy) — gọi khi quản trị thêm/sửa/xoá sản phẩm
+ * (routes/b2b.js) để "N sản phẩm" và danh mục cập nhật NGAY, thay vì cũ thêm một request như
+ * đánh đổi nêu ở trên (12/11/2026). Lần xem kế tiếp sẽ quét lại một lần.
+ */
+async function invalidateListingCache() {
+  _listingMem.clear();
+  if (!redisIsConnected()) return;
+  try {
+    // redis v4: scanIterator trả từng khoá. SCAN thay cho KEYS để không chặn Redis.
+    for await (const key of redis.scanIterator({ MATCH: 'products:*', COUNT: 200 })) {
+      await redis.del(key);
+    }
+  } catch (err) {
+    console.warn('[products] Xoá cache danh sách lỗi:', err.message);
+  }
+}
+
 // Bảng Branch hiện có 4 chi nhánh. Mỗi chi nhánh thêm một biểu thức FILTER cho mọi dòng,
 // nên chỉ gộp tối đa ngần này chi nhánh vào một lần quét; phần dư đếm riêng.
 const MAX_BRANCHES_PER_SCAN = 16;
@@ -1281,4 +1299,6 @@ router.post('/auth/set-password', authB2C, async (req, res) => {
 });
 
 module.exports = router;
+// routes/b2b.js gọi khi quản trị thêm/sửa/xoá sản phẩm (xem invalidateListingCache).
+module.exports.invalidateListingCache = invalidateListingCache;
 
