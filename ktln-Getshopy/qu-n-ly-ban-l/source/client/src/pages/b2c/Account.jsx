@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Row, Col, Card, Typography, Menu, Divider, Tag, Steps, Button, Input, message, Spin, Modal, Form, Empty } from 'antd';
 import { SketchOutlined, CrownOutlined, StarOutlined, TrophyOutlined, GiftOutlined, GoogleOutlined, LockOutlined, CloseOutlined, SafetyCertificateFilled } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
@@ -11,7 +11,7 @@ import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-lea
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ReactDOMServer from 'react-dom/server';
-import { EnvironmentFilled } from '@ant-design/icons';
+import { EnvironmentFilled, AimOutlined } from '@ant-design/icons';
 
 const DefaultIcon = L.divIcon({
   html: ReactDOMServer.renderToString(
@@ -27,19 +27,56 @@ L.Marker.prototype.options.icon = DefaultIcon;
 
 const { Title, Text } = Typography;
 
-const MapResizer = () => {
+// Đo lại khung bản đồ trong lúc Modal chạy hiệu ứng mở. Từ 12/11/2026 chạy lại MỖI LẦN mở (active),
+// không chỉ lần đầu: Modal không huỷ bản đồ khi đóng, mà lúc nó đang ẩn (display: none) mà xoay máy
+// thì Leaflet đo được khung 0×0 — mở lại thấy bản đồ xám nếu không đo lại.
+const MapResizer = ({ active = true }) => {
   const map = useMap();
   useEffect(() => {
+    if (!active) return undefined;
     // Invalidate size periodically to ensure it catches modal animations
     const interval = setInterval(() => {
       map.invalidateSize();
     }, 100);
-    setTimeout(() => {
+    const stop = setTimeout(() => {
       clearInterval(interval);
       map.invalidateSize();
     }, 1500);
-    return () => clearInterval(interval);
-  }, [map]);
+    return () => { clearInterval(interval); clearTimeout(stop); };
+  }, [map, active]);
+  return null;
+};
+
+// ── Bản đồ ghim địa chỉ trong Sổ địa chỉ (12/11/2026) — cùng cách làm với Checkout.jsx ──
+// Zoom 13 cũ: trên điện thoại cả mấy quận dồn vào một khung, ô bản đồ 256 px bị phóng lên nên mờ, tên
+// phường/đường chồng lên nhau. Nay mở ở 16 (vài dãy phố) và tự hỏi vị trí máy; có vị trí thì ghim ở 17.
+const PICKER_ZOOM = 16;
+const LOCATED_ZOOM = 17;
+// enableHighAccuracy: xin GPS chứ không chỉ Wi-Fi/IP. timeout 10 s tính từ lúc khách đã cho phép (W3C
+// Geolocation API, PositionOptions.timeout). maximumAge 60 s: vị trí vừa lấy thì dùng lại cho nhanh.
+const GEO_OPTIONS = { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 };
+
+const fmtAccuracy = (m) => (m >= 1000
+  ? `${(m / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km`
+  : `${Math.round(m)} m`);
+
+// Mã lỗi theo GeolocationPositionError: 1 = không được cấp quyền, 2 = không xác định được, 3 = quá giờ.
+const geoErrorText = (err) => {
+  switch (err?.code) {
+    case 1: return 'Chưa được cấp quyền vị trí — bật trong cài đặt trình duyệt, hoặc chạm vào bản đồ để chọn.';
+    case 2: return 'Không xác định được vị trí (GPS tắt hoặc sóng yếu) — thử lại, hoặc chạm vào bản đồ để chọn.';
+    case 3: return 'Lấy vị trí quá lâu — thử lại, hoặc chạm vào bản đồ để chọn.';
+    default: return 'Không lấy được vị trí — thử lại, hoặc chạm vào bản đồ để chọn.';
+  }
+};
+
+// MapContainer chỉ đọc center/zoom lúc tạo bản đồ; đưa bản đồ tới vị trí vừa định vị thì phải gọi
+// setView trên chính bản đồ. Mỗi lần `view` là object mới -> đưa bản đồ tới đó (null = để nguyên).
+const MapView = ({ view }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (view) map.setView(view.center, view.zoom);
+  }, [map, view]);
   return null;
 };
 
@@ -79,13 +116,73 @@ export default function Account() {
     if (activeTab === 'preferences' && !onboardingOpen) fetchPref();
   }, [activeTab, onboardingOpen]);
 
+  // Định vị cho bản đồ ghim (12/11/2026) — xem chú thích PICKER_ZOOM ở đầu file
+  const [mapView, setMapView] = useState(null);
+  const [geo, setGeo] = useState({ status: 'idle', text: '' }); // idle | locating | done | warn | error
+  // Tăng mỗi lần hỏi vị trí / đóng hộp / khách tự chạm chọn: kết quả định vị về muộn thì bỏ, không được
+  // kéo ghim khỏi chỗ khách vừa chọn hay ghi vào ô địa chỉ khi hộp đã đóng.
+  const geoReqRef = useRef(0);
+  // Bị từ chối quyền / máy không hỗ trợ: không tự hỏi lại mỗi lần mở (vẫn bấm nút để thử lại được)
+  const geoBlockedRef = useRef(false);
+
+  // Điền ô "Địa chỉ cụ thể" từ điểm trên bản đồ — dùng chung cho chạm chọn (luồng cũ) và định vị
+  const fillStreetFromPoint = useCallback((lat, lng) => {
+    form.setFieldsValue({ street: `Toạ độ: ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+  }, [form]);
+
+  const locateMe = useCallback(() => {
+    const reqId = ++geoReqRef.current;
+    if (!navigator.geolocation || window.isSecureContext === false) {
+      geoBlockedRef.current = true;
+      setGeo({ status: 'error', text: navigator.geolocation
+        ? 'Định vị chỉ chạy trên trang HTTPS — hãy chạm vào bản đồ để chọn.'
+        : 'Trình duyệt không hỗ trợ định vị — hãy chạm vào bản đồ để chọn.' });
+      return;
+    }
+    setGeo({ status: 'locating', text: 'Đang lấy vị trí hiện tại…' });
+    navigator.geolocation.getCurrentPosition((pos) => {
+      if (reqId !== geoReqRef.current) return;
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const acc = fmtAccuracy(accuracy);
+      if (accuracy > 1000) {
+        // Chỉ có vị trí theo mạng/IP (sai cả km): ghim vào đây là lưu sai địa chỉ -> chỉ đưa bản đồ tới gần
+        setMapView({ center: [lat, lng], zoom: PICKER_ZOOM - 1 });
+        setGeo({ status: 'warn', text: `Chỉ định vị được gần đúng (sai số ~${acc}) nên chưa ghim — hãy chạm đúng chỗ nhận hàng.` });
+        return;
+      }
+      setMapPosition([lat, lng]);
+      setMapView({ center: [lat, lng], zoom: accuracy > 150 ? PICKER_ZOOM : LOCATED_ZOOM });
+      fillStreetFromPoint(lat, lng);
+      setGeo(accuracy > 150
+        ? { status: 'warn', text: `Đã ghim vị trí gần đúng (sai số ~${acc}) — kiểm tra lại, lệch thì chạm đúng chỗ.` }
+        : { status: 'done', text: `Đã ghim vị trí hiện tại (sai số ~${acc}). Chạm bản đồ nếu cần chỉnh.` });
+    }, (err) => {
+      if (reqId !== geoReqRef.current) return;
+      if (err?.code === 1) geoBlockedRef.current = true;
+      setGeo({ status: 'error', text: geoErrorText(err) });
+    }, GEO_OPTIONS);
+  }, [fillStreetFromPoint]);
+
+  // Mở hộp "Thêm địa chỉ" mà ô địa chỉ cụ thể còn trống -> tự hỏi vị trí một lần. Ô đã có nội dung
+  // (khách đang gõ dở rồi đóng hộp) thì KHÔNG tự hỏi để khỏi ghi đè; muốn thì bấm "Dùng vị trí hiện tại".
+  useEffect(() => {
+    if (!isAddressModalOpen) return undefined;
+    if (!geoBlockedRef.current && !String(form.getFieldValue('street') || '').trim()) locateMe();
+    return () => {
+      geoReqRef.current += 1; // đóng hộp: bỏ kết quả định vị còn đang chờ
+      setGeo(g => (g.status === 'locating' ? { status: 'idle', text: '' } : g));
+    };
+  }, [isAddressModalOpen, form, locateMe]);
+
   const LocationMarker = () => {
     useMapEvents({
       click(e) {
+        // Khách tự chạm chọn thì chỗ đó thắng: bỏ kết quả định vị còn đang chờ
+        geoReqRef.current += 1;
+        setGeo({ status: 'idle', text: '' });
+        setMapView(null);
         setMapPosition([e.latlng.lat, e.latlng.lng]);
-        form.setFieldsValue({
-          street: `Toạ độ: ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`
-        });
+        fillStreetFromPoint(e.latlng.lat, e.latlng.lng);
       },
     });
     return mapPosition === null ? null : <Marker position={mapPosition}></Marker>;
@@ -953,10 +1050,32 @@ export default function Account() {
                     </div>
                     <div style={{ flex: '1 1 340px' }}>
                       <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 14 }}>Ghim vị trí trên bản đồ</div>
+                      {/* Nút định vị + dòng trạng thái (12/11/2026): tự hỏi một lần khi mở hộp; nút để thử
+                          lại sau khi bị từ chối / quá giờ, hoặc chủ động ghi đè ô địa chỉ cụ thể. */}
+                      <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px 12px', marginBottom: 10 }}>
+                        <Button
+                          icon={<AimOutlined />}
+                          onClick={() => locateMe()}
+                          loading={geo.status === 'locating'}
+                          style={{ borderRadius: 8, fontWeight: 600 }}
+                        >
+                          Dùng vị trí hiện tại
+                        </Button>
+                        <span
+                          role="status"
+                          aria-live="polite"
+                          style={{
+                            flex: '1 1 200px', fontSize: 12,
+                            color: geo.status === 'error' ? '#ef4444' : geo.status === 'warn' ? '#d97706' : (isDark ? '#a1a1aa' : '#71717a'),
+                          }}
+                        >
+                          {geo.text}
+                        </span>
+                      </div>
                       <div style={{ height: 380, borderRadius: 14, overflow: 'hidden', border: `1px solid ${isDark ? '#3f3f46' : '#d4d4d8'}`, position: 'relative', zIndex: 0 }}>
                         <MapContainer
                           center={mapPosition}
-                          zoom={13}
+                          zoom={PICKER_ZOOM}
                           scrollWheelZoom={true}
                           style={{ height: '100%', width: '100%', zIndex: 0 }}
                           whenCreated={(mapInstance) => { setTimeout(() => mapInstance.invalidateSize(), 300); }}
@@ -968,7 +1087,8 @@ export default function Account() {
                             url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
                           />
                           <LocationMarker />
-                          <MapResizer />
+                          <MapView view={mapView} />
+                          <MapResizer active={isAddressModalOpen} />
                         </MapContainer>
                       </div>
                       <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 8 }}>

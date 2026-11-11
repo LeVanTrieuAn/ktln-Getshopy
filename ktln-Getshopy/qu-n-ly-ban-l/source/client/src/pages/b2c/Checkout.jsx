@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { Row, Col, Typography, Form, Input, Button, Divider, message, Select, Space, Checkbox, Modal, ConfigProvider } from 'antd';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import ReactDOMServer from 'react-dom/server';
-import { EnvironmentFilled } from '@ant-design/icons';
+import { EnvironmentFilled, AimOutlined } from '@ant-design/icons';
 
 const DefaultIcon = L.divIcon({
   html: ReactDOMServer.renderToString(
@@ -25,22 +25,62 @@ import { useTracking } from '../../hooks/useTracking';
 import PaymentQRModal from '../../components/b2c/PaymentQRModal';
 import { phoneRules, fullNameRules, addressRules, shortTextRules } from '../../utils/validators';
 import { getProductImage, handleImageError } from '../../utils/categoryResolver';
+import useMediaQuery from '../../hooks/useMediaQuery';
 
 const { Title, Text } = Typography;
 
-const MapResizer = () => {
+// Đo lại khung bản đồ trong lúc Modal chạy hiệu ứng mở. Từ 12/11/2026 chạy lại MỖI LẦN mở (active),
+// không chỉ lần đầu: Modal không huỷ bản đồ khi đóng, mà lúc nó đang ẩn (display: none) mà xoay máy
+// thì Leaflet đo được khung 0×0 — mở lại thấy bản đồ xám nếu không đo lại.
+const MapResizer = ({ active = true }) => {
   const map = useMap();
   useEffect(() => {
+    if (!active) return undefined;
     // Invalidate size periodically to ensure it catches modal animations
     const interval = setInterval(() => {
       map.invalidateSize();
     }, 100);
-    setTimeout(() => {
+    const stop = setTimeout(() => {
       clearInterval(interval);
       map.invalidateSize();
     }, 1500);
-    return () => clearInterval(interval);
-  }, [map]);
+    return () => { clearInterval(interval); clearTimeout(stop); };
+  }, [map, active]);
+  return null;
+};
+
+// ── Bản đồ ghim địa chỉ (12/11/2026) ──
+// Trước đây mở ở zoom 13 tại một điểm cố định của TP.HCM: trên điện thoại cả mấy quận dồn vào một
+// khung, ô bản đồ 256 px bị phóng lên nên mờ, tên phường/đường chồng lên nhau, khách phải tự kéo và
+// phóng to mới tìm được nhà. Nay mở ở 16 (vài dãy phố) và tự hỏi vị trí máy; có vị trí thì ghim ở 17.
+const PICKER_ZOOM = 16;
+const LOCATED_ZOOM = 17;
+// enableHighAccuracy: xin GPS chứ không chỉ Wi-Fi/IP — ghim giao hàng cần sát tới số nhà.
+// timeout 10 s tính từ lúc khách đã cho phép (thời gian hộp hỏi quyền đang mở không bị tính —
+// W3C Geolocation API, PositionOptions.timeout). maximumAge 60 s: vị trí vừa lấy thì dùng lại cho nhanh.
+const GEO_OPTIONS = { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 };
+
+const fmtAccuracy = (m) => (m >= 1000
+  ? `${(m / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} km`
+  : `${Math.round(m)} m`);
+
+// Mã lỗi theo GeolocationPositionError: 1 = không được cấp quyền, 2 = không xác định được, 3 = quá giờ.
+const geoErrorText = (err) => {
+  switch (err?.code) {
+    case 1: return 'Chưa được cấp quyền vị trí — bật trong cài đặt trình duyệt, hoặc chạm vào bản đồ để chọn.';
+    case 2: return 'Không xác định được vị trí (GPS tắt hoặc sóng yếu) — thử lại, hoặc chạm vào bản đồ để chọn.';
+    case 3: return 'Lấy vị trí quá lâu — thử lại, hoặc chạm vào bản đồ để chọn.';
+    default: return 'Không lấy được vị trí — thử lại, hoặc chạm vào bản đồ để chọn.';
+  }
+};
+
+// MapContainer chỉ đọc center/zoom lúc tạo bản đồ; muốn đưa bản đồ tới vị trí vừa định vị thì phải
+// gọi setView trên chính bản đồ. Mỗi lần `view` là object mới -> đưa bản đồ tới đó (null = để nguyên).
+const MapView = ({ view }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (view) map.setView(view.center, view.zoom);
+  }, [map, view]);
   return null;
 };
 
@@ -84,17 +124,115 @@ export default function Checkout() {
   const [success, setSuccess] = useState(false);
   const [orderData, setOrderData] = useState(null);
   
+  // ── Điện thoại: thanh "Tổng tiền + Đặt hàng" ghim ở đáy (12/11/2026) ──
+  // Trên điện thoại form ở trên, tổng tiền ở cột tóm tắt bên dưới, nút đặt hàng kẹt giữa trang: khách
+  // phải cuộn qua hết form mới thấy nút, và lúc bấm thì chưa thấy tổng tiền. Ghim cả hai ở đáy như các
+  // app mua sắm. Thanh thay chỗ thanh điều hướng dưới đáy của StoreLayout (báo ẩn qua Outlet context):
+  // đặt chồng lên nhau thì mất ~120 px màn hình và nút Chat AI (đứng ngay trên thanh điều hướng) đè lên
+  // nút Đặt hàng. Màn "Đặt hàng thành công" không có thanh này nên thanh điều hướng hiện lại.
+  const isPhone = useMediaQuery('(max-width: 768px)');
+  const showMobileBar = isPhone && !(success && orderData);
+  const { setHideBottomNav } = useOutletContext() || {};
+  // useLayoutEffect: ẩn trước khi vẽ, không nháy thanh điều hướng đè lên thanh đặt hàng lúc vào trang
+  useLayoutEffect(() => {
+    if (!showMobileBar || typeof setHideBottomNav !== 'function') return undefined;
+    setHideBottomNav(true);
+    return () => setHideBottomNav(false);
+  }, [showMobileBar, setHideBottomNav]);
+
+  // Đang gõ (bàn phím ảo mở) thì giấu thanh: có trình duyệt thu nhỏ khung nhìn theo bàn phím, thanh
+  // cố định nằm ngay trên bàn phím và che ô đang gõ; iOS thì thanh cố định trôi lệch khi cuộn lúc gõ.
+  const [typing, setTyping] = useState(false);
+  useEffect(() => {
+    if (!isPhone) return undefined;
+    const isTextField = (el) => !!el && !el.readOnly && (el.tagName === 'TEXTAREA'
+      || (el.tagName === 'INPUT' && !/^(checkbox|radio|button|submit|reset|file|range|color)$/i.test(el.type)));
+    let timer;
+    // Chuyển ô = focusout rồi focusin: đợi một nhịp mới đọc ô đang focus để thanh không nháy giữa hai ô
+    const sync = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => setTyping(isTextField(document.activeElement)), 0);
+    };
+    sync();
+    document.addEventListener('focusin', sync);
+    document.addEventListener('focusout', sync);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('focusin', sync);
+      document.removeEventListener('focusout', sync);
+    };
+  }, [isPhone]);
+
   // Map State
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [mapPosition, setMapPosition] = useState([10.762622, 106.660172]); // Default HCMC
+  // Định vị cho bản đồ (12/11/2026) — xem chú thích PICKER_ZOOM ở đầu file
+  const [mapView, setMapView] = useState(null);
+  const [geo, setGeo] = useState({ status: 'idle', text: '' }); // idle | locating | done | warn | error
+  // Tăng mỗi lần hỏi vị trí / đóng bản đồ / khách tự chạm chọn: kết quả định vị về muộn thì bỏ,
+  // không được kéo ghim khỏi chỗ khách vừa chọn hay ghi vào ô địa chỉ khi bản đồ đã đóng.
+  const geoReqRef = useRef(0);
+  // Bị từ chối quyền / máy không hỗ trợ: không tự hỏi lại mỗi lần mở (vẫn bấm nút để thử lại được)
+  const geoBlockedRef = useRef(false);
+
+  // Điền ô địa chỉ từ điểm trên bản đồ — dùng chung cho chạm chọn (luồng cũ) và định vị
+  const fillAddressFromPoint = useCallback((lat, lng) => {
+    form.setFieldsValue({ address: `Toạ độ: ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+  }, [form]);
+
+  const locateMe = useCallback(() => {
+    const reqId = ++geoReqRef.current;
+    if (!navigator.geolocation || window.isSecureContext === false) {
+      geoBlockedRef.current = true;
+      setGeo({ status: 'error', text: navigator.geolocation
+        ? 'Định vị chỉ chạy trên trang HTTPS — hãy chạm vào bản đồ để chọn.'
+        : 'Trình duyệt không hỗ trợ định vị — hãy chạm vào bản đồ để chọn.' });
+      return;
+    }
+    setGeo({ status: 'locating', text: 'Đang lấy vị trí hiện tại…' });
+    navigator.geolocation.getCurrentPosition((pos) => {
+      if (reqId !== geoReqRef.current) return;
+      const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+      const acc = fmtAccuracy(accuracy);
+      if (accuracy > 1000) {
+        // Chỉ có vị trí theo mạng/IP (sai cả km): ghim vào đây là giao nhầm chỗ -> chỉ đưa bản đồ tới gần
+        setMapView({ center: [lat, lng], zoom: PICKER_ZOOM - 1 });
+        setGeo({ status: 'warn', text: `Chỉ định vị được gần đúng (sai số ~${acc}) nên chưa ghim — hãy chạm đúng chỗ giao hàng.` });
+        return;
+      }
+      setMapPosition([lat, lng]);
+      setMapView({ center: [lat, lng], zoom: accuracy > 150 ? PICKER_ZOOM : LOCATED_ZOOM });
+      fillAddressFromPoint(lat, lng);
+      setGeo(accuracy > 150
+        ? { status: 'warn', text: `Đã ghim vị trí gần đúng (sai số ~${acc}) — kiểm tra lại, lệch thì chạm đúng chỗ.` }
+        : { status: 'done', text: `Đã ghim vị trí hiện tại (sai số ~${acc}). Chạm bản đồ nếu cần chỉnh.` });
+    }, (err) => {
+      if (reqId !== geoReqRef.current) return;
+      if (err?.code === 1) geoBlockedRef.current = true;
+      setGeo({ status: 'error', text: geoErrorText(err) });
+    }, GEO_OPTIONS);
+  }, [fillAddressFromPoint]);
+
+  // Mở bản đồ mà ô địa chỉ còn trống -> tự hỏi vị trí một lần (mở bản đồ là để ghim chỗ mình đang ở).
+  // Ô đã có địa chỉ (gõ tay / chọn từ sổ địa chỉ) thì KHÔNG tự hỏi để khỏi ghi đè; muốn thì bấm nút.
+  useEffect(() => {
+    if (!isMapModalOpen) return undefined;
+    if (!geoBlockedRef.current && !String(form.getFieldValue('address') || '').trim()) locateMe();
+    return () => {
+      geoReqRef.current += 1; // đóng bản đồ: bỏ kết quả định vị còn đang chờ
+      setGeo(g => (g.status === 'locating' ? { status: 'idle', text: '' } : g));
+    };
+  }, [isMapModalOpen, form, locateMe]);
 
   const LocationMarker = () => {
     useMapEvents({
       click(e) {
+        // Khách tự chạm chọn thì chỗ đó thắng: bỏ kết quả định vị còn đang chờ
+        geoReqRef.current += 1;
+        setGeo({ status: 'idle', text: '' });
+        setMapView(null);
         setMapPosition([e.latlng.lat, e.latlng.lng]);
-        form.setFieldsValue({
-          address: `Toạ độ: ${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`
-        });
+        fillAddressFromPoint(e.latlng.lat, e.latlng.lng);
       },
     });
     return mapPosition === null ? null : <Marker position={mapPosition}></Marker>;
@@ -107,6 +245,7 @@ export default function Checkout() {
   // được vì nó mở hộp đăng nhập. Trước 11/11/2026 nút luôn bấm được, chỉ báo lỗi
   // sau khi gửi.
   const emptyCartBlocked = !!(b2cUser || localStorage.getItem('b2c_token')) && checkoutItems.length === 0;
+  const isLoggedIn = !!(b2cUser || localStorage.getItem('b2c_token'));
   const subTotal = checkoutItems.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 1)), 0);
   
   const province = Form.useWatch('province', form);
@@ -647,6 +786,9 @@ export default function Checkout() {
             <Title level={4} style={{ color: isDark ? '#fff' : '#18181b', marginTop: 8, marginBottom: 16, fontWeight: 700 }}>
               Phương thức thanh toán
             </Title>
+            {/* Vòng tròn chọn tự vẽ (div 20×20 bo 50%) nằm trong hàng flex cạnh đoạn mô tả dài: flex mặc định
+                cho co lại, nên trên điện thoại hẹp bị bóp thành hình bầu dục (12/11/2026). flexShrink: 0 +
+                minWidth/minHeight giữ đúng hình tròn; gap tách chữ khỏi vòng tròn. */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <div 
                 onClick={() => setPaymentMethod('COD')}
@@ -663,7 +805,8 @@ export default function Checkout() {
                   cursor: 'pointer',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  gap: 12
                 }}
               >
                 <div>
@@ -673,6 +816,9 @@ export default function Checkout() {
                 <div style={{ 
                   width: 20, 
                   height: 20, 
+                  minWidth: 20,
+                  minHeight: 20,
+                  flexShrink: 0,
                   borderRadius: '50%', 
                   border: `2px solid ${paymentMethod === 'COD' ? (isDark ? '#fff' : '#18181b') : '#a1a1aa'}`,
                   display: 'flex',
@@ -680,7 +826,7 @@ export default function Checkout() {
                   justifyContent: 'center'
                 }}>
                   {paymentMethod === 'COD' && (
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: isDark ? '#fff' : '#18181b' }} />
+                    <div style={{ width: 10, height: 10, flexShrink: 0, borderRadius: '50%', background: isDark ? '#fff' : '#18181b' }} />
                   )}
                 </div>
               </div>
@@ -700,7 +846,8 @@ export default function Checkout() {
                   cursor: 'pointer',
                   display: 'flex',
                   justifyContent: 'space-between',
-                  alignItems: 'center'
+                  alignItems: 'center',
+                  gap: 12
                 }}
               >
                 <div>
@@ -710,6 +857,9 @@ export default function Checkout() {
                 <div style={{ 
                   width: 20, 
                   height: 20, 
+                  minWidth: 20,
+                  minHeight: 20,
+                  flexShrink: 0,
                   borderRadius: '50%', 
                   border: `2px solid ${paymentMethod === 'BANK_TRANSFER' ? (isDark ? '#fff' : '#18181b') : '#a1a1aa'}`,
                   display: 'flex',
@@ -717,7 +867,7 @@ export default function Checkout() {
                   justifyContent: 'center'
                 }}>
                   {paymentMethod === 'BANK_TRANSFER' && (
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: isDark ? '#fff' : '#18181b' }} />
+                    <div style={{ width: 10, height: 10, flexShrink: 0, borderRadius: '50%', background: isDark ? '#fff' : '#18181b' }} />
                   )}
                 </div>
               </div>
@@ -767,8 +917,32 @@ export default function Checkout() {
             width={1000}
             styles={{ body: { paddingTop: 20 } }}
           >
-            <div style={{ height: 550, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
-              <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+            {/* Nút định vị + dòng trạng thái (12/11/2026). Tự hỏi một lần khi mở (xem useEffect theo
+                isMapModalOpen); nút để thử lại sau khi bị từ chối / quá giờ, hoặc chủ động ghi đè ô địa chỉ. */}
+            <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px 12px', marginBottom: 12 }}>
+              <Button
+                icon={<AimOutlined />}
+                onClick={() => locateMe()}
+                loading={geo.status === 'locating'}
+                style={{ borderRadius: 8, fontWeight: 600 }}
+              >
+                Dùng vị trí hiện tại
+              </Button>
+              <span
+                role="status"
+                aria-live="polite"
+                style={{
+                  flex: '1 1 220px', fontSize: 13,
+                  color: geo.status === 'error' ? '#ef4444' : geo.status === 'warn' ? '#d97706' : (isDark ? '#a1a1aa' : '#71717a'),
+                }}
+              >
+                {geo.text}
+              </span>
+            </div>
+            {/* Điện thoại: khung 550 px + tiêu đề + nút thì cao hơn màn hình, nút "Xác nhận vị trí" rơi
+                khỏi tầm nhìn mà vuốt trên bản đồ lại thành kéo bản đồ -> thấp xuống 55vh. Máy tính giữ 550. */}
+            <div style={{ height: isPhone ? '55vh' : 550, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
+              <MapContainer center={mapPosition} zoom={PICKER_ZOOM} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
                 {/* Ô bản đồ OSM France: không cần key. CARTO đòi API key từ 09/2026 — thiếu key mọi ô
                     chỉ là chữ "API KEY REQUIRED"; tile.openstreetmap.org không kết nối được từ mạng VN (đo 11/11/2026). */}
                 <TileLayer
@@ -776,7 +950,8 @@ export default function Checkout() {
                   url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
                 />
                 <LocationMarker />
-                <MapResizer />
+                <MapView view={mapView} />
+                <MapResizer active={isMapModalOpen} />
               </MapContainer>
             </div>
             <div style={{ fontSize: 13, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 12 }}>
@@ -924,6 +1099,69 @@ export default function Checkout() {
       </Col>
       </Row>
     </div>
+
+    {/* Thanh đặt hàng ghim đáy trên điện thoại — lý do xem chú thích ở showMobileBar. Cao 60px +
+        safe-area, đúng bằng phần đệm đáy StoreLayout vẫn chừa cho thanh điều hướng
+        (.b2c-main-content padding-bottom) nên không che dòng cuối trang. Nút Chat AI trên điện thoại
+        đứng ở bottom 72px + safe-area, nằm trọn phía trên thanh, không đè nút. */}
+    {showMobileBar && !typing && (
+      <div
+        className="checkout-mobile-bar"
+        style={{
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 190,
+          height: 'calc(60px + env(safe-area-inset-bottom))',
+          padding: '0 16px env(safe-area-inset-bottom)',
+          boxSizing: 'border-box',
+          display: 'flex', alignItems: 'center', gap: 12,
+          background: isDark ? '#18181b' : '#ffffff',
+          borderTop: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+          boxShadow: '0 -4px 16px rgba(0,0,0,0.06)',
+        }}
+      >
+        <div style={{ flex: 1, minWidth: 0, lineHeight: 1.25 }}>
+          {/* Chưa chọn tỉnh thì phí vận chuyển = 0 trong tổng — nói rõ để khách không bất ngờ khi tổng tăng */}
+          <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {province ? 'Tổng thanh toán' : 'Tổng (chưa gồm phí vận chuyển)'}
+          </div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: isDark ? '#fff' : '#18181b', whiteSpace: 'nowrap' }}>
+            {finalTotal > 0 ? finalTotal.toLocaleString('vi-VN') : 0} đ
+          </div>
+        </div>
+        {/* Cùng trạng thái với nút "Xác nhận đặt hàng" trong form: loading, disabled khi giỏ trống,
+            chưa đăng nhập thì mở hộp đăng nhập. form.submit() gửi CHÍNH form đó nên vẫn qua luật
+            kiểm tra, scrollToFirstError và onFinishFailed như bấm nút cũ. */}
+        <Button
+          type="primary"
+          size="large"
+          loading={loading}
+          disabled={emptyCartBlocked}
+          onClick={() => {
+            if (!isLoggedIn) {
+              message.warning('Vui lòng đăng nhập để thực hiện mua hàng');
+              if (typeof openAuthModal === 'function') openAuthModal();
+              return;
+            }
+            form.submit();
+          }}
+          style={{
+            flexShrink: 0,
+            height: 44,
+            padding: '0 24px',
+            borderRadius: 12,
+            fontSize: 15,
+            fontWeight: 700,
+            // Nền tối thì đảo màu (như nút "Lưu mật khẩu" ở Account) — nút #18181b chìm vào nền #18181b
+            background: isDark ? '#ffffff' : '#18181b',
+            borderColor: isDark ? '#ffffff' : '#18181b',
+            color: isDark ? '#18181b' : '#ffffff',
+            // style gắn thẳng đè màu "disabled" của antd, nên tự làm mờ
+            opacity: emptyCartBlocked ? 0.4 : 1,
+          }}
+        >
+          {isLoggedIn ? 'Đặt hàng' : 'Đăng nhập'}
+        </Button>
+      </div>
+    )}
     </>
   );
 }

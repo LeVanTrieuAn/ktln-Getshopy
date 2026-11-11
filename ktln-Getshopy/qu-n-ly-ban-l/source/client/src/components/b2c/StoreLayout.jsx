@@ -82,7 +82,7 @@ import AuthModal from './AuthModal';
 import OnboardingModal from './OnboardingModal';
 import { useApp } from '../../context/AppContext';
 import useMediaQuery from '../../hooks/useMediaQuery';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { api } from '../../services/api';
 
 const { Sider, Content, Footer } = Layout;
@@ -108,6 +108,12 @@ export default function StoreLayout() {
   // thay cho nút ☰ nổi; các menu xổ sang PHẢI của sidebar (rộng 260–560px cạnh sidebar
   // 280px) tràn khỏi màn 390px nên trên điện thoại bấm là chuyển trang luôn.
   const isPhone = useMediaQuery('(max-width: 768px)');
+  // Trang con có thanh hành động riêng ghim ở đáy (Checkout: Tổng tiền + Đặt hàng, 12/11/2026) báo ẩn
+  // thanh điều hướng qua Outlet context — hai thanh chồng nhau thì mất ~120 px màn hình và nút Chat AI
+  // đè lên nút Đặt hàng. Trang tự bật khi hiện thanh của nó, tự tắt khi rời trang. Phần đệm đáy của
+  // .b2c-main-content giữ nguyên: thanh của trang dùng đúng chỗ đó.
+  const [hideBottomNav, setHideBottomNav] = useState(false);
+  const outletContext = useMemo(() => ({ setHideBottomNav }), []);
 
   // Navbar dropdown states
   const [productsOpen, setProductsOpen] = useState(false);
@@ -1002,7 +1008,7 @@ export default function StoreLayout() {
           Kiểu ứng dụng mua sắm: 5 mục trong tầm ngón cái. Thay cho nút ☰ nổi ở góc
           trái trên — nút đó đè lên tiêu đề / thanh danh mục của mọi trang. Mục "Thêm"
           mở lại sidebar đầy đủ (tìm kiếm, chi nhánh, giao diện, ngôn ngữ, so sánh...). */}
-      {isPhone && (
+      {isPhone && !hideBottomNav && (
         <nav
           className="b2c-bottom-nav"
           style={{
@@ -1064,7 +1070,7 @@ export default function StoreLayout() {
         }}
       >
         <Content style={{ padding: 0, width: '100%', position: 'relative', zIndex: 1 }}>
-          <Outlet />
+          <Outlet context={outletContext} />
         </Content>
 
 
