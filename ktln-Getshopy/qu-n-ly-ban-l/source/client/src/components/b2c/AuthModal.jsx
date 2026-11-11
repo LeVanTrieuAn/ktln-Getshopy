@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, message, Alert } from 'antd';
 import {
   UserOutlined,
   LockOutlined,
   MailOutlined,
   PhoneOutlined,
-  CloseOutlined
+  CloseOutlined,
+  SafetyOutlined
 } from '@ant-design/icons';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
@@ -58,13 +59,16 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
       box-shadow: 0 0 0 3px rgba(24, 24, 27, 0.08) !important;
     }
     /* Inner input - must be completely transparent without independent borders or padding */
+    /* font-size >= 16px (12/11/2026): iOS Safari tự phóng to trang khi focus vào ô nhập
+       chữ nhỏ hơn 16px. Luật này có độ ưu tiên (specificity) cao hơn mọi luật toàn cục
+       kiểu "input { font-size: 16px !important }", nên để 15px ở đây là đè mất luật đó. */
     .auth-card-modern .ant-input-affix-wrapper input.ant-input {
       background: transparent !important;
       border: none !important;
       border-radius: 0 !important;
       height: 100% !important;
       padding: 0 0 0 8px !important;
-      font-size: 15px !important;
+      font-size: 16px !important;
       color: #18181b !important;
       box-shadow: none !important;
       outline: none !important;
@@ -110,17 +114,103 @@ if (typeof document !== 'undefined' && !document.getElementById(STYLE_ID)) {
     .auth-social-pill:active {
       transform: scale(0.97) !important;
     }
+    /* Ô mã OTP: chữ số to, giãn cách cho dễ đối chiếu với email */
+    .auth-card-modern .auth-otp-field .ant-input-affix-wrapper input.ant-input {
+      font-size: 22px !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.35em !important;
+      font-variant-numeric: tabular-nums;
+    }
+    .auth-card-modern .auth-otp-field .ant-input-affix-wrapper input.ant-input::placeholder {
+      font-weight: 400 !important;
+      letter-spacing: normal !important;
+    }
   `;
   document.head.appendChild(s);
 }
+
+const PRIMARY_BUTTON_STYLE = {
+  width: '100%',
+  height: 52,
+  borderRadius: 14,
+  background: '#18181b',
+  color: '#ffffff',
+  border: 'none',
+  fontWeight: 700,
+  fontSize: 16,
+  cursor: 'pointer',
+  boxShadow: '0 4px 14px rgba(0, 0, 0, 0.15)',
+  transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+};
+const darkenOnHover = (e) => { e.currentTarget.style.background = '#27272a'; };
+const restoreOnLeave = (e) => { e.currentTarget.style.background = '#18181b'; };
+
+/** Nút dạng liên kết. type="button" để nằm trong <Form> mà không submit form. */
+function TextButton({ children, onClick, disabled = false }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        font: 'inherit',
+        fontSize: 13.5,
+        fontWeight: 600,
+        color: disabled ? '#a1a1aa' : '#18181b',
+        cursor: disabled ? 'default' : 'pointer',
+        textDecoration: disabled ? 'none' : 'underline',
+        textUnderlineOffset: 3,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Ô email trên điện thoại: không tự viết hoa chữ đầu, không tự sửa chính tả. Đăng nhập so
+// khớp email nguyên văn, nên "An@gmail.com" do bàn phím tự viết hoa là đăng nhập thất bại.
+const EMAIL_INPUT_PROPS = { inputMode: 'email', autoCapitalize: 'none', autoCorrect: 'off', spellCheck: false };
+
+const GENERIC_OTP_SENT =
+  'Nếu email này đã đăng ký tài khoản, mã xác nhận gồm 6 chữ số đã được gửi tới hộp thư. Mã có hiệu lực trong 10 phút.';
 
 export default function AuthModal({ open, onClose, onSuccess }) {
   const { b2cLogin, t } = useApp();
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register'
+  const [noticeMsg, setNoticeMsg] = useState('');
+  const [activeTab, setActiveTab] = useState('login'); // 'login' | 'register' | 'forgot'
   const [loginForm] = Form.useForm();
   const [registerForm] = Form.useForm();
+
+  // ── Quên mật khẩu bằng mã OTP qua email: bước 'email' -> bước 'reset' ──
+  // Giữ nguyên trạng thái khi đóng modal: lỡ chạm ra ngoài lúc mở app email lấy mã thì mở
+  // lại vẫn ở đúng bước nhập mã.
+  const [forgotStep, setForgotStep] = useState('email');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotInfo, setForgotInfo] = useState('');
+  const [resendIn, setResendIn] = useState(0);
+  const [forgotForm] = Form.useForm();
+  const [resetForm] = Form.useForm();
+  // Giá trị cần điền vào một form SAU khi form đó render (gọi setFieldsValue lúc form chưa
+  // render thì antd cảnh báo instance chưa gắn với <Form> nào).
+  const [prefill, setPrefill] = useState(null);
+
+  useEffect(() => {
+    if (!open || !prefill) return;
+    (prefill.form === 'login' ? loginForm : forgotForm).setFieldsValue(prefill.values);
+    setPrefill(null);
+  }, [open, prefill, loginForm, forgotForm]);
+
+  // Đếm ngược nút "Gửi lại mã" — server chỉ cho gửi lại sau 60 giây.
+  useEffect(() => {
+    if (resendIn <= 0) return undefined;
+    const timer = setTimeout(() => setResendIn((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(timer);
+  }, [resendIn]);
 
   if (!open) return null;
 
@@ -128,6 +218,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   const handleLogin = async (values) => {
     setLoading(true);
     setErrorMsg('');
+    setNoticeMsg('');
     try {
       const res = await api.b2c.login(values.email, values.password);
       b2cLogin(res.user, res.token);
@@ -190,7 +281,222 @@ export default function AuthModal({ open, onClose, onSuccess }) {
   const switchTab = (tab) => {
     setActiveTab(tab);
     setErrorMsg('');
+    setNoticeMsg('');
   };
+
+  /* ─── Quên mật khẩu ────────────────────────────────────────── */
+  const openForgot = () => {
+    // Mang email đã gõ ở form đăng nhập sang, khỏi gõ lại.
+    const typed = String(loginForm.getFieldValue('email') || '').trim();
+    setForgotStep('email');
+    switchTab('forgot');
+    if (typed) setPrefill({ form: 'forgot', values: { email: typed } });
+  };
+
+  // Server trả cùng một câu dù email có tài khoản hay không (chống dò email đã đăng ký),
+  // nên ở đây cũng không bao giờ báo "email chưa đăng ký".
+  const requestOtp = async (email, isResend = false) => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await api.b2c.forgotPassword(email);
+      setForgotEmail(email);
+      setForgotInfo(res?.message || GENERIC_OTP_SENT);
+      setResendIn(Number(res?.resend_after) || 60);
+      if (isResend) {
+        resetForm.setFieldsValue({ otp: '' });
+        message.info('Đã yêu cầu mã mới. Mã gửi trước đó không còn dùng được.');
+      }
+      setForgotStep('reset');
+    } catch (err) {
+      setErrorMsg(err.message || 'Không gửi được mã xác nhận, vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Đã có mã từ lần yêu cầu trước (vd. quay lại đăng nhập rồi mới thấy thư): sang thẳng
+  // bước nhập mã. Xin mã mới sẽ làm mã đang có mất hiệu lực.
+  const enterExistingCode = async () => {
+    try {
+      const values = await forgotForm.validateFields(['email']);
+      const email = String(values.email || '').trim();
+      if (!email) return;
+      setForgotEmail(email);
+      setForgotInfo('Nhập mã xác nhận gồm 6 chữ số trong email gần nhất. Mã có hiệu lực 10 phút kể từ lúc gửi.');
+      setResendIn(0);
+      setErrorMsg('');
+      setForgotStep('reset');
+    } catch {
+      /* antd tự báo lỗi dưới ô email */
+    }
+  };
+
+  const handleResetPassword = async ({ otp, new_password }) => {
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await api.b2c.resetPassword({ email: forgotEmail, otp, new_password });
+      resetForm.resetFields();
+      setForgotStep('email');
+      setResendIn(0);
+      switchTab('login');
+      setNoticeMsg(res?.message || 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.');
+      // Server trả email đúng như lưu trong DB — đăng nhập so khớp email nguyên văn.
+      setPrefill({ form: 'login', values: { email: res?.email || forgotEmail, password: '' } });
+    } catch (err) {
+      setErrorMsg(err.message || 'Không đặt lại được mật khẩu, vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const changeForgotEmail = () => {
+    resetForm.resetFields();
+    setForgotStep('email');
+    setErrorMsg('');
+  };
+
+  const backToLogin = () => {
+    if (forgotStep === 'reset') resetForm.resetFields();
+    setForgotStep('email');
+    switchTab('login');
+  };
+
+  // `key` riêng cho từng form là BẮT BUỘC: các <Form> ở đây nằm cùng một vị trí trong cây
+  // nên React dùng lại một component Form, mà Form của antd chỉ gắn instance `form` ở lần
+  // render đầu — thiếu key thì forgotForm/resetForm không bao giờ được gắn và mọi lệnh
+  // setFieldsValue/resetFields/validateFields lên chúng đều vô tác dụng.
+  const renderForgot = () => (forgotStep === 'email' ? (
+    <Form
+      key="forgot-email"
+      form={forgotForm}
+      layout="vertical"
+      onFinish={({ email }) => requestOtp(email.trim())}
+      requiredMark={false}
+    >
+      <Form.Item
+        name="email"
+        style={{ marginBottom: 20 }}
+        rules={[
+          { required: true, message: 'Vui lòng nhập email' },
+          { type: 'email', message: 'Email không hợp lệ' }
+        ]}
+      >
+        <Input
+          prefix={<MailOutlined />}
+          placeholder="Email đã đăng ký tài khoản"
+          autoComplete="email"
+          {...EMAIL_INPUT_PROPS}
+        />
+      </Form.Item>
+
+      <Button
+        htmlType="submit"
+        loading={loading}
+        style={PRIMARY_BUTTON_STYLE}
+        onMouseEnter={darkenOnHover}
+        onMouseLeave={restoreOnLeave}
+      >
+        Gửi mã xác nhận
+      </Button>
+
+      <div style={{ textAlign: 'center', marginTop: 16, fontSize: 13.5, color: '#71717a' }}>
+        Đã có mã xác nhận?{' '}
+        <TextButton onClick={enterExistingCode} disabled={loading}>Nhập mã</TextButton>
+      </div>
+    </Form>
+  ) : (
+    <Form key="forgot-reset" form={resetForm} layout="vertical" onFinish={handleResetPassword} requiredMark={false}>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 18, borderRadius: 12, fontSize: 13.5 }}
+        message={(
+          <span>
+            {forgotInfo || GENERIC_OTP_SENT}
+            <br />
+            Email: <b style={{ wordBreak: 'break-all' }}>{forgotEmail}</b>. Không thấy thư? Hãy xem cả mục Spam / Quảng cáo.
+          </span>
+        )}
+      />
+
+      {/* Một ô duy nhất (không tách 6 ô): dán nguyên mã, và tự điền mã từ thư
+          (autocomplete="one-time-code") chạy ổn hơn. Bỏ mọi ký tự không phải số
+          — dán "123 456" vẫn ra 123456. */}
+      <div className="auth-otp-field">
+        <Form.Item
+          name="otp"
+          style={{ marginBottom: 16 }}
+          normalize={(v) => String(v || '').replace(/\D/g, '').slice(0, 6)}
+          rules={[
+            { required: true, message: 'Vui lòng nhập mã xác nhận' },
+            { len: 6, message: 'Mã xác nhận gồm đúng 6 chữ số' }
+          ]}
+        >
+          <Input
+            prefix={<SafetyOutlined />}
+            placeholder="Mã xác nhận 6 số"
+            inputMode="numeric"
+            autoComplete="one-time-code"
+          />
+        </Form.Item>
+      </div>
+
+      <Form.Item
+        name="new_password"
+        style={{ marginBottom: 16 }}
+        rules={[
+          { required: true, message: 'Vui lòng nhập mật khẩu mới' },
+          { min: 6, message: 'Mật khẩu tối thiểu 6 ký tự' },
+          { max: 128, message: 'Mật khẩu tối đa 128 ký tự' }
+        ]}
+      >
+        <Input.Password
+          prefix={<LockOutlined />}
+          placeholder="Mật khẩu mới (tối thiểu 6 ký tự)"
+          autoComplete="new-password"
+        />
+      </Form.Item>
+
+      <Form.Item
+        name="confirm_password"
+        dependencies={['new_password']}
+        style={{ marginBottom: 20 }}
+        rules={[
+          { required: true, message: 'Vui lòng nhập lại mật khẩu mới' },
+          ({ getFieldValue }) => ({
+            validator: (_, v) => (!v || v === getFieldValue('new_password')
+              ? Promise.resolve()
+              : Promise.reject(new Error('Hai mật khẩu không khớp'))),
+          }),
+        ]}
+      >
+        <Input.Password
+          prefix={<LockOutlined />}
+          placeholder="Nhập lại mật khẩu mới"
+          autoComplete="new-password"
+        />
+      </Form.Item>
+
+      <Button
+        htmlType="submit"
+        loading={loading}
+        style={PRIMARY_BUTTON_STYLE}
+        onMouseEnter={darkenOnHover}
+        onMouseLeave={restoreOnLeave}
+      >
+        Đặt lại mật khẩu
+      </Button>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 16 }}>
+        <TextButton onClick={() => requestOtp(forgotEmail, true)} disabled={loading || resendIn > 0}>
+          {resendIn > 0 ? `Gửi lại mã sau ${resendIn} giây` : 'Gửi lại mã'}
+        </TextButton>
+        <TextButton onClick={changeForgotEmail} disabled={loading}>Đổi email</TextButton>
+      </div>
+    </Form>
+  ));
 
   return (
     <div className="auth-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -269,7 +575,9 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             margin: '0 0 8px',
             letterSpacing: '-0.02em',
           }}>
-            {activeTab === 'login' ? 'Đăng nhập tài khoản' : 'Tạo tài khoản mới'}
+            {activeTab === 'forgot'
+              ? (forgotStep === 'email' ? 'Quên mật khẩu' : 'Đặt lại mật khẩu')
+              : activeTab === 'login' ? 'Đăng nhập tài khoản' : 'Tạo tài khoản mới'}
           </h2>
           <p style={{
             fontSize: 14,
@@ -278,9 +586,13 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             maxWidth: 380,
             lineHeight: 1.5,
           }}>
-            {activeTab === 'login'
-              ? 'Chào mừng bạn quay lại GetShopy. Đăng nhập để mua hàng và nhận ưu đãi.'
-              : 'Đăng ký tài khoản để tích điểm thành viên, theo dõi đơn hàng và bảo hành.'}
+            {activeTab === 'forgot'
+              ? (forgotStep === 'email'
+                ? 'Nhập email bạn đã dùng để đăng ký. Chúng tôi sẽ gửi mã xác nhận gồm 6 chữ số để bạn đặt lại mật khẩu.'
+                : 'Nhập mã xác nhận trong email và chọn mật khẩu mới.')
+              : activeTab === 'login'
+                ? 'Chào mừng bạn quay lại GetShopy. Đăng nhập để mua hàng và nhận ưu đãi.'
+                : 'Đăng ký tài khoản để tích điểm thành viên, theo dõi đơn hàng và bảo hành.'}
           </p>
         </div>
 
@@ -296,8 +608,20 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           />
         )}
 
+        {/* ── Thông báo thành công (vd. vừa đặt lại mật khẩu) ── */}
+        {noticeMsg && !errorMsg && (
+          <Alert
+            message={noticeMsg}
+            type="success"
+            showIcon
+            closable
+            onClose={() => setNoticeMsg('')}
+            style={{ marginBottom: 18, borderRadius: 12, fontSize: 13.5 }}
+          />
+        )}
+
         {/* ── Form Section ── */}
-        {activeTab === 'login' ? (
+        {activeTab === 'forgot' ? renderForgot() : activeTab === 'login' ? (
           <Form form={loginForm} layout="vertical" onFinish={handleLogin} requiredMark={false}>
             {/* Email Field */}
             <Form.Item
@@ -311,6 +635,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               <Input
                 prefix={<MailOutlined />}
                 placeholder="Địa chỉ Email (vd: user@example.com)"
+                {...EMAIL_INPUT_PROPS}
               />
             </Form.Item>
 
@@ -326,11 +651,16 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               />
             </Form.Item>
 
-            {/* Forgot password */}
+            {/* Forgot password — trước 12/11/2026 chỉ hiện "liên hệ bộ phận hỗ trợ" */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 18 }}>
-              <span
-                onClick={() => message.info('Vui lòng liên hệ bộ phận hỗ trợ GetShopy để đặt lại mật khẩu.')}
+              <button
+                type="button"
+                onClick={openForgot}
                 style={{
+                  background: 'none',
+                  border: 'none',
+                  padding: 0,
+                  font: 'inherit',
                   fontSize: 13.5,
                   fontWeight: 500,
                   color: '#71717a',
@@ -341,7 +671,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
                 onMouseLeave={e => e.currentTarget.style.color = '#71717a'}
               >
                 Quên mật khẩu?
-              </span>
+              </button>
             </div>
 
             {/* Submit Button */}
@@ -393,6 +723,7 @@ export default function AuthModal({ open, onClose, onSuccess }) {
               <Input
                 prefix={<MailOutlined />}
                 placeholder="Địa chỉ Email"
+                {...EMAIL_INPUT_PROPS}
               />
             </Form.Item>
 
@@ -447,6 +778,12 @@ export default function AuthModal({ open, onClose, onSuccess }) {
           </Form>
         )}
 
+        {activeTab === 'forgot' ? (
+          <div style={{ textAlign: 'center', marginTop: 24 }}>
+            <TextButton onClick={backToLogin} disabled={loading}>← Quay lại đăng nhập</TextButton>
+          </div>
+        ) : (
+        <>
         {/* ── Dotted Divider ── */}
         <div style={{
           display: 'flex',
@@ -507,6 +844,8 @@ export default function AuthModal({ open, onClose, onSuccess }) {
             {activeTab === 'login' ? 'Đăng ký ngay' : 'Đăng nhập ngay'}
           </span>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
