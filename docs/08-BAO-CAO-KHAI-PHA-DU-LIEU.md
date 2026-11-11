@@ -322,7 +322,7 @@ flowchart LR
     MO --> DP
     MO --> EV["5. Đánh giá<br/>test 1 lần, rolling-origin,<br/>CI, tri thức"]
     EV --> BU
-    EV --> DE["6. Triển khai<br/>AI-Rec train 300 s,<br/>giám sát /health"]
+    EV --> DE["6. Triển khai<br/>AI-Rec train 22:00 hằng ngày,<br/>giám sát /health"]
 ```
 
 **Bảng 1.1.** Pha CRISP-DM, nhiệm vụ chuẩn và vị trí trong báo cáo
@@ -1723,7 +1723,7 @@ flowchart LR
     LAKE --> CH["ClickHouse + dbt-scheduler<br/>(mỗi 5 phút)"]
     UE --> CH
     PG -. "postgresql()" .-> CH
-    CH -- "serving — tài khoản ai_rec<br/>chỉ SELECT" --> AI["AI-Rec (FastAPI)<br/>train mỗi 300 s"]
+    CH -- "serving — tài khoản ai_rec<br/>chỉ SELECT" --> AI["AI-Rec (FastAPI)<br/>train 22:00 mỗi ngày"]
     AI -- "GET /api/v1/recommend/customer/{id}" --> APP[Ứng dụng web]
     CH -- "mart_revenue" --> DASH[Dashboard quản trị]
     AI -- "/health" --> OPS[Vận hành]
@@ -1732,7 +1732,7 @@ flowchart LR
 Toàn bộ hệ chạy bằng Docker Compose với 14 dịch vụ. Các việc định kỳ chạy tự động:
 
 - dbt dựng lại mô hình mỗi 5 phút (`dbt-scheduler`);
-- AI-Rec huấn luyện lại mỗi 5 phút;
+- AI-Rec huấn luyện lại mỗi ngày lúc 22:00 (từ 11/11/2026; trước đó mỗi 5 phút) — lỡ giờ vì máy tắt thì huấn luyện bù khi khởi động;
 - sao lưu PostgreSQL mỗi 24 giờ.
 
 **Mô hình là người tiêu thụ cuối của pipeline**, không có đường tắt ghi dữ liệu vào model. Mọi gợi ý vì vậy dựng lại được từ dữ liệu trong PostgreSQL.

@@ -32,9 +32,12 @@ from config import (
     PRECOMPUTE_ENABLED,
     PRECOMPUTE_TOP_K,
     REPEAT_SCORE,
+    TRAIN_DAILY_AT,
     TRAIN_INITIAL_DELAY_SECONDS,
     TRAIN_INTERVAL_SECONDS,
+    TRAIN_TIMEZONE,
 )
+from api import schedule
 from data_source import clickhouse
 from models.behavior import BehaviorConfig
 from models.cf_recommendation import CollaborativeFiltering
@@ -205,17 +208,49 @@ class CFModelService:
 
     async def _training_loop(self) -> None:
         await asyncio.sleep(TRAIN_INITIAL_DELAY_SECONDS)
+        if not TRAIN_DAILY_AT:
+            # Chế độ cũ: train lại sau mỗi TRAIN_INTERVAL_SECONDS.
+            while True:
+                await self._train_guarded()
+                await asyncio.sleep(TRAIN_INTERVAL_SECONDS)
+
+        hour, minute = schedule.parse_hhmm(TRAIN_DAILY_AT)
+        tz = schedule.get_tz(TRAIN_TIMEZONE)
+        saved_at = self._saved_at(tz)
+        if schedule.missed(saved_at, datetime.now(tz), hour, minute):
+            logger.info("Model trên đĩa (%s) trước mốc %s gần nhất: train bù ngay.",
+                        saved_at.isoformat(timespec="minutes") if saved_at else "chưa có",
+                        TRAIN_DAILY_AT)
+            await self._train_guarded()
         while True:
-            try:
-                await self.train_once()
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:                  # noqa: BLE001
-                # Vòng lặp KHÔNG được chết. Warehouse sập một lúc thì model cũ
-                # vẫn phục vụ, và chu kỳ sau thử lại.
-                self._last_error = str(exc)
-                logger.exception("Chu kỳ train thất bại, giữ nguyên model đang chạy.")
-            await asyncio.sleep(TRAIN_INTERVAL_SECONDS)
+            target = schedule.next_run(datetime.now(tz), hour, minute)
+            logger.info("Lượt train kế tiếp: %s", target.isoformat(timespec="minutes"))
+            # Ngủ từng quãng ngắn rồi xem lại đồng hồ THẬT: asyncio.sleep đo bằng
+            # đồng hồ monotonic, không chạy khi máy (và VM Docker) ngủ — ngủ một
+            # mạch tới 22:00 thì máy sleep 2 tiếng là lượt train trễ đúng 2 tiếng.
+            while (remaining := (target - datetime.now(tz)).total_seconds()) > 0:
+                await asyncio.sleep(min(remaining, 300))
+            await self._train_guarded()
+
+    async def _train_guarded(self) -> None:
+        try:
+            await self.train_once()
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:                      # noqa: BLE001
+            # Vòng lặp KHÔNG được chết. Warehouse sập một lúc thì model cũ
+            # vẫn phục vụ, và lượt sau thử lại.
+            self._last_error = str(exc)
+            logger.exception("Chu kỳ train thất bại, giữ nguyên model đang chạy.")
+
+    def _saved_at(self, tz) -> datetime | None:
+        """Thời điểm model đang phục vụ được ghi ra đĩa; None nếu chưa có model."""
+        if self._bundle is None:
+            return None
+        for path in (HYBRID_MODEL_PATH, MODEL_PATH):
+            if path.exists():
+                return datetime.fromtimestamp(path.stat().st_mtime, tz)
+        return None
 
     async def train_once(self) -> ModelBundle | None:
         """Một chu kỳ: lấy dữ liệu -> train -> tính sẵn -> đổi bản."""

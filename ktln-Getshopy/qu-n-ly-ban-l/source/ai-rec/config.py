@@ -160,6 +160,16 @@ TRAIN_INTERVAL_SECONDS = int(os.getenv("TRAIN_INTERVAL_SECONDS", "300"))
 # xong vòng đầu trên máy vừa khởi động.
 TRAIN_INITIAL_DELAY_SECONDS = int(os.getenv("TRAIN_INITIAL_DELAY_SECONDS", "20"))
 
+# Train theo giờ cố định mỗi ngày (11/11/2026, yêu cầu vận hành: 22:00 giờ VN).
+# Có giá trị thì THAY cho TRAIN_INTERVAL_SECONDS; để trống ("") thì quay về chu
+# kỳ cũ — tiện khi dev cần train dày. Đơn mua trong ngày chỉ vào model ở lượt
+# 22:00; khách vẫn có gợi ý (model cũ + tính tại chỗ).
+#
+# Lúc khởi động: model trên đĩa lưu TRƯỚC mốc 22:00 gần nhất (máy tắt đúng giờ
+# train) thì train bù một lần — không thì model cũ dần mà không ai hay.
+TRAIN_DAILY_AT = os.getenv("TRAIN_DAILY_AT", "22:00").strip()
+TRAIN_TIMEZONE = os.getenv("TRAIN_TIMEZONE", "Asia/Ho_Chi_Minh")
+
 # Timeout khi gọi ClickHouse. Tập train lớn dần nên để rộng tay.
 CLICKHOUSE_TIMEOUT_SECONDS = float(os.getenv("CLICKHOUSE_TIMEOUT_SECONDS", "120"))
 
@@ -171,7 +181,7 @@ CLICKHOUSE_TIMEOUT_SECONDS = float(os.getenv("CLICKHOUSE_TIMEOUT_SECONDS", "120"
 #
 # Cache là TỐI ƯU, không phải điều kiện đúng đắn: khách không có trong cache
 # (vừa mua lần đầu, chưa tới chu kỳ train sau) vẫn được tính tại chỗ từ chính
-# model đó. Thiếu đường dự phòng này thì khách mới không có gợi ý suốt 5 phút.
+# model đó. Thiếu đường dự phòng này thì khách mới không có gợi ý tới lượt train sau.
 PRECOMPUTE_ENABLED = os.getenv("PRECOMPUTE_ENABLED", "1") not in ("0", "false", "False")
 PRECOMPUTE_TOP_K = int(os.getenv("PRECOMPUTE_TOP_K", "20"))
 # Trần thời gian tính sẵn. Vượt thì dừng, phần khách còn lại rơi về tính tại
