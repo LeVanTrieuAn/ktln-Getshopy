@@ -7,18 +7,35 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-import { CATEGORY_BASE64 } from '../constants/categoryBase64';
+// Ảnh đại diện 31 danh mục (TGDĐ) — FILE TĨNH trong public/images/fallback/, tạo bởi
+// server/scripts/generate-category-fallback-images.js. Bản đầu nhúng base64 vào JS
+// (categoryBase64.js, 2,4 MB) -> mọi trang, kể cả admin, tải thêm ~1,7 MB nén dù ảnh
+// dự phòng chỉ hiện khi ảnh chính lỗi. File tĩnh vẫn nằm trên server mình (không phụ
+// thuộc CDN ngoài) nhưng chỉ tải khi cần; nginx cho trình duyệt cache 7 ngày.
+const FALLBACK_CATEGORIES = [
+  'cat-phone', 'cat-laptop', 'cat-tablet', 'cat-watch',
+  'cat-mobile-acc-charger', 'cat-mobile-acc-case-phone', 'cat-mobile-acc-case-tablet',
+  'cat-mobile-acc-screen', 'cat-mobile-acc-cam-cover', 'cat-mobile-acc-stand',
+  'cat-mobile-acc-airpods-case', 'cat-mobile-acc-fan',
+  'cat-laptop-acc-mouse', 'cat-laptop-acc-keyboard', 'cat-laptop-acc-bag',
+  'cat-laptop-acc-pouch', 'cat-laptop-acc-mousepad', 'cat-laptop-acc-drawing',
+  'cat-av-bt-earphone', 'cat-av-wire-earphone', 'cat-av-headphone', 'cat-av-sport-earphone',
+  'cat-av-speaker', 'cat-av-mic', 'cat-av-projector', 'cat-av-hdd', 'cat-av-sdcard', 'cat-av-usb',
+  'cat-cam-security', 'cat-cam-indoor', 'cat-cam-doorbell',
+];
+const FALLBACK_FILES = Object.fromEntries(
+  FALLBACK_CATEGORIES.map((id) => [id, `/images/fallback/${id}.jpg`]),
+);
 
-// Bộ sưu tập ảnh fallback Base64 chuẩn từ TGDD cho 31 danh mục (hoàn toàn offline)
 export const CATEGORY_FALLBACK_IMAGES = {
-  ...CATEGORY_BASE64,
+  ...FALLBACK_FILES,
 
   // Fallback bổ sung danh mục cha nếu cần
-  'cat-mobile-acc': CATEGORY_BASE64['cat-mobile-acc-charger'] || '/images/commerce/cat_phone_case.jpg',
-  'cat-laptop-acc': CATEGORY_BASE64['cat-laptop-acc-mouse'] || '/images/commerce/prod_mouse.jpg',
-  'cat-av': CATEGORY_BASE64['cat-av-bt-earphone'] || '/images/commerce/cat_headphones.jpg',
-  'cat-camera': CATEGORY_BASE64['cat-cam-security'] || '/images/commerce/cat_all.jpg',
-  'DEFAULT': CATEGORY_BASE64['cat-phone'] || '/images/commerce/cat_all.jpg'
+  'cat-mobile-acc': FALLBACK_FILES['cat-mobile-acc-charger'],
+  'cat-laptop-acc': FALLBACK_FILES['cat-laptop-acc-mouse'],
+  'cat-av': FALLBACK_FILES['cat-av-bt-earphone'],
+  'cat-camera': FALLBACK_FILES['cat-cam-security'],
+  'DEFAULT': FALLBACK_FILES['cat-phone'],
 };
 
 /**

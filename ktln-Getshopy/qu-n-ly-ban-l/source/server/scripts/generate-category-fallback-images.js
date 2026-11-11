@@ -1,9 +1,18 @@
 /**
- * generate-category-base64.js
+ * generate-category-fallback-images.js  (trước 11/11/2026: generate-category-base64.js)
  * ─────────────────────────────────────────────────────────────────
- * Tải 28 ảnh đại diện danh mục từ TGDD CDN và convert sang Data URI Base64.
- * Xuất ra: client/src/constants/categoryBase64.js
- * Giúp Frontend chạy hoàn toàn độc lập, offline, không phụ thuộc mạng/CDN.
+ * Tải 31 ảnh đại diện danh mục từ CDN Thế Giới Di Động, ghi thành FILE TĨNH:
+ *   client/public/images/fallback/<category_id>.jpg
+ * Ảnh dự phòng khi ảnh chính của sản phẩm lỗi (utils/categoryResolver.js).
+ *
+ * Vì sao file chứ không base64: bản đầu nhúng cả 31 ảnh dạng base64 vào JS
+ * (categoryBase64.js, 2,4 MB) -> bundle chính 188 KB thành ~2,6 MB, mọi trang kể
+ * cả admin/điện thoại tải thêm ~1,7 MB nén dù ảnh dự phòng gần như không hiện.
+ * File tĩnh vẫn nằm trên server mình (không phụ thuộc CDN ngoài) nhưng chỉ tải
+ * khi thật sự cần, trình duyệt cache 7 ngày (client/nginx.conf, location /images/).
+ *
+ *   node scripts/generate-category-fallback-images.js
+ * Tải lỗi ảnh nào thì giữ file cũ của ảnh đó.
  * ─────────────────────────────────────────────────────────────────
  */
 
@@ -49,63 +58,46 @@ const CATEGORY_IMAGE_URLS = {
 
   // 5. Camera & Nhà thông minh
   'cat-cam-security': 'https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/329241/camera-ip-360-do-3mp-ezviz-ty1-thumb-1-638665876017214332-600x600.jpg',
-  'cat-cam-indoor': 'https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/3885/369148/chan-tripod-kiem-gay-selfie-tu-bung-chan-nhanh-2-13m-ulanzi-mt-80-thumb-639195288734841056-600x600.jpg',
+  // Bản đầu dùng ảnh chân tripod (bộ crawl cũ gán nhầm tripod vào Camera trong nhà —
+  // xem lib/real-image-pool.js EXCLUDE_SLUGS); thay bằng camera trong nhà thật.
+  'cat-cam-indoor': 'https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/4728/340975/camera-ip-360-do-4mp-ezviz-s10-thumb2-639053798040960040-600x600.jpg',
   'cat-cam-doorbell': 'https://cdnv2.tgdd.vn/mwg-static/tgdd/Products/Images/14239/366051/chuong-cua-camera-thong-minh-3mp-tp-link-tapo-d210-thumb-639122965676689029-600x600.jpg',
 };
 
-async function fetchAsBase64(url) {
-  try {
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-      },
-      signal: AbortSignal.timeout(15000)
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const buf = await res.arrayBuffer();
-    const contentType = res.headers.get('content-type') || 'image/jpeg';
-    const base64Str = Buffer.from(buf).toString('base64');
-    return `data:${contentType};base64,${base64Str}`;
-  } catch (err) {
-    console.warn(`  ⚠️ Failed to fetch ${url}: ${err.message}`);
-    return null;
-  }
+const OUT_DIR = path.join(__dirname, '../../client/public/images/fallback');
+
+async function fetchImage(url) {
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const type = res.headers.get('content-type') || '';
+  if (!type.startsWith('image/jpeg')) throw new Error(`không phải JPEG (${type})`);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 async function main() {
-  console.log('🔄 Đang tải và convert 28 ảnh danh mục từ TGDD sang Base64...');
-  const base64Map = {};
   const entries = Object.entries(CATEGORY_IMAGE_URLS);
-
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+  console.log(`Tải ${entries.length} ảnh đại diện danh mục -> ${path.relative(process.cwd(), OUT_DIR)}`);
+  let ok = 0;
   for (let i = 0; i < entries.length; i++) {
     const [catId, url] = entries[i];
+    const out = path.join(OUT_DIR, `${catId}.jpg`);
     process.stdout.write(`  [${i + 1}/${entries.length}] ${catId}... `);
-    const b64 = await fetchAsBase64(url);
-    if (b64) {
-      base64Map[catId] = b64;
-      console.log(`✅ (${Math.round(b64.length / 1024)} KB)`);
-    } else {
-      console.log('❌ Fallback to local asset');
+    try {
+      const buf = await fetchImage(url);
+      fs.writeFileSync(out, buf);
+      ok++;
+      console.log(`${Math.round(buf.length / 1024)} KB`);
+    } catch (err) {
+      console.log(`LỖI (${err.message})${fs.existsSync(out) ? ' — giữ file cũ' : ' — CHƯA có file'}`);
     }
+    await new Promise((r) => setTimeout(r, 300));
   }
-
-  const outputPath = path.join(__dirname, '../../client/src/constants/categoryBase64.js');
-  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
-
-  const content = `/**
- * categoryBase64.js
- * ─────────────────────────────────────────────────────────────────
- * Bộ ảnh fallback Base64 chuẩn từ Thế Giới Di Động cho 28+ danh mục.
- * Hoạt động 100% độc lập, offline, không phụ thuộc mạng, CDN hay MinIO.
- * ─────────────────────────────────────────────────────────────────
- */
-
-export const CATEGORY_BASE64 = ${JSON.stringify(base64Map, null, 2)};
-`;
-
-  fs.writeFileSync(outputPath, content, 'utf8');
-  console.log(`\n🎉 Đã xuất thành công file Base64 tại:\n   ${outputPath}`);
-  console.log(`   Tổng số danh mục đã encode Base64: ${Object.keys(base64Map).length}/${entries.length}`);
+  console.log(`Xong: ${ok}/${entries.length} ảnh.`);
+  if (ok < entries.length) process.exitCode = 1;
 }
 
 main();
