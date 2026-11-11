@@ -961,9 +961,11 @@ export default function Account() {
                           style={{ height: '100%', width: '100%', zIndex: 0 }}
                           whenCreated={(mapInstance) => { setTimeout(() => mapInstance.invalidateSize(), 300); }}
                         >
+                          {/* Ô bản đồ OSM France: không cần key. CARTO đòi API key từ 09/2026 — thiếu key mọi ô
+                              chỉ là chữ "API KEY REQUIRED"; tile.openstreetmap.org không kết nối được từ mạng VN (đo 11/11/2026). */}
                           <TileLayer
-                            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                            attribution='&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                            url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
                           />
                           <LocationMarker />
                           <MapResizer />
