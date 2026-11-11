@@ -64,6 +64,123 @@ async function fetchAIRecRecommendations(customerId, topK = 8) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AI-Rec realtime — gửi kèm món khách ĐÃ MUA (12/11/2026)
+//
+// AI-Rec chỉ train lại mỗi ngày lúc 22:00 (TRAIN_DAILY_AT), nên đơn mua trong ngày chưa
+// vào hồ sơ khách: khách vừa mua điện thoại vẫn được gợi ý y như hôm qua. POST
+// /api/v1/recommend/realtime nhận kèm danh sách món đã mua và ghép phần bản train chưa
+// biết vào hồ sơ lúc suy luận, chấm bằng ma trận tương đồng đã train — không train lại
+// (ai-rec/models/hybrid.py, live_purchases). Response cùng schema với GET.
+//
+// Giai đoạn 1 CHỈ gửi món đã mua; hành vi xem/giỏ chưa gửi (phạm vi người dùng đã duyệt).
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Mẫu 1.975 khách (Postgres, 12/11/2026): số món khác nhau đã mua có trung vị 83, p90 207,
+// p99 321. Món cũ hơn đã nằm trong bản train và AI-Rec giữ nguyên trọng số của chúng, nên
+// cắt ở 200 món gần nhất không làm mất gì — chỉ cần phủ hết đơn kể từ lượt train gần nhất.
+const AI_REC_LIVE_PURCHASES_LIMIT = 200;
+
+// Đo 12/11/2026: GET trên ai-rec production p50 15 ms, p90 34 ms (30 khách, chưa có cache);
+// POST trên model tổng hợp cỡ production p95 26 ms qua FastAPI. 1,5 s dư hai bậc độ lớn lúc
+// bình thường mà vẫn chặn được lúc ai-rec treo (vd. đang train 22:00): hết giờ thì rơi về
+// GET rồi rule-based — khách không thấy lỗi, chỉ thấy gợi ý chưa tính đơn hôm nay.
+// Ngoại lệ đã gặp: lần gọi ĐẦU sau lúc nhàn rỗi mất 2,6 s (máy 16 GB, nghi bộ nhớ model bị
+// đẩy ra) — khi đó POST hết giờ và GET gánh, tổng chờ tối đa 1,5 s + 3 s của GET.
+const AI_REC_REALTIME_TIMEOUT_MS = 1500;
+
+/**
+ * Mã các món khách ĐÃ MUA THẬT, món mua gần nhất trước, tối đa `limit` món khác nhau.
+ *
+ * "Đã mua" = đơn ĐÃ THANH TOÁN và KHÔNG HUỶ (payment_status = 'PAID' AND status <> 'CANCELLED'),
+ * dòng hàng số lượng > 0, sản phẩm còn bán — ĐÚNG định nghĩa tập train của AI-Rec (dbt
+ * serving.pairs_customer_product / purchase_events_for_AI_rec) và của Product.sold
+ * (data-platform-poc/demo_dataset.py sync_sold). Lệch định nghĩa thì món vừa huỷ vẫn vào
+ * hồ sơ realtime trong khi lượt train tối nay bỏ nó. COD chỉ thành PAID lúc giao xong
+ * (orderLifecycle.markDelivered), chuyển khoản lúc webhook báo tiền về.
+ *
+ * Đơn huỷ SAU lượt train vẫn còn trong hồ sơ đã train tới 22:00: danh sách này chỉ cộng
+ * vào hồ sơ, không bớt (thiếu một món trong 200 món gần nhất không có nghĩa là đã huỷ).
+ *
+ * Dùng index sẵn có Order(customer_id), OrderItem(order_id), Product(is_deleted, id); đo
+ * EXPLAIN ANALYZE khách nhiều đơn nhất (624 đơn, 490 món): 12 ms khi cache nóng.
+ *
+ * @param {number|string|bigint} customerId - B2CCustomer.id (từ token)
+ * @returns {Promise<string[]>} - ProductID dạng chuỗi, như AI-Rec train (toString)
+ */
+async function getRecentPurchasedProductIds(customerId, limit = AI_REC_LIVE_PURCHASES_LIMIT) {
+  const rows = await prisma.$queryRaw`
+    SELECT oi.product_id
+    FROM "Order" o
+    JOIN "OrderItem" oi ON oi.order_id = o.id
+    JOIN "Product" p ON p.id = oi.product_id AND p.is_deleted = false
+    WHERE o.customer_id = ${BigInt(customerId)}
+      AND o.payment_status = 'PAID'
+      AND o.status <> 'CANCELLED'
+      AND oi.quantity > 0
+    GROUP BY oi.product_id
+    ORDER BY MAX(o.date) DESC, oi.product_id DESC
+    LIMIT ${limit}
+  `;
+  // product_id là BigInt: JSON.stringify ném lỗi với BigInt, và AI-Rec so khớp mã dạng chuỗi
+  return rows.map(r => String(r.product_id));
+}
+
+/**
+ * POST /api/v1/recommend/realtime. Trả mảng product_id theo thứ hạng của AI.
+ *
+ * NÉM lỗi khi HTTP lỗi hoặc hết giờ (khác fetchAIRecRecommendations trả []): bên gọi phải
+ * phân biệt "AI trả lời, không có gì để gợi ý" với "AI không trả lời" — chỉ trường hợp
+ * sau mới rơi về GET. Đồng hồ bao cả lúc đọc body.
+ */
+async function fetchAIRecRealtime(customerId, purchasedProductIds, topK) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), AI_REC_REALTIME_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${AI_REC_URL}/api/v1/recommend/realtime`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customer_id: String(customerId),
+        purchased_product_ids: purchasedProductIds,
+        top_k: topK,
+      }),
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return (data.recommendations || []).map(r => r.product_id);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * Nhánh AI cho khách đã đăng nhập. Chuỗi dự phòng:
+ *   1. POST realtime kèm món đã mua (đọc Postgres)  — gợi ý tính cả đơn hôm nay
+ *   2. GET cũ                                       — đọc Postgres lỗi, hoặc POST lỗi/hết giờ
+ *   3. []  -> getRecommendations() lấp bằng rule-based như trước
+ *
+ * @returns {Promise<string[]>}
+ */
+async function fetchAIRecForCustomer(customerId, topK) {
+  let purchased = null;
+  try {
+    purchased = await getRecentPurchasedProductIds(customerId);
+  } catch (err) {
+    console.warn('[RecommendationService] Không đọc được món đã mua, dùng GET AI-Rec:', err.message);
+  }
+  if (purchased !== null) {
+    try {
+      return await fetchAIRecRealtime(customerId, purchased, topK);
+    } catch (err) {
+      const why = err.name === 'AbortError' ? `quá ${AI_REC_REALTIME_TIMEOUT_MS} ms` : err.message;
+      console.warn('[RecommendationService] AI-Rec realtime lỗi, rơi về GET:', why);
+    }
+  }
+  return fetchAIRecRecommendations(String(customerId), topK);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Flash Sale helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -247,11 +364,12 @@ async function getRecommendations(_email = null, { categoryId, brandId, sessionI
 
   // ═══════════════════════════════════════════════════════════════════════
   // AI REC CONTAINER — Collaborative Filtering (Item-CF via HTTP)
-  // Gọi AI container nếu có customerId và chưa đủ 8 kết quả
+  // Gọi AI container nếu có customerId và chưa đủ 8 kết quả.
+  // 12/11/2026: gửi kèm món đã mua (POST realtime), lỗi thì GET cũ — fetchAIRecForCustomer
   // ═══════════════════════════════════════════════════════════════════════
   if (results.length < 8 && customerId && AI_REC_URL) {
     try {
-      const cfProductIds = await fetchAIRecRecommendations(String(customerId), 8 - results.length);
+      const cfProductIds = await fetchAIRecForCustomer(customerId, 8 - results.length);
       if (cfProductIds.length > 0) {
         const cfProducts = await fetchProductsByIds(
           cfProductIds.filter(id => !isNaN(id)).map(id => Number(id))

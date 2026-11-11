@@ -25,9 +25,18 @@ thì càng tin CF; áp nó vào trọng số hybrid là lựa chọn thiết k�
 Hoà điểm (thường gặp: khách lạ không có tín hiệu nào) được phá theo độ phổ biến
 đã giảm theo thời gian, rồi CatalogSold, rồi ProductID — kết quả luôn tất định.
 
+Đơn mua SAU lần train (12/11/2026, xem live_purchases): bản train chạy mỗi ngày một
+lần, nên đơn trong ngày chưa có trong hồ sơ khách. Item-based CF tách hai phần —
+độ tương đồng món–món học offline, hồ sơ khách chỉ là vector đầu vào lúc suy luận
+(Sarwar et al., 2001; Linden et al., 2003) — nên ghép món vừa mua vào hồ sơ rồi
+nhân với ma trận đã train là đủ, không train lại. Phần duy nhất còn cũ là độ tương
+đồng (thiếu các lượt đồng mua trong ngày) cho tới lượt train kế tiếp.
+
 Tài liệu:
   Sarwar, B., Karypis, G., Konstan, J., & Riedl, J. (2001). Item-based
     collaborative filtering recommendation algorithms. WWW '01, 285–295.
+  Linden, G., Smith, B., & York, J. (2003). Amazon.com recommendations:
+    Item-to-item collaborative filtering. IEEE Internet Computing, 7(1), 76–80.
   Burke, R. (2002). Hybrid recommender systems: Survey and experiments.
     User Modeling and User-Adapted Interaction, 12(4), 331–370.
   Anderson, A., Kumar, R., Tomkins, A., & Vassilvitskii, S. (2014). The dynamics
@@ -38,6 +47,7 @@ from __future__ import annotations
 
 import math
 import os
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -69,6 +79,29 @@ class HybridParams:
         if math.isinf(self.cf_shrink_k):
             return 0.0
         return n_items / (n_items + self.cf_shrink_k)
+
+
+@dataclass(frozen=True)
+class LivePurchases:
+    """Phần của danh sách "đã mua" gửi lúc gọi mà bản train CHƯA biết (12/11/2026).
+
+    Chỉ chứa phần MỚI: món bản train đã có thì giữ nguyên trọng số đã học. Lý do —
+    server chỉ gửi mã món (không kèm ngày, số lượng), nên với món đã có trong hồ sơ
+    không biết khách có mua thêm hôm nay hay không; ghi đè thì làm hỏng trọng số đã
+    giảm theo thời gian. Cũng vì thế danh sách chỉ CỘNG vào hồ sơ, không bao giờ bớt:
+    server gửi N món gần nhất, món cũ vắng mặt không có nghĩa là đã huỷ.
+    """
+
+    cf_cols: np.ndarray   # cột ma trận HỒ SƠ (không gian món của CF) thêm vào hồ sơ khách
+    cf_weight: float      # trọng số mỗi cột thêm — CollaborativeFiltering.fresh_purchase_weight
+    cand: np.ndarray      # chỉ số ứng viên của món mua mới -> đánh dấu đã mua
+    rep: np.ndarray       # điểm kênh mua lại của từng món trong cand
+    unknown: int = 0      # số mã không thuộc CF lẫn tập ứng viên — bị bỏ qua
+
+    @property
+    def empty(self) -> bool:
+        """Không có gì ngoài bản train -> kết quả trùng hẳn đường GET (dùng được cache)."""
+        return self.cf_cols.size == 0 and self.cand.size == 0
 
 
 def _unit_max(x: np.ndarray) -> np.ndarray:
@@ -138,9 +171,105 @@ class HybridRecommender:
         self._tiebreak = np.empty(n, dtype=np.int64)
         self._tiebreak[order] = np.arange(n)
 
+    # ── Đơn mua sau lần train ────────────────────────────────────────────
+
+    def _trained_purchases(self, cid: str) -> set[str]:
+        """Mã món bản train đã coi là ĐÃ MUA — cùng hai nguồn với mặt nạ purchased."""
+        known: set[str] = set()
+        uim = self.cf.user_item_matrix
+        uidx = uim._user_map.get(cid)
+        if uidx is not None:
+            known.update(map(str, uim.columns[uim.mat[uidx].indices]))
+        repeat = getattr(self, "repeat", None)
+        if repeat is not None:
+            known.update(map(str, repeat.scores(cid)[0]))
+        return known
+
+    def live_purchases(self, customer_id: str, product_ids: Iterable[str]) -> LivePurchases:
+        """Tách danh sách món khách đã mua (gửi lúc gọi) thành phần bản train chưa biết.
+
+        12/11/2026. Ba chỗ dùng, mỗi chỗ tái hiện đúng thứ lượt train tối nay sẽ dựng
+        cho khách này (test_realtime kiểm đúng điều đó):
+
+        1. Hồ sơ CF: món thuộc không gian món của CF mà hồ sơ chưa có, trọng số
+           fresh_purchase_weight() = log1p(1) ở thang log — một cái, cách 0 ngày. Giả
+           định 1 cái vì chỉ có mã món; thang log làm sai số nhỏ (2 cái: log1p(2) = 1,10
+           so với 0,69). Món ngoài không gian CF (món mới tinh, món dưới ngưỡng số người
+           mua) bị bỏ qua ở kênh này: không có cột nào trong ma trận tương đồng để nhân.
+        2. Tập đã mua: món ứng viên chưa nằm trong tập đã mua của bản train -> đánh dấu
+           đã mua, để CF (kênh khám phá) không gợi ý lại và allow_repeat = False loại hẳn.
+        3. Kênh mua lại: đúng điểm lượt train sẽ cho món đó — order_freq: một đơn hôm
+           nay = 0,5^(0/half_life) = 1 (mọi half-life, kể cả theo danh mục); cf_weight:
+           trọng số ma trận mua, chỉ có với món thuộc ma trận mua như lúc train.
+
+        Content-based KHÔNG ghép: hồ sơ CB lấy lịch sử từ chính ma trận CF (cf_interactions),
+        nên món ngoài không gian CF cũng không vào CB khi train lại; còn món trong không
+        gian CF thì n_u >= 1, và với k = 0 đang chạy (config.HYBRID_CF_SHRINK_K, chọn trên
+        validation) α = 1 -> trọng số CB = 0. Với k = 0 bỏ qua CB cho ra ĐÚNG thứ hạng như
+        có ghép; chỉ k > 0 mới lệch.
+        """
+        cid = str(customer_id)
+        ids = [p for p in dict.fromkeys(str(x).strip() for x in product_ids) if p]
+
+        profile = self.cf.profile
+        pidx = profile._user_map.get(cid)
+        have = set(profile.mat[pidx].indices.tolist()) if pidx is not None else set()
+        cf_cols: list[int] = []
+        for p in ids:
+            j = profile._item_map.get(p)
+            if j is not None and j not in have:
+                have.add(j)
+                cf_cols.append(j)
+
+        weight = self.cf.fresh_purchase_weight()
+        known = self._trained_purchases(cid)
+        repeat = getattr(self, "repeat", None)
+        bought_space = self.cf.user_item_matrix._item_map
+        cand: list[int] = []
+        rep: list[float] = []
+        for p in ids:
+            i = self._pos.get(p)
+            if i is None or p in known:
+                continue
+            cand.append(i)
+            if repeat is not None:
+                rep.append(1.0)
+            else:
+                rep.append(weight if p in bought_space else 0.0)
+
+        unknown = sum(1 for p in ids if p not in profile._item_map and p not in self._pos)
+        return LivePurchases(
+            cf_cols=np.asarray(cf_cols, dtype=np.int64),
+            cf_weight=weight,
+            cand=np.asarray(cand, dtype=np.int64),
+            rep=np.asarray(rep, dtype=np.float32),
+            unknown=unknown,
+        )
+
+    @staticmethod
+    def _profile_vector(
+        profile: SparseUserItemMatrix, pidx: int | None, live: LivePurchases | None,
+    ) -> tuple[np.ndarray | None, np.ndarray | None]:
+        """(cột, trọng số) hồ sơ CF: hàng đã train, nối thêm món mua sau lần train.
+
+        Không có phần mới thì trả NGUYÊN hai mảng của hàng đã train — đường GET tính
+        đúng như trước, từng phép cộng.
+        """
+        cols = vals = None
+        if pidx is not None:
+            prow = profile.mat[pidx]
+            cols, vals = prow.indices, prow.data
+        if live is not None and live.cf_cols.size:
+            extra = np.full(live.cf_cols.size, live.cf_weight, dtype=np.float32)
+            cols = live.cf_cols if cols is None else np.concatenate([cols, live.cf_cols])
+            vals = extra if vals is None else np.concatenate([vals, extra])
+        return cols, vals
+
     # ── Các kênh điểm ────────────────────────────────────────────────────
 
-    def _cf_and_repeat(self, customer_id: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
+    def _cf_and_repeat(
+        self, customer_id: str, live: LivePurchases | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, int]:
         n = len(self.item_ids)
         cf_hat = np.zeros(n, dtype=np.float32)
         rep_hat = np.zeros(n, dtype=np.float32)
@@ -150,17 +279,17 @@ class HybridRecommender:
         repeat = getattr(self, "repeat", None)
         cid = str(customer_id)
 
-        # Kênh CF — từ ma trận HỒ SƠ (mua + hành vi phụ nếu bật)
+        # Kênh CF — từ ma trận HỒ SƠ (mua + hành vi phụ nếu bật), cộng đơn sau lần train
         profile = self.cf.profile
         pidx = profile._user_map.get(cid)
+        cols, vals = self._profile_vector(profile, pidx, live)
         n_u = 0
-        if pidx is not None:
-            prow = profile.mat[pidx]
+        if cols is not None:
             norm = self.cf.item_similarity.item_user_norm
-            scores = np.asarray(norm.dot(norm[prow.indices].T.dot(prow.data))).ravel()
+            scores = np.asarray(norm.dot(norm[cols].T.dot(vals))).ravel()
             mapped = self._cf_to_cand >= 0
             cf_hat[self._cf_to_cand[mapped]] = scores[mapped]
-            n_u = len(prow.indices)
+            n_u = len(cols)
 
         # Tập ĐÃ MUA — chỉ từ đơn, không bao giờ từ hành vi
         uim = self.cf.user_item_matrix
@@ -182,20 +311,32 @@ class HybridRecommender:
             rep_hat[idx[keep]] = values[keep]
             purchased[idx[keep]] = True
 
+        if live is not None and live.cand.size:
+            # Món mua sau lần train: cùng ngữ nghĩa với món đã mua của bản train — CF
+            # thôi chấm, kênh mua lại nhận đúng điểm lượt train tối nay sẽ cho (xem
+            # live_purchases). cand chỉ gồm món bản train CHƯA coi là đã mua, nên
+            # không đè lên điểm mua lại đã học.
+            purchased[live.cand] = True
+            rep_hat[live.cand] = live.rep
+
         # CF là kênh KHÁM PHÁ: món đã mua để kênh mua lại lo. Món đã XEM mà chưa mua
         # vẫn giữ điểm — đó là ứng viên tốt nhất, không được loại.
         cf_hat[purchased] = 0.0
         return _unit_max(cf_hat), _unit_max(rep_hat), purchased, n_u
 
-    def components(self, customer_id: str) -> dict[str, np.ndarray | int]:
+    def components(
+        self, customer_id: str, live: LivePurchases | None = None,
+    ) -> dict[str, np.ndarray | int]:
         """Các kênh điểm CHƯA nhân trọng số (mỗi kênh đã về [0, 1]).
 
         Tách khỏi rank() để benchmark tính một lần mỗi khách rồi thử nhiều bộ
         (k, γ) mà không tính lại CF — và để production với benchmark dùng CHUNG
         một đường xếp hạng.
+
+        live: đơn mua sau lần train (live_purchases) — None là đường cũ, y nguyên.
         """
         cid = str(customer_id)
-        cf_hat, rep_hat, purchased, n_u = self._cf_and_repeat(cid)
+        cf_hat, rep_hat, purchased, n_u = self._cf_and_repeat(cid, live)
         if self.cb is not None:
             cb_hat = _unit_max(self.cb.score(cid))
             blocked = self.cb.blocked_mask(cid)
@@ -236,9 +377,20 @@ class HybridRecommender:
 
     # ── Gợi ý ────────────────────────────────────────────────────────────
 
-    def recommend(self, customer_id: str, top_k: int = 10) -> list[tuple[str, float, str]]:
-        """Top-K (product_id, điểm, lý do) cho một khách, theo tham số của bản này."""
-        return self.rank(self.components(customer_id), self.params, top_k)
+    def recommend(
+        self, customer_id: str, top_k: int = 10, live: LivePurchases | None = None,
+    ) -> list[tuple[str, float, str]]:
+        """Top-K (product_id, điểm, lý do) cho một khách, theo tham số của bản này.
+
+        live: đơn mua sau lần train (live_purchases); None = chỉ những gì bản train biết.
+        """
+        return self.rank(self.components(customer_id, live), self.params, top_k)
+
+    def recommend_live(
+        self, customer_id: str, product_ids: Iterable[str], top_k: int = 10,
+    ) -> list[tuple[str, float, str]]:
+        """recommend() có tính cả danh sách món khách đã mua tới lúc gọi."""
+        return self.recommend(customer_id, top_k, self.live_purchases(customer_id, product_ids))
 
     def known_customers(self) -> list[str]:
         """Khách có tín hiệu riêng (đã mua hoặc đã làm onboarding) — đáng tính sẵn."""

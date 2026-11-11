@@ -254,6 +254,25 @@ class CollaborativeFiltering:
             raise ValueError(f"CF_INPUT_SCALE phải thuộc {INPUT_SCALES}, nhận: {CF_INPUT_SCALE!r}")
         return CF_INPUT_SCALE
 
+    def fresh_purchase_weight(self, quantity: float = 1.0) -> float:
+        """Trọng số trong ma trận của một lần mua MỚI (cách 0 ngày) — đúng phép biến đổi lúc fit.
+
+        12/11/2026 — dùng khi ghép đơn mua SAU lần train vào hồ sơ khách lúc suy luận
+        (HybridRecommender.live_purchases). Lúc fit:  w = scale(Quantity · 0,5^(ngày/half_life)).
+        Mua hôm nay thì ngày = 0, hệ số giảm = 1 với MỌI half-life (kể cả 0 = tắt), nên chỉ
+        còn thang ĐÃ CHỐT lúc fit (log1p hay tuyến tính) — không theo config hiện tại, để món
+        mới và món cũ trong cùng một hồ sơ luôn cùng một thang.
+
+        Tính ở float32 như ma trận đã train: log1p(1) ra đúng giá trị của một cặp (khách, món)
+        mua 1 cái hôm nay trong lần train tới.
+        """
+        # Pickle trước 01/10 không có trường này và được dựng ở thang tuyến tính (xem load_model)
+        scale = getattr(self, "input_scale", "linear")
+        if scale is None:                             # chưa fit
+            scale = self.resolved_input_scale()
+        w = np.float32(quantity)
+        return float(np.log1p(w)) if scale == "log" else float(w)
+
     @staticmethod
     def _apply_recency(df: pd.DataFrame, half_life: float) -> pd.DataFrame:
         """Giảm trọng số tương tác theo thời gian: w = Quantity * 0.5^(ngày/half_life).

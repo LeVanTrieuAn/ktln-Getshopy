@@ -41,6 +41,12 @@ HYBRID_MODEL_PATH = OUTPUT_DIR / "hybrid" / "recommender.joblib"
 # ==============================================================================
 DEFAULT_TOP_K = 10
 
+# POST /api/v1/recommend/realtime (12/11/2026): trần số mã món trong một request.
+# Server gửi tối đa 200 món gần nhất (RecommendationService.js); p99 số món khác nhau
+# một khách đã mua là 321, cao nhất 527 (mẫu 1.975 khách, Postgres 12/11/2026). Trần
+# rộng gấp vài lần để không bao giờ chặn request hợp lệ, chỉ chặn payload bất thường.
+REALTIME_MAX_PURCHASES = int(os.getenv("REALTIME_MAX_PURCHASES", "1000"))
+
 
 # ==============================================================================
 # Nguồn dữ liệu train: ClickHouse (warehouse)
