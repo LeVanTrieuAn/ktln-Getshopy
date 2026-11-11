@@ -1,6 +1,13 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ConfigProvider, theme, Spin } from 'antd';
+// Ngôn ngữ của component antd (Empty "No data", Pagination "20 / page", DatePicker,
+// Popconfirm...) theo ngôn ngữ app. Trước 11/11/2026 không đặt locale nên antd luôn
+// tiếng Anh, kể cả khi app đang ở tiếng Việt. dayjs là thư viện ngày của DatePicker.
+import viVN from 'antd/locale/vi_VN';
+import enUS from 'antd/locale/en_US';
+import dayjs from 'dayjs';
+import 'dayjs/locale/vi';
 import { StyleProvider, createCache } from '@ant-design/cssinjs';
 import { AppProvider, useApp } from './context/AppContext';
 import { CartProvider } from './context/CartContext';
@@ -57,10 +64,12 @@ const ProtectedRoute = ({ children }) => {
 };
 
 const ThemeWrapper = ({ children }) => {
-  const { isDark } = useApp();
+  const { isDark, lang } = useApp();
+  dayjs.locale(lang === 'en' ? 'en' : 'vi');
   return (
       <StyleProvider cache={styleCache} layer>
         <ConfigProvider
+          locale={lang === 'en' ? enUS : viVN}
           theme={{
             algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm,
             token: {

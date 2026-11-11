@@ -21,9 +21,9 @@ const NAV_ITEMS = [
   { key: '/admin/reconciliation', icon: <ReconciliationOutlined />,  labelKey: 'nav.reconciliation' },
   { key: '/admin/alerts',         icon: <AlertOutlined />,           labelKey: 'nav.alerts' },
   { key: '/admin/fulfillment',    icon: <CarOutlined />,             labelKey: 'nav.fulfillment' },
-  { key: '/admin/reviews',        icon: <StarOutlined />,            labelKey: 'Đánh giá' },
-  { key: '/admin/behavior',       icon: <BarChartOutlined />,        labelKey: 'Behavior Analytics' },
-  { key: '/admin/chatbot',        icon: <RobotOutlined />,           labelKey: 'Quản lý Chatbot AI' },
+  { key: '/admin/reviews',        icon: <StarOutlined />,            labelKey: 'nav.reviews' },
+  { key: '/admin/behavior',       icon: <BarChartOutlined />,        labelKey: 'nav.behavior' },
+  { key: '/admin/chatbot',        icon: <RobotOutlined />,           labelKey: 'nav.chatbot' },
 ];
 
 export default function AppLayout() {
@@ -60,6 +60,19 @@ export default function AppLayout() {
             itemHoverBg: isDark ? 'rgba(250,250,250,0.06)' : '#f4f4f5',
             itemColor: c.sub,
             itemHeight: 40,
+            // Chế độ tối: sidebar render <Menu theme="dark">, mà menu tối KHÔNG đọc
+            // itemColor ở trên — nó đọc nhóm darkItem*. Thiếu nhóm này thì antd tự
+            // suy từ token đơn sắc ra rgba(11,11,13,0.65): chữ đen trên nền #141417,
+            // cả menu như biến mất (báo 11/11/2026).
+            darkItemBg: 'transparent',
+            darkSubMenuItemBg: 'transparent',
+            darkPopupBg: c.surface,
+            darkItemColor: c.sub,
+            darkItemHoverColor: c.fg,
+            darkItemHoverBg: 'rgba(250,250,250,0.06)',
+            darkItemSelectedColor: c.fg,
+            darkItemSelectedBg: 'rgba(250,250,250,0.10)',
+            darkGroupTitleColor: c.sub,
           },
           Table: { headerBg: c.soft, headerColor: c.sub, rowHoverBg: c.soft, borderColor: c.lineSoft },
           Card: { headerBg: 'transparent', colorBorderSecondary: c.line },

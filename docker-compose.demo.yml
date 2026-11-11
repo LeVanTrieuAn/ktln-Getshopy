@@ -1,0 +1,35 @@
+# =============================================================================
+# Lớp phủ CHỈ DÙNG KHI DEMO — chồng lên docker-compose.yml, không sửa file gốc.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.demo.yml up -d
+#
+# Thêm hai thứ để trình chiếu được bằng giao diện thay vì dòng lệnh:
+#   - kafka-ui : xem message CDC trong topic, trạng thái connector, độ trễ consumer
+#   - ai-rec   : mở cổng 8000 ra máy host để gọi Swagger (/docs) và /health
+#
+# Kịch bản dùng file này: docs/demo/kich-ban-demo-pipeline.md
+# =============================================================================
+
+services:
+  kafka-ui:
+    # provectuslabs/kafka-ui đã ngừng phát triển; kafbat/kafka-ui là nhánh tiếp nối.
+    image: ghcr.io/kafbat/kafka-ui:v1.2.0
+    depends_on: [kafka, kafka-connect]
+    ports: ["${KAFKA_UI_PORT:-8085}:8080"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: kltn
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: connect
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kafka-connect:8083
+      # Chỉ đọc: trên màn chiếu bấm nhầm "Delete topic" là mất dữ liệu CDC chưa xuống hồ
+      KAFKA_CLUSTERS_0_READONLY: "true"
+      DYNAMIC_CONFIG_ENABLED: "false"
+      # Ở 3 triệu đơn RAM khả dụng chỉ còn vài trăm MiB mỗi lượt dbt (benchmark 23/10) —
+      # giới hạn heap JVM để giao diện không giành RAM của ClickHouse
+      JAVA_OPTS: "-Xmx256m"
+    mem_limit: 512m
+    restart: "no"
+
+  ai-rec:
+    # File gốc chỉ `expose` 8000 cho server gọi trong network compose
+    ports: ["${AI_REC_PORT:-8000}:8000"]

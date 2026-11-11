@@ -137,7 +137,7 @@ flowchart TB
     subgraph ING["② THU NHẬN (Ingestion)"]
         DBZ["Debezium Postgres 2.5.4<br/>đọc WAL qua pgoutput<br/>slot: getshopy_cdc_slot"]
         KFK["Apache Kafka 7.4.0<br/>cdc_prod.public.Order<br/>cdc_prod.public.OrderItem"]
-        SNK["Confluent S3 Sink 10.5.13<br/>Parquet · flush.size 1000<br/>rotate.schedule 15s"]
+        SNK["Confluent S3 Sink 10.5.13<br/>Parquet · flush.size 10000<br/>rotate.schedule 15s"]
     end
 
     subgraph LAKE["③ DATA LAKE — Bronze"]
@@ -237,7 +237,7 @@ sequenceDiagram
     Note over KF: Khoá = PK ⇒ mọi thay đổi của cùng một đơn<br/>vào cùng partition ⇒ GIỮ ĐÚNG THỨ TỰ
     KF->>SK: consume
     SK->>MI: ghi topics/.../year=/month=/day=/*.parquet
-    Note over SK,MI: đóng tệp khi đủ 1000 bản ghi<br/>HOẶC sau 15s theo đồng hồ thật
+    Note over SK,MI: đóng tệp khi đủ 10000 bản ghi<br/>HOẶC sau 15s theo đồng hồ thật
 
     rect rgb(240,240,240)
         Note over DT,CH: mỗi 5 phút — `dbt build`
@@ -329,7 +329,7 @@ hai đều không hiện ra ngay, chỉ là dữ liệu không bao giờ chảy.
 | Chặng | Độ trễ điển hình | Cái gì quyết định |
 |---|---|---|
 | Postgres → Kafka | < 1 s | Tốc độ đọc WAL của Debezium |
-| Kafka → Parquet trên MinIO | ≤ 15 s | `rotate.schedule.interval.ms = 15000` (đồng hồ thật) hoặc đủ `flush.size = 1000` |
+| Kafka → Parquet trên MinIO | ≤ 15 s | `rotate.schedule.interval.ms = 15000` (đồng hồ thật) hoặc đủ `flush.size = 10000` |
 | Parquet → warehouse | ≤ 5 phút | Chu kỳ `ofelia` gọi `dbt build` (`DBT_SCHEDULE`) |
 | warehouse → serving | Cùng lượt dbt | Nằm trong cùng một `dbt build` |
 | **Tổng** | **≈ 5–6 phút** | Chu kỳ dbt chiếm phần lớn |
@@ -445,7 +445,7 @@ bắt được bảng nào và cũng không báo lỗi.
 | `slot.name` / `publication.name` | `getshopy_cdc_slot` / `getshopy_cdc_pub` | Đặt tên tường minh để xoá/tạo lại được khi cần |
 | `decimal.handling.mode` | `double` | Tiền đã là `Int` (đồng) nên không cần xử lý Decimal |
 | Key của message | Khoá chính | **Quan trọng nhất**: cùng khoá ⇒ cùng partition ⇒ đúng thứ tự ⇒ dedup theo phiên bản mới cho kết quả đúng |
-| `flush.size` | `1000` | Ngưỡng số bản ghi để đóng tệp |
+| `flush.size` | `10000` | Ngưỡng số bản ghi để đóng tệp. Nâng từ 1000 (23/10/2026): dbt mở **mọi** tệp parquet mỗi lượt qua `s3()`, 3 triệu đơn ra ~950 tệp thay vì ~9.500 |
 | `rotate.schedule.interval.ms` | `15000` | Theo **đồng hồ thật**. `rotate.interval.ms` theo timestamp của *record*, nên lúc ít đơn thì bản ghi cuối **nằm mãi trong buffer** |
 | `schema.compatibility` | `BACKWARD` | `NONE` khiến sink dùng lược đồ của record **đầu tiên** cho cả tệp và **không mở tệp mới khi lược đồ đổi** — cột mới bị bỏ im lặng |
 | `path.format` | `'year='YYYY/'month='MM/'day='dd` | Phân vùng tới **ngày**, không có `hour=` — đường dẫn trong staging phải khớp |

@@ -1,0 +1,161 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1100" viewBox="0 0 1680 1100">
+<defs><marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#2f9e44"/></marker><marker id="ao" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#e8590c"/></marker><marker id="ax" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" markerUnits="userSpaceOnUse" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#adb5bd"/></marker></defs>
+<rect width="1680" height="1100" fill="#ffffff"/>
+<text x="24" y="42" font-family="'Segoe UI', Arial, sans-serif" font-size="24" font-weight="700" fill="#212529" text-anchor="start">Kiến trúc tổng thể hệ thống GetShopy</text>
+<text x="24" y="68" font-family="'Segoe UI', Arial, sans-serif" font-size="14" font-weight="400" fill="#495057" text-anchor="start">Làm nổi bật hai hệ: BigData (xanh lá) và AI-Rec (cam). Hệ Ecommerce chỉ đóng vai nguồn dữ liệu và nơi tiêu thụ kết quả (xám).</text>
+<rect x="20" y="92" width="272" height="960" rx="14" fill="#ffffff" stroke="#ced4da" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="36" y="118" font-family="'Segoe UI', Arial, sans-serif" font-size="13" font-weight="700" fill="#868e96" text-anchor="start">HỆ ECOMMERCE</text>
+<text x="36" y="136" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#adb5bd" text-anchor="start">nguồn dữ liệu &amp; nơi tiêu thụ</text>
+<rect x="340" y="92" width="1316" height="198" rx="14" fill="#fff4e6" stroke="#e8590c" stroke-width="4"/>
+<text x="358" y="122" font-family="'Segoe UI', Arial, sans-serif" fill="#d9480f"><tspan font-size="17" font-weight="700">★ HỆ AI-REC</tspan><tspan font-size="13" dx="8">FastAPI · scikit-learn · scipy — train lại mỗi 300 s, phục vụ gợi ý từ cache tính sẵn</tspan></text>
+<rect x="340" y="310" width="1316" height="742" rx="14" fill="#ebfbee" stroke="#2f9e44" stroke-width="4"/>
+<text x="358" y="340" font-family="'Segoe UI', Arial, sans-serif" fill="#2b8a3e"><tspan font-size="17" font-weight="700">★ HỆ BIGDATA</tspan><tspan font-size="13" dx="8">Lakehouse · CDC — local-infra-sandbox (docker compose --profile bigdata)</tspan></text>
+<rect x="600" y="360" width="1045" height="482" rx="10" fill="#f8fdf9" stroke="#8ce99a" stroke-width="1.5"/>
+<text x="614" y="381" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="700" fill="#2b8a3e" text-anchor="start">③ KHO DỮ LIỆU — ClickHouse 24.8 · dbt-core · ofelia chạy dbt build (run + test) mỗi 5 phút</text>
+<rect x="360" y="862" width="815" height="170" rx="10" fill="#f8fdf9" stroke="#8ce99a" stroke-width="1.5"/>
+<text x="374" y="883" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="700" fill="#2b8a3e" text-anchor="start">① THU NHẬN — CDC streaming</text>
+<text x="380" y="610" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="700" fill="#2b8a3e" text-anchor="start">KHAI THÁC</text>
+<rect x="40" y="150" width="232" height="72" rx="8" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.2"/>
+<text x="156" y="173.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#868e96" text-anchor="middle">Client · React 19 · :3000</text>
+<text x="156" y="189.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">B2C: Checkout · Home</text>
+<text x="156" y="206.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">Admin Dashboard</text>
+<rect x="40" y="250" width="232" height="90" rx="8" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.2"/>
+<text x="156" y="274" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#868e96" text-anchor="middle">Server · Node.js · Express 5</text>
+<text x="156" y="290.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">cổng 8080</text>
+<text x="156" y="307" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">checkout · tracking</text>
+<text x="156" y="323.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">RecommendationService</text>
+<rect x="40" y="372" width="120" height="40" rx="8" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.2"/>
+<text x="100" y="395.75" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#868e96" text-anchor="middle">Redis 7 · cache</text>
+<path d="M40,894 A116,9 0 0 0 272,894 L272,1006 A116,9 0 0 1 40,1006 Z" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.2"/>
+<ellipse cx="156" cy="894" rx="116" ry="9" fill="#f8f9fa" stroke="#ced4da" stroke-width="1.2"/>
+<text x="156" y="933.5" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#868e96" text-anchor="middle">PostgreSQL 16 · OLTP</text>
+<text x="156" y="950" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">wal_level = logical</text>
+<text x="156" y="966.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">Order · OrderItem</text>
+<text x="156" y="983" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#a5adb5" text-anchor="middle">Product · Customer</text>
+<rect x="410" y="150" width="270" height="96" rx="8" fill="#ffe8cc" stroke="#e8590c" stroke-width="2"/>
+<text x="545" y="177" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#6b2400" text-anchor="middle">FastAPI · cổng 8000</text>
+<text x="545" y="193.5" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#8a3b0c" text-anchor="middle">GET /api/v1/recommend/customer/{id}</text>
+<text x="545" y="210" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#8a3b0c" text-anchor="middle">GET /health</text>
+<text x="545" y="226.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">trả top-K từ bản đang phục vụ</text>
+<rect x="712" y="150" width="220" height="96" rx="8" fill="#ffe8cc" stroke="#e8590c" stroke-width="2"/>
+<text x="822" y="177" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#6b2400" text-anchor="middle">ModelBundle</text>
+<text x="822" y="193.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">model + cache tính sẵn</text>
+<text x="822" y="210" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">đổi bản nguyên tử</text>
+<text x="822" y="226.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">lưu recommender.joblib</text>
+<rect x="964" y="150" width="168" height="96" rx="8" fill="#ffe8cc" stroke="#e8590c" stroke-width="2"/>
+<text x="1048" y="185.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#6b2400" text-anchor="middle">_precompute()</text>
+<text x="1048" y="201.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">top-20 mỗi khách</text>
+<text x="1048" y="218.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">trần 60 s</text>
+<rect x="1164" y="150" width="204" height="96" rx="8" fill="#ffe8cc" stroke="#e8590c" stroke-width="2"/>
+<text x="1266" y="177" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#6b2400" text-anchor="middle">Vòng train nền · 300 s</text>
+<text x="1266" y="193.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">Item-CF</text>
+<text x="1266" y="210" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">+ Content-based + Repeat</text>
+<text x="1266" y="226.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">→ HybridRecommender</text>
+<rect x="1400" y="150" width="230" height="96" rx="8" fill="#ffe8cc" stroke="#e8590c" stroke-width="2"/>
+<text x="1515" y="185.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#6b2400" text-anchor="middle">data_source/clickhouse.py</text>
+<text x="1515" y="201.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">HTTP · user ai_rec</text>
+<text x="1515" y="218.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#8a3b0c" text-anchor="middle">chỉ đọc serving.*</text>
+<rect x="1400" y="410" width="230" height="170" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1515" y="457.5" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">serving.* — cho AI-Rec</text>
+<text x="1515" y="474" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#2f5d3a" text-anchor="middle">processed_data_for_AI_rec</text>
+<text x="1515" y="490.5" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#2f5d3a" text-anchor="middle">purchase_events_for_AI_rec</text>
+<text x="1515" y="507" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#2f5d3a" text-anchor="middle">product_features</text>
+<text x="1515" y="523.5" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#2f5d3a" text-anchor="middle">customer_preference_signals</text>
+<text x="1515" y="540" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#2f5d3a" text-anchor="middle">customer_product_events</text>
+<rect x="1400" y="620" width="230" height="80" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1515" y="647.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">warehouse.fact_orders_detail</text>
+<text x="1515" y="663.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">Gold · ReplacingMergeTree</text>
+<text x="1515" y="680.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">(_event_ts, _is_deleted)</text>
+<rect x="1400" y="740" width="230" height="70" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1515" y="770.5" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">staging.* — Silver</text>
+<text x="1515" y="787" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">VIEW đọc Parquet qua s3()</text>
+<path d="M1400,881 A115,9 0 0 0 1630,881 L1630,1003 A115,9 0 0 1 1400,1003 Z" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<ellipse cx="1515" cy="881" rx="115" ry="9" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1515" y="925.5" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">② DATA LAKE — Bronze</text>
+<text x="1515" y="942" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">MinIO · bucket data-lake</text>
+<text x="1515" y="958.5" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">Parquet bất biến</text>
+<text x="1515" y="975" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">chỉ ghi thêm</text>
+<rect x="1130" y="410" width="230" height="70" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1245" y="432.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">analytics.user_events</text>
+<text x="1245" y="448.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">→ user_events_stitched</text>
+<text x="1245" y="465.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">xem · giỏ hàng · yêu thích</text>
+<rect x="1130" y="510" width="230" height="70" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1245" y="532.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">masterdata.dim_*</text>
+<text x="1245" y="548.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">sản phẩm · khách · danh mục …</text>
+<text x="1245" y="565.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">TRUNCATE + INSERT</text>
+<rect x="1130" y="620" width="230" height="80" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1245" y="647.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">serving.mart_revenue</text>
+<text x="1245" y="663.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">paid_revenue</text>
+<text x="1245" y="680.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">→ Admin Dashboard</text>
+<rect x="1130" y="740" width="230" height="70" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1245" y="770.5" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">audit.checksum_orders</text>
+<text x="1245" y="787" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">đối soát src ↔ stg ↔ wh</text>
+<rect x="640" y="740" width="240" height="70" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="760" y="762.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">realtime.orders_live</text>
+<text x="760" y="778.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">Kafka engine + Materialized View</text>
+<text x="760" y="795.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">trễ ~1 s · TTL 7 ngày</text>
+<rect x="380" y="620" width="200" height="80" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="480" y="655.5" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">Metabase</text>
+<text x="480" y="672" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">BI tự phục vụ</text>
+<rect x="380" y="740" width="200" height="70" rx="8" fill="#ffffff" stroke="#69db7c" stroke-width="1.2" stroke-dasharray="5 4"/>
+<text x="480" y="762.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#2b8a3e" text-anchor="middle">Độ trễ end-to-end</text>
+<text x="480" y="778.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">nhánh lạnh ≈ 5–6 phút</text>
+<text x="480" y="795.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">nhánh nóng ≈ 1 s</text>
+<rect x="385" y="905" width="200" height="90" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="485" y="937.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">Debezium 2.5.4</text>
+<text x="485" y="953.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">đọc WAL · pgoutput</text>
+<text x="485" y="970.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">slot getshopy_cdc_slot</text>
+<rect x="640" y="905" width="240" height="90" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="760" y="937.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">Kafka · Confluent 7.4.0</text>
+<text x="760" y="953.75" font-family="'Cascadia Mono', Consolas, monospace" font-size="11" font-weight="400" fill="#2f5d3a" text-anchor="middle">cdc_prod.public.*</text>
+<text x="760" y="970.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">key = PK ⇒ đúng thứ tự</text>
+<rect x="935" y="905" width="220" height="90" rx="8" fill="#d3f9d8" stroke="#2f9e44" stroke-width="2"/>
+<text x="1045" y="937.25" font-family="'Segoe UI', Arial, sans-serif" font-size="12.5" font-weight="600" fill="#1b4d2a" text-anchor="middle">S3 Sink 10.5.13</text>
+<text x="1045" y="953.75" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">Parquet · flush 10k</text>
+<text x="1045" y="970.25" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2f5d3a" text-anchor="middle">xoay tệp mỗi 15 s</text>
+<path d="M156,222 L156,250" fill="none" stroke="#adb5bd" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#ax)"/>
+<path d="M90,340 L90,372" fill="none" stroke="#adb5bd" stroke-width="1.5" stroke-linejoin="round" stroke-dasharray="4 3" marker-end="url(#ax)"/>
+<path d="M210,340 L210,885" fill="none" stroke="#adb5bd" stroke-width="1.5" stroke-linejoin="round" marker-end="url(#ax)"/>
+<text x="202" y="620" font-family="'Segoe UI', Arial, sans-serif" font-size="11" font-weight="400" fill="#adb5bd" text-anchor="end">ghi đơn hàng</text>
+<path d="M272,262 L306,262 L306,198 L410,198" fill="none" stroke="#e8590c" stroke-width="3" stroke-linejoin="round" marker-end="url(#ao)"/>
+<text x="375" y="189" font-family="'Segoe UI', Arial, sans-serif" font-size="11" font-weight="600" fill="#e8590c" text-anchor="middle" paint-order="stroke" stroke="#fff4e6" stroke-width="5" stroke-linejoin="round">REST</text>
+<text x="375" y="215" font-family="'Segoe UI', Arial, sans-serif" font-size="11" font-weight="400" fill="#e8590c" text-anchor="middle" paint-order="stroke" stroke="#fff4e6" stroke-width="5" stroke-linejoin="round">timeout 3 s</text>
+<path d="M1515,410 L1515,246" fill="none" stroke="#e8590c" stroke-width="4" stroke-linejoin="round" marker-end="url(#ao)"/>
+<text x="1505" y="278" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="600" fill="#e8590c" text-anchor="end" paint-order="stroke" stroke="#fff4e6" stroke-width="5" stroke-linejoin="round">đọc serving.* mỗi 300 s</text>
+<path d="M272,950 L385,950" fill="none" stroke="#2f9e44" stroke-width="4" stroke-linejoin="round" marker-end="url(#ag)"/>
+<text x="312" y="942" font-family="'Segoe UI', Arial, sans-serif" font-size="11" font-weight="700" fill="#2f9e44" text-anchor="middle" paint-order="stroke" stroke="#ffffff" stroke-width="5" stroke-linejoin="round">WAL</text>
+<path d="M272,315 L318,315 L318,445 L1130,445" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<text x="865" y="437" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2b8a3e" text-anchor="middle" paint-order="stroke" stroke="#f8fdf9" stroke-width="5" stroke-linejoin="round">sự kiện hành vi (tracking) — server ghi thẳng vào ClickHouse</text>
+<path d="M272,915 L328,915 L328,545 L1130,545" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" stroke-dasharray="6 4" marker-end="url(#ag)"/>
+<text x="865" y="537" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="400" fill="#2b8a3e" text-anchor="middle" paint-order="stroke" stroke="#f8fdf9" stroke-width="5" stroke-linejoin="round">masterdata — đường tắt postgresql(), không qua CDC</text>
+<path d="M585,950 L640,950" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M880,950 L935,950" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1155,950 L1400,950" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M760,905 L760,810" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<text x="770" y="857" font-family="'Segoe UI', Arial, sans-serif" font-size="11.5" font-weight="600" fill="#2b8a3e" text-anchor="start" paint-order="stroke" stroke="#ebfbee" stroke-width="5" stroke-linejoin="round">nhánh nóng</text>
+<path d="M1515,872 L1515,810" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<text x="1525" y="857" font-family="'Cascadia Mono', Consolas, monospace" font-size="11.5" font-weight="600" fill="#2b8a3e" text-anchor="start" paint-order="stroke" stroke="#ebfbee" stroke-width="5" stroke-linejoin="round">s3()</text>
+<path d="M1515,740 L1515,700" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1515,620 L1515,580" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1360,445 L1400,445" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1360,545 L1400,545" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1400,660 L1360,660" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1400,775 L1360,775" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" stroke-dasharray="4 3" marker-end="url(#ag)"/>
+<path d="M1130,660 L580,660" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<path d="M1400,198 L1368,198" fill="none" stroke="#e8590c" stroke-width="2" stroke-linejoin="round" marker-end="url(#ao)"/>
+<path d="M1164,198 L1132,198" fill="none" stroke="#e8590c" stroke-width="2" stroke-linejoin="round" marker-end="url(#ao)"/>
+<path d="M964,198 L932,198" fill="none" stroke="#e8590c" stroke-width="2" stroke-linejoin="round" marker-end="url(#ao)"/>
+<path d="M712,198 L680,198" fill="none" stroke="#e8590c" stroke-width="2" stroke-linejoin="round" marker-end="url(#ao)"/>
+<rect x="24" y="1067" width="24" height="14" rx="3" fill="#ebfbee" stroke="#2f9e44" stroke-width="2.5"/>
+<text x="56" y="1078" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#495057" text-anchor="start">Hệ BigData</text>
+<rect x="148" y="1067" width="24" height="14" rx="3" fill="#fff4e6" stroke="#e8590c" stroke-width="2.5"/>
+<text x="180" y="1078" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#495057" text-anchor="start">Hệ AI-Rec</text>
+<rect x="265.6" y="1067" width="24" height="14" rx="3" fill="#ffffff" stroke="#ced4da" stroke-width="1.2" stroke-dasharray="4 3"/>
+<text x="297.6" y="1078" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#495057" text-anchor="start">Hệ Ecommerce (ngữ cảnh)</text>
+<path d="M472.80000000000007,1074 L506.80000000000007,1074" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" marker-end="url(#ag)"/>
+<text x="516.8000000000001" y="1078" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#495057" text-anchor="start">luồng dữ liệu</text>
+<path d="M628,1074 L662,1074" fill="none" stroke="#2f9e44" stroke-width="2" stroke-linejoin="round" stroke-dasharray="6 4" marker-end="url(#ag)"/>
+<text x="672" y="1078" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#495057" text-anchor="start">đường phụ (masterdata, đối soát)</text>
+<path d="M904.8,1074 L938.8,1074" fill="none" stroke="#e8590c" stroke-width="3" stroke-linejoin="round" marker-end="url(#ao)"/>
+<text x="948.8" y="1078" font-family="'Segoe UI', Arial, sans-serif" font-size="12" font-weight="400" fill="#495057" text-anchor="start">luồng gợi ý</text>
+</svg>

@@ -13,11 +13,29 @@
   --font-apple: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: var(--font-apple);
+/* Thứ tự ưu tiên: reset < antd < mọi CSS không thuộc layer nào (CSS của app).
+ *
+ * App.jsx bọc Ant Design trong <StyleProvider layer>, nên toàn bộ style của antd
+ * nằm trong @layer antd. Theo luật cascade layer, style KHÔNG thuộc layer luôn
+ * thắng style trong layer, bất kể selector mạnh hay yếu. Rule `* { margin: 0;
+ * padding: 0 }` trước đây không thuộc layer nào, nên nó đè hết padding / margin /
+ * gap của mọi component antd: ô nhập dính icon, thẻ không có lề, tab và menu
+ * dính chữ, select và date picker sát mép (thấy rõ 11/11/2026 trên toàn bộ trang
+ * admin). Đưa reset vào layer thấp nhất: phần tử thường vẫn được reset như cũ,
+ * còn component antd dùng lại đúng khoảng cách nó thiết kế.
+ *
+ * Dòng khai báo thứ tự phải đứng TRƯỚC mọi khối @layer antd. File này nằm trong
+ * <head> (thẻ <link>) trước các thẻ <style> antd chèn lúc chạy, nên reset được
+ * khai báo trước và xếp thấp hơn antd. */
+@layer reset, antd;
+
+@layer reset {
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-apple);
+  }
 }
 
 body {
@@ -54,22 +72,26 @@ body {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
 }
 
-/* Typography */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 600;
-  letter-spacing: -0.015em;
-  color: var(--text-main);
-}
+/* Typography — style mặc định cho thẻ trần, cùng layer với reset ở đầu file:
+ * vẫn áp cho phần tử thường, nhưng KHÔNG đè Typography / Modal / Empty... của
+ * antd (trước đây đè cả màu chữ tiêu đề antd ở chế độ tối). */
+@layer reset {
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    color: var(--text-main);
+  }
 
-h1 {
-  font-size: 2.2rem;
-  margin-bottom: 1rem;
-}
+  h1 {
+    font-size: 2.2rem;
+    margin-bottom: 1rem;
+  }
 
-p {
-  color: var(--text-muted);
-  line-height: 1.5;
-  font-size: 1.05rem;
+  p {
+    color: var(--text-muted);
+    line-height: 1.5;
+    font-size: 1.05rem;
+  }
 }
 
 /* Buttons */

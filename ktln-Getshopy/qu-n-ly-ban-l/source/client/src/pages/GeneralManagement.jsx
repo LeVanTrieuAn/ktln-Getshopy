@@ -60,6 +60,8 @@ export default function GeneralManagement() {
   const [flashSales, setFlashSales] = useState([]);
   const [brands, setBrands] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [customerPage, setCustomerPage] = useState({ current: 1, pageSize: 20, total: 0 });
+  const [customerSearch, setCustomerSearch] = useState('');
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -109,6 +111,15 @@ export default function GeneralManagement() {
     } catch (e) { console.error(e); }
   }, []);
 
+  // Khách hàng: cũng phân trang ở máy chủ (40.008 dòng — trước đây nạp hết một lần).
+  const loadCustomers = useCallback(async (page = 1, pageSize = 20, search = '') => {
+    try {
+      const res = await api.b2b.getCustomers({ page, limit: pageSize, search });
+      setCustomers(res.data || []);
+      setCustomerPage({ current: res.page || page, pageSize, total: res.total || 0 });
+    } catch (e) { console.error(e); }
+  }, []);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     try {
@@ -118,7 +129,7 @@ export default function GeneralManagement() {
         api.b2c.getCategories(),
         api.b2b.getFlashSales ? api.b2b.getFlashSales() : fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3000/api'}/b2b/flash-sales`).then(r => r.json()),
         api.b2b.getBrands ? api.b2b.getBrands() : api.b2c.getBrands(),
-        api.b2b.getCustomers ? api.b2b.getCustomers() : Promise.resolve([])
+        api.b2b.getCustomers({ page: 1, limit: 20 })
       ]);
       setBranches(br);
       setProducts(pr.data || []);
@@ -126,7 +137,8 @@ export default function GeneralManagement() {
       setCategories(cat);
       setFlashSales(fs);
       setBrands(brds);
-      setCustomers(cust);
+      setCustomers(cust.data || []);
+      setCustomerPage(cp => ({ ...cp, current: 1, total: cust.total || 0 }));
     } catch(e) {
       console.error(e);
       message.error('Không thể tải dữ liệu');
@@ -402,7 +414,7 @@ export default function GeneralManagement() {
     { title: 'Họ tên', dataIndex: 'full_name', key: 'full_name' },
     { title: 'Email', dataIndex: 'email', key: 'email' },
     { title: 'Số điện thoại', dataIndex: 'phone', key: 'phone', render: (val) => val || '-' },
-    { title: 'Điểm tích lũy', dataIndex: 'loyalty_points', key: 'loyalty_points', render: (val) => <Tag color="gold">{val}</Tag> },
+    { title: 'Điểm tích lũy', dataIndex: 'loyalty_points', key: 'loyalty_points', render: (val) => <Tag color="gold">{Number(val || 0).toLocaleString('vi-VN')}</Tag> },
     { title: 'Đăng nhập', dataIndex: 'provider', key: 'provider' },
     { title: 'Ngày tham gia', dataIndex: 'created_at', key: 'created_at', render: (t) => dayjs(t).format('DD/MM/YYYY') },
   ];
@@ -419,7 +431,29 @@ export default function GeneralManagement() {
       <Tabs activeKey={activeTab} onChange={setActiveTab} items={[
         { key: '1', label: 'Chi nhánh', children: <Table dataSource={branches} columns={branchColumns} rowKey="id" loading={loading} /> },
         { key: '4', label: 'Thương hiệu', children: <Table dataSource={brands} columns={brandColumns} rowKey="id" loading={loading} /> },
-        { key: '5', label: 'Khách hàng', children: <Table dataSource={customers} columns={customerColumns} rowKey="id" loading={loading} /> },
+        { key: '5', label: 'Khách hàng', children: (
+          <>
+            <Input.Search
+              allowClear
+              placeholder="Tìm theo tên, email, số điện thoại hoặc ID…"
+              onSearch={(v) => { setCustomerSearch(v); loadCustomers(1, customerPage.pageSize, v); }}
+              style={{ maxWidth: 360, marginBottom: 12 }}
+            />
+            <Table
+              dataSource={customers} columns={customerColumns} rowKey="id" loading={loading}
+              scroll={{ x: 'max-content' }}
+              pagination={{
+                current: customerPage.current,
+                pageSize: customerPage.pageSize,
+                total: customerPage.total,
+                showSizeChanger: true,
+                pageSizeOptions: [20, 50, 100],
+                showTotal: (t) => `${t.toLocaleString('vi-VN')} khách hàng`,
+                onChange: (pg, size) => loadCustomers(pg, size, customerSearch),
+              }}
+            />
+          </>
+        ) },
         { key: '2', label: 'Sản phẩm', children: (
           <>
             <Input.Search

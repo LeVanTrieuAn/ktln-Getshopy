@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef, lazy, Suspense } from 'react';
 import useRevealOnScroll, { revealStyle } from '../../hooks/useRevealOnScroll';
+import useMediaQuery from '../../hooks/useMediaQuery';
 const Category3DModel = lazy(() => import('../../components/b2c/Category3DModel'));
 
 // FBX model URLs
@@ -37,7 +38,7 @@ const CATEGORY_CARDS = [
     title: 'Điện thoại',
     description: 'Smartphone cao cấp, camera đỉnh cao, hiệu năng vượt trội và thiết kế thời thượng.',
     linkText: 'Khám phá danh mục →',
-    image: '/images/commerce/cat_phone.jpg',
+    image: '/images/commerce/cat_phone.webp',
     type: 'category',
     categoryKey: 'cat-phone'
   },
@@ -46,7 +47,7 @@ const CATEGORY_CARDS = [
     title: 'Laptop',
     description: 'Máy tính xách tay mỏng nhẹ, pin trâu và hiệu năng tối ưu cho mọi tác vụ sáng tạo.',
     linkText: 'Khám phá danh mục →',
-    image: '/images/commerce/cat_laptop.jpg',
+    image: '/images/commerce/cat_laptop.webp',
     type: 'category',
     categoryKey: 'cat-laptop'
   },
@@ -55,7 +56,7 @@ const CATEGORY_CARDS = [
     title: 'iPad & Tablet',
     description: 'Màn hình Liquid Retina sắc nét, hỗ trợ bút stylus và bàn phím, đa nhiệm mạnh mẽ mọi lúc mọi nơi.',
     linkText: 'Khám phá danh mục →',
-    image: '/images/commerce/cat_tablet.jpg',
+    image: '/images/commerce/cat_tablet.webp',
     type: 'category',
     categoryKey: 'cat-tablet'
   },
@@ -64,7 +65,7 @@ const CATEGORY_CARDS = [
     title: 'Phụ kiện',
     description: 'Ốp lưng sang trọng, củ sạc siêu nhanh, cáp chống đứt và các phụ kiện công nghệ thiết yếu.',
     linkText: 'Khám phá danh mục →',
-    image: '/images/commerce/cat_phone_case.jpg',
+    image: '/images/commerce/cat_phone_case.webp',
     type: 'category',
     categoryKey: 'cat-mobile-acc'
   },
@@ -73,7 +74,7 @@ const CATEGORY_CARDS = [
     title: 'Đồng hồ thông minh',
     description: 'Theo dõi sức khoẻ chuyên sâu, đo nhịp tim, giấc ngủ và đồng hành cùng lối sống năng động.',
     linkText: 'Khám phá danh mục →',
-    image: '/images/commerce/cat_smartwatch.jpg',
+    image: '/images/commerce/cat_smartwatch.webp',
     type: 'category',
     categoryKey: 'cat-watch'
   },
@@ -98,13 +99,21 @@ const CATEGORY_FBX = {
 };
 
 export default function Home() {
-  const { isDark, selectedBranch, b2cUser } = useApp();
+  const { isDark, selectedBranch, b2cUser, t } = useApp();
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
   // Scroll reveal hooks (IntersectionObserver — one-shot)
   const [heroRef, heroVis] = useRevealOnScroll({ threshold: 0.1 });
   const [catRef, catVis] = useRevealOnScroll({ threshold: 0.08 });
+  // Mô hình 3D (5 file FBX ~16 MB, gzip chỉ bớt 10–15% vì FBX đã nén sẵn) chỉ tải khi:
+  //  - KHÔNG phải điện thoại / máy tính bảng (màn ≤ 991px): dùng ảnh danh mục thay thế —
+  //    16 MB qua 4G và 5 khung WebGL cùng lúc là quá nặng cho máy yếu;
+  //  - người dùng không bật Tiết kiệm dữ liệu (navigator.connection.saveData);
+  //  - khu danh mục đã cuộn tới màn hình (catVis) — không tải khi khách chưa nhìn thấy.
+  const isNarrow = useMediaQuery('(max-width: 991px)');
+  const saveData = typeof navigator !== 'undefined' && !!navigator.connection?.saveData;
+  const allow3D = !isNarrow && !saveData && catVis;
   const [recRef, recVis] = useRevealOnScroll({ threshold: 0.08 });
   const [newRef, newVis] = useRevealOnScroll({ threshold: 0.08 });
 
@@ -261,7 +270,12 @@ export default function Home() {
 
   // Helper renderer for product card matching reference template
   const renderProductCard = (product) => {
-    const catName = (product.category_name || product.Category?.name || 'TECHNOLOGY').toUpperCase();
+    // API /b2c/products chỉ trả category_id, không có tên — trước đây mọi thẻ đều
+    // rơi về chữ 'TECHNOLOGY'. Tên danh mục đã có sẵn trong i18n (home.category_<id>).
+    const catKey = product.category_id ? `home.category_${product.category_id}` : '';
+    const catText = product.category_name || product.Category?.name
+      || (catKey && t(catKey) !== catKey ? t(catKey) : t('home.category_fallback'));
+    const catName = catText.toUpperCase();
     const formattedPrice = `${Math.round(product.price).toLocaleString('vi-VN')} đ`;
 
     return (
@@ -294,7 +308,7 @@ export default function Home() {
           }}
         >
           <img
-            src={product.image || (product.images && product.images[0]) || '/images/commerce/prod_mouse.jpg'}
+            src={product.image || (product.images && product.images[0]) || '/images/commerce/prod_mouse.webp'}
             alt={product.name}
             loading="lazy"
             style={{
@@ -308,7 +322,7 @@ export default function Home() {
             onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             onError={(e) => {
               e.target.onerror = null;
-              e.target.src = '/images/commerce/prod_mouse.jpg';
+              e.target.src = '/images/commerce/prod_mouse.webp';
             }}
           />
 
@@ -424,7 +438,7 @@ export default function Home() {
             margin: '0 0 20px 0',
             ...revealStyle(heroVis, { delay: 0 }),
           }}>
-            High-quality tech<br />gadgets & accessories
+            {t('home.hero_title_1')}<br />{t('home.hero_title_2')}
           </h1>
 
           <p style={{
@@ -435,7 +449,7 @@ export default function Home() {
             margin: '0 0 34px 0',
             ...revealStyle(heroVis, { delay: 120 }),
           }}>
-            Sem sit amet adipiscing ullamcorper adipiscing adipiscing duis convallis tincidunt senectus enim blandit elit egestas.
+            {t('home.hero_subtitle')}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', ...revealStyle(heroVis, { delay: 220 }) }}>
@@ -456,7 +470,7 @@ export default function Home() {
               onMouseEnter={e => e.currentTarget.style.opacity = '0.88'}
               onMouseLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              Browse products
+              {t('home.hero_cta_browse')}
             </button>
             <button
               onClick={() => {
@@ -478,7 +492,7 @@ export default function Home() {
               onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.06)' : '#f4f4f5'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
-              About us
+              {t('home.hero_cta_about')}
             </button>
           </div>
         </div>
@@ -501,8 +515,8 @@ export default function Home() {
             background: isDark ? '#111827' : '#f9f9fb',
           }}>
             <img
-              src="/images/commerce/hero_tech_phone.jpg"
-              alt="High-quality tech gadgets"
+              src="/images/commerce/hero_tech_phone.webp"
+              alt={t('home.hero_image_alt')}
               style={{ width: '100%', height: 'auto', display: 'block', objectFit: 'cover' }}
             />
           </div>
@@ -525,8 +539,9 @@ export default function Home() {
                 style={{
                   background: isDark ? '#121722' : '#f5f5f7',
                   borderRadius: 28,
-                  padding: '40px 36px',
-                  height: 380,
+                  padding: isNarrow ? '28px 24px' : '40px 36px',
+                  height: isNarrow ? 'auto' : 380,
+                  gap: isNarrow ? 18 : undefined,
                   position: 'relative',
                   overflow: 'hidden',
                   cursor: 'pointer',
@@ -568,7 +583,20 @@ export default function Home() {
                   </p>
                 </div>
 
+                {/* Điện thoại / máy tính bảng: không có 3D, ảnh danh mục là ảnh chụp có nền
+                    riêng — đặt đè góc phải như khung 3D (trong suốt) thì đoạn mô tả chạy lên
+                    nền ảnh và mất chữ (báo 11/11/2026). Ở đây ảnh thành khối riêng dưới chữ. */}
+                {isNarrow && cat.image && (
+                  <img
+                    src={cat.image}
+                    alt={cat.title}
+                    loading="lazy"
+                    style={{ display: 'block', width: '100%', aspectRatio: '16 / 10', objectFit: 'cover', borderRadius: 18 }}
+                  />
+                )}
+
                 {/* 3D model or fallback image */}
+                {!isNarrow && (
                 <div style={{
                   position: 'absolute',
                   right: 0,
@@ -577,7 +605,7 @@ export default function Home() {
                   height: '220px',
                   pointerEvents: 'none',
                 }}>
-                  {fbxUrl ? (
+                  {fbxUrl && allow3D ? (
                     <Suspense fallback={
                       cat.image ? <img src={cat.image} alt={cat.title} loading="lazy" style={{
                         maxWidth: '100%', maxHeight: '100%', objectFit: 'contain',
@@ -608,6 +636,7 @@ export default function Home() {
                     />
                   ) : null}
                 </div>
+                )}
 
                 {/* Button at bottom left */}
                 <div style={{ zIndex: 3 }}>
@@ -747,7 +776,7 @@ export default function Home() {
           }}>
             <input
               type="text"
-              placeholder="Search for products"
+              placeholder={t('home.search_products')}
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               style={{
@@ -980,14 +1009,27 @@ export default function Home() {
             grid-template-columns: repeat(3, 1fr);
           }
         }
-        @media (max-width: 780px) {
+        /* Điện thoại: dải sản phẩm cuộn NGANG (vuốt) thay vì xếp 1 cột dài — 8 thẻ một cột
+           là ~8 màn hình phải cuộn qua mới tới mục kế tiếp. Lề âm -24px để dải chạy sát
+           mép màn hình nhưng thẻ đầu vẫn thẳng hàng với tiêu đề (section đệm 24px). */
+        @media (max-width: 768px) {
           .commerce-products-grid {
-            grid-template-columns: repeat(2, 1fr);
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            overscroll-behavior-x: contain;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            margin: 0 -24px;
+            padding: 4px 24px 14px;
+            scroll-padding: 0 24px;
           }
-        }
-        @media (max-width: 480px) {
-          .commerce-products-grid {
-            grid-template-columns: 1fr;
+          .commerce-products-grid::-webkit-scrollbar { display: none; }
+          .commerce-products-grid > .commerce-product-card {
+            flex: 0 0 44%;
+            max-width: 210px;
+            scroll-snap-align: start;
           }
         }
       `}</style>

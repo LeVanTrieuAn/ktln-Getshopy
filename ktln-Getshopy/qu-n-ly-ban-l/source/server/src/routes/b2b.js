@@ -59,7 +59,9 @@ router.post('/branches', async (req, res) => {
         address: address || ''
       }
     });
-    
+    // GET /api/b2c/branches (cửa hàng) cache 5 phút
+    await invalidate('branches:active');
+
     res.json({ message: 'Branch added successfully', branch: newBranch });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -76,6 +78,7 @@ router.put('/branches/:id', async (req, res) => {
         ...(address && { address })
       }
     });
+    await invalidate('branches:active');
     res.json({ message: 'Branch updated successfully', branch });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Branch not found' });
@@ -89,6 +92,7 @@ router.delete('/branches/:id', async (req, res) => {
       where: { id: req.params.id },
       data: { is_deleted: true }
     });
+    await invalidate('branches:active');
     res.json({ message: 'Branch soft-deleted successfully' });
   } catch (err) {
     if (err.code === 'P2025') return res.status(404).json({ error: 'Branch not found' });
@@ -496,21 +500,45 @@ router.delete('/flash-sales/:id', async (req, res) => {
 });
 
 // Customers (B2C)
+// Phân trang + tìm ở máy chủ. Bản cũ trả cả bảng (40.008 khách, ~7 MB JSON, 1,5–2,5 s
+// mỗi lần mở trang Quản lý chung — đo 11/11/2026) để bảng antd tự chia trang ở client.
+// Trả { data, total, page, limit } giống /b2b/products.
 router.get('/customers', async (req, res) => {
   try {
-    const customers = await prisma.b2CCustomer.findMany({
-      orderBy: { created_at: 'desc' },
-      select: {
-        id: true,
-        full_name: true,
-        email: true,
-        phone: true,
-        loyalty_points: true,
-        provider: true,
-        created_at: true
-      }
-    });
-    res.json(customers.map(c => ({ ...c, id: Number(c.id) })));
+    const page   = Math.max(1, Number(req.query.page) || 1);
+    const limit  = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
+    const search = String(req.query.search || '').trim().slice(0, 100);
+
+    const where = {};
+    if (search) {
+      const or = [
+        { full_name: { contains: search, mode: 'insensitive' } },
+        { email:     { contains: search, mode: 'insensitive' } },
+        { phone:     { contains: search } },
+      ];
+      if (/^\d+$/.test(search) && search.length <= 18) or.push({ id: BigInt(search) });
+      where.OR = or;
+    }
+
+    const [total, customers] = await Promise.all([
+      prisma.b2CCustomer.count({ where }),
+      prisma.b2CCustomer.findMany({
+        where,
+        orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
+        skip: (page - 1) * limit,
+        take: limit,
+        select: {
+          id: true,
+          full_name: true,
+          email: true,
+          phone: true,
+          loyalty_points: true,
+          provider: true,
+          created_at: true
+        }
+      }),
+    ]);
+    res.json({ data: customers.map(c => ({ ...c, id: Number(c.id) })), total, page, limit });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

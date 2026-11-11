@@ -95,15 +95,36 @@ CREATE TRIGGER inventory_sync_product_stock_del
     FOR EACH STATEMENT EXECUTE FUNCTION inventory_sync_product_stock();
 
 -- ── 3. Dọn biến thể mồ côi (v1..v5 từ bản seed cũ) & đồng bộ Product.stock ──
+-- CHỈ xoá dòng mà biến thể KHÔNG còn trong Product.variants của chính sản phẩm đó —
+-- cùng điều kiện với scripts/ensure-inventory.js.
+--
+-- Bản trước xoá MỌI dòng variant_id v1..v5. Nhưng v1, v2, v3... cũng là mã biến thể
+-- HIỆN HÀNH do seed sinh ra: trên DB 600k sản phẩm, 1.200.534 / 1.200.539 dòng mang mã
+-- v1..v5 và đều còn trong variants. File này chạy MỖI LẦN server khởi động
+-- (docker-entrypoint.sh), nên mỗi lần restart là xoá sạch kho + mọi StockReservation
+-- (kể cả giữ chỗ của đơn đang chờ thanh toán), rồi ensure-inventory.js tạo lại từ
+-- variants[].stock với reserved = 0. Đã xảy ra thật 10/11/2026.
 DO $$
 BEGIN
-    IF EXISTS (SELECT 1 FROM "Inventory" WHERE variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')) THEN
-        DELETE FROM "StockReservation" sr
-        USING "Inventory" i
-        WHERE sr.inventory_id = i.id
-          AND i.variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5');
+    DELETE FROM "StockReservation" sr
+    USING "Inventory" i
+    WHERE sr.inventory_id = i.id
+      AND i.variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')
+      AND NOT EXISTS (
+          SELECT 1 FROM "Product" p
+          WHERE p.id = i.product_id
+            AND (CASE WHEN jsonb_typeof(p.variants::jsonb) = 'string' THEN (p.variants #>> '{}')::jsonb
+                      ELSE p.variants::jsonb END)
+                @> jsonb_build_array(jsonb_build_object('id', i.variant_id))
+      );
 
-        DELETE FROM "Inventory"
-        WHERE variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5');
-    END IF;
+    DELETE FROM "Inventory" i
+    WHERE i.variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')
+      AND NOT EXISTS (
+          SELECT 1 FROM "Product" p
+          WHERE p.id = i.product_id
+            AND (CASE WHEN jsonb_typeof(p.variants::jsonb) = 'string' THEN (p.variants #>> '{}')::jsonb
+                      ELSE p.variants::jsonb END)
+                @> jsonb_build_array(jsonb_build_object('id', i.variant_id))
+      );
 END $$;

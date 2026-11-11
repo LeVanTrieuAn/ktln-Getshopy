@@ -27,15 +27,33 @@ async function main() {
     ) AS has_legacy
   `);
   if (has_legacy) {
+    // CHỈ xoá dòng mà biến thể KHÔNG còn trong Product.variants của chính sản phẩm đó.
+    //
+    // Bản trước xoá MỌI dòng variant_id v1..v5. Nhưng v1, v2, v3... cũng là mã biến
+    // thể HIỆN HÀNH do seed sinh ra: trên DB 600k sản phẩm, 1.200.534 / 1.200.539 dòng
+    // Inventory mang mã v1..v5 và đều còn trong variants (đo 10/11/2026: 0 dòng mồ
+    // côi thật). Xoá hết rồi bước 2 tạo lại từ variants[].stock với reserved = 0 —
+    // và dòng tạo lại vẫn mang mã v1..v5, nên MỖI LẦN server khởi động (entrypoint gọi
+    // script này) lại xoá-tạo lại toàn bộ kho và làm mất giữ chỗ của đơn đang chờ.
+    // Điều kiện dưới mất ~1,1 s trên 1,2 triệu dòng (tra Product theo khoá chính).
+    const orphan = `
+      i.variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')
+      AND NOT EXISTS (
+        SELECT 1 FROM "Product" p
+        WHERE p.id = i.product_id
+          AND (CASE WHEN jsonb_typeof(p.variants::jsonb) = 'string' THEN (p.variants #>> '{}')::jsonb
+                    ELSE p.variants::jsonb END)
+              @> jsonb_build_array(jsonb_build_object('id', i.variant_id))
+      )`;
     await prisma.$executeRawUnsafe(`
       DELETE FROM "StockReservation" sr
       USING "Inventory" i
       WHERE sr.inventory_id = i.id
-        AND i.variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')
+        AND ${orphan}
     `);
     const deletedOrphans = await prisma.$executeRawUnsafe(`
-      DELETE FROM "Inventory"
-      WHERE variant_id IN ('v1', 'v2', 'v3', 'v4', 'v5')
+      DELETE FROM "Inventory" i
+      WHERE ${orphan}
     `);
     if (deletedOrphans > 0) {
       console.log(`      đã xoá ${deletedOrphans.toLocaleString()} dòng tồn kho biến thể mồ côi (v1..v5 cũ)`);

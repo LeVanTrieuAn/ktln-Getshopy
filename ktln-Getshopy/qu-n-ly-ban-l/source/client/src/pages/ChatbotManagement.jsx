@@ -241,7 +241,7 @@ export default function ChatbotManagement() {
       ),
     },
     {
-      title: 'Gán nhãn (Annotation)',
+      title: 'Gán nhãn',
       width: 200,
       render: (_, record) => (
         <Select
@@ -449,7 +449,10 @@ export default function ChatbotManagement() {
           columns={columns}
           loading={loading}
           size="small"
-          scroll={{ x: 1200 }}
+          // Chỉ cuộn ngang khi màn hình thật sự hẹp hơn tổng độ rộng cột (~1050px).
+          // x: 1200 cố định làm bảng cuộn ngang và cắt tiêu đề cột cuối ngay cả ở
+          // màn hình 1440px.
+          scroll={{ x: 'max-content' }}
           rowClassName={record =>
             record.intent === 'UNKNOWN' && !record.is_annotated
               ? 'ant-table-row-unknown'

@@ -227,6 +227,9 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      # Heap JVM — mặc định 512 MB. Một broker, vài topic: đo được 0,17 GiB.
+      # JVM giữ phần heap đã chiếm chứ không trả lại, nên heap thừa là RAM mất.
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx256m"
     restart: unless-stopped
 
   kafka:
@@ -240,6 +243,10 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:${KAFKA_PORT:-9092}
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      # Heap JVM — mặc định 1 GB, đo được 1,14 GiB (benchmark 23/10). Dữ liệu
+      # topic nằm trên đĩa và page cache của hệ điều hành, heap chỉ để xử lý
+      # request — một broker cỡ này không cần tới 1 GB.
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
     restart: unless-stopped
 
   kafka-connect:
@@ -302,6 +309,10 @@ services:
     image: metabase/metabase:latest
     # 3000 đã dành cho client Getshopy
     ports: ["${METABASE_PORT:-3001}:3000"]
+    environment:
+      # Heap JVM — không đặt thì JVM lấy tối đa 1/4 RAM máy ảo (~2,2 GB) và giữ
+      # 1,45 GiB kể cả khi không ai mở dashboard (benchmark 23/10).
+      JAVA_OPTS: "-Xmx1g"
     depends_on:
       clickhouse: {condition: service_healthy}
     restart: unless-stopped
@@ -437,6 +448,10 @@ services:
       ofelia.job-run.dbt-build.network: "kltn_default"
       ofelia.job-run.dbt-build.volume: "${PWD}/local-infra-sandbox/dbt_warehouse:/dbt"
       ofelia.job-run.dbt-build.command: "build"
+      # Lượt trước chưa xong thì bỏ qua lượt này. Mặc định ofelia cho chạy chồng
+      # (no-overlap = false): hai lượt cùng lúc là nhân đôi phần RAM ClickHouse
+      # của dbt — benchmark 23/10, B6.
+      ofelia.job-run.dbt-build.no-overlap: "true"
       # ofelia đọc trường `environment` theo cú pháp MẢNG JSON. Chuỗi ngăn bằng
       # dấu phẩy được nhận nguyên khối thành MỘT biến, nên dbt báo
       # "Env var required but not provided: MINIO_ACCESS_KEY" dù nhãn có đủ giá
@@ -449,6 +464,46 @@ services:
         "CDC_TOPIC_PREFIX=${CDC_TOPIC_PREFIX:-cdc_prod}",
         "PG_SOURCE_HOST=postgres","PG_SOURCE_PORT=5432","PG_SOURCE_DB=${POSTGRES_DB:-getshopy}",
         "PG_SOURCE_USER=${POSTGRES_USER:-getshopy}","PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}"]
+    restart: unless-stopped
+
+  # ═══ GATEWAY ═════════════════════════════════════════════════════════════
+
+  # Một cổng vào cho web, server, ai-rec và ai-bot, chia theo đường dẫn — bảng
+  # route ở gateway/nginx.conf. server, ai-rec và ai-bot chỉ `expose` trong
+  # network nên máy khác không gọi thẳng được; gateway là đường vào của chúng.
+  #
+  # Mặc định chỉ nghe localhost. Để các máy cùng tailnet Tailscale gọi được,
+  # đặt GATEWAY_BIND_IP trong .env bằng IP Tailscale của máy (tailscale ip -4),
+  # rồi gọi qua tên MagicDNS:  http://<tên-máy>.<tailnet>.ts.net:8000/
+  #
+  # KHÔNG đặt 0.0.0.0: ai-rec và ai-bot chưa có xác thực (/api/b2b có requireAdmin
+  # từ 11/11/2026, nhưng vẫn không nên mở thừa), và rule
+  # firewall "Docker Desktop Backend" cho mọi cổng Docker publish đi vào ở cả
+  # mạng Public — nghe mọi IP là lộ các API đó ra cả mạng LAN đang cắm.
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      # HTTP trực tiếp — gọi API bằng Postman, curl.
+      - "${GATEWAY_BIND_IP:-127.0.0.1}:${GATEWAY_PORT:-8000}:80"
+      # Đích cho `tailscale serve` (HTTPS trong tailnet). Mở web trên trình duyệt
+      # PHẢI đi đường HTTPS: useTracking gọi crypto.randomUUID(), hàm chỉ có ở
+      # secure context, nên qua HTTP thường trang trắng. Hai cổng nằm trên
+      # loopback vì dịch vụ Tailscale không gọi được vào chính IP Tailscale của
+      # máy (502 sau ~20 s). Dựng trên máy demo, một lần (cấu hình được lưu lại):
+      #   tailscale serve --bg --https=443  http://127.0.0.1:18000   # web + API
+      #   tailscale serve --bg --https=8080 http://127.0.0.1:18081   # WebSocket dashboard
+      - "127.0.0.1:${GATEWAY_SERVE_PORT:-18000}:80"
+      - "127.0.0.1:${GATEWAY_SERVE_WS_PORT:-18081}:8081"
+      # Cổng PUBLIC (server listen 8090 trong gateway/nginx.conf): chỉ cửa hàng,
+      # chặn mặc định mọi thứ khác. CHỈ trên loopback — Internet tới qua Funnel /
+      # tunnel trỏ vào đây, không mở cổng nào của máy:
+      #   tailscale funnel --bg --https=443 http://127.0.0.1:18090
+      # (khi đó admin chuyển sang cổng tailnet khác, ví dụ --https=4443 -> 18000)
+      - "127.0.0.1:${GATEWAY_PUBLIC_PORT:-18090}:8090"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # Trang "đang bảo trì" khi dịch vụ phía sau không trả lời (error_page trong nginx.conf)
+      - ./gateway/maintenance.html:/usr/share/nginx/maintenance/maintenance.html:ro
     restart: unless-stopped
 
 volumes:

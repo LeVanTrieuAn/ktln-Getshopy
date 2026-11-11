@@ -283,7 +283,7 @@ export default function Compare() {
                     <div>
                       <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', borderRadius: 14, padding: 12, marginBottom: 14, border: '1px solid #e4e4e7' }}>
                         <img 
-                          src={device1.image || (device1.images && device1.images[0]) || '/images/commerce/prod_mouse.jpg'} 
+                          src={device1.image || (device1.images && device1.images[0]) || '/images/commerce/prod_mouse.webp'} 
                           alt={device1.name} 
                           style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} 
                         />
@@ -338,7 +338,7 @@ export default function Compare() {
                     <div>
                       <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', borderRadius: 14, padding: 12, marginBottom: 14, border: '1px solid #e4e4e7' }}>
                         <img 
-                          src={device2.image || (device2.images && device2.images[0]) || '/images/commerce/prod_mouse.jpg'} 
+                          src={device2.image || (device2.images && device2.images[0]) || '/images/commerce/prod_mouse.webp'} 
                           alt={device2.name} 
                           style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} 
                         />

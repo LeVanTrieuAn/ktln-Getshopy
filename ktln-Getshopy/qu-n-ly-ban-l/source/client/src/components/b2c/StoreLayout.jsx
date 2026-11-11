@@ -73,13 +73,14 @@ import {
   SunOutlined,
   MoonOutlined,
 } from '@ant-design/icons';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import AIChatbot from './AIChatbot';
 import VoiceButton from './VoiceButton';
 import AuthModal from './AuthModal';
 import OnboardingModal from './OnboardingModal';
 import { useApp } from '../../context/AppContext';
+import useMediaQuery from '../../hooks/useMediaQuery';
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../../services/api';
 
@@ -98,6 +99,14 @@ export default function StoreLayout() {
   // là thứ đáng chiếm chỗ, không phải thanh điều hướng.
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  // Điện thoại: bấm một mục trong menu ☰ là chuyển trang nhưng menu vẫn phủ kín
+  // màn hình — phải bấm ra ngoài mới thấy trang mới. Đóng menu mỗi lần đổi URL.
+  const routeLocation = useLocation();
+  useEffect(() => { setMobileSidebarOpen(false); }, [routeLocation.pathname, routeLocation.search]);
+  // Điện thoại (khớp mốc 768px của CSS ẩn sidebar bên dưới): thanh điều hướng dưới đáy
+  // thay cho nút ☰ nổi; các menu xổ sang PHẢI của sidebar (rộng 260–560px cạnh sidebar
+  // 280px) tràn khỏi màn 390px nên trên điện thoại bấm là chuyển trang luôn.
+  const isPhone = useMediaQuery('(max-width: 768px)');
 
   // Navbar dropdown states
   const [productsOpen, setProductsOpen] = useState(false);
@@ -161,7 +170,7 @@ export default function StoreLayout() {
   ]);
 
   useEffect(() => {
-    api.b2b.getBranches().then(data => {
+    api.b2c.getBranches().then(data => {
       if (data && data.length > 0) {
         const uniqueBranches = Array.from(new Map(data.map(item => [item.id, item])).values());
         setBranches(uniqueBranches);
@@ -436,7 +445,7 @@ export default function StoreLayout() {
         @media (max-width: 768px) {
           .b2c-sidebar-fixed { transform: translateX(-100%) !important; }
           .b2c-sidebar-fixed.b2c-sidebar-mobile-open { transform: translateX(0) !important; }
-          .b2c-main-content { margin-left: 0 !important; }
+          .b2c-main-content { margin-left: 0 !important; padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
           .b2c-mobile-overlay { display: block; }
         }
 
@@ -630,7 +639,7 @@ export default function StoreLayout() {
                       onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#f8f9fa'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <img src={prod.image || (prod.images && prod.images[0]) || '/images/commerce/prod_mouse.jpg'} alt={prod.name} style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 8, background: isDark ? '#1a2233' : '#f4f5f7', padding: 4 }} />
+                      <img src={prod.image || (prod.images && prod.images[0]) || '/images/commerce/prod_mouse.webp'} alt={prod.name} style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 8, background: isDark ? '#1a2233' : '#f4f5f7', padding: 4 }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#f3f4f6' : '#18181b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prod.name}</div>
                         <div style={{ fontSize: 12, color: isDark ? 'rgba(255,255,255,0.5)' : '#52525b', fontWeight: 600 }}>{Number(prod.price || 0).toLocaleString('vi-VN')} đ</div>
@@ -655,7 +664,7 @@ export default function StoreLayout() {
 
             {/* Products — Mega-dropdown 2 cột (inspired by Graphify.com nav) */}
             <Dropdown
-              open={productsOpen}
+              open={isPhone ? false : productsOpen}
               onOpenChange={setProductsOpen}
               placement="rightTop"
               overlayStyle={{ zIndex: 1050 }}
@@ -736,7 +745,7 @@ export default function StoreLayout() {
                 </div>
               )}
             >
-              <div>
+              <div onClick={() => { if (isPhone) navigate('/shop'); }}>
                 <SideNavItem
                   icon={<AppstoreOutlined />}
                   label={<span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>Sản phẩm <DownOutlined style={{ fontSize: 10, opacity: 0.6, transform: productsOpen ? 'rotate(180deg)' : 'rotate(0)', transition: 'transform 0.2s' }} /></span>}
@@ -749,11 +758,11 @@ export default function StoreLayout() {
             <Dropdown
               open={pagesOpen}
               onOpenChange={setPagesOpen}
-              placement="rightTop"
+              placement={isPhone ? 'bottomLeft' : 'rightTop'}
               overlayStyle={{ zIndex: 1050 }}
               popupRender={() => (
                 <div style={{
-                  width: 290,
+                  width: isPhone ? 'min(290px, calc(100vw - 24px))' : 290,
                   background: isDark ? '#111827' : '#ffffff',
                   borderRadius: 16,
                   boxShadow: isDark ? '0 25px 50px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(255,255,255,0.1)' : '0 25px 50px -12px rgba(0,0,0,0.14), 0 0 0 1px rgba(0,0,0,0.06)',
@@ -867,8 +876,9 @@ export default function StoreLayout() {
                 )}
                 placement="rightBottom"
                 trigger={['hover', 'click']}
+                open={isPhone ? false : undefined}
               >
-                <div className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} style={{
+                <div onClick={() => { if (isPhone) navigate('/account'); }} className="b2c-sidebar-nav-item" data-active="false" data-dark={isDark ? 'true' : 'false'} style={{
                   display: 'flex', alignItems: 'center', gap: 12,
                   padding: sidebarOpen ? '10px 14px' : '10px 0',
                   justifyContent: sidebarOpen ? 'flex-start' : 'center',
@@ -981,23 +991,60 @@ export default function StoreLayout() {
         />
       )}
 
-      {/* ── Mobile hamburger ── */}
-      <button
-        onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)}
-        style={{
-          display: 'none',
-          position: 'fixed', top: 14, left: 14, zIndex: 201,
-          width: 40, height: 40, borderRadius: 10,
-          background: isDark ? 'rgba(9,13,22,0.9)' : 'rgba(255,255,255,0.9)',
-          border: `1px solid ${isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
-          backdropFilter: 'blur(12px)', cursor: 'pointer',
-          alignItems: 'center', justifyContent: 'center',
-          color: isDark ? '#fff' : '#18181b', fontSize: 16,
-        }}
-        className="b2c-hamburger-btn"
-      >
-        {mobileSidebarOpen ? <CloseOutlined style={{ fontSize: 14 }} /> : <MenuOutlined style={{ fontSize: 14 }} />}
-      </button>
+      {/* ── Thanh điều hướng dưới đáy (điện thoại) ──
+          Kiểu ứng dụng mua sắm: 5 mục trong tầm ngón cái. Thay cho nút ☰ nổi ở góc
+          trái trên — nút đó đè lên tiêu đề / thanh danh mục của mọi trang. Mục "Thêm"
+          mở lại sidebar đầy đủ (tìm kiếm, chi nhánh, giao diện, ngôn ngữ, so sánh...). */}
+      {isPhone && (
+        <nav
+          className="b2c-bottom-nav"
+          style={{
+            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 190,
+            display: 'flex', alignItems: 'stretch',
+            height: 'calc(58px + env(safe-area-inset-bottom))',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+            background: isDark ? 'rgba(9,13,22,0.94)' : 'rgba(255,255,255,0.96)',
+            backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)',
+            borderTop: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)'}`,
+          }}
+        >
+          {[
+            { key: 'home', label: 'Trang chủ', icon: <HomeOutlined />, active: routeLocation.pathname === '/', onClick: () => navigate('/') },
+            { key: 'shop', label: 'Danh mục', icon: <AppstoreOutlined />, active: routeLocation.pathname.startsWith('/shop'), onClick: () => navigate('/shop') },
+            { key: 'cart', label: 'Giỏ hàng', icon: <ShoppingOutlined />, badge: cartCount, active: cartOpen, onClick: () => setCartOpen(true) },
+            { key: 'account', label: 'Tài khoản', icon: <UserOutlined />, active: routeLocation.pathname.startsWith('/account'), onClick: () => (currentUser ? navigate('/account') : openAuthModal()) },
+            { key: 'more', label: 'Thêm', icon: <MenuOutlined />, active: mobileSidebarOpen, onClick: () => setMobileSidebarOpen(o => !o) },
+          ].map(it => (
+            <button
+              key={it.key}
+              onClick={it.onClick}
+              aria-label={it.label}
+              aria-current={it.active ? 'page' : undefined}
+              style={{
+                flex: 1, minWidth: 0, padding: 0, background: 'none', border: 'none', cursor: 'pointer',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+                color: it.active ? (isDark ? '#ffffff' : '#000000') : (isDark ? 'rgba(255,255,255,0.5)' : '#71717a'),
+                fontSize: 10.5, fontWeight: it.active ? 700 : 500, position: 'relative',
+              }}
+            >
+              {it.active && (
+                <span style={{ position: 'absolute', top: 0, width: 24, height: 2.5, borderRadius: 2, background: isDark ? '#ffffff' : '#000000' }} />
+              )}
+              <span style={{ position: 'relative', fontSize: 20, lineHeight: 1, display: 'flex' }}>
+                {it.icon}
+                {it.badge > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -6, right: -11, minWidth: 16, height: 16, borderRadius: 8, padding: '0 4px',
+                    background: '#ef4444', color: '#ffffff', fontSize: 9.5, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>{it.badge > 99 ? '99+' : it.badge}</span>
+                )}
+              </span>
+              <span style={{ whiteSpace: 'nowrap' }}>{it.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
 
       {/* ── MAIN CONTENT ── */}
       <Layout
@@ -1026,7 +1073,7 @@ export default function StoreLayout() {
             <Col xs={24} md={8}>
               <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.5px', marginBottom: 16, color: isDark ? '#ffffff' : '#000000' }}>GetShopy</div>
               <p style={{ color: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)', lineHeight: 1.8, fontSize: 14 }}>
-                High-quality tech gadgets &amp; minimalist accessories engineered for simplicity, utility, and refined aesthetics.
+                {t('footer.description')}
               </p>
               <div style={{ display: 'flex', gap: 14, marginTop: 24 }}>
                 {/* Social Icons */}
@@ -1091,7 +1138,7 @@ export default function StoreLayout() {
         placement="right"
         onClose={() => setCartOpen(false)}
         open={cartOpen}
-        width={440}
+        width={isPhone ? '100%' : 440}
         zIndex={10005}
         rootClassName="cart-drawer-custom"
         styles={{ 
@@ -1129,7 +1176,7 @@ export default function StoreLayout() {
               {/* Items List */}
               {cart.map((item, idx) => {
                 const itemPrice = Number(item.price) || 0;
-                const itemImg = item.selectedVariant?.image || item.image || (item.images && item.images.length > 0 ? item.images[0] : '/images/commerce/prod_mouse.jpg');
+                const itemImg = item.selectedVariant?.image || item.image || (item.images && item.images.length > 0 ? item.images[0] : '/images/commerce/prod_mouse.webp');
                 return (
                   <div
                     key={`${item.id}-${item.selectedVariant?.id || idx}`}

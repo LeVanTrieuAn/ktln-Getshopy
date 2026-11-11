@@ -12,6 +12,7 @@ if (!JWT_SECRET) {
   throw new Error('Thiếu JWT_SECRET. Sinh bằng: openssl rand -base64 48');
 }
 const { authB2C } = require('../middleware/authB2C');
+const { normalizePhoneVN, isValidPhoneVN, isValidEmail, isValidFullName } = require('../utils/validators');
 const { OAuth2Client } = require('google-auth-library');
 
 // Client ID phải khớp với VITE_GOOGLE_CLIENT_ID mà trình duyệt dùng. Thiếu
@@ -154,6 +155,25 @@ router.get('/brands', async (req, res) => {
       return [...rest, ...others];
     });
     res.json(brands);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get Branches — danh sách chi nhánh cho bộ chọn cửa hàng (StoreLayout).
+// Trước đây cửa hàng gọi GET /api/b2b/branches của trang quản trị, route đó trả
+// MỌI cột của bảng và không cần đăng nhập. /api/b2b giờ bắt quyền admin, nên cửa
+// hàng có route riêng, chỉ trả các cột khách cần thấy.
+router.get('/branches', async (req, res) => {
+  try {
+    const branches = await cached('branches:active', 300, () =>
+      prisma.branch.findMany({
+        where: { is_deleted: false },
+        select: { id: true, name: true, address: true },
+        orderBy: { name: 'asc' },
+      })
+    );
+    res.json(branches);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -570,11 +590,41 @@ router.post('/products/:id/reviews', async (req, res) => {
 
 // --- AUTHENTICATION ---
 
+// Hồ sơ + điểm thưởng HIỆN TẠI từ DB. Trang Tài khoản và Thanh toán trước đây đọc
+// điểm từ localStorage['b2c_points'] — sửa DevTools là "có" điểm vô hạn và hạng Kim
+// cương trên giao diện (server vẫn tự kiểm điểm khi trừ tiền ở pricingService, nên
+// không mất tiền, nhưng số hiển thị sai và số được giảm ở trang thanh toán lệch).
+router.get('/me', authB2C, async (req, res) => {
+  try {
+    const c = await prisma.b2CCustomer.findUnique({
+      where: { id: BigInt(req.b2cUser.id) },
+      select: { id: true, full_name: true, email: true, phone: true, avatar: true, loyalty_points: true, provider: true, created_at: true },
+    });
+    if (!c) return res.status(404).json({ error: 'Không tìm thấy tài khoản' });
+    res.json({ ...c, id: Number(c.id) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Register
 router.post('/auth/register', async (req, res) => {
   try {
-    const { full_name, email, password, phone } = req.body;
-    
+    // Trước 11/11/2026 route này không kiểm tra gì: thiếu email thì Prisma lỗi 500,
+    // mật khẩu 1 ký tự vẫn nhận, phone lưu nguyên chuỗi (kể cả "0163789557vhvbj").
+    // Xem utils/validators.js. Email chỉ trim, KHÔNG đổi chữ thường — login so khớp
+    // nguyên văn, đổi ở đây sẽ làm tài khoản cũ có chữ hoa không đăng nhập được.
+    const full_name = String(req.body.full_name || '').trim();
+    const email = String(req.body.email || '').trim();
+    const password = String(req.body.password || '');
+    const rawPhone = req.body.phone;
+
+    if (!isValidFullName(full_name)) return res.status(400).json({ error: 'Họ tên phải từ 2 đến 100 ký tự và có chữ cái' });
+    if (!isValidEmail(email)) return res.status(400).json({ error: 'Email không hợp lệ' });
+    if (password.length < 6 || password.length > 128) return res.status(400).json({ error: 'Mật khẩu phải từ 6 đến 128 ký tự' });
+    const phone = rawPhone ? normalizePhoneVN(rawPhone) : '';
+    if (phone && !isValidPhoneVN(phone)) return res.status(400).json({ error: 'Số điện thoại không hợp lệ (ví dụ: 0912345678)' });
+
     const exists = await prisma.b2CCustomer.findUnique({ where: { email } });
     if (exists) return res.status(400).json({ error: 'Email đã được sử dụng' });
 
@@ -583,7 +633,7 @@ router.post('/auth/register', async (req, res) => {
       data: {
         full_name,
         email,
-        phone: phone || '',
+        phone,
         password_hash,
         loyalty_points: 0,
         avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + email,
