@@ -429,16 +429,20 @@ async function visualSearch(imageBase64) {
   // BUOC 1 & 2: Gemini Vision phân tích ảnh
   const { caption, analysis } = await analyzeProductImage(imageBase64);
 
+  // 12/11/2026: hai câu trả lời dưới đây là thứ khách thấy khi gửi ảnh không phải
+  // sản phẩm (ví dụ ảnh mèo) hoặc Gemini không đọc được ảnh. Trước đây viết không dấu
+  // và cụt ("Day co ve khong phai san pham dien tu a.") trông như lỗi; giờ có dấu và
+  // gợi ý khách nhắn chữ để hội thoại tiếp tục.
   if (!caption && !analysis) {
     return {
-      text: 'Da em chua nhan dang duoc san pham trong anh nay a! Anh/chi co the mo ta them bang van ban de em tim kiem giup khong a?',
+      text: 'Dạ em chưa nhận ra sản phẩm nào trong ảnh này ạ! Anh/chị mô tả thêm bằng chữ (tên, hãng, loại sản phẩm) để em tìm giúp nhé?',
       products: [], caption: null, analysis: null,
     };
   }
 
   if (analysis && !analysis.category && analysis.keywords?.length === 0) {
     return {
-      text: `Da em thay trong anh la: "${analysis.description_vi || caption}". Day co ve khong phai san pham dien tu a.`,
+      text: `Dạ em thấy trong ảnh là: "${analysis.description_vi || caption}". Có vẻ đây không phải sản phẩm điện tử bên em kinh doanh ạ. Anh/chị gửi ảnh sản phẩm khác hoặc nhắn tên sản phẩm cần tìm, em tìm giúp ngay nhé!`,
       products: [], caption, analysis,
     };
   }
