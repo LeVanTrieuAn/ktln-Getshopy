@@ -91,10 +91,18 @@ function SkeletonCard({ isDark }) {
   );
 }
 
+// Số thẻ đầu lưới (thấy ngay khi mở trang: điện thoại 2 cột x 2 hàng, máy tính hàng đầu)
+// có ảnh tải ngay với độ ưu tiên cao thay vì loading="lazy" (12/11/2026). Ảnh lazy nằm
+// sẵn trong màn hình đầu chỉ bắt đầu tải sau khi trình duyệt dàn trang xong và với độ ưu
+// tiên thấp, làm chậm ảnh lớn đầu tiên (LCP).
+// Nguồn: https://web.dev/articles/lcp-lazy-loading, https://web.dev/articles/fetch-priority
+const PRIORITY_IMAGES = 4;
+
 // ── Product Card (No Rating, Pill Price Button, Heart Wishlist) ─────
 // compact: lưới 2 cột trên điện thoại (~170px mỗi thẻ). Thẻ gốc thiết kế cho
 // >= 260px: ảnh cao 220, nút giá 14px — co vào 170px thì chữ giá tràn và ảnh dài.
-function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite, onBeforeNavigate, compact = false }) {
+// priority: thẻ thuộc PRIORITY_IMAGES thẻ đầu lưới.
+function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavorite, onBeforeNavigate, compact = false, priority = false }) {
   const { t } = useApp();
   const [hovered, setHovered] = useState(false);
   const [added, setAdded] = useState(false);
@@ -229,7 +237,9 @@ function ProductCard({ p, isDark, navigate, addToCart, isFavorited, onToggleFavo
           alt={p.name}
           src={getSafeImageUrl(p.image, p.category_id)}
           referrerPolicy="no-referrer"
-          loading="lazy"
+          loading={priority ? 'eager' : 'lazy'}
+          fetchPriority={priority ? 'high' : undefined}
+          decoding="async"
           style={{
             maxWidth: '85%',
             maxHeight: '85%',
@@ -435,7 +445,6 @@ export default function ProductList() {
   const [totalAllProducts, setTotalAllProducts] = useState(0); // tổng toàn DB, không filter
   const [currentPage, setCurrentPage] = useState(_r.currentPage || 1);
   const [categories, setCategories] = useState([]);
-  const [activeCategories, setActiveCategories] = useState([]);
   const [brandList, setBrandList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState(() => {
@@ -523,24 +532,27 @@ export default function ProductList() {
 
   // Restore useEffect đã được thay thế bằng lazy useState init ở trên
 
+  // Danh mục + thương hiệu: tải MỘT lần khi mở trang và KHÔNG chặn lưới sản phẩm
+  // (12/11/2026). Trước đây chúng nằm chung Promise.all với sản phẩm và chạy lại mỗi lần
+  // đổi trang / sắp xếp / bộ lọc — mỗi thao tác 4 request thay vì 1, lưới phải chờ request
+  // chậm nhất. Request thứ tư, /categories/active, ghi vào state activeCategories mà
+  // không chỗ nào trên trang đọc, nhưng là GROUP BY quét cả bảng 600k dòng: log server
+  // tối 11/11/2026 trung bình 1,5 s, chậm nhất 14,3 s -> bỏ hẳn.
+  useEffect(() => {
+    api.b2c.getCategories().then(data => setCategories(data || [])).catch(err => console.error(err));
+    api.b2c.getBrands().then(data => setBrandList(data || [])).catch(err => console.error(err));
+  }, []);
+
   // Main data loader
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        let [prodData, catData, brandData, activeCatData] = await Promise.all([
-          api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands, appliedMinPrice, appliedMaxPrice),
-          api.b2c.getCategories(),
-          api.b2c.getBrands(),
-          api.b2c.getActiveCategories(selectedBranch?.id || ''),
-        ]);
+        const prodData = await api.b2c.getProducts(categoryFilter, searchQuery, sort, selectedBranch?.id, currentPage, 24, brands, appliedMinPrice, appliedMaxPrice);
 
         setProducts(prodData.data || []);
         setTotalProducts(prodData.total || 0);
         setTotalAllProducts(prodData.totalAll || prodData.total || 0);
-        setCategories(catData || []);
-        setBrandList(brandData || []);
-        setActiveCategories(activeCatData || []);
 
         if (searchQuery.trim()) {
           trackSearchQuery(searchQuery, prodData.total || 0);
@@ -1525,6 +1537,7 @@ export default function ProductList() {
                       onToggleFavorite={handleToggleFavorite}
                       onBeforeNavigate={saveFilterState}
                       compact={isPhone}
+                      priority={idx < PRIORITY_IMAGES}
                     />
                   </div>
                 ) : (
@@ -1550,6 +1563,11 @@ export default function ProductList() {
                       alt={p.name}
                       src={getSafeImageUrl(p.image, p.category_id, p)}
                       referrerPolicy="no-referrer"
+                      // Chế độ danh sách trước đây không có loading -> cả 24 ảnh (~1,2 MB đo
+                      // trang 1 ngày 12/11/2026) tải ngay dù phần lớn nằm dưới màn hình.
+                      loading={idx < PRIORITY_IMAGES ? 'eager' : 'lazy'}
+                      fetchPriority={idx < PRIORITY_IMAGES ? 'high' : undefined}
+                      decoding="async"
                       width={84}
                       height={84}
                       style={{

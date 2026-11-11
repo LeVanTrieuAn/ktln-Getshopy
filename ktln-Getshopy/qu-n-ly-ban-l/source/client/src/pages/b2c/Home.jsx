@@ -312,6 +312,9 @@ export default function Home() {
             src={getProductImage(product)}
             alt={product.name}
             loading="lazy"
+            // Giải mã ảnh ngoài luồng chính (16 thẻ ở 2 dải sản phẩm): không giật khi vuốt
+            // dải ngang trên điện thoại (12/11/2026).
+            decoding="async"
             referrerPolicy="no-referrer"
             style={{
               maxWidth: '85%',
