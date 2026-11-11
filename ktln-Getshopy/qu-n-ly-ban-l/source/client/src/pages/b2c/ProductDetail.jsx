@@ -1464,9 +1464,12 @@ export default function ProductDetail() {
       return [];
     };
 
+    // Chuyển nhanh giữa các sản phẩm: bỏ kết quả về muộn của sản phẩm trước.
+    let cancelled = false;
     async function load() {
       try {
         const data = await api.b2c.getProductDetails(id);
+        if (cancelled) return;
         // Fix double-encoded JSON fields from seed data
         data.images   = safeArr(data.images);
         data.variants = safeArr(data.variants).map((v, i) => ({ ...v, id: v.id || `var-${i}` }));
@@ -1477,16 +1480,25 @@ export default function ProductDetail() {
         else if (data.images && data.images.length > 0) setMainImage(data.images[0]);
         if (data.variants && data.variants.length > 0) setSelectedVariantId(data.variants[0].id);
         addRecentlyViewed(data);
-        const allProds = await api.b2c.getProducts(data.category_id);
-        const list = Array.isArray(allProds) ? allProds : (allProds?.data || []);
-        setRelatedProducts(list.filter(p => p.id != id).slice(0, 4));
+        // Hiện trang NGAY khi có dữ liệu sản phẩm; "sản phẩm liên quan" tải sau, không chặn.
+        // Trước đây cả trang quay spinner tới khi request liên quan xong — log server 11–12/11/2026
+        // ghi request đó 6–19 s lúc đĩa bận. Chỉ hiện 4 món nên xin 5 (trừ chính nó) thay vì 12.
+        setLoading(false);
+        api.b2c.getProducts(data.category_id, '', 'newest', '', 1, 5)
+          .then((allProds) => {
+            if (cancelled) return;
+            const list = Array.isArray(allProds) ? allProds : (allProds?.data || []);
+            setRelatedProducts(list.filter(p => p.id != id).slice(0, 4));
+          })
+          .catch((err) => console.warn('[ProductDetail] sản phẩm liên quan:', err.message));
       } catch (err) {
         console.error(err);
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
+    return () => { cancelled = true; };
   }, [id]);
 
   useEffect(() => {
