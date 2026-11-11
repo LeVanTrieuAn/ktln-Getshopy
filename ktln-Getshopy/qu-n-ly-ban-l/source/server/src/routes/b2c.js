@@ -60,7 +60,9 @@ const CATEGORY_SEARCH_ALIASES = [
   { keywords: ['tai nghe day', 'tai nghe co day'], catId: 'cat-av-wire-earphone' },
   { keywords: ['tai nghe chup tai', 'headphone', 'headset'], catId: 'cat-av-headphone' },
   { keywords: ['tai nghe the thao'], catId: 'cat-av-sport-earphone' },
-  { keywords: ['tai nghe'], catId: 'cat-av-bt-earphone' },
+  // "tai nghe" chung chung: cả 4 loại, không chỉ Bluetooth ("tai nghe sony" trước
+  // đây bỏ sót tai nghe dây / chụp tai / thể thao).
+  { keywords: ['tai nghe'], catId: ['cat-av-bt-earphone', 'cat-av-wire-earphone', 'cat-av-headphone', 'cat-av-sport-earphone'] },
   { keywords: ['loa bluetooth', 'loa khong day', 'loa', 'soundbar', 'speaker'], catId: 'cat-av-speaker' },
   { keywords: ['micro thu am', 'micro', 'mic thu am', 'mic'], catId: 'cat-av-mic' },
   { keywords: ['may chieu mini', 'may chieu', 'projector'], catId: 'cat-av-projector' },
@@ -90,17 +92,20 @@ function extractCategoryAndTokens(rawSearch) {
   let matchedCatId = null;
   let matchedKeyword = '';
 
+  // Từ khoá KHỚP DÀI NHẤT thắng (cụ thể nhất), không phải từ khoá đứng trước trong
+  // danh sách. Lấy cái khớp đầu tiên thì (đo 11/11/2026): "gia do laptop" -> Laptop
+  // + tên chứa "gia","do" -> 0 kết quả (danh mục Giá đỡ có 7.500 sp); "camera wifi"
+  // -> Router; "op lung dien thoai" -> Điện thoại; "microsd" -> Micro.
   for (const item of CATEGORY_SEARCH_ALIASES) {
     for (const kw of item.keywords) {
       const kwNorm = stripVi(kw).replace(/[,+]/g, ' ');
+      if (kwNorm.length <= matchedKeyword.length) continue;
       const regex = new RegExp(`(^|\\s)${kwNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`, 'i');
       if (regex.test(normalized)) {
         matchedCatId = item.catId;
         matchedKeyword = kwNorm;
-        break;
       }
     }
-    if (matchedCatId) break;
   }
 
   if (!matchedCatId) {
@@ -312,21 +317,26 @@ async function getCategoryDescendants(rootId) {
   return [...result];
 }
 
-// Tự động kiểm tra và khởi tạo extension unaccent trong PostgreSQL
+// Extension unaccent do migration 20261111150000_add_unaccent_extension cài — app
+// KHÔNG tự CREATE lúc chạy (thay đổi cấu trúc DB phải nằm trong lịch sử migration,
+// và tài khoản của app không nên cần quyền đó). Ở đây chỉ ĐỌC xem đã có chưa:
+// chưa có thì tìm bằng ILIKE thường và BÁO trong log thay vì im lặng. Kiểm tra lại
+// tối đa mỗi 60 s, nên DB lên muộn hơn server cũng tự bắt kịp.
 let hasUnaccent = false;
-(async () => {
+let unaccentCheckedAt = 0;
+async function refreshUnaccentFlag() {
+  if (hasUnaccent || Date.now() - unaccentCheckedAt < 60000) return;
+  unaccentCheckedAt = Date.now();
   try {
-    await prisma.$executeRawUnsafe('CREATE EXTENSION IF NOT EXISTS unaccent;');
-    hasUnaccent = true;
-  } catch {
-    try {
-      const ext = await prisma.$queryRawUnsafe("SELECT 1 FROM pg_extension WHERE extname = 'unaccent'");
-      hasUnaccent = Boolean(ext && ext.length > 0);
-    } catch {
-      hasUnaccent = false;
+    const ext = await prisma.$queryRawUnsafe("SELECT 1 FROM pg_extension WHERE extname = 'unaccent'");
+    hasUnaccent = ext.length > 0;
+    if (!hasUnaccent) {
+      console.warn('[search] Thiếu extension unaccent (migration add_unaccent_extension chưa chạy?) — tìm không dấu theo tên sẽ kém đi.');
     }
+  } catch (e) {
+    console.warn('[search] Không kiểm tra được extension unaccent:', e.message);
   }
-})();
+}
 
 /**
  * Thêm các điều kiện tìm kiếm thông minh vào SQL:
@@ -337,6 +347,7 @@ let hasUnaccent = false;
 async function appendSearchConditions(conditions, params, rawSearch, category_id) {
   if (!rawSearch || !rawSearch.trim()) return;
 
+  await refreshUnaccentFlag();
   const trimmed = rawSearch.trim();
   const extracted = extractCategoryAndTokens(trimmed);
   const isSpecificCatSelected = category_id && category_id !== 'ALL';
@@ -351,7 +362,9 @@ async function appendSearchConditions(conditions, params, rawSearch, category_id
   };
 
   if (!isSpecificCatSelected && extracted.categoryId) {
-    const catIds = await getCategoryDescendants(extracted.categoryId);
+    // categoryId có thể là mảng (vd. "tai nghe" -> 4 loại tai nghe): gộp hậu duệ.
+    const roots = [].concat(extracted.categoryId);
+    const catIds = [...new Set((await Promise.all(roots.map(getCategoryDescendants))).flat())];
     if (extracted.remainingTokens.length === 0) {
       // Chỉ gõ tên danh mục (ví dụ "dien thoai", "dong ho", "sac, cap", "may tinh bang")
       // -> Lấy tất cả sản phẩm thuộc danh mục đó HOẶC có tên chứa từ khóa

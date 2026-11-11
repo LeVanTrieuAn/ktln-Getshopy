@@ -116,12 +116,26 @@ const UNACCENTED_ALIASES = [
 export function resolveCategoryFromText(input) {
   if (!input) return null;
   const normalized = stripVietnamese(input);
+  if (!normalized) return null;
 
+  // 1. Khớp xuôi: chuỗi gõ chứa nguyên từ khoá -> từ khoá DÀI NHẤT thắng (cụ thể
+  //    nhất). Lấy cái đứng trước trong danh sách thì "microsd" ra Micro, "op lung
+  //    dien thoai" ra Điện thoại.
+  let best = null;
   for (const { keywords, catId } of UNACCENTED_ALIASES) {
     for (const kw of keywords) {
-      if (normalized.includes(kw) || kw.includes(normalized)) {
-        return catId;
-      }
+      if (normalized.includes(kw) && (!best || kw.length > best.len)) best = { catId, len: kw.length };
+    }
+  }
+  if (best) return best.catId;
+
+  // 2. Khớp ngược (đang gõ dở: "ban ph" -> "ban phim") chỉ từ 3 ký tự, theo ĐẦU từ
+  //    khoá. Trước đây so "từ khoá chứa chuỗi gõ" ở mọi độ dài: gõ "op" (định gõ ốp
+  //    lưng) lòi thêm Laptop vì "laptop" chứa "op"; "ma" ra Điện thoại.
+  if (normalized.length < 3) return null;
+  for (const { keywords, catId } of UNACCENTED_ALIASES) {
+    for (const kw of keywords) {
+      if (kw.startsWith(normalized)) return catId;
     }
   }
   return null;
