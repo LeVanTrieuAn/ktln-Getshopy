@@ -38,25 +38,75 @@ function renderMarkdown(text) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Resize ảnh phía client bằng Canvas API trước khi encode Base64
+// Ngữ cảnh hội thoại gửi kèm mỗi câu hỏi (sửa 12/11/2026)
+// Trước đây gửi nguyên messages.slice(-5), kể cả imagePreview (ảnh base64 cả trăm
+// KB) của lượt "tìm theo ảnh". Server parse JSON với giới hạn mặc định 100 KB
+// (express.json() trong server/src/index.js) nên trả 413 cho các câu chat tiếp theo
+// cho tới khi ảnh trôi khỏi 5 tin gần nhất — khách thấy "Trợ lý AI đang gặp sự cố"
+// liên tục (log server 11/11/2026: visual-search 413 rồi /api/b2c/chat 413
+// PayloadTooLargeError). ai-bot chỉ đọc sender + text của history
+// (ai-bot/src/ai/llm.js) nên chỉ gửi đúng hai trường đó và cắt độ dài để body luôn
+// nhỏ. Bóng báo lỗi (isError) là chữ của giao diện, không phải lời trợ lý nói, nên
+// không đưa vào ngữ cảnh cho LLM.
 // ─────────────────────────────────────────────────────────────────────────────
-function resizeAndEncode(file, maxPx = 800) {
+const HISTORY_TURNS = 5;
+const HISTORY_TEXT_MAX = 1000;
+
+function buildChatHistory(messages) {
+  return messages
+    .filter(m => !m.isError && typeof m.text === 'string' && m.text.trim())
+    .slice(-HISTORY_TURNS)
+    .map(m => ({ sender: m.sender, text: m.text.slice(0, HISTORY_TEXT_MAX) }));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Resize ảnh phía client bằng Canvas API trước khi encode Base64
+// Sửa 12/11/2026: ảnh phải lọt giới hạn body 100 KB của server. Ảnh chụp thường ở
+// 800px / chất lượng 0.85 đã vượt mức nên server trả 413 trước khi ảnh tới AI (log
+// 11/11/2026) và khách chỉ nhận câu báo lỗi. Giảm dần chất lượng rồi kích thước tới
+// khi data URL không quá IMAGE_DATAURL_MAX ký tự (chừa ~10 KB cho phần còn lại của
+// body). 400–800px vẫn đủ cho Gemini Vision nhận dạng sản phẩm.
+// ─────────────────────────────────────────────────────────────────────────────
+const IMAGE_DATAURL_MAX = 90_000;
+const IMAGE_ENCODE_STEPS = [
+  [800, 0.85], [800, 0.7], [800, 0.55], [640, 0.6], [512, 0.6], [400, 0.5],
+];
+
+// Tách khỏi Canvas để kiểm thử được: encode(maxPx, quality) trả data URL.
+// Bước cuối vẫn vượt thì gửi bản nhỏ nhất; server từ chối thì khách nhận câu báo lỗi.
+function encodeWithinBudget(encode, maxChars = IMAGE_DATAURL_MAX) {
+  let dataUrl = '';
+  for (const [maxPx, quality] of IMAGE_ENCODE_STEPS) {
+    dataUrl = encode(maxPx, quality);
+    if (dataUrl.length <= maxChars) break;
+  }
+  return dataUrl;
+}
+
+function resizeAndEncode(file) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     const url = URL.createObjectURL(file);
     img.onload = () => {
       URL.revokeObjectURL(url);
-      const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
       const canvas = document.createElement('canvas');
-      canvas.width = Math.round(img.width * ratio);
-      canvas.height = Math.round(img.height * ratio);
-      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
+      const ctx = canvas.getContext('2d');
+      resolve(encodeWithinBudget((maxPx, quality) => {
+        const ratio = Math.min(maxPx / img.width, maxPx / img.height, 1);
+        canvas.width = Math.round(img.width * ratio);
+        canvas.height = Math.round(img.height * ratio);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', quality);
+      }));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Không đọc được file ảnh')); };
     img.src = url;
   });
 }
+
+// Câu trả lời khi ảnh không phân tích được (ảnh hỏng, mạng/AI lỗi, server từ chối).
+// 12/11/2026: mời khách nhắn chữ để hội thoại đi tiếp, thay vì chỉ báo "sự cố".
+const IMAGE_FAIL_TEXT = 'Dạ em chưa phân tích được ảnh này ạ. Anh/chị thử lại sau ít phút, hoặc nhắn tên sản phẩm cần tìm để em tìm giúp nhé!';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Product Cards — Hiển thị kết quả visual search trong chat bubble
@@ -166,7 +216,8 @@ export default function AIChatbot() {
       const response = await fetch(`${API_BASE}/b2c/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userMsg, history: messages.slice(-5) }),
+        // 12/11/2026: chỉ gửi sender + text (xem buildChatHistory) — không kèm ảnh base64.
+        body: JSON.stringify({ message: userMsg, history: buildChatHistory(messages) }),
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
@@ -187,6 +238,7 @@ export default function AIChatbot() {
           ? 'Dạ AI đang bận xử lý, phản hồi hơi chậm ạ! Anh/chị thử lại sau vài giây nhé. Hoặc tìm kiếm trực tiếp trên trang Shop! 🛍️'
           : 'Xin lỗi, Trợ lý AI đang gặp sự cố. Vui lòng thử lại sau giây lát.',
         link: isTimeout ? '/shop' : null,
+        isError: true,
       }]);
     } finally {
       setIsTyping(false);
@@ -199,17 +251,25 @@ export default function AIChatbot() {
     e.target.value = '';
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      setMessages(prev => [...prev, { sender: 'ai', text: 'Dạ ảnh quá lớn (tối đa 5MB) ạ!' }]);
+      setMessages(prev => [...prev, { sender: 'ai', text: 'Dạ ảnh quá lớn (tối đa 5MB) ạ!', isError: true }]);
       return;
     }
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
     if (!validTypes.includes(file.type)) {
-      setMessages(prev => [...prev, { sender: 'ai', text: 'Dạ chỉ hỗ trợ định dạng JPG, PNG, WEBP, GIF ạ!' }]);
+      setMessages(prev => [...prev, { sender: 'ai', text: 'Dạ chỉ hỗ trợ định dạng JPG, PNG, WEBP, GIF ạ!', isError: true }]);
       return;
     }
 
     // Dùng base64 làm preview — không bị mất khi revokeObjectURL
-    const imageBase64 = await resizeAndEncode(file, 800);
+    // 12/11/2026: file hỏng / không giải mã được trước đây làm promise reject ngoài
+    // try nên khách không nhận được câu trả lời nào; giờ báo như mọi ảnh không phân tích được.
+    let imageBase64;
+    try {
+      imageBase64 = await resizeAndEncode(file);
+    } catch {
+      setMessages(prev => [...prev, { sender: 'ai', text: IMAGE_FAIL_TEXT, isError: true }]);
+      return;
+    }
     setMessages(prev => [...prev, { sender: 'user', text: 'Tìm sản phẩm tương tự ảnh này', imagePreview: imageBase64 }]);
     setIsAnalyzing(true);
     try {
@@ -227,10 +287,7 @@ export default function AIChatbot() {
         visualCaption: data.caption,
       }]);
     } catch {
-      setMessages(prev => [...prev, {
-        sender: 'ai',
-        text: 'Dạ em đang gặp sự cố khi phân tích ảnh. Vui lòng thử lại sau ạ!',
-      }]);
+      setMessages(prev => [...prev, { sender: 'ai', text: IMAGE_FAIL_TEXT, isError: true }]);
     } finally {
       setIsAnalyzing(false);
     }
@@ -402,14 +459,16 @@ export default function AIChatbot() {
                   {/* Text */}
                   <div>{msg.sender === 'ai' ? renderMarkdown(msg.text) : msg.text}</div>
 
-                  {/* BLIP caption */}
+                  {/* Mô tả ảnh do Gemini Vision trả về. Nhãn cũ ghi "BLIP" — pipeline thật là
+                      Gemini Vision (ai-bot/src/services/SearchService.js, mục 2); sửa 12/11/2026
+                      cho đúng với báo cáo khoá luận. */}
                   {msg.visualCaption && (
                     <div style={{
                       marginTop: 8, fontSize: 10, opacity: 0.5,
                       fontStyle: 'italic',
                       borderTop: '1px solid rgba(128,128,128,0.2)', paddingTop: 6,
                     }}>
-                      BLIP: "{msg.visualCaption}"
+                      Gemini Vision: "{msg.visualCaption}"
                     </div>
                   )}
 
@@ -492,7 +551,7 @@ export default function AIChatbot() {
                     <span style={{ fontWeight: 500 }}>Đang phân tích ảnh bằng AI...</span>
                   </div>
                   <div style={{ fontSize: 10, opacity: 0.55, marginTop: 4 }}>
-                    BLIP Captioning → Qwen2.5 Analysis
+                    Gemini Vision → tìm sản phẩm khớp
                   </div>
                 </div>
               </div>

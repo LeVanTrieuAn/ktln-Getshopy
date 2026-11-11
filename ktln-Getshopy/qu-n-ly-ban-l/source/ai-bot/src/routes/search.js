@@ -41,8 +41,9 @@ router.post('/b2c/visual-search', async (req, res) => {
   } catch (err) {
     if (err.status) return res.status(err.status).json({ error: err.error });
     console.error('[VisualSearch Error]', err.message);
+    // 12/11/2026: viết có dấu (trước đây không dấu) và gợi ý khách nhắn chữ để hội thoại đi tiếp.
     res.status(500).json({
-      text: 'Da em dang gap su co khi phan tich anh. Anh/chi vui long thu lai sau it phut nhe a!',
+      text: 'Dạ em chưa phân tích được ảnh này ạ. Anh/chị thử lại sau ít phút, hoặc nhắn tên sản phẩm cần tìm để em tìm giúp nhé!',
       products: [],
     });
   }
