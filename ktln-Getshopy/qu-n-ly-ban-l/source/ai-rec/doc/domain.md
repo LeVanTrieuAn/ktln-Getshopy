@@ -822,7 +822,7 @@ fact_orders_detail, dim_products, dim_categories, dim_brands
 **Chu kỳ cập nhật:**
 1. CDC Kafka kéo thay đổi từ Postgres → Parquet → ClickHouse (real-time)
 2. Dbt chạy transform định kỳ (thường mỗi giờ hoặc theo cron)
-3. AI-Rec train lại mỗi **5 phút** (configurable qua `TRAIN_INTERVAL_SECONDS`)
+3. AI-Rec train lại mỗi ngày lúc **22:00** giờ VN (`TRAIN_DAILY_AT`, từ 11/11/2026; trước đó mỗi 5 phút). Để trống `TRAIN_DAILY_AT` thì quay về chu kỳ `TRAIN_INTERVAL_SECONDS`
 
 ---
 

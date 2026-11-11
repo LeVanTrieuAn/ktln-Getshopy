@@ -5,6 +5,126 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
 
+/**
+ * Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, chuẩn hóa khoảng trắng.
+ * Dùng để tạo param cho unaccent() hoặc fallback ILIKE khi extension chưa enabled.
+ * Ví dụ: "Điện Thoại" → "dien thoai", "Đồng hồ" → "dong ho"
+ * Nguồn: Unicode NFD normalization (ECMA-262, String.prototype.normalize)
+ * @param {string} str
+ * @returns {string}
+ */
+function stripVi(str) {
+  return (str || '')
+    .normalize('NFD')               // tách tổ hợp dấu ra thành ký tự riêng
+    .replace(/[\u0300-\u036f]/g, '') // xóa combining diacritical marks
+    .replace(/đ/gi, 'd')            // đ/Đ không thuộc NFD diacritics
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Bảng alias tìm kiếm: từ khóa tiếng Việt không dấu/có dấu → category_id.
+ * Cho phép người dùng gõ "dien thoai", "dong ho", "sac, cap", "may tinh bang"...
+ * mà hệ thống vẫn tự nhận diện đúng category tương ứng.
+ */
+const CATEGORY_SEARCH_ALIASES = [
+  // Cụ thể trước, chung chung sau
+  { keywords: ['dien thoai', 'smartphone', 'dtdd', 'phone'], catId: 'cat-phone' },
+  { keywords: ['laptop', 'macbook', 'may tinh xach tay'], catId: 'cat-laptop' },
+  { keywords: ['may tinh bang', 'tablet', 'ipad', 'mtb'], catId: 'cat-tablet' },
+  { keywords: ['dong ho thong minh', 'smartwatch', 'dong ho', 'apple watch', 'watch'], catId: 'cat-watch' },
+  { keywords: ['sac du phong', 'pin du phong', 'powerbank', 'power bank'], catId: 'cat-mobile-acc-powerbank' },
+  { keywords: ['sac, cap', 'sac cap', 'sac va cap', 'cap sac', 'cu sac', 'adapter', 'day cap'], catId: 'cat-mobile-acc-charger' },
+  { keywords: ['op lung dien thoai', 'op lung phone', 'op lung', 'bao da'], catId: 'cat-mobile-acc-case-phone' },
+  { keywords: ['op lung may tinh bang', 'op lung tablet'], catId: 'cat-mobile-acc-case-tablet' },
+  { keywords: ['mieng dan camera', 'dan camera'], catId: 'cat-mobile-acc-cam-cover' },
+  { keywords: ['mieng dan man hinh', 'kinh cuong luc', 'cuong luc', 'mieng dan'], catId: 'cat-mobile-acc-screen' },
+  { keywords: ['tui dung airpods', 'case airpods'], catId: 'cat-mobile-acc-airpods-case' },
+  { keywords: ['quat mini', 'quat cam tay'], catId: 'cat-mobile-acc-fan' },
+  { keywords: ['but cam ung', 'but tablet', 'stylus'], catId: 'cat-mobile-acc-pen' },
+  { keywords: ['gia do dien thoai', 'gia do laptop', 'gia do', 'stand'], catId: 'cat-mobile-acc-stand' },
+  { keywords: ['day deo dien thoai', 'day deo'], catId: 'cat-mobile-acc-strap' },
+  { keywords: ['hub, cap chuyen doi', 'hub usb-c', 'hub', 'cap chuyen doi'], catId: 'cat-laptop-acc-hub' },
+  { keywords: ['chuot may tinh', 'chuot khong day', 'chuot', 'mouse'], catId: 'cat-laptop-acc-mouse' },
+  { keywords: ['ban phim co', 'ban phim', 'keyboard'], catId: 'cat-laptop-acc-keyboard' },
+  { keywords: ['router wifi', 'router & thiet bi mang', 'router', 'thiet bi mang', 'wifi'], catId: 'cat-laptop-acc-router' },
+  { keywords: ['balo, tui chong soc', 'balo chong soc', 'tui chong soc', 'balo laptop', 'balo'], catId: 'cat-laptop-acc-bag' },
+  { keywords: ['tui dung phu kien', 'tui phu kien'], catId: 'cat-laptop-acc-pouch' },
+  { keywords: ['phu phim laptop', 'lot ban phim'], catId: 'cat-laptop-acc-keyboard-cover' },
+  { keywords: ['phan mem', 'software'], catId: 'cat-laptop-acc-software' },
+  { keywords: ['gia treo man hinh', 'arm man hinh'], catId: 'cat-laptop-acc-monitor-stand' },
+  { keywords: ['mieng lot chuot', 'lot chuot', 'mousepad', 'pad chuot'], catId: 'cat-laptop-acc-mousepad' },
+  { keywords: ['bang ve dien tu', 'bang ve', 'drawing tablet'], catId: 'cat-laptop-acc-drawing' },
+  { keywords: ['tai nghe bluetooth', 'tai nghe bt', 'tai nghe tws', 'tai nghe khong day', 'airpods'], catId: 'cat-av-bt-earphone' },
+  { keywords: ['tai nghe day', 'tai nghe co day'], catId: 'cat-av-wire-earphone' },
+  { keywords: ['tai nghe chup tai', 'headphone', 'headset'], catId: 'cat-av-headphone' },
+  { keywords: ['tai nghe the thao'], catId: 'cat-av-sport-earphone' },
+  // "tai nghe" chung chung: cả 4 loại, không chỉ Bluetooth ("tai nghe sony" trước
+  // đây bỏ sót tai nghe dây / chụp tai / thể thao).
+  { keywords: ['tai nghe'], catId: ['cat-av-bt-earphone', 'cat-av-wire-earphone', 'cat-av-headphone', 'cat-av-sport-earphone'] },
+  { keywords: ['loa bluetooth', 'loa khong day', 'loa', 'soundbar', 'speaker'], catId: 'cat-av-speaker' },
+  { keywords: ['micro thu am', 'micro', 'mic thu am', 'mic'], catId: 'cat-av-mic' },
+  { keywords: ['may chieu mini', 'may chieu', 'projector'], catId: 'cat-av-projector' },
+  { keywords: ['kinh thong minh', 'smartglass'], catId: 'cat-av-smartglass' },
+  { keywords: ['o cung di dong', 'o cung', 'ssd', 'hdd'], catId: 'cat-av-hdd' },
+  { keywords: ['the nho', 'microsd', 'sdcard', 'sd card'], catId: 'cat-av-sdcard' },
+  { keywords: ['usb', 'o nho usb', 'flash drive'], catId: 'cat-av-usb' },
+  { keywords: ['camera giam sat', 'camera ngoai troi', 'camera an ninh'], catId: 'cat-cam-security' },
+  { keywords: ['camera trong nha', 'camera ip', 'camera wifi'], catId: 'cat-cam-indoor' },
+  { keywords: ['chuong cua camera', 'chuong cua thong minh', 'doorbell', 'chuong cua'], catId: 'cat-cam-doorbell' },
+  { keywords: ['camera nang luong mat troi'], catId: 'cat-cam-solar' },
+  { keywords: ['camera 4g'], catId: 'cat-cam-4g' },
+  { keywords: ['webcam'], catId: 'cat-cam-webcam' },
+  { keywords: ['camera'], catId: 'cat-cam-security' },
+];
+
+/**
+ * Trích xuất danh mục và token từ khóa từ chuỗi tìm kiếm của người dùng.
+ * Ví dụ: "dien thoai samsung" -> { categoryId: 'cat-phone', remainingTokens: ['samsung'] }
+ *        "dong ho" -> { categoryId: 'cat-watch', remainingTokens: [] }
+ *        "sac, cap" -> { categoryId: 'cat-mobile-acc-charger', remainingTokens: [] }
+ *        "iphone 16" -> { categoryId: null, remainingTokens: ['iphone', '16'] }
+ */
+function extractCategoryAndTokens(rawSearch) {
+  if (!rawSearch) return { categoryId: null, remainingTokens: [] };
+  const normalized = stripVi(rawSearch).replace(/[,+]/g, ' ');
+  let matchedCatId = null;
+  let matchedKeyword = '';
+
+  // Từ khoá KHỚP DÀI NHẤT thắng (cụ thể nhất), không phải từ khoá đứng trước trong
+  // danh sách. Lấy cái khớp đầu tiên thì (đo 11/11/2026): "gia do laptop" -> Laptop
+  // + tên chứa "gia","do" -> 0 kết quả (danh mục Giá đỡ có 7.500 sp); "camera wifi"
+  // -> Router; "op lung dien thoai" -> Điện thoại; "microsd" -> Micro.
+  for (const item of CATEGORY_SEARCH_ALIASES) {
+    for (const kw of item.keywords) {
+      const kwNorm = stripVi(kw).replace(/[,+]/g, ' ');
+      if (kwNorm.length <= matchedKeyword.length) continue;
+      const regex = new RegExp(`(^|\\s)${kwNorm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s|$)`, 'i');
+      if (regex.test(normalized)) {
+        matchedCatId = item.catId;
+        matchedKeyword = kwNorm;
+      }
+    }
+  }
+
+  if (!matchedCatId) {
+    return {
+      categoryId: null,
+      remainingTokens: rawSearch.trim().split(/\s+/).filter(Boolean)
+    };
+  }
+
+  // Loại bỏ từ khóa category đã nhận diện để lấy phần token còn lại
+  const remainingStr = normalized.replace(new RegExp(matchedKeyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), ' ').trim();
+  const remainingTokens = remainingStr.split(/\s+/).filter(Boolean);
+
+  return {
+    categoryId: matchedCatId,
+    remainingTokens
+  };
+}
+
 // KHÔNG có giá trị mặc định: secret hardcode trong source nghĩa là bất kỳ ai
 // đọc được repo cũng ký được token giả cho mọi tài khoản.
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -197,6 +317,96 @@ async function getCategoryDescendants(rootId) {
   return [...result];
 }
 
+// Extension unaccent do migration 20261111150000_add_unaccent_extension cài — app
+// KHÔNG tự CREATE lúc chạy (thay đổi cấu trúc DB phải nằm trong lịch sử migration,
+// và tài khoản của app không nên cần quyền đó). Ở đây chỉ ĐỌC xem đã có chưa:
+// chưa có thì tìm bằng ILIKE thường và BÁO trong log thay vì im lặng. Kiểm tra lại
+// tối đa mỗi 60 s, nên DB lên muộn hơn server cũng tự bắt kịp.
+let hasUnaccent = false;
+let unaccentCheckedAt = 0;
+async function refreshUnaccentFlag() {
+  if (hasUnaccent || Date.now() - unaccentCheckedAt < 60000) return;
+  unaccentCheckedAt = Date.now();
+  try {
+    const ext = await prisma.$queryRawUnsafe("SELECT 1 FROM pg_extension WHERE extname = 'unaccent'");
+    hasUnaccent = ext.length > 0;
+    if (!hasUnaccent) {
+      console.warn('[search] Thiếu extension unaccent (migration add_unaccent_extension chưa chạy?) — tìm không dấu theo tên sẽ kém đi.');
+    }
+  } catch (e) {
+    console.warn('[search] Không kiểm tra được extension unaccent:', e.message);
+  }
+}
+
+/**
+ * Thêm các điều kiện tìm kiếm thông minh vào SQL:
+ * - Tự động nhận diện danh mục từ từ khóa không dấu/có dấu (ví dụ: "dien thoai", "dong ho", "sac, cap", "may tinh bang")
+ * - Nếu không chọn category cụ thể và từ khóa khớp category -> lọc theo category đó + tìm tên
+ * - Hỗ trợ unaccent(name) ILIKE unaccent(...) nếu extension đã kích hoạt, hoặc fallback ILIKE song song
+ */
+async function appendSearchConditions(conditions, params, rawSearch, category_id) {
+  if (!rawSearch || !rawSearch.trim()) return;
+
+  await refreshUnaccentFlag();
+  let rankSQL = null;
+  const trimmed = rawSearch.trim();
+  const extracted = extractCategoryAndTokens(trimmed);
+  const isSpecificCatSelected = category_id && category_id !== 'ALL';
+
+  const addNameCond = (token) => {
+    const stripped = stripVi(token);
+    params.push(`%${token}%`, `%${stripped}%`);
+    if (hasUnaccent) {
+      return `(name ILIKE $${params.length - 1} OR unaccent(name) ILIKE unaccent($${params.length}))`;
+    }
+    return `(name ILIKE $${params.length - 1} OR name ILIKE $${params.length})`;
+  };
+
+  if (!isSpecificCatSelected && extracted.categoryId) {
+    // categoryId có thể là mảng (vd. "tai nghe" -> 4 loại tai nghe): gộp hậu duệ.
+    const roots = [].concat(extracted.categoryId);
+    const catIds = [...new Set((await Promise.all(roots.map(getCategoryDescendants))).flat())];
+    if (extracted.remainingTokens.length === 0) {
+      // Chỉ gõ tên danh mục (ví dụ "dien thoai", "dong ho", "sac, cap", "may tinh bang")
+      // -> Lấy tất cả sản phẩm thuộc danh mục đó HOẶC có tên chứa từ khóa
+      params.push(catIds, `%${trimmed}%`, `%${stripVi(trimmed)}%`);
+      // Xếp hạng: sản phẩm ĐÚNG danh mục lên trước, sản phẩm chỉ trùng chữ trong tên
+      // xếp sau. Không có thì "dien thoai" ra trang đầu toàn "Giá đỡ điện thoại" (mã
+      // mới nhất) — thấy trên giao diện 11/11/2026.
+      rankSQL = `(category_id = ANY($${params.length - 2})) DESC`;
+      if (hasUnaccent) {
+        conditions.push(
+          `(category_id = ANY($${params.length - 2}) OR name ILIKE $${params.length - 1} OR unaccent(name) ILIKE unaccent($${params.length}))`
+        );
+      } else {
+        conditions.push(
+          `(category_id = ANY($${params.length - 2}) OR name ILIKE $${params.length - 1} OR name ILIKE $${params.length})`
+        );
+      }
+    } else {
+      // Gõ danh mục kèm từ khóa (ví dụ "dien thoai samsung", "laptop asus")
+      params.push(catIds);
+      conditions.push(`category_id = ANY($${params.length})`);
+      extracted.remainingTokens.forEach(t => {
+        conditions.push(addNameCond(t));
+      });
+    }
+  } else {
+    // Không nhận diện danh mục hoặc người dùng đã chủ động chọn category_id
+    const tokens = trimmed.split(/\s+/).filter(Boolean);
+    tokens.forEach(t => {
+      conditions.push(addNameCond(t));
+    });
+  }
+  return rankSQL;
+}
+
+/** ORDER BY: tiêu chí xếp hạng của tìm kiếm (nếu có) chỉ áp khi sắp mặc định / mới nhất. */
+function buildOrderSQL(orderMap, sort, rankSQL) {
+  const base = orderMap[sort] ?? 'id DESC';
+  return rankSQL && (!sort || sort === 'newest') ? `${rankSQL}, ${base}` : base;
+}
+
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
@@ -230,14 +440,7 @@ router.get('/products', async (req, res) => {
       if (parsedMaxPrice !== null) where.price.lte = parsedMaxPrice;
     }
     
-    // Handle multi-word search correctly using AND for each token
-    if (search) {
-      const searchTokens = search.trim().split(/\s+/).filter(Boolean);
-      if (searchTokens.length > 0) {
-        where.AND = searchTokens.map(t => ({ name: { contains: t, mode: 'insensitive' } }));
-      }
-    }
-
+    const hasSearch = Boolean(search && search.trim());
     let orderBy = { id: 'desc' };
     if (sort === 'price_asc') orderBy = { price: 'asc' };
     if (sort === 'price_desc') orderBy = { price: 'desc' };
@@ -287,14 +490,8 @@ router.get('/products', async (req, res) => {
         conditions.push(`brand_id = ANY($${params.length})`);
       }
       
-      // Tokenized search for raw SQL
-      if (search) {
-        const searchTokens = search.trim().split(/\s+/).filter(Boolean);
-        searchTokens.forEach(t => {
-          params.push(`%${t}%`);
-          conditions.push(`name ILIKE $${params.length}`);
-        });
-      }
+      // Tokenized search với unaccent() và tự động nhận diện danh mục
+      const searchRank = await appendSearchConditions(conditions, params, search, category_id);
 
       // Price range for raw SQL
       if (parsedMinPrice !== null) {
@@ -317,7 +514,7 @@ router.get('/products', async (req, res) => {
         sold_desc:    'sold DESC',
         newest:       'id DESC',
       };
-      const orderSQL = ORDER_MAP[sort] ?? 'id DESC';
+      const orderSQL = buildOrderSQL(ORDER_MAP, sort, searchRank);
 
       const [rows, countRows] = await Promise.all([
         prisma.$queryRawUnsafe(
@@ -337,6 +534,58 @@ router.get('/products', async (req, res) => {
 
       total    = Number(countRows[0].count);
       products = rows.map(p => ({ ...p, id: Number(p.id) }));
+    } else if (hasSearch) {
+      // ── No branch_id + có search → dùng raw SQL để hỗ trợ unaccent() và danh mục ──────
+      const conditions2 = [`is_deleted = false`];
+      const params2 = [];
+
+      if (category_id && category_id !== 'ALL') {
+        const catIds = await getCategoryDescendants(category_id);
+        if (catIds.length === 1) {
+          params2.push(catIds[0]);
+          conditions2.push(`category_id = $${params2.length}`);
+        } else {
+          params2.push(catIds);
+          conditions2.push(`category_id = ANY($${params2.length})`);
+        }
+      }
+      if (brandIdList.length === 1) {
+        params2.push(brandIdList[0]);
+        conditions2.push(`brand_id = $${params2.length}`);
+      } else if (brandIdList.length > 1) {
+        params2.push(brandIdList);
+        conditions2.push(`brand_id = ANY($${params2.length})`);
+      }
+      if (parsedMinPrice !== null) { params2.push(parsedMinPrice); conditions2.push(`price >= $${params2.length}`); }
+      if (parsedMaxPrice !== null) { params2.push(parsedMaxPrice); conditions2.push(`price <= $${params2.length}`); }
+
+      // unaccent search + auto-resolve category
+      const searchRank2 = await appendSearchConditions(conditions2, params2, search, category_id);
+
+      const ORDER_MAP2 = {
+        price_asc: 'price ASC', price_desc: 'price DESC',
+        best_selling: 'sold DESC', bestseller: 'sold DESC', sold_desc: 'sold DESC', newest: 'id DESC',
+      };
+      const orderSQL2 = buildOrderSQL(ORDER_MAP2, sort, searchRank2);
+      const whereSQL2 = conditions2.join(' AND ');
+
+      const [rows2, countRows2] = await Promise.all([
+        prisma.$queryRawUnsafe(
+          `SELECT id, name, price, original_price, image, stock, rating, sold,
+                  category_id, brand_id, branch_ids, is_banner, created_at
+           FROM "Product"
+           WHERE ${whereSQL2}
+           ORDER BY ${orderSQL2}
+           LIMIT $${params2.length + 1} OFFSET $${params2.length + 2}`,
+          ...params2, limitNumber, skip
+        ),
+        prisma.$queryRawUnsafe(
+          `SELECT COUNT(*)::int AS count FROM "Product" WHERE ${whereSQL2}`,
+          ...params2
+        ),
+      ]);
+      total    = Number(countRows2[0].count);
+      products = rows2.map(p => ({ ...p, id: Number(p.id) }));
     } else {
       // Real DB-level pagination: only the requested page is ever fetched/serialized.
       [products, total] = await Promise.all([

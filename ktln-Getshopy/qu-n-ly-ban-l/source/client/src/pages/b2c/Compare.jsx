@@ -6,6 +6,7 @@ import { useApp } from '../../context/AppContext';
 import { useCart } from '../../context/CartContext';
 import { api } from '../../services/api';
 import { generateSpecs } from '../../utils/specsGenerator';
+import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 
 const { Title, Text } = Typography;
 
@@ -283,9 +284,11 @@ export default function Compare() {
                     <div>
                       <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', borderRadius: 14, padding: 12, marginBottom: 14, border: '1px solid #e4e4e7' }}>
                         <img 
-                          src={device1.image || (device1.images && device1.images[0]) || '/images/commerce/prod_mouse.webp'} 
+                          src={getProductImage(device1)} 
                           alt={device1.name} 
+                          referrerPolicy="no-referrer"
                           style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} 
+                          onError={(e) => handleImageError(e, device1)}
                         />
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 16, color: isDark ? '#fff' : '#18181b', marginBottom: 6 }}>
@@ -338,9 +341,11 @@ export default function Compare() {
                     <div>
                       <div style={{ height: 160, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#ffffff', borderRadius: 14, padding: 12, marginBottom: 14, border: '1px solid #e4e4e7' }}>
                         <img 
-                          src={device2.image || (device2.images && device2.images[0]) || '/images/commerce/prod_mouse.webp'} 
+                          src={getProductImage(device2)} 
                           alt={device2.name} 
+                          referrerPolicy="no-referrer"
                           style={{ maxHeight: '100%', maxWidth: '100%', objectFit: 'contain' }} 
+                          onError={(e) => handleImageError(e, device2)}
                         />
                       </div>
                       <div style={{ fontWeight: 700, fontSize: 16, color: isDark ? '#fff' : '#18181b', marginBottom: 6 }}>

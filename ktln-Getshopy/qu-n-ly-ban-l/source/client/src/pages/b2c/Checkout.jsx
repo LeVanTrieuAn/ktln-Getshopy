@@ -24,6 +24,7 @@ import { useApp } from '../../context/AppContext';
 import { useTracking } from '../../hooks/useTracking';
 import PaymentQRModal from '../../components/b2c/PaymentQRModal';
 import { phoneRules, fullNameRules, addressRules, shortTextRules } from '../../utils/validators';
+import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 
 const { Title, Text } = Typography;
 
@@ -318,8 +319,10 @@ export default function Checkout() {
               {orderData.items.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   <img
-                    src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.webp'}
+                    src={getProductImage(item)}
                     alt={item.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageError(e, item)}
                     style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -754,9 +757,11 @@ export default function Checkout() {
           >
             <div style={{ height: 550, borderRadius: 14, overflow: 'hidden', border: '1px solid #d4d4d8', position: 'relative', zIndex: 0 }}>
               <MapContainer center={mapPosition} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                {/* Ô bản đồ OSM France: không cần key. CARTO đòi API key từ 09/2026 — thiếu key mọi ô
+                    chỉ là chữ "API KEY REQUIRED"; tile.openstreetmap.org không kết nối được từ mạng VN (đo 11/11/2026). */}
                 <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-                  url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+                  attribution='&copy; OpenStreetMap France | &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                  url="https://{s}.tile.openstreetmap.fr/osmfr/{z}/{x}/{y}.png"
                 />
                 <LocationMarker />
                 <MapResizer />
@@ -803,7 +808,13 @@ export default function Checkout() {
             ) : (
               checkoutItems.map((item, idx) => (
                 <div key={`${item.id}-${item.selectedVariant?.id || idx}`} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.webp'} alt={item.name} style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }} />
+                  <img 
+                    src={getProductImage(item)} 
+                    alt={item.name} 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageError(e, item)}
+                    style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }} 
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, color: isDark ? '#fff' : '#18181b', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                     {item.selectedVariant && (

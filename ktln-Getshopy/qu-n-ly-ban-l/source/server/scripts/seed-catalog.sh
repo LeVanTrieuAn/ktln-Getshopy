@@ -17,12 +17,20 @@ echo ""
 echo "══════════════════════════════════════════════════════════"
 echo "  Seed catalog 600.000 sản phẩm"
 echo "══════════════════════════════════════════════════════════"
-echo "  [1/3] Sinh sản phẩm tới đủ 600.000 (vài phút)..."
+echo "  [1/4] Sinh sản phẩm tới đủ 600.000 (vài phút)..."
 node scripts/fill-600k.js
-echo "  [2/3] Tồn kho cho mọi sản phẩm và biến thể (~1,2 triệu dòng)..."
+# Ảnh picsum -> ảnh thật cùng loại. Gán theo mã sản phẩm nên máy nào cũng ra cùng
+# kết quả; seed-data không đọc cột ảnh nên chạy ở đây không làm đổi bộ đơn hàng.
+echo "  [2/4] Thay ảnh picsum bằng ảnh sản phẩm thật cùng loại..."
+node scripts/remap-product-images.js
+echo "  [3/4] Tồn kho cho mọi sản phẩm và biến thể (~1,2 triệu dòng)..."
 node scripts/ensure-inventory.js
-echo "  [3/3] Voucher, hạng thành viên, tài khoản test, flash sale..."
+echo "  [4/4] Voucher, hạng thành viên, tài khoản test, flash sale..."
 node scripts/seed-demo.js
 echo ""
 echo "  ✅ Catalog xong. Bộ dữ liệu demo (chỉ máy demo):"
 echo "       docker compose --profile seed run --rm seed-data"
+# 495 mẫu thật đi SAU seed-data: demo_dataset.py chọn sản phẩm theo mã, thêm
+# sản phẩm trước đó thì bộ 3 triệu đơn sinh ra khác bản đã dùng cho báo cáo.
+echo "  Sau seed-data, thêm 495 mẫu sản phẩm thật (TGDĐ):"
+echo "       docker compose exec server node scripts/append-real-products.js"

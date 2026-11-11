@@ -751,7 +751,9 @@ Service được triển khai qua Docker Compose trong repo gốc (`local-infra-
 | `CF_BEHAVIOR_CART_WEIGHT` | `1` | Trọng số thêm giỏ |
 | `CF_BEHAVIOR_WISH_WEIGHT` | `0.5` | Trọng số yêu thích |
 | `CB_ONBOARDING_PSEUDO_COUNT` | `1` | 1 lựa chọn onboarding = bấy nhiêu lần mua |
-| `TRAIN_INTERVAL_SECONDS` | `300` | Chu kỳ train (5 phút) |
+| `TRAIN_DAILY_AT` | `22:00` | Giờ train mỗi ngày; lỡ giờ (máy tắt) thì train bù lúc khởi động. Để trống -> dùng `TRAIN_INTERVAL_SECONDS` |
+| `TRAIN_TIMEZONE` | `Asia/Ho_Chi_Minh` | Múi giờ của `TRAIN_DAILY_AT` |
+| `TRAIN_INTERVAL_SECONDS` | `300` | Chu kỳ train khi `TRAIN_DAILY_AT` để trống |
 | `TRAIN_INITIAL_DELAY_SECONDS` | `20` | Delay trước lần train đầu |
 | `CLICKHOUSE_TIMEOUT_SECONDS` | `120` | Timeout khi gọi ClickHouse |
 | `PRECOMPUTE_ENABLED` | `1` | Có tính sẵn cache không |

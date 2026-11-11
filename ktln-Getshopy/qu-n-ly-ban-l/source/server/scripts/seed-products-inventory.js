@@ -34,6 +34,18 @@ async function main() {
   const brands = new Set((await prisma.brand.findMany({ select: { id: true } })).map(b => b.id));
 
   const existing = await prisma.product.count();
+  // KHOÁ AN TOÀN (11/11/2026): nhánh dưới XOÁ SẠCH sản phẩm, tồn kho và CHI TIẾT
+  // ĐƠN HÀNG. Chạy nhầm trên máy đã có đơn (máy demo / production) là mất toàn bộ
+  // lịch sử mua — mà OrderItem nằm trong CDC nên hàng triệu lệnh xoá tràn sang
+  // Kafka/MinIO/ClickHouse. Muốn THÊM sản phẩm thật vào catalog đang có: dùng
+  // scripts/append-real-products.js. Thật sự muốn xoá làm lại: thêm --reset.
+  const orderItems = await prisma.orderItem.count();
+  if (existing > 0 && orderItems > 0 && !process.argv.includes('--reset')) {
+    console.error(`  DỪNG: DB đang có ${existing.toLocaleString()} sản phẩm và ${orderItems.toLocaleString()} dòng chi tiết đơn hàng.`);
+    console.error('  Script này sẽ XOÁ hết chúng. Thêm sản phẩm thật: node scripts/append-real-products.js');
+    console.error('  Chắc chắn muốn xoá làm lại: node scripts/seed-products-inventory.js --reset');
+    process.exit(1);
+  }
   if (existing > 0) {
     console.log(`  DB đã có ${existing.toLocaleString()} sản phẩm — xoá để seed lại sạch`);
     await prisma.stockReservation.deleteMany({});

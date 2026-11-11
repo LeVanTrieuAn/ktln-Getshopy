@@ -15,7 +15,13 @@ from api.schemas import (
     HealthResponse,
 )
 from api.service import CFModelService
-from config import DEFAULT_TOP_K, TRAIN_INITIAL_DELAY_SECONDS, TRAIN_INTERVAL_SECONDS
+from config import (
+    DEFAULT_TOP_K,
+    TRAIN_DAILY_AT,
+    TRAIN_INITIAL_DELAY_SECONDS,
+    TRAIN_INTERVAL_SECONDS,
+    TRAIN_TIMEZONE,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -37,10 +43,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     service = CFModelService.get_instance()
     service.initialize()
     await service.start_background_training()
-    logger.info(
-        "Sẵn sàng. Vòng train nền chạy mỗi %ds (lần đầu sau %ds).",
-        TRAIN_INTERVAL_SECONDS, TRAIN_INITIAL_DELAY_SECONDS,
-    )
+    if TRAIN_DAILY_AT:
+        logger.info("Sẵn sàng. Train mỗi ngày lúc %s (%s); lỡ lượt gần nhất thì train bù.",
+                    TRAIN_DAILY_AT, TRAIN_TIMEZONE)
+    else:
+        logger.info("Sẵn sàng. Vòng train nền chạy mỗi %ds (lần đầu sau %ds).",
+                    TRAIN_INTERVAL_SECONDS, TRAIN_INITIAL_DELAY_SECONDS)
     yield
     await service.stop_background_training()
     logger.info("Đã dừng dịch vụ gợi ý.")

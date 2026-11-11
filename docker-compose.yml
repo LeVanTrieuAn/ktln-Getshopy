@@ -98,6 +98,11 @@ services:
     environment:
       PORT: 8000
       DEFAULT_TOP_K: 10
+      # Train lại mỗi ngày lúc 22:00 giờ VN (trước đây: mỗi 5 phút). Máy tắt đúng
+      # giờ thì lần khởi động sau tự train bù. Để trống TRAIN_DAILY_AT -> quay về
+      # chu kỳ TRAIN_INTERVAL_SECONDS (mặc định 300 s) khi cần train dày lúc dev.
+      TRAIN_DAILY_AT: ${AI_REC_TRAIN_DAILY_AT-22:00}
+      TRAIN_TIMEZONE: Asia/Ho_Chi_Minh
       # Lấy dữ liệu train thẳng từ ClickHouse — xem data-contract-warehouse.md §4
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_USER: ${AI_REC_CH_USER:-ai_rec}

@@ -30,6 +30,7 @@ import {
 import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
+import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 
 // 6 Category Cards Data
 const CATEGORY_CARDS = [
@@ -308,9 +309,10 @@ export default function Home() {
           }}
         >
           <img
-            src={product.image || (product.images && product.images[0]) || '/images/commerce/prod_mouse.webp'}
+            src={getProductImage(product)}
             alt={product.name}
             loading="lazy"
+            referrerPolicy="no-referrer"
             style={{
               maxWidth: '85%',
               maxHeight: '85%',
@@ -320,10 +322,7 @@ export default function Home() {
             }}
             onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.06)'}
             onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            onError={(e) => {
-              e.target.onerror = null;
-              e.target.src = '/images/commerce/prod_mouse.webp';
-            }}
+            onError={(e) => handleImageError(e, product)}
           />
 
           {/* Quick Add To Bag Button */}

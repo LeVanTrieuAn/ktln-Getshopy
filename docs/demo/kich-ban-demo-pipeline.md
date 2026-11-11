@@ -178,12 +178,14 @@ FORMAT PrettyCompactMonoBlock;
 
 ## 6. AI-Rec train lại — khoảng 2 phút
 
-AI-Rec tự train lại 300 s sau khi lượt trước xong. Để khỏi chờ, khởi động lại service. Model cũ vẫn phục vụ trong lúc train vì đã được lưu xuống đĩa:
+Từ 11/11/2026 AI-Rec chỉ train lại mỗi ngày lúc 22:00 (`TRAIN_DAILY_AT`). Khởi động lại thường KHÔNG train ngay: model trên đĩa vẫn mới hơn mốc 22:00 gần nhất. Lúc demo, chuyển tạm về chế độ train theo chu kỳ (lần đầu sau 20 s, rồi mỗi 300 s) bằng cách để trống biến lịch. Model cũ vẫn phục vụ trong lúc train vì đã được lưu xuống đĩa:
 
 ```bash
-$DC restart ai-rec
+AI_REC_TRAIN_DAILY_AT= $DC up -d ai-rec
 $DC logs -f --since 30s ai-rec | grep --line-buffered -E "train #|tính sẵn"
 ```
+
+Demo xong, trả về lịch 22:00: `$DC up -d ai-rec`.
 
 Chờ hai dòng:
 
