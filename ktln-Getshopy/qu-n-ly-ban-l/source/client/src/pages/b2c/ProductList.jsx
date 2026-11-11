@@ -48,7 +48,7 @@ import { api } from '../../services/api';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 import { useTracking } from '../../hooks/useTracking';
-import { getProductImage, handleImageError, resolveCategory, CATEGORY_FALLBACK_IMAGES } from '../../utils/categoryResolver';
+import { getProductImage, handleImageError, resolveCategory, CATEGORY_FALLBACK_IMAGES, stripVietnamese, resolveCategoryFromText } from '../../utils/categoryResolver';
 
 // ── Category-aware image fallback ───────────────────────────────
 function getFallback(categoryId, product = {}) {
@@ -523,12 +523,18 @@ export default function ProductList() {
     }));
 
     if (!categoryModalSearch.trim()) return result;
-    const q = categoryModalSearch.trim().toLowerCase();
+    const qRaw = categoryModalSearch.trim();
+    const q = stripVietnamese(qRaw);
+    const resolvedCatId = resolveCategoryFromText(qRaw);
 
     return result
       .map(parent => {
-        const parentMatch = parent.name.toLowerCase().includes(q);
-        const matchedChildren = parent.children.filter(ch => ch.name.toLowerCase().includes(q));
+        const parentClean = stripVietnamese(parent.name);
+        const parentMatch = parentClean.includes(q) || (resolvedCatId && parent.id === resolvedCatId);
+        const matchedChildren = parent.children.filter(ch => {
+          const chClean = stripVietnamese(ch.name);
+          return chClean.includes(q) || (resolvedCatId && ch.id === resolvedCatId);
+        });
         if (parentMatch) return parent;
         if (matchedChildren.length > 0) return { ...parent, children: matchedChildren };
         return null;
@@ -1634,7 +1640,7 @@ export default function ProductList() {
             paddingRight: 6,
           }}>
             {brandList
-              .filter(b => b.name.toLowerCase().includes(brandSearch.trim().toLowerCase()))
+              .filter(b => stripVietnamese(b.name).includes(stripVietnamese(brandSearch.trim())))
               .map(b => {
                 const isChecked = brands.includes(b.id);
                 return (

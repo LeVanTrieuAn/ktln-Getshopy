@@ -22,6 +22,112 @@ export const CATEGORY_FALLBACK_IMAGES = {
 };
 
 /**
+ * Chuẩn hóa chuỗi tiếng Việt: bỏ dấu, lowercase, chuẩn hóa khoảng trắng.
+ * Nguồn: Unicode NFD normalization (ECMA-262, String.prototype.normalize)
+ * Ví dụ: "Điện Thoại" → "dien thoai", "Đồng hồ" → "dong ho"
+ * @param {string} str
+ * @returns {string}
+ */
+export function stripVietnamese(str) {
+  return (str || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, m => m === 'đ' ? 'd' : 'D')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Bảng alias: input không dấu (hoặc biến thể phổ biến) → category_id
+ * Hỗ trợ người dùng gõ không dấu, gõ sai chính tả phổ biến, gõ tiếng Anh.
+ * Thứ tự: match được kiểm tra từ trên xuống (more specific trước).
+ */
+const UNACCENTED_ALIASES = [
+  // Điện thoại
+  { keywords: ['dien thoai', 'smartphone', 'iphone', 'redmi', 'galaxy', 'phone'], catId: 'cat-phone' },
+  // Laptop
+  { keywords: ['laptop', 'macbook', 'thinkpad', 'zenbook', 'vivobook', 'may tinh xach tay'], catId: 'cat-laptop' },
+  // Tablet / máy tính bảng
+  { keywords: ['may tinh bang', 'tablet', 'ipad', 'may tinh bang', 'mtb'], catId: 'cat-tablet' },
+  // Smartwatch / đồng hồ thông minh
+  { keywords: ['dong ho thong minh', 'smartwatch', 'dong ho', 'apple watch', 'watch'], catId: 'cat-watch' },
+  // Sạc dự phòng (phải trước "sac cap" vì cụ thể hơn)
+  { keywords: ['sac du phong', 'powerbank', 'pin du phong', 'power bank'], catId: 'cat-mobile-acc-powerbank' },
+  // Sạc, cáp
+  { keywords: ['sac cap', 'sac va cap', 'cap sac', 'adapter', 'cu sac', 'day cap', 'cap'], catId: 'cat-mobile-acc-charger' },
+  // Ốp lưng điện thoại
+  { keywords: ['op lung dien thoai', 'op lung', 'bao da', 'case dien thoai'], catId: 'cat-mobile-acc-case-phone' },
+  // Ốp lưng tablet
+  { keywords: ['op lung tablet', 'op lung may tinh bang', 'case tablet'], catId: 'cat-mobile-acc-case-tablet' },
+  // Miếng dán camera (phải trước miếng dán màn hình vì cụ thể hơn)
+  { keywords: ['mieng dan camera', 'dan camera', 'bao ve camera'], catId: 'cat-mobile-acc-cam-cover' },
+  // Miếng dán màn hình
+  { keywords: ['mieng dan man hinh', 'kinh cuong luc', 'cuong luc', 'mieng dan'], catId: 'cat-mobile-acc-screen' },
+  // Giá đỡ điện thoại
+  { keywords: ['gia do dien thoai', 'gia do', 'ke do', 'stand dien thoai'], catId: 'cat-mobile-acc-stand' },
+  // Chuột máy tính
+  { keywords: ['chuot may tinh', 'chuot', 'mouse'], catId: 'cat-laptop-acc-mouse' },
+  // Bàn phím
+  { keywords: ['ban phim', 'keyboard', 'phim co'], catId: 'cat-laptop-acc-keyboard' },
+  // Balo, túi chống sốc
+  { keywords: ['balo chong soc', 'tui chong soc', 'balo laptop', 'balo', 'tui dung laptop'], catId: 'cat-laptop-acc-bag' },
+  // Túi đựng phụ kiện
+  { keywords: ['tui dung phu kien', 'tui phu kien', 'tui cam tay'], catId: 'cat-laptop-acc-pouch' },
+  // Miếng lót chuột
+  { keywords: ['mieng lot chuot', 'lot chuot', 'mousepad', 'pad chuot'], catId: 'cat-laptop-acc-mousepad' },
+  // Bảng vẽ điện tử
+  { keywords: ['bang ve dien tu', 'bang ve', 'drawing tablet', 'may ve'], catId: 'cat-laptop-acc-drawing' },
+  // Tai nghe Bluetooth (phải trước "tai nghe day" và "tai nghe chup tai")
+  { keywords: ['tai nghe bluetooth', 'tai nghe bt', 'airpods', 'tws', 'true wireless'], catId: 'cat-av-bt-earphone' },
+  // Tai nghe chụp tai (over-ear)
+  { keywords: ['tai nghe chup tai', 'tai nghe over ear', 'headphone', 'headset'], catId: 'cat-av-headphone' },
+  // Tai nghe thể thao
+  { keywords: ['tai nghe the thao', 'tai nghe sport', 'sport earphone', 'in-ear the thao'], catId: 'cat-av-sport-earphone' },
+  // Tai nghe dây (sau các loại cụ thể hơn)
+  { keywords: ['tai nghe day', 'tai nghe co day', 'wired earphone', 'tai nghe'], catId: 'cat-av-wire-earphone' },
+  // Loa
+  { keywords: ['loa bluetooth', 'loa khong day', 'speaker', 'soundbar', 'loa'], catId: 'cat-av-speaker' },
+  // Micro
+  { keywords: ['micro thu am', 'micro', 'microphone', 'mic thu am', 'mic'], catId: 'cat-av-mic' },
+  // Máy chiếu
+  { keywords: ['may chieu', 'may chieu mini', 'projector'], catId: 'cat-av-projector' },
+  // Ổ cứng / SSD
+  { keywords: ['o cung', 'ssd', 'hdd', 'o cung di dong', 'o cung ngoai'], catId: 'cat-av-hdd' },
+  // Thẻ nhớ
+  { keywords: ['the nho', 'microsd', 'sd card', 'memory card', 'the micro sd'], catId: 'cat-av-sdcard' },
+  // USB
+  { keywords: ['usb', 'o nho usb', 'flash drive', 'usb drive', 'thumbdrive'], catId: 'cat-av-usb' },
+  // Camera giám sát (ngoài trời / tổng quát)
+  { keywords: ['camera giam sat', 'camera ngoai troi', 'camera an ninh', 'camera security', 'camera'], catId: 'cat-cam-security' },
+  // Camera trong nhà
+  { keywords: ['camera trong nha', 'camera ip', 'camera wifi', 'camera noi that'], catId: 'cat-cam-indoor' },
+  // Chuông cửa camera
+  { keywords: ['chuong cua camera', 'chuong cua thong minh', 'doorbell', 'chuong cua'], catId: 'cat-cam-doorbell' },
+];
+
+/**
+ * Phân giải category từ input text (không dấu hoặc có dấu).
+ * Dùng cho filter category sidebar khi user gõ tìm kiếm.
+ * Trả về category_id hoặc null nếu không khớp.
+ * @param {string} input - Text người dùng nhập (có hoặc không dấu)
+ * @returns {string|null}
+ */
+export function resolveCategoryFromText(input) {
+  if (!input) return null;
+  const normalized = stripVietnamese(input);
+
+  for (const { keywords, catId } of UNACCENTED_ALIASES) {
+    for (const kw of keywords) {
+      if (normalized.includes(kw) || kw.includes(normalized)) {
+        return catId;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Phân giải danh mục chính xác từ mã ID hoặc phân tích ngữ nghĩa tên sản phẩm.
  * Không bao giờ trả về null/undefined/unknown.
  */
@@ -66,21 +172,23 @@ export function resolveCategory(product = {}) {
     if (catId.startsWith('cat-camera') || catId === 'c6' || catId === 'c10') return 'cat-cam-security';
   }
 
-  // 2. Phân tích ngữ nghĩa theo tên sản phẩm (Keyword resolver)
-  if (name.includes('điện thoại') || name.includes('iphone') || name.includes('redmi') || name.includes('galaxy') || name.includes('smartphone')) return 'cat-phone';
+  // 2. Phân tích ngữ nghĩa theo tên sản phẩm (Keyword resolver — có dấu và không dấu)
+  const nameStripped = stripVietnamese(name);
+
+  if (name.includes('điện thoại') || name.includes('iphone') || name.includes('redmi') || name.includes('galaxy') || name.includes('smartphone') || nameStripped.includes('dien thoai')) return 'cat-phone';
   if (name.includes('laptop') || name.includes('macbook') || name.includes('thinkpad') || name.includes('zenbook') || name.includes('vivobook')) return 'cat-laptop';
-  if (name.includes('ipad') || name.includes('tablet') || name.includes('máy tính bảng')) return 'cat-tablet';
-  if (name.includes('đồng hồ') || name.includes('watch') || name.includes('smartwatch')) return 'cat-watch';
-  if (name.includes('sạc') || name.includes('cáp') || name.includes('pin dự phòng') || name.includes('adapter') || name.includes('powerbank')) return 'cat-mobile-acc-charger';
-  if (name.includes('tai nghe') || name.includes('airpods') || name.includes('headphone') || name.includes('earphone')) return 'cat-av-bt-earphone';
+  if (name.includes('ipad') || name.includes('tablet') || name.includes('máy tính bảng') || nameStripped.includes('may tinh bang')) return 'cat-tablet';
+  if (name.includes('đồng hồ') || name.includes('watch') || name.includes('smartwatch') || nameStripped.includes('dong ho')) return 'cat-watch';
+  if (name.includes('sạc') || name.includes('cáp') || name.includes('pin dự phòng') || name.includes('adapter') || name.includes('powerbank') || nameStripped.includes('sac') || nameStripped.includes('cap sac')) return 'cat-mobile-acc-charger';
+  if (name.includes('tai nghe') || name.includes('airpods') || name.includes('headphone') || name.includes('earphone') || nameStripped.includes('tai nghe')) return 'cat-av-bt-earphone';
   if (name.includes('loa') || name.includes('soundbar') || name.includes('speaker')) return 'cat-av-speaker';
-  if (name.includes('chuột') || name.includes('mouse')) return 'cat-laptop-acc-mouse';
-  if (name.includes('bàn phím') || name.includes('keyboard')) return 'cat-laptop-acc-keyboard';
+  if (name.includes('chuột') || name.includes('mouse') || nameStripped.includes('chuot')) return 'cat-laptop-acc-mouse';
+  if (name.includes('bàn phím') || name.includes('keyboard') || nameStripped.includes('ban phim')) return 'cat-laptop-acc-keyboard';
   if (name.includes('camera') || name.includes('webcam') || name.includes('cam')) return 'cat-cam-security';
-  if (name.includes('ốp lưng') || name.includes('bao da') || name.includes('case')) return 'cat-mobile-acc-case-phone';
-  if (name.includes('balo') || name.includes('túi chống sốc')) return 'cat-laptop-acc-bag';
-  if (name.includes('ổ cứng') || name.includes('ssd') || name.includes('hdd')) return 'cat-av-hdd';
-  if (name.includes('thẻ nhớ') || name.includes('microsd')) return 'cat-av-sdcard';
+  if (name.includes('ốp lưng') || name.includes('bao da') || name.includes('case') || nameStripped.includes('op lung')) return 'cat-mobile-acc-case-phone';
+  if (name.includes('balo') || name.includes('túi chống sốc') || nameStripped.includes('balo') || nameStripped.includes('tui chong soc')) return 'cat-laptop-acc-bag';
+  if (name.includes('ổ cứng') || name.includes('ssd') || name.includes('hdd') || nameStripped.includes('o cung')) return 'cat-av-hdd';
+  if (name.includes('thẻ nhớ') || name.includes('microsd') || nameStripped.includes('the nho')) return 'cat-av-sdcard';
   if (name.includes('usb')) return 'cat-av-usb';
 
   // 3. Fallback mặc định an toàn cho cửa hàng công nghệ (Điện thoại)
