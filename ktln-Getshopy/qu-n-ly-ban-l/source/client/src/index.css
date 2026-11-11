@@ -273,3 +273,70 @@ body {
   height: 300vh;              /* 100vh hero + 200vh GSAP pin scroll budget */
   overflow-anchor: none;      /* prevent scroll-anchor shift */
 }
+
+/* ─── Điện thoại: chạm vào ô nhập không được phóng to cả trang ────────────────
+ * Lỗi (12/11/2026): trên điện thoại, gõ vào BẤT KỲ ô tìm kiếm / ô nhập / textarea
+ * nào thì cả trang phóng to, khách phải chụm hai ngón để thu nhỏ lại.
+ *
+ * Nguyên nhân: Safari iOS tự zoom khi focus một ô nhập có font-size < 16px
+ * (nguồn: https://css-tricks.com/16px-or-larger-text-prevents-ios-form-zoom/).
+ * Ô nhập antd mặc định 14px (size="small" cũng 14px); các ô tự viết còn nhỏ hơn:
+ * 13px (ô tìm kiếm thanh bên StoreLayout, ô chat AI, ô tìm trong OnboardingModal),
+ * 13.5px (ô tìm ở trang chủ), 12px (ô giá ở bộ lọc ProductList), 15px (ô số lượng
+ * ở ProductDetail).
+ *
+ * Cách sửa: trên điện thoại / máy chỉ có cảm ứng, ép MỌI ô gõ chữ >= 16px.
+ * KHÔNG chặn zoom bằng maximum-scale=1 / user-scalable=no trong thẻ viewport: Chrome
+ * Android làm theo hai thuộc tính đó nên khách mất luôn thao tác chụm hai ngón để
+ * phóng to chữ — trái WCAG 1.4.4 (Resize Text); axe-core / Lighthouse báo lỗi
+ * accessibility "meta-viewport" (https://dequeuniversity.com/rules/axe/4.10/meta-viewport).
+ *
+ * Phạm vi: màn <= 768px (cùng mốc các rule điện thoại trong App.css) HOẶC máy chỉ có
+ * cảm ứng (hover: none + pointer: coarse) — iPhone xoay ngang rộng hơn 768px vẫn bị
+ * zoom nên cũng phải tính. Máy tính (cửa sổ rộng, dùng chuột) giữ nguyên 14px.
+ *
+ * Vì sao thắng được antd: App.jsx bọc antd trong <StyleProvider layer>, mọi style antd
+ * nằm trong @layer antd; rule KHÔNG thuộc layer (khối dưới đây) luôn thắng rule trong
+ * layer, bất kể selector của antd mạnh cỡ nào (nguồn: MDN,
+ * https://developer.mozilla.org/en-US/docs/Web/CSS/@layer). Riêng font-size phải thêm
+ * !important vì nhiều ô đặt cỡ chữ bằng style inline (StoreLayout, AIChatbot, Home,
+ * ProductDetail): style inline thắng mọi rule thường trong file CSS, chỉ !important
+ * mới đè được. Hệ quả: ô nào cố ý to hơn 16px trên điện thoại phải tự khai font-size
+ * kèm !important với selector cụ thể hơn selector dưới đây.
+ * ──────────────────────────────────────────────────────────────────────────── */
+@media (max-width: 768px), (hover: none) and (pointer: coarse) {
+  /* Mọi phần tử nhận bàn phím. Loại checkbox / radio / range / file / color / nút:
+   * không mở bàn phím, iOS không zoom.
+   * - input: antd Input, Input.Password, Input.Search, Input.OTP, InputNumber,
+   *   DatePicker / RangePicker / TimePicker, ô tìm của Select / Cascader / AutoComplete
+   *   (kể cả ô readonly trong suốt của Select không bật showSearch: chạm vào Select là
+   *   focus ô này), ô đổi số dòng / nhảy trang của Pagination trong Table; cùng mọi
+   *   <input> tự viết (ô tìm thanh bên, ô chat AI, ô tìm trang chủ, ô số lượng...).
+   * - textarea: antd TextArea / Mentions và textarea tự viết.
+   * - select: <select> gốc (hiện chưa dùng). contenteditable: hiện chưa dùng — thêm
+   *   sẵn để ô soạn thảo sau này cũng được che.
+   * - .ant-select-selection-search-mirror: span ẩn antd dùng để đo bề rộng chữ đang gõ
+   *   ở Select nhiều lựa chọn; phải cùng cỡ với ô nhập, không thì chữ gõ bị cắt. */
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"],
+            [type="button"], [type="submit"], [type="reset"], [type="image"], [type="hidden"]),
+  textarea,
+  select,
+  [contenteditable=""],
+  [contenteditable="true"],
+  [contenteditable="plaintext-only"],
+  .ant-select-selection-search-mirror {
+    font-size: 16px !important;
+  }
+
+  /* Giữ đúng chiều cao ô antd cỡ thường / small. Chiều cao ô antd = dòng chữ +
+   * padding: 14px × line-height 1.5714 = dòng 22px → ô 32px (small: 24px). Lên 16px
+   * mà giữ hệ số 1.5714 thì dòng thành 25px, ô ~35px, lệch với nút / Select (vẫn 32px)
+   * đứng cạnh. Chốt dòng 22px: ô giữ 32 / 24px, TextArea giữ chiều cao mỗi hàng.
+   * Ô size="large" vốn đã 16px (dòng 1.5 × 16 = 24px) nên loại ra, không đụng.
+   * Ô tìm của Select có height cố định sẵn nên không cần dòng này. */
+  .ant-input:not(.ant-input-lg),
+  .ant-input-number:not(.ant-input-number-lg) .ant-input-number-input,
+  .ant-picker:not(.ant-picker-large) .ant-picker-input > input {
+    line-height: 22px;
+  }
+}
