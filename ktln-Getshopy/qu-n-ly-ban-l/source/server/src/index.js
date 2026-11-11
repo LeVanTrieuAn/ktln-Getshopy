@@ -69,6 +69,12 @@ if (!JWT_SECRET) {
 
 app.use(cors());
 app.use(morgan('dev'));
+// Tìm kiếm bằng ảnh gửi ảnh dạng data URL base64 trong JSON. express.json() bên dưới
+// không đặt limit nên dùng mặc định 100 KB của body-parser: ảnh đã nén 800px vẫn hay
+// vượt -> 413 ngay ở server, không tới ai-bot (log 11/11/2026 16:54–17:05Z). Nâng lên
+// 1 MB CHỈ cho hai route ảnh; parser này chạy trước nên parser chung bỏ qua body đã
+// đọc. Chat thường giữ 100 KB. Gateway đã cho tới 20 MB (client_max_body_size).
+app.use(['/api/b2c/visual-search', '/api/ai/smart-search-image'], express.json({ limit: '1mb' }));
 // Giữ lại body thô để xác thực chữ ký HMAC của webhook thanh toán.
 // JSON.stringify(req.body) KHÔNG dùng thay được: nó có thể đổi thứ tự khoá và
 // cách escape, làm chữ ký sai dù payload hợp lệ.

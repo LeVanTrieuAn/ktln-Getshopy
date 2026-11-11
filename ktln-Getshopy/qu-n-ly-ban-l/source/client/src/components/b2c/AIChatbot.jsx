@@ -459,14 +459,16 @@ export default function AIChatbot() {
                   {/* Text */}
                   <div>{msg.sender === 'ai' ? renderMarkdown(msg.text) : msg.text}</div>
 
-                  {/* BLIP caption */}
+                  {/* Mô tả ảnh do Gemini Vision trả về. Nhãn cũ ghi "BLIP" — pipeline thật là
+                      Gemini Vision (ai-bot/src/services/SearchService.js, mục 2); sửa 12/11/2026
+                      cho đúng với báo cáo khoá luận. */}
                   {msg.visualCaption && (
                     <div style={{
                       marginTop: 8, fontSize: 10, opacity: 0.5,
                       fontStyle: 'italic',
                       borderTop: '1px solid rgba(128,128,128,0.2)', paddingTop: 6,
                     }}>
-                      BLIP: "{msg.visualCaption}"
+                      Gemini Vision: "{msg.visualCaption}"
                     </div>
                   )}
 
@@ -549,7 +551,7 @@ export default function AIChatbot() {
                     <span style={{ fontWeight: 500 }}>Đang phân tích ảnh bằng AI...</span>
                   </div>
                   <div style={{ fontSize: 10, opacity: 0.55, marginTop: 4 }}>
-                    BLIP Captioning → Qwen2.5 Analysis
+                    Gemini Vision → tìm sản phẩm khớp
                   </div>
                 </div>
               </div>
