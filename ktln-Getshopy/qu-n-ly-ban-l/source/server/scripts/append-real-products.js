@@ -29,6 +29,16 @@ const prisma = new PrismaClient();
 const DRY = process.argv.includes('--dry-run');
 const SRC = path.join(__dirname, 'data', 'tgdd-products.json');
 
+// Bộ crawl cũ gán nhầm hai trang TGDĐ vào cat-cam-indoor (Camera trong nhà) — xem
+// lib/real-image-pool.js EXCLUDE_SLUGS. Sửa lúc nạp (11/11/2026, người dùng duyệt):
+// tripod/gậy selfie -> Giá đỡ điện thoại; camera hành trình không có danh mục phù
+// hợp -> vẫn nạp nhưng ẩn, để mã sản phẩm phía sau giữ đúng thứ tự như máy demo.
+const SLUG_FIX = {
+  'gay-tu-suong': { category_id: 'cat-mobile-acc-stand' },
+  'camera-hanh-trinh-hanh-dong': { is_deleted: true },
+};
+const slugOf = (url) => (url || '').split('/')[3] || '';
+
 const parseJson = (v, fallback) => {
   if (Array.isArray(v) || (v && typeof v === 'object')) return v;
   try { return JSON.parse(v); } catch { return fallback; }
@@ -51,8 +61,9 @@ async function main() {
 
   const rows = [];
   let skipCatBrand = 0;
-  for (const p of byName.values()) {
-    if (existing.has(p.name)) continue;
+  for (const raw of byName.values()) {
+    if (existing.has(raw.name)) continue;
+    const p = { ...raw, ...(SLUG_FIX[slugOf(raw.productUrl)] || {}) };
     if (!cats.has(p.category_id) || !brands.has(p.brand_id)) { skipCatBrand++; continue; }
     rows.push(p);
   }
@@ -81,7 +92,7 @@ async function main() {
       variants: parseJson(p.variants, []),
       branch_ids: b.length ? b : [...branches],
       is_banner: false,
-      is_deleted: false,
+      is_deleted: p.is_deleted === true,
     };
   });
 
