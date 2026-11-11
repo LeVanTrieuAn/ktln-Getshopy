@@ -286,13 +286,20 @@ async function getRecommendations(_email = null, { categoryId, brandId, sessionI
     }
   };
 
-  // Helper: fetch products by IDs
+  // Helper: lấy sản phẩm theo danh sách id, GIỮ ĐÚNG THỨ TỰ của `ids`.
+  // findMany(... IN ...) không có ORDER BY nên Postgres trả theo thứ tự tuỳ ý (thường là
+  // theo id): AI-Rec xếp hạng 8,7,…,1 mà trang hiển thị 1,…,8 — mất thứ hạng của model
+  // (kiểm chứng 12/11/2026). Mọi nơi gọi hàm này đều truyền id theo thứ tự có ý nghĩa
+  // (thứ hạng AI, mới xem gần nhất, trending) nên sắp lại theo vị trí trong `ids`.
   const fetchProductsByIds = async (ids) => {
     if (!ids || ids.length === 0) return [];
-    return prisma.product.findMany({
+    const rows = await prisma.product.findMany({
       where: { id: { in: ids.map(BigInt) }, is_deleted: false, stock: { gt: 0 } },
       select: REC_SELECT,
     });
+    const rank = new Map();
+    ids.forEach((id, i) => { if (!rank.has(String(id))) rank.set(String(id), i); });
+    return rows.sort((a, b) => (rank.get(String(a.id)) ?? Infinity) - (rank.get(String(b.id)) ?? Infinity));
   };
 
   // ═══════════════════════════════════════════════════════════════════════
