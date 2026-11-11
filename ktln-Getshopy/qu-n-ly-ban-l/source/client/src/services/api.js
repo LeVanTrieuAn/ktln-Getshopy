@@ -167,6 +167,11 @@ export const api = {
     login: (email, password) => request('/b2c/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
     socialLogin: (data) => request('/b2c/auth/social', { method: 'POST', body: JSON.stringify(data) }),
     setPassword: (new_password) => request('/b2c/auth/set-password', { method: 'POST', body: JSON.stringify({ new_password }) }),
+    // Quên mật khẩu bằng mã OTP qua email (server/src/routes/passwordReset.js). Server trả
+    // CÙNG một câu dù email có tài khoản hay không — đừng dựa vào kết quả để báo "email
+    // chưa đăng ký". Sai mã trả 400 (không phải 401), nên request() không đá ra trang chủ.
+    forgotPassword: (email) => request('/b2c/auth/forgot-password', { method: 'POST', body: JSON.stringify({ email }) }),
+    resetPassword: ({ email, otp, new_password }) => request('/b2c/auth/reset-password', { method: 'POST', body: JSON.stringify({ email, otp, new_password }) }),
     // Hồ sơ + loyalty_points hiện tại từ DB (thay cho localStorage['b2c_points'])
     getMe: () => request('/b2c/me'),
     

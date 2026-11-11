@@ -930,6 +930,9 @@ app.use('/api', recommendationRouter);
 const b2cRouter = require('./routes/b2c');
 app.use('/api/b2c', b2cRouter);
 
+// Quên mật khẩu bằng mã OTP qua email (12/11/2026) — xem routes/passwordReset.js
+app.use('/api/b2c', require('./routes/passwordReset'));
+
 // Onboarding — thu sở thích tường minh cho AI-Rec (cold-start phía khách)
 const onboardingRouter = require('./routes/onboarding');
 app.use('/api/b2c', onboardingRouter);
