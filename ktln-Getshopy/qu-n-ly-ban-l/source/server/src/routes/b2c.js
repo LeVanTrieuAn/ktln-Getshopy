@@ -1,6 +1,6 @@
 const express = require('express');
 const { prisma } = require('../db');
-const { cached } = require('../redis');
+const { cached, redis, isConnected: redisIsConnected } = require('../redis');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
@@ -407,9 +407,231 @@ function buildOrderSQL(orderMap, sort, rankSQL) {
   return rankSQL && (!sort || sort === 'newest') ? `${rankSQL}, ${base}` : base;
 }
 
+// ── Cache số đếm + thứ hạng "bán chạy" của trang danh sách (12/11/2026) ─────────────
+// Vì sao: đo 12/11/2026 trên DB thật bằng EXPLAIN (ANALYZE, BUFFERS) — bảng Product
+// 600.492 dòng, heap 950 MB, shared_buffers 128 MB nên không bao giờ nằm trọn trong RAM
+// của Postgres:
+//   - lấy MỘT trang (ORDER BY id DESC LIMIT 24, quét ngược khoá chính): 1–51 ms;
+//   - COUNT(*) cùng bộ lọc chi nhánh: quét cả bảng (121.579 trang) 0,27–1,57 s; COUNT
+//     một danh mục nhỏ (7.520 dòng rải trên 7.164 trang) 8,45 s lúc đĩa đang bận;
+//   - ORDER BY sold DESC (mục "Bán chạy nhất"): không có index trên sold -> quét cả
+//     bảng, 0,34 s khi cache hệ điều hành còn ấm.
+// Log server tối 11/11/2026: 15/59 request GET /api/b2c/products quá 1 s, chậm nhất 30 s
+// (trang chủ), 19 s (sản phẩm liên quan ở trang chi tiết). Phần chậm là ĐẾM, không phải
+// lấy trang. Số đếm chỉ đổi khi quản trị thêm/xoá sản phẩm hoặc đổi chi nhánh bán.
+// Cách làm (stale-while-revalidate — cùng ý RFC 5861, đã nêu ở
+// docs/optimizing/optimize-issue.md): kết quả còn mới (< 2 phút, bằng TTL của
+// /categories/active) thì dùng luôn; cũ hơn thì vẫn trả ngay rồi tính lại ở nền, khách
+// không phải chờ quét bảng. Chỉ lần đầu của mỗi khoá là phải chờ. Hạn tối đa 7 ngày (rồi
+// mới tính lại đồng bộ) vì web ít người vào: hạn ngắn (vd 6 giờ) thì lượt vào đầu tiên
+// mỗi sáng lại phải chờ quét bảng như cũ. Lưu Redis (còn nguyên sau khi khởi động lại
+// server) + bộ nhớ tiến trình. Dữ liệu từng sản phẩm (giá, tồn kho) KHÔNG cache — vẫn
+// đọc mới mỗi request.
+// Đánh đổi: sau khi quản trị thêm/xoá sản phẩm hoặc đổi chi nhánh bán, con số
+// "N sản phẩm" (và thứ hạng "bán chạy") có thể cũ ở MỘT request, trước khi lần tính nền
+// cập nhật xong.
+const LISTING_FRESH_MS = 2 * 60 * 1000;
+const LISTING_MAX_AGE_S = 7 * 24 * 60 * 60;
+const LISTING_MEM_LIMIT = 500;
+const _listingMem = new Map();      // key -> { v, t }; Map giữ thứ tự chèn -> bỏ khoá cũ nhất khi đầy
+const _listingInflight = new Map(); // key -> Promise: nhiều request cùng khoá chỉ chạy MỘT truy vấn
+
+function listingRemember(key, entry) {
+  _listingMem.delete(key);
+  if (_listingMem.size >= LISTING_MEM_LIMIT) _listingMem.delete(_listingMem.keys().next().value);
+  _listingMem.set(key, entry);
+}
+
+function listingRefresh(key, compute) {
+  const running = _listingInflight.get(key);
+  if (running) return running;
+  // compute chạy ở microtask sau, nên khoá luôn được ghi vào _listingInflight TRƯỚC khi
+  // finally() xoá nó — kể cả khi compute ném lỗi ngay lập tức.
+  const p = Promise.resolve()
+    .then(compute)
+    .then((v) => {
+      const entry = { v, t: Date.now() };
+      listingRemember(key, entry);
+      if (redisIsConnected()) {
+        redis.setEx(key, LISTING_MAX_AGE_S, JSON.stringify(entry))
+          .catch(err => console.warn(`Redis write failed for "${key}":`, err.message));
+      }
+      return v;
+    })
+    .finally(() => _listingInflight.delete(key));
+  _listingInflight.set(key, p);
+  return p;
+}
+
+async function listingCached(key, compute) {
+  let entry = _listingMem.get(key);
+  if (!entry && redisIsConnected()) {
+    try {
+      const raw = await redis.get(key);
+      const parsed = raw ? JSON.parse(raw) : null;
+      if (parsed && typeof parsed.t === 'number' && 'v' in parsed) {
+        entry = parsed;
+        listingRemember(key, entry);
+      }
+    } catch (err) {
+      console.warn(`Redis read failed for "${key}", falling back:`, err.message);
+    }
+  }
+  const age = entry ? Date.now() - entry.t : Infinity;
+  if (!(age < LISTING_MAX_AGE_S * 1000)) return listingRefresh(key, compute);
+  if (age >= LISTING_FRESH_MS) {
+    listingRefresh(key, compute)
+      .catch(err => console.warn(`[products] Tính lại nền "${key}" lỗi:`, err.message));
+  }
+  return entry.v;
+}
+
+// Bảng Branch hiện có 4 chi nhánh. Mỗi chi nhánh thêm một biểu thức FILTER cho mọi dòng,
+// nên chỉ gộp tối đa ngần này chi nhánh vào một lần quét; phần dư đếm riêng.
+const MAX_BRANCHES_PER_SCAN = 16;
+const NULL_CATEGORY = '\u0000null';
+
+/**
+ * Số sản phẩm theo từng danh mục cho MỌI chi nhánh trong bảng Branch và cho "không lọc chi
+ * nhánh" (khoá ''), trong MỘT lần quét bảng. Trang chủ, /shop, từng danh mục, totalAll và
+ * "sản phẩm liên quan" ở trang chi tiết dùng chung kết quả này thay vì mỗi tổ hợp một lần
+ * COUNT riêng. Đo 12/11/2026 khi cache hệ điều hành đã ấm: 0,81 s cho cả 4 chi nhánh +
+ * không lọc, so với 0,36 s cho GROUP BY của MỘT chi nhánh — lúc đĩa nguội/bận (lúc web
+ * chậm thật) phần đắt là đọc 950 MB, nên một lần quét thay cho năm lần là có lợi.
+ */
+async function computeAllCategoryCounts() {
+  const branchIds = (await prisma.branch.findMany({ where: { is_deleted: false }, select: { id: true } }))
+    .map(b => b.id)
+    .filter(Boolean)          // '' là khoá dành cho "không lọc chi nhánh"
+    .slice(0, MAX_BRANCHES_PER_SCAN);
+  const perBranch = branchIds.map((_, i) =>
+    `, COUNT(*) FILTER (WHERE branch_ids::jsonb = '[]'::jsonb OR branch_ids::jsonb @> $${i + 1}::jsonb)::int AS b${i}`);
+  const rows = await prisma.$queryRawUnsafe(
+    `SELECT category_id, COUNT(*)::int AS all_count${perBranch.join('')}
+       FROM "Product"
+       WHERE is_deleted = false
+       GROUP BY category_id`,
+    ...branchIds.map(id => JSON.stringify([id]))
+  );
+  // Object.create(null): id chi nhánh / danh mục lấy từ DB làm khoá, không đụng prototype.
+  const byBranch = Object.create(null);
+  byBranch[''] = Object.create(null);
+  branchIds.forEach(id => { byBranch[id] = Object.create(null); });
+  rows.forEach(r => {
+    const cat = r.category_id ?? NULL_CATEGORY;
+    byBranch[''][cat] = Number(r.all_count);
+    branchIds.forEach((id, i) => { byBranch[id][cat] = Number(r[`b${i}`]); });
+  });
+  return byBranch;
+}
+
+/** Bảng category_id -> số sản phẩm cho một chi nhánh (branch_id rỗng = không lọc chi nhánh). */
+async function categoryCounts(branch_id) {
+  const byBranch = await listingCached('products:catcount:v2', computeAllCategoryCounts);
+  const key = branch_id || '';
+  if (typeof key === 'string' && Object.prototype.hasOwnProperty.call(byBranch, key)) return byBranch[key];
+  // Chi nhánh không có trong bảng Branch (vd. HCM002 chỉ có trong dữ liệu sản phẩm, hoặc
+  // chi nhánh đã xoá vẫn lưu trong localStorage của khách): đếm riêng cho chi nhánh đó.
+  return listingCached(`products:catcount:v2:${JSON.stringify(branch_id)}`, async () => {
+    const rows = await prisma.$queryRawUnsafe(
+      `SELECT category_id, COUNT(*)::int AS count
+         FROM "Product"
+         WHERE is_deleted = false
+           AND (branch_ids::jsonb = '[]'::jsonb OR branch_ids::jsonb @> $1::jsonb)
+         GROUP BY category_id`,
+      JSON.stringify([branch_id])
+    );
+    const counts = Object.create(null);
+    rows.forEach(r => { counts[r.category_id ?? NULL_CATEGORY] = Number(r.count); });
+    return counts;
+  });
+}
+
+const sumCounts = (counts, catIds) => (catIds || Object.keys(counts))
+  .reduce((s, id) => s + (Object.prototype.hasOwnProperty.call(counts, id) ? counts[id] : 0), 0);
+
+/**
+ * Khoá cache mô tả ĐÚNG mệnh đề WHERE của danh sách (không gồm sort/trang vì số đếm không
+ * phụ thuộc chúng). Giá để dạng String: NaN và null phải là hai khoá khác nhau, vì
+ * "price >= NaN" ra 0 dòng còn không lọc giá ra cả bảng. Có từ khoá thì kèm hasUnaccent
+ * vì câu tìm kiếm khác nhau tuỳ extension unaccent đã cài hay chưa.
+ */
+function listingKeyParts({ branch_id, category_id, brandIdList, parsedMinPrice, parsedMaxPrice, search }) {
+  return JSON.stringify([
+    branch_id || null,
+    category_id && category_id !== 'ALL' ? category_id : null,
+    [...brandIdList].sort(),
+    String(parsedMinPrice),
+    String(parsedMaxPrice),
+    search && search.trim() ? [search.trim(), hasUnaccent] : null,
+  ]);
+}
+
+/**
+ * Tổng số dòng khớp bộ lọc. Không lọc hãng / giá / từ khoá thì cộng từ categoryCounts
+ * (đúng bằng COUNT(*) vì cùng WHERE, chỉ chia theo category_id); còn lại đếm riêng
+ * theo khoá của bộ lọc.
+ */
+function listingTotal({ plain, branch_id, catIds, keyParts, countFn }) {
+  if (plain) return categoryCounts(branch_id).then(counts => sumCounts(counts, catIds));
+  return listingCached(`products:count:v1:${keyParts}`, countFn);
+}
+
+// Ba giá trị sort này cùng ra ORDER BY sold DESC.
+const SOLD_SORTS = new Set(['best_selling', 'bestseller', 'sold_desc']);
+
+/**
+ * Trang xếp theo "bán chạy": cache THỨ TỰ id của trang (phần phải quét cả bảng), còn
+ * dòng sản phẩm thì đọc mới theo id (24 lần tra khoá chính) và vẫn áp lại đúng WHERE,
+ * nên giá / tồn kho / sản phẩm vừa bị xoá luôn đúng; chỉ thứ hạng có thể cũ vài phút.
+ */
+async function rowsInRankOrder(rankKey, rankFn, fetchByIds) {
+  const ids = await listingCached(rankKey, rankFn);
+  if (!ids.length) return [];
+  const rows = await fetchByIds(ids);
+  const byId = new Map(rows.map(r => [Number(r.id), r]));
+  return ids.map(id => byId.get(id)).filter(Boolean);
+}
+
+const LIST_COLUMNS_SQL = `id, name, price, original_price, image, stock, rating, sold,
+                  category_id, brand_id, branch_ids, is_banner, created_at`;
+
+/** Một trang danh sách qua SQL thô (nhánh có chi nhánh / có từ khoá). */
+function rawListingRows({ whereSQL, params, orderSQL, sort, limitNumber, skip, keyParts }) {
+  const n = params.length;
+  if (!SOLD_SORTS.has(sort)) {
+    return prisma.$queryRawUnsafe(
+      `SELECT ${LIST_COLUMNS_SQL}
+           FROM "Product"
+           WHERE ${whereSQL}
+           ORDER BY ${orderSQL}
+           LIMIT $${n + 1} OFFSET $${n + 2}`,
+      ...params, limitNumber, skip
+    );
+  }
+  return rowsInRankOrder(
+    `products:soldrank:v1:${keyParts}:${limitNumber}:${skip}`,
+    async () => (await prisma.$queryRawUnsafe(
+      `SELECT id FROM "Product" WHERE ${whereSQL} ORDER BY ${orderSQL} LIMIT $${n + 1} OFFSET $${n + 2}`,
+      ...params, limitNumber, skip
+    )).map(r => Number(r.id)),
+    (ids) => prisma.$queryRawUnsafe(
+      `SELECT ${LIST_COLUMNS_SQL} FROM "Product" WHERE ${whereSQL} AND id = ANY($${n + 1}::bigint[])`,
+      ...params, ids.map(String)
+    ),
+  );
+}
+
 // Get Products (with Filter/Sort)
 router.get('/products', async (req, res) => {
   try {
+    // totalAll chạy song song ngay từ đầu. Trước 12/11/2026 nó được chờ tuần tự SAU truy
+    // vấn chính: mỗi lần cache 5 phút hết hạn, request đó gánh thêm một lần đếm cả bảng
+    // (EXPLAIN đo 0,11 s khi ấm, 4,33 s khi nguội). Lỗi vẫn được ném ra ở chỗ await bên
+    // dưới; .catch rỗng chỉ để không thành unhandledRejection nếu request lỗi trước đó.
+    const totalAllPromise = categoryCounts(null).then(counts => sumCounts(counts));
+    totalAllPromise.catch(() => {});
+
     const { category_id, brand_ids, search, sort, branch_id, page = 1, limit = 12, min_price, max_price } = req.query;
     const pageNumber = parseInt(page, 10) || 1;
     const limitNumber = parseInt(limit, 10) || 12;
@@ -425,8 +647,10 @@ router.get('/products', async (req, res) => {
     let where = { is_deleted: false };
 
     // Expand category filter to include all sub-categories
+    // catIds dùng chung cho cả ba nhánh bên dưới và cho phép cộng số đếm theo danh mục.
+    let catIds = null;
     if (category_id && category_id !== 'ALL') {
-      const catIds = await getCategoryDescendants(category_id);
+      catIds = await getCategoryDescendants(category_id);
       where.category_id = catIds.length === 1 ? catIds[0] : { in: catIds };
     }
 
@@ -441,6 +665,8 @@ router.get('/products', async (req, res) => {
     }
     
     const hasSearch = Boolean(search && search.trim());
+    // Không lọc hãng / giá / từ khoá -> tổng lấy từ bảng đếm theo danh mục (xem listingTotal).
+    const plain = brandIdList.length === 0 && parsedMinPrice === null && parsedMaxPrice === null && !hasSearch;
     let orderBy = { id: 'desc' };
     if (sort === 'price_asc') orderBy = { price: 'asc' };
     if (sort === 'price_desc') orderBy = { price: 'desc' };
@@ -471,8 +697,7 @@ router.get('/products', async (req, res) => {
       conditions.push(`(branch_ids::jsonb = '[]'::jsonb OR branch_ids::jsonb @> $${params.length}::jsonb)`);
 
       // Expand category filter to include all sub-categories (raw SQL path)
-      if (category_id && category_id !== 'ALL') {
-        const catIds = await getCategoryDescendants(category_id);
+      if (catIds) {
         if (catIds.length === 1) {
           params.push(catIds[0]);
           conditions.push(`category_id = $${params.length}`);
@@ -516,31 +741,25 @@ router.get('/products', async (req, res) => {
       };
       const orderSQL = buildOrderSQL(ORDER_MAP, sort, searchRank);
 
-      const [rows, countRows] = await Promise.all([
-        prisma.$queryRawUnsafe(
-          `SELECT id, name, price, original_price, image, stock, rating, sold,
-                  category_id, brand_id, branch_ids, is_banner, created_at
-           FROM "Product"
-           WHERE ${whereSQL}
-           ORDER BY ${orderSQL}
-           LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
-          ...params, limitNumber, skip
-        ),
-        prisma.$queryRawUnsafe(
-          `SELECT COUNT(*)::int AS count FROM "Product" WHERE ${whereSQL}`,
-          ...params
-        ),
+      // Khoá tính SAU appendSearchConditions: hàm đó cập nhật cờ hasUnaccent.
+      const keyParts = listingKeyParts({ branch_id, category_id, brandIdList, parsedMinPrice, parsedMaxPrice, search });
+      [products, total] = await Promise.all([
+        rawListingRows({ whereSQL, params, orderSQL, sort, limitNumber, skip, keyParts }),
+        listingTotal({
+          plain, branch_id, catIds, keyParts,
+          countFn: async () => Number((await prisma.$queryRawUnsafe(
+            `SELECT COUNT(*)::int AS count FROM "Product" WHERE ${whereSQL}`,
+            ...params
+          ))[0].count),
+        }),
       ]);
-
-      total    = Number(countRows[0].count);
-      products = rows.map(p => ({ ...p, id: Number(p.id) }));
+      products = products.map(p => ({ ...p, id: Number(p.id) }));
     } else if (hasSearch) {
       // ── No branch_id + có search → dùng raw SQL để hỗ trợ unaccent() và danh mục ──────
       const conditions2 = [`is_deleted = false`];
       const params2 = [];
 
-      if (category_id && category_id !== 'ALL') {
-        const catIds = await getCategoryDescendants(category_id);
+      if (catIds) {
         if (catIds.length === 1) {
           params2.push(catIds[0]);
           conditions2.push(`category_id = $${params2.length}`);
@@ -569,39 +788,41 @@ router.get('/products', async (req, res) => {
       const orderSQL2 = buildOrderSQL(ORDER_MAP2, sort, searchRank2);
       const whereSQL2 = conditions2.join(' AND ');
 
-      const [rows2, countRows2] = await Promise.all([
-        prisma.$queryRawUnsafe(
-          `SELECT id, name, price, original_price, image, stock, rating, sold,
-                  category_id, brand_id, branch_ids, is_banner, created_at
-           FROM "Product"
-           WHERE ${whereSQL2}
-           ORDER BY ${orderSQL2}
-           LIMIT $${params2.length + 1} OFFSET $${params2.length + 2}`,
-          ...params2, limitNumber, skip
-        ),
-        prisma.$queryRawUnsafe(
-          `SELECT COUNT(*)::int AS count FROM "Product" WHERE ${whereSQL2}`,
-          ...params2
-        ),
+      const keyParts2 = listingKeyParts({ branch_id, category_id, brandIdList, parsedMinPrice, parsedMaxPrice, search });
+      [products, total] = await Promise.all([
+        rawListingRows({ whereSQL: whereSQL2, params: params2, orderSQL: orderSQL2, sort, limitNumber, skip, keyParts: keyParts2 }),
+        listingTotal({
+          plain, branch_id, catIds, keyParts: keyParts2,
+          countFn: async () => Number((await prisma.$queryRawUnsafe(
+            `SELECT COUNT(*)::int AS count FROM "Product" WHERE ${whereSQL2}`,
+            ...params2
+          ))[0].count),
+        }),
       ]);
-      total    = Number(countRows2[0].count);
-      products = rows2.map(p => ({ ...p, id: Number(p.id) }));
+      products = products.map(p => ({ ...p, id: Number(p.id) }));
     } else {
       // Real DB-level pagination: only the requested page is ever fetched/serialized.
+      const keyParts3 = listingKeyParts({ branch_id, category_id, brandIdList, parsedMinPrice, parsedMaxPrice, search });
       [products, total] = await Promise.all([
-        prisma.product.findMany({ where, orderBy, skip, take: limitNumber, select: listSelect }),
-        prisma.product.count({ where })
+        SOLD_SORTS.has(sort)
+          ? rowsInRankOrder(
+            `products:soldrank:v1:${keyParts3}:${limitNumber}:${skip}`,
+            async () => (await prisma.product.findMany({ where, orderBy, skip, take: limitNumber, select: { id: true } }))
+              .map(r => Number(r.id)),
+            (ids) => prisma.product.findMany({ where: { ...where, id: { in: ids.map(id => BigInt(id)) } }, select: listSelect }),
+          )
+          : prisma.product.findMany({ where, orderBy, skip, take: limitNumber, select: listSelect }),
+        listingTotal({ plain, branch_id, catIds, keyParts: keyParts3, countFn: () => prisma.product.count({ where }) }),
       ]);
     }
 
     const fsItems = await getActiveFlashSaleItems();
     products = products.map(p => applyFlashSaleToProduct({ ...p, id: Number(p.id) }, fsItems));
 
-    // totalAll: tổng sản phẩm toàn DB (không filter), cache 5 phút
+    // totalAll: tổng sản phẩm toàn DB (không filter) — cộng từ bảng đếm theo danh mục
+    // không lọc chi nhánh (cùng WHERE is_deleted = false), đã bắt đầu ở đầu handler.
     // Dùng cho banner "Bán chạy nhất" để luôn hiển thị tổng thật (600,000)
-    const totalAll = await cached('products:total_all', 300, () =>
-      prisma.product.count({ where: { is_deleted: false } })
-    );
+    const totalAll = await totalAllPromise;
 
     res.json({
       data: products,
