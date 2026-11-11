@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { message, Spin } from 'antd';
 import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
+import { stripVietnamese, resolveCategoryFromText } from '../../utils/categoryResolver';
 
 /**
  * OnboardingModal — hỏi sở thích ở lần đầu khách vào hoặc khi sửa lại.
@@ -157,9 +158,9 @@ export default function OnboardingModal({ open, onClose, mode = 'first' }) {
   // Lọc thương hiệu thích: Top 12 + tìm kiếm toàn cục 91 hãng + mở rộng
   const visibleLikedBrands = useMemo(() => {
     if (likedBrandSearch.trim()) {
-      const q = likedBrandSearch.trim().toLowerCase();
+      const q = stripVietnamese(likedBrandSearch.trim());
       const pool = opts?.allBrands || sortedBrandsForLiked;
-      return pool.filter(b => b.name.toLowerCase().includes(q));
+      return pool.filter(b => stripVietnamese(b.name).includes(q));
     }
     if (showAllLikedBrands || sortedBrandsForLiked.length <= 12) {
       return sortedBrandsForLiked;
@@ -189,9 +190,9 @@ export default function OnboardingModal({ open, onClose, mode = 'first' }) {
   // Lọc hãng không thích: Top 12 + tìm kiếm 91 hãng + mở rộng
   const visibleDislikeBrands = useMemo(() => {
     if (dislikeBrandSearch.trim()) {
-      const q = dislikeBrandSearch.trim().toLowerCase();
+      const q = stripVietnamese(dislikeBrandSearch.trim());
       const pool = opts?.allBrands || sortedBrandsNotLiked;
-      return pool.filter(b => b.name.toLowerCase().includes(q));
+      return pool.filter(b => stripVietnamese(b.name).includes(q));
     }
     if (showAllDislikeBrands || sortedBrandsNotLiked.length <= 12) {
       return sortedBrandsNotLiked;
@@ -201,14 +202,21 @@ export default function OnboardingModal({ open, onClose, mode = 'first' }) {
     return [...top12, ...selectedBeyondTop12];
   }, [sortedBrandsNotLiked, dislikeBrandSearch, showAllDislikeBrands, dislikedBrands, opts]);
 
-  // Lọc danh sách nhóm cha hiển thị ở Bước 1 theo từ khóa tìm kiếm
+  // Lọc danh sách nhóm cha hiển thị ở Bước 1 theo từ khóa tìm kiếm (hỗ trợ không dấu)
   const displayedParents = useMemo(() => {
     if (!opts?.categories) return [];
     if (!catSearch.trim()) return opts.categories;
-    const q = catSearch.trim().toLowerCase();
+    const qRaw = catSearch.trim();
+    const q = stripVietnamese(qRaw);
+    const resolvedCatId = resolveCategoryFromText(qRaw);
+
     return opts.categories.filter(p => {
-      const matchParent = p.name.toLowerCase().includes(q);
-      const matchChild = p.children?.some(ch => ch.name.toLowerCase().includes(q));
+      const pClean = stripVietnamese(p.name);
+      const matchParent = pClean.includes(q) || (resolvedCatId && p.id === resolvedCatId);
+      const matchChild = p.children?.some(ch => {
+        const chClean = stripVietnamese(ch.name);
+        return chClean.includes(q) || (resolvedCatId && ch.id === resolvedCatId);
+      });
       return matchParent || matchChild;
     });
   }, [opts, catSearch]);

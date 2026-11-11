@@ -24,6 +24,7 @@ import { useApp } from '../../context/AppContext';
 import { useTracking } from '../../hooks/useTracking';
 import PaymentQRModal from '../../components/b2c/PaymentQRModal';
 import { phoneRules, fullNameRules, addressRules, shortTextRules } from '../../utils/validators';
+import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 
 const { Title, Text } = Typography;
 
@@ -318,8 +319,10 @@ export default function Checkout() {
               {orderData.items.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
                   <img
-                    src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.webp'}
+                    src={getProductImage(item)}
                     alt={item.name}
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageError(e, item)}
                     style={{ width: 52, height: 52, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -803,7 +806,13 @@ export default function Checkout() {
             ) : (
               checkoutItems.map((item, idx) => (
                 <div key={`${item.id}-${item.selectedVariant?.id || idx}`} style={{ display: 'flex', gap: 14, alignItems: 'center' }}>
-                  <img src={item.selectedVariant?.image || item.image || (item.images && item.images[0]) || '/images/commerce/prod_mouse.webp'} alt={item.name} style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }} />
+                  <img 
+                    src={getProductImage(item)} 
+                    alt={item.name} 
+                    referrerPolicy="no-referrer"
+                    onError={(e) => handleImageError(e, item)}
+                    style={{ width: 56, height: 56, objectFit: 'contain', borderRadius: 10, background: '#fff', border: '1px solid #eee', padding: 2 }} 
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, color: isDark ? '#fff' : '#18181b', fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                     {item.selectedVariant && (

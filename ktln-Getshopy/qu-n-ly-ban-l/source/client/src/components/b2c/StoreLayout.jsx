@@ -1,4 +1,5 @@
 import { Layout, Badge, Input, Button, Drawer, Row, Col, Checkbox, InputNumber, Dropdown, message, Avatar, ConfigProvider } from 'antd';
+import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 
 /* ─── Cart Drawer Custom Styles (Black Checkbox Tick) ─────────── */
 const CART_STYLE_ID = 'cart-drawer-custom-styles';
@@ -639,7 +640,13 @@ export default function StoreLayout() {
                       onMouseEnter={e => e.currentTarget.style.background = isDark ? 'rgba(255,255,255,0.05)' : '#f8f9fa'}
                       onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                     >
-                      <img src={prod.image || (prod.images && prod.images[0]) || '/images/commerce/prod_mouse.webp'} alt={prod.name} style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 8, background: isDark ? '#1a2233' : '#f4f5f7', padding: 4 }} />
+                      <img 
+                        src={getProductImage(prod)} 
+                        alt={prod.name} 
+                        referrerPolicy="no-referrer"
+                        onError={(e) => handleImageError(e, prod)}
+                        style={{ width: 44, height: 44, objectFit: 'contain', borderRadius: 8, background: isDark ? '#1a2233' : '#f4f5f7', padding: 4 }} 
+                      />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#f3f4f6' : '#18181b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{prod.name}</div>
                         <div style={{ fontSize: 12, color: isDark ? 'rgba(255,255,255,0.5)' : '#52525b', fontWeight: 600 }}>{Number(prod.price || 0).toLocaleString('vi-VN')} đ</div>
@@ -1176,7 +1183,6 @@ export default function StoreLayout() {
               {/* Items List */}
               {cart.map((item, idx) => {
                 const itemPrice = Number(item.price) || 0;
-                const itemImg = item.selectedVariant?.image || item.image || (item.images && item.images.length > 0 ? item.images[0] : '/images/commerce/prod_mouse.webp');
                 return (
                   <div
                     key={`${item.id}-${item.selectedVariant?.id || idx}`}
@@ -1196,8 +1202,10 @@ export default function StoreLayout() {
                       onChange={() => toggleSelect(item.id, item.selectedVariant?.id)}
                     />
                     <img
-                      src={itemImg}
+                      src={getProductImage(item)}
                       alt={item.name}
+                      referrerPolicy="no-referrer"
+                      onError={(e) => handleImageError(e, item)}
                       style={{
                         width: 72,
                         height: 72,
