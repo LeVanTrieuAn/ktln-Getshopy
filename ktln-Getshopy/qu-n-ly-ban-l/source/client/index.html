@@ -3,6 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- Viewport CỐ Ý không có maximum-scale=1 / user-scalable=no (12/11/2026). Hai thuộc tính
+         đó chặn được việc iOS tự phóng to khi chạm vào ô nhập, nhưng Chrome Android làm theo và
+         khoá luôn thao tác chụm hai ngón để phóng to (trái WCAG 1.4.4; Lighthouse báo lỗi
+         "meta-viewport"). Lỗi zoom được sửa tận gốc trong src/index.css: ô nhập >= 16px. -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="referrer" content="no-referrer" />
 
