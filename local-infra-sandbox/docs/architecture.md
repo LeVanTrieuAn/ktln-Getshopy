@@ -298,7 +298,7 @@ flowchart LR
 
 | | Nhánh nóng | Nhánh lạnh |
 |---|---|---|
-| Độ trễ | ~1 giây | 5–7 phút |
+| Độ trễ | ~2 giây (đo 14/11/2026: 1,6–2,1 s; sự kiện đầu sau lúc rảnh 6,4 s — `results.md` §19) | 5–7 phút |
 | Lịch sử | 7 ngày (TTL) | Vĩnh viễn |
 | Tính lại được? | Không | **Có** — từ lake |
 | Đối soát? | Không | **Có** |

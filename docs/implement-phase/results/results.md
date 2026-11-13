@@ -1055,4 +1055,36 @@ Hạn chế:
   `order_date` = 1970: dòng xoá rơi vào partition khác và bị TTL loại ngay lúc ghi (đã thử trên
   container tạm bằng message xoá dựng từ message thật). Vì thế xoá cứng không phản ánh sang `orders_live`. Mã server hiện không xoá cứng
   `Order`. Lỗi này có từ trước và chưa sửa trong lần này.
-- Độ trễ thật (`_arrived_at - _event_ts`) cần đo lại trên production sau khi áp dụng.
+
+Áp lên production (14/11/2026, 00:42 giờ VN, `build_prod` 7ae1a92, `docker compose -p kltn up --no-deps bootstrap`):
+- Bước 0b chạy 9 câu, 0 lỗi; consumer nhận partition sau khoảng 6 s; nạp bù 11 đơn.
+- `system.kafka_consumers`: partition 0, đọc 27 message (đúng phần topic còn giữ), không exception.
+  `kafka-consumer-groups`: `clickhouse-realtime` có LAG = 0.
+- `orders_live FINAL` khớp Postgres trên cửa sổ 7 ngày: 11 đơn, Σ `sub_total` = 28.583.640,
+  Σ `total` = 28.803.640. Không còn dòng nạp bù nào thắng, vì 27 message CDC phủ hết 11 đơn
+  với `_event_ts` mới hơn.
+- RAM ClickHouse: 1,31 GiB trước khi áp, 1,23 GiB sau khi áp (`docker stats`, giới hạn 3 GiB).
+
+Độ trễ, đo trên production cùng ngày. Phát sự kiện bằng `UPDATE "Order" SET status = status` trên đơn
+thử ORD-1794416465641: không đổi dữ liệu nhưng Postgres vẫn ghi WAL nên Debezium phát sự kiện `u`.
+Mốc đầu là `clock_timestamp()` của Postgres lúc chạy câu, mốc cuối là `_arrived_at` trong ClickHouse.
+Hai container chạy trên cùng một máy nên dùng chung đồng hồ. Script:
+`scripts/measure-hot-latency.sh` (6 lần, cách nhau 20 s).
+
+| Lần | Commit → ClickHouse | Debezium (`ts_ms`) → ClickHouse |
+|---|---|---|
+| 1 | 6.439 ms | 5.894 ms |
+| 2 | 1.587 ms | 1.153 ms |
+| 3 | 1.881 ms | 1.430 ms |
+| 4 | 2.149 ms | 1.691 ms |
+| 5 | 1.600 ms | 1.449 ms |
+| 6 | 1.773 ms | 1.711 ms |
+
+- Lần 2–6: 1,6–2,1 s, trung vị 1,77 s. Lần 1 mất 6,4 s; đó là sự kiện đầu tiên sau khi consumer
+  rảnh. Mã `KafkaSource.cpp` (24.8) chờ tới 10 lần poll rỗng × 500 ms rồi mới đẩy khối, nên
+  khoảng này hợp lý; chưa tách được nguyên nhân chính xác.
+- Chặng Postgres → Debezium chiếm 62–545 ms. Phần còn lại là Kafka → ClickHouse.
+- Kết luận cho báo cáo: nhánh nóng có độ trễ khoảng 2 giây khi đang chạy đều, tối đa khoảng 6–7
+  giây cho sự kiện đầu sau một quãng rảnh. Con số "~1 giây" trước đây chưa từng được đo và đã được
+  thay trong `architecture.md`. Muốn nhanh hơn thì chỉnh `kafka_flush_interval_ms` hoặc
+  `kafka_poll_timeout_ms`; chưa chỉnh.
