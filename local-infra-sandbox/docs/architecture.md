@@ -308,11 +308,31 @@ flowchart LR
 > **Consumer group phải TÁCH RIÊNG.** Dùng chung group thì Kafka chia partition
 > cho hai bên và **mỗi bên chỉ thấy một nửa dữ liệu** — lỗi im lặng điển hình.
 
+**Vòng đời nhánh nóng (từ 14/11/2026).** Nhánh nóng từng mất sạch từ 23/10 đến 14/11/2026
+mà không có lỗi nào, vì DDL chỉ được chạy tay rồi volume ClickHouse được tạo lại (§9 mục 18).
+Từ 14/11/2026, ba quy tắc sau áp dụng:
+
+- **Bootstrap tự tạo** nhánh nóng ở bước 0b, mỗi lần `compose up`. `realtime-layer.sql` chạy lặp
+  lại được: hai bảng dùng `IF NOT EXISTS`, cột mới thêm bằng `ADD COLUMN IF NOT EXISTS`. Chỉ MV được
+  `DROP` + `CREATE`, vì view có `TO` không giữ dữ liệu và offset nằm ở Kafka.
+- **Offset khi group chưa có offset**: ClickHouse 24.8 mặc định `earliest`
+  ([`KafkaConfigLoader.cpp`](https://github.com/ClickHouse/ClickHouse/blob/24.8/src/Storages/Kafka/KafkaConfigLoader.cpp)),
+  tức đọc lại toàn bộ phần topic còn giữ. Ngay sau đợt seed 3 triệu đơn, phần đó là hơn 3 triệu bản
+  ghi. Bản 24.8 không cho đặt `latest` ở cấp bảng (`kafka_auto_offset_reset` → `UNKNOWN_SETTING`,
+  đã thử 14/11/2026), chỉ đặt được qua config.d của server:
+  `<kafka><auto_offset_reset>latest</auto_offset_reset></kafka>`. Mục này *chưa* mount vào compose.
+  Để đọc dồn không ăn hết RAM, `kafka_max_block_size = 10000` giới hạn mỗi khối khoảng 47 MB.
+- **Nạp bù khi bảng đích rỗng**: bootstrap chờ consumer nhận partition rồi chép đơn 7 ngày gần
+  nhất (bằng TTL) từ Postgres qua `postgresql()`. Dòng nạp bù có `_event_ts` = epoch 0, nên mọi
+  sự kiện CDC của cùng đơn đều thắng khi gộp. Nhờ đó dù group bắt đầu từ cuối topic cũng không
+  thiếu đơn.
+
 ### 4.4. Luồng khởi tạo (`scripts/bootstrap-bigdata.sh`)
 
 ```mermaid
 flowchart LR
-    A["chờ ClickHouse /ping<br/>Kafka Connect /<br/>MinIO /health/live"] --> B["1. tạo bucket<br/>data-lake"]
+    A["chờ ClickHouse /ping<br/>Kafka Connect /<br/>MinIO /health/live"] --> H["0b. nhánh nóng<br/>realtime-layer.sql<br/>+ nạp bù 7 ngày"]
+    H --> B["1. tạo bucket<br/>data-lake"]
     B --> C["2. user ClickHouse<br/>ai_rec — chỉ đọc serving.*"]
     C --> D["3. kéo masterdata<br/>TRUNCATE + INSERT"]
     D --> E["4. đăng ký 2 connector<br/>Debezium source + S3 sink"]
@@ -323,6 +343,10 @@ Bốn bước **bắt buộc đúng thứ tự** và đều **idempotent**. Lý 
 thay vì để chạy tay: chạy bước 4 trước khi Postgres có `wal_level=logical` thì
 connector lỗi **lúc đăng ký**, còn quên bước 2 thì AI-Rec không đọc được — cả
 hai đều không hiện ra ngay, chỉ là dữ liệu không bao giờ chảy.
+
+Bước 0b (thêm 14/11/2026) được đặt trước bước 1 và nằm ngay sau bước áp schema ClickHouse.
+Bước này lỗi thì log báo `LỖI NHÁNH NÓNG` hai lần: ngay tại chỗ và ở cuối log. Bootstrap vẫn
+chạy tiếp vì connector CDC ở bước 4 không phụ thuộc nhánh nóng.
 
 ### 4.5. Ngân sách độ trễ (nhánh lạnh)
 
@@ -408,7 +432,7 @@ erDiagram
 | `serving.mart_revenue` | ngày × danh mục × thương hiệu × PTTT | `MergeTree()` | `(revenue_date, category_id, brand_id, payment_method)` | — | dựng lại toàn bộ mỗi lượt |
 | `serving.processed_data_for_AI_rec` | 1 dòng / cặp (khách, sản phẩm) | `ReplacingMergeTree(updated_at)` | `(CustomerID, ProductID)` | — | incremental · append, chỉ tính lại cặp bị đụng |
 | `masterdata.dim_*` | 1 dòng / thực thể | `MergeTree()` | khoá chính | — | TRUNCATE + INSERT |
-| `realtime.orders_live` | 1 dòng / đơn | `ReplacingMergeTree(_event_ts, _is_deleted)` | `(order_id)` | `toYYYYMM(order_date)` | Materialized View, TTL 7 ngày |
+| `realtime.orders_live` | 1 dòng / đơn | `ReplacingMergeTree(_event_ts, _is_deleted)` | `(order_id)` | `toYYYYMM(order_date)` | Materialized View, TTL 7 ngày; bảng rỗng thì bootstrap nạp bù 7 ngày từ Postgres (`_event_ts` = epoch 0) |
 | `audit.checksum_orders` | 1 dòng / lần chạy | `MergeTree()` | `checked_at` | — | dựng lại mỗi lượt |
 
 **Hai quy ước không được vi phạm**
@@ -681,6 +705,7 @@ Ecom. Warehouse chỉ nói chuyện với hai hệ.
 | 15 | Báo cáo doanh thu thổi phồng | Dashboard lọc `order_status = 'CONFIRMED'`, nhưng đơn COD vừa đặt cũng mang trạng thái này trong khi chưa thu đồng nào | View `analytics.sale_orders` map `status` từ `payment_status`; `mart_revenue` tách `paid_revenue` khỏi `gross_revenue` | ✅ |
 | 16 | Masterdata: nguồn đổi kiểu một cột là bảng đích im lặng đổi theo | `DROP + CREATE AS SELECT` để `SELECT` suy ra kiểu | `CREATE IF NOT EXISTS` với lược đồ **tường minh** + `TRUNCATE` | ✅ |
 | 17 | `docker compose up` trên máy mới hỏng ở MinIO: `quay.io/minio/minio` trả `no such manifest`, build `bootstrap` hỏng ở `COPY --from=quay.io/minio/mc`. Máy còn image cũ trong cache thì vẫn chạy, nên lỗi không lộ ra ở máy chính | MinIO ngừng phát hành bản cộng đồng dựng sẵn: chỉ còn mã nguồn, repo archive từ 25/04/2026 ([README](https://github.com/minio/minio)); binary `dl.min.io` trả 410 | Build từ mã nguồn, ghim `RELEASE.2025-09-07T16-13-09Z` + go1.24.6 — đúng bản đang dùng, volume giữ nguyên (`local-infra-sandbox/minio/Dockerfile`); bootstrap bỏ `mc`, tạo bucket bằng `curl --aws-sigv4`. Hạn chế: bản cộng đồng hết bản vá bảo mật | ✅ |
+| 18 | Nhánh nóng biến mất: không có database `realtime`, không có consumer group `clickhouse-realtime`; dashboard không có số trực tiếp, không có lỗi nào. Phát hiện 13/11/2026 | `realtime-layer.sql` chỉ chạy tay; volume `kltn_clickhouse_data` được tạo lại 23/10/2026 nên nhánh nóng mất theo | Bootstrap bước 0b tự chạy file (nay idempotent) + nạp bù 7 ngày từ Postgres khi bảng rỗng — §4.3, `results.md` §19 | ✅ 14/11/2026 |
 
 ---
 
@@ -768,7 +793,7 @@ hoặc join `masterdata.dim_customers`. Không chặn luồng nào khác.
 | Serving | [`../dbt_warehouse/models/serving/`](../dbt_warehouse/models/serving/) |
 | Masterdata | [`../dbt_warehouse/models/masterdata/`](../dbt_warehouse/models/masterdata/) · [`../scripts/sync-masterdata.sh`](../scripts/sync-masterdata.sh) |
 | Đối soát | [`../dbt_warehouse/models/audit/checksum_orders.sql`](../dbt_warehouse/models/audit/checksum_orders.sql) |
-| Nhánh nóng | [`../../scripts/etl/realtime-layer.sql`](../../scripts/etl/realtime-layer.sql) |
+| Nhánh nóng | [`../../scripts/etl/realtime-layer.sql`](../../scripts/etl/realtime-layer.sql) — bootstrap bước 0b chạy tự động (từ 14/11/2026) |
 | View tương thích dashboard | [`../../scripts/etl/compat-sale-orders.sql`](../../scripts/etl/compat-sale-orders.sql) |
 | Quyền AI-Rec | [`../sql/init/02_ai_rec_user.sql`](../sql/init/02_ai_rec_user.sql) |
 | Hợp đồng dữ liệu | [`../../docs/implement-phase/implement-plan/data-contract-warehouse.md`](../../docs/implement-phase/implement-plan/data-contract-warehouse.md) |

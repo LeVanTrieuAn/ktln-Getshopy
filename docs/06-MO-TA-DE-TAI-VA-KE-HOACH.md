@@ -170,7 +170,7 @@ flowchart LR
 | C4 | Serving cho dashboard và AI (mart doanh thu, cặp khách–món, sự kiện mua, đặc trưng sản phẩm, tín hiệu sở thích, sự kiện hành vi) | ✅ | Có hợp đồng dữ liệu |
 | C5 | Đối soát checksum 3 tầng Nguồn → Staging → Kho mỗi lượt `dbt build` | ✅ | |
 | C6 | Lịch dbt 5 phút, OPTIMIZE định kỳ, backup PostgreSQL | ✅ | |
-| C7 | Nhánh realtime (Kafka engine → `orders_live`) | ✅ | |
+| C7 | Nhánh realtime (Kafka engine → `orders_live`) | ✅ | Mất từ 23/10/2026 đến 14/11/2026: DDL chỉ chạy tay nên biến mất khi volume ClickHouse được tạo lại. Khôi phục 14/11/2026; nay bootstrap tự tạo (bước 0b) và nạp bù 7 ngày từ PostgreSQL — `results.md` §19 |
 | C8 | Dựng toàn hệ bằng một lệnh, bootstrap tự khởi tạo | ✅ | |
 | C9 | Thu thập từ **nhiều** nguồn OLTP | 🟡 | Hiện chỉ có **một** nguồn PostgreSQL; POS mô phỏng ghi vào cùng CSDL |
 | C10 | Tiến hoá lược đồ (thêm cột ở nguồn) | ⬜ | Cột mới không tới Parquet (cột `province`) — hạn chế đã ghi nhận |

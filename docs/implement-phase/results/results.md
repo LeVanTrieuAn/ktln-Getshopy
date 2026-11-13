@@ -1000,3 +1000,59 @@ Kiểm chứng:
 Ghi nhận phụ (có từ trước, không do thay đổi này): lake còn đơn `ORD-1789311006027` (13/09,
 PENDING_PAYMENT → CANCELLED) mà Postgres không còn, và CDC không có sự kiện xoá — nhiều khả năng
 bị xoá lúc Debezium không chạy. Đơn đã huỷ nên không ảnh hưởng mart doanh thu.
+
+## 19. Nhánh nóng mất sau khi tạo lại volume ClickHouse — khôi phục, đưa vào bootstrap (14/11)
+
+Phát hiện 13/11/2026 khi soát `system.tables`: ClickHouse không còn database `realtime`, không bảng
+Kafka engine, không Materialized View. Kafka chỉ còn consumer group `connect-minio-sink-connector`;
+group `clickhouse-realtime` không còn offset nào. Volume `kltn_clickhouse_data` được tạo lại lúc
+2026-10-23T15:06Z (ngày benchmark). Không có lỗi nào báo ra — chỉ là không còn số liệu trực tiếp.
+Vì vậy dòng C7 trong `docs/06-MO-TA-DE-TAI-VA-KE-HOACH.md` và dòng `realtime.orders_live` ở §8
+đúng lúc viết nhưng sai trong khoảng 23/10 → 14/11.
+
+Nguyên nhân: DDL `scripts/etl/realtime-layer.sql` chỉ được chạy tay. File này không nằm trong
+`clickhouse-init/` và bootstrap không gọi nó, nên volume mới thì nhánh nóng không được tạo lại.
+
+Sửa:
+- `realtime-layer.sql` chạy lặp lại được: dùng `CREATE ... IF NOT EXISTS` cho bảng Kafka và `orders_live`
+  (bản cũ `DROP` rồi `CREATE`, chạy lại là xoá sạch), `ALTER ... ADD COLUMN IF NOT EXISTS` cho máy
+  đã có bảng cũ, và tạo lại MV bằng `DROP` + `CREATE` (view có `TO` không giữ dữ liệu).
+- `bootstrap-bigdata.sh` có thêm bước 0b. Bước này chạy file trên rồi kiểm đủ 3 đối tượng. Nếu bảng
+  rỗng, nó chờ consumer nhận partition rồi nạp bù đơn 7 ngày gần nhất từ Postgres bằng `postgresql()`.
+  Dòng nạp bù có `_event_ts` = epoch 0, nên sự kiện CDC nào của cùng đơn cũng thắng khi
+  ReplacingMergeTree gộp. Bước này lỗi thì báo ngay tại chỗ, in lại ở cuối log và không dừng bootstrap.
+- Theo yêu cầu cùng ngày, thêm 4 cột: `sub_total`, `shipping_fee`, `discount` và `paid_at`.
+  `_arrived_at` đổi sang `DateTime64(3)`, vì kiểu cũ làm tròn xuống giây nên đo độ trễ sai tới 1 s.
+  Thêm `kafka_max_block_size = 10000`, tức khoảng 47 MB mỗi khối với message cỡ 4,7 KB. Không đặt
+  thì mặc định là 1.048.449 message.
+
+Phát hiện khi làm:
+- ClickHouse 24.8 **không có** setting cấp bảng `kafka_auto_offset_reset`. Image 24.8.14.39 trả
+  `UNKNOWN_SETTING`. Mặc định là `earliest`, được đặt cứng trong `src/Storages/Kafka/KafkaConfigLoader.cpp`
+  (nhánh 24.8). Muốn dùng `latest` thì phải khai trong config.d:
+  `<kafka><auto_offset_reset>latest</auto_offset_reset></kafka>`. Đã thử trên container tạm: giá trị
+  sai bị librdkafka từ chối (`Invalid value "bogus_value" for configuration property
+  "auto.offset.reset"`), còn `latest` không báo lỗi. **Chưa mount vào compose** — việc này chờ quyết định.
+- Đo ngày 14/11, topic `cdc_prod.public.Order` chỉ còn offset 3.000.000 → 3.000.027 (27 bản ghi), phần cũ
+  đã hết hạn theo retention. Vì vậy, lần tạo lại này với `earliest` chỉ đọc 27 bản ghi. Rủi ro phải
+  đọc lại hơn 3 triệu bản ghi chỉ xảy ra khi tạo lại nhánh nóng trong thời hạn retention ngay sau
+  một đợt seed lớn.
+
+Kiểm chứng trên ClickHouse 24.8.14.39 tạm (`--network none`), chạy đúng đoạn mã của bootstrap:
+- Lần chạy đầu: 9 câu lệnh, 0 lỗi. Từ bảng giả lập có đúng kiểu cột mà `postgresql()` suy ra, bước
+  này nạp bù 3 đơn và loại đơn đã cũ 10 ngày. Lần chạy thứ hai không lỗi và không nạp bù lại.
+- Đưa 3 message CDC thật (offset 3.000.024–3.000.026, đã che trường `customer`) qua một MV có
+  định nghĩa y hệt: số tiền, `order_date` và `_event_ts` đều khớp đến mili-giây. `FINAL` trả trạng
+  thái của sự kiện CDC mới nhất, dòng nạp bù thua. `paid_at` dạng mili-giây chuyển đúng sang thời
+  điểm tương ứng; đơn chưa trả có `paid_at` là NULL.
+- Nâng cấp từ bản cũ (commit `9d01e21`): 4 cột được thêm tại chỗ, dòng đang có giữ nguyên.
+- Chạy câu `SELECT` của nạp bù ở chế độ **chỉ đọc** trên Postgres thật qua ClickHouse production:
+  ra 11 đơn, khớp `psql`. `read_rows` = 11, chứng tỏ điều kiện ngày đã được đẩy xuống Postgres;
+  thời gian 62 ms. Mật khẩu hiện là `[HIDDEN]` trong `system.query_log`.
+
+Hạn chế:
+- Bảng `Order` dùng `REPLICA IDENTITY DEFAULT`, nên sự kiện xoá chỉ mang khoá chính. Kết quả là
+  `order_date` = 1970: dòng xoá rơi vào partition khác và bị TTL loại ngay lúc ghi (đã thử trên
+  container tạm bằng message xoá dựng từ message thật). Vì thế xoá cứng không phản ánh sang `orders_live`. Mã server hiện không xoá cứng
+  `Order`. Lỗi này có từ trước và chưa sửa trong lần này.
+- Độ trễ thật (`_arrived_at - _event_ts`) cần đo lại trên production sau khi áp dụng.
