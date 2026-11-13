@@ -86,18 +86,76 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => (
 // đặt tên là thẻ HTML sẽ chèn được nội dung vào thư mang thương hiệu cửa hàng.
 const displayName = (fullName) => String(fullName || '').trim().slice(0, 100) || 'bạn';
 
-const p = (html) => `<p style="margin:0 0 14px">${html}</p>`;
+// Giao diện thư (14/11/2026): tông đen trắng giống cửa hàng. Viết theo chuẩn email —
+// bảng role="presentation" + style inline, không CSS ngoài, không ảnh/SVG (Gmail chặn
+// ảnh mặc định và bỏ SVG) — để hiển thị giống nhau trên Gmail web/app, Outlook, Apple Mail.
+const C = {
+  ink: '#09090b', body: '#3f3f46', sub: '#71717a', line: '#e4e4e7', soft: '#f4f4f5', page: '#f4f4f5',
+};
+const FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
+const MONO = "'SF Mono',Menlo,Consolas,'Liberation Mono','Courier New',monospace";
 
-function layout(title, bodyHtml) {
+// Nút "Truy cập cửa hàng" chỉ hiện khi STORE_URL là địa chỉ https (đặt trong .env).
+const storeUrl = () => {
+  const u = env('STORE_URL');
+  return /^https:\/\/[^\s"'<>]+$/.test(u) ? u.replace(/\/+$/, '') : '';
+};
+
+const p = (html, extra = '') =>
+  `<p style="margin:0 0 16px;font:400 15px/1.65 ${FONT};color:${C.body};${extra}">${html}</p>`;
+
+const table = (inner, style = '') =>
+  `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="${style}">${inner}</table>`;
+
+/** Khung ghi chú: 'neutral' (xám) hoặc 'warn' (vàng nhạt) cho cảnh báo bảo mật. */
+function notice(html, tone = 'neutral') {
+  const s = tone === 'warn'
+    ? { bg: '#fffbeb', bd: '#fde68a', fg: '#78350f' }
+    : { bg: C.soft, bd: C.line, fg: C.body };
+  return table(`<tr><td style="background:${s.bg};border:1px solid ${s.bd};border-radius:12px;padding:14px 16px;font:400 13.5px/1.6 ${FONT};color:${s.fg}">${html}</td></tr>`, 'margin:0 0 16px');
+}
+
+function button(href, label) {
+  return table(`<tr><td style="border-radius:10px;background:${C.ink}" bgcolor="${C.ink}">
+<a href="${href}" style="display:inline-block;padding:13px 22px;font:600 14px/1 ${FONT};color:#ffffff;text-decoration:none;border-radius:10px">${label}</a>
+</td></tr>`, 'width:auto;margin:4px 0 4px');
+}
+
+function layout({ title, preheader, icon, heading, bodyHtml }) {
+  const url = storeUrl();
+  // Dòng xem trước trong hộp thư (preheader). CỐ Ý không chứa mã OTP: dòng này hiện cả trên
+  // màn hình khoá điện thoại. Chuỗi ký tự trắng phía sau để ứng dụng mail không kéo chữ
+  // trong thân thư lên nối vào dòng xem trước.
+  const filler = '&#8199;&#65279;&#847;'.repeat(60);
   return `<!doctype html>
 <html lang="vi">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeHtml(title)}</title></head>
-<body style="margin:0;padding:24px 12px;background:#f4f4f5;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.6;color:#18181b">
-<div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:28px 24px">
-<div style="font-size:20px;font-weight:700;margin-bottom:20px">${BRAND}</div>
-${bodyHtml}
-<p style="margin:24px 0 0;font-size:12px;color:#71717a">Email tự động từ ${BRAND}, vui lòng không trả lời thư này.</p>
-</div>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>${escapeHtml(title)}</title>
+</head>
+<body style="margin:0;padding:0;background:${C.page};-webkit-text-size-adjust:100%">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;mso-hide:all">${escapeHtml(preheader)}${filler}</div>
+${table(`<tr><td align="center" style="padding:32px 12px">
+${table(`
+<tr><td style="padding:0 4px 18px">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td width="36" height="36" align="center" valign="middle" bgcolor="${C.ink}" style="width:36px;height:36px;border-radius:10px;background:${C.ink};font:700 17px/36px ${FONT};color:#ffffff">G</td>
+    <td style="padding-left:10px;font:700 18px/1 ${FONT};color:${C.ink};letter-spacing:-0.2px">${BRAND}</td>
+  </tr></table>
+</td></tr>
+<tr><td bgcolor="#ffffff" style="background:#ffffff;border:1px solid ${C.line};border-radius:16px;padding:32px 26px">
+  ${icon ? `<div style="width:48px;height:48px;margin:0 0 18px;border-radius:14px;background:${C.soft};font-size:24px;line-height:48px;text-align:center">${icon}</div>` : ''}
+  <h1 style="margin:0 0 14px;font:700 22px/1.3 ${FONT};color:${C.ink};letter-spacing:-0.3px">${escapeHtml(heading)}</h1>
+  ${bodyHtml}
+</td></tr>
+<tr><td style="padding:22px 8px 0;font:400 12px/1.7 ${FONT};color:${C.sub};text-align:center">
+  ${url ? `<a href="${url}" style="color:${C.ink};font-weight:600;text-decoration:none">Truy cập cửa hàng ${BRAND} &rarr;</a><br>` : ''}
+  Email tự động, vui lòng không trả lời thư này.<br>&copy; ${new Date().getFullYear()} ${BRAND}
+</td></tr>`, 'max-width:560px')}
+</td></tr>`, `background:${C.page}`)}
 </body>
 </html>`;
 }
@@ -126,14 +184,25 @@ function sendPasswordResetOtp({ to, fullName, otp, ttlMinutes }) {
     `Không đưa mã này cho bất kỳ ai, kể cả người tự nhận là nhân viên ${BRAND}.`,
     'Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này — mật khẩu hiện tại vẫn giữ nguyên.',
   ].join('\n');
-  const html = layout(subject, [
-    p(`Xin chào ${escapeHtml(name)},`),
-    p(`Có yêu cầu đặt lại mật khẩu cho tài khoản ${BRAND} gắn với email này. Mã xác nhận của bạn là:`),
-    `<div style="margin:0 0 16px;padding:16px;border-radius:10px;background:#f4f4f5;text-align:center;font-size:32px;font-weight:700;letter-spacing:8px;font-family:'Courier New',monospace">${escapeHtml(otp)}</div>`,
-    p(`Mã có hiệu lực trong <b>${ttlMinutes} phút</b> và chỉ dùng được một lần.`),
-    p(`Không đưa mã này cho bất kỳ ai, kể cả người tự nhận là nhân viên ${BRAND}.`),
-    p('Nếu bạn không yêu cầu đặt lại mật khẩu, hãy bỏ qua email này — mật khẩu hiện tại vẫn giữ nguyên.'),
-  ].join('\n'));
+  const html = layout({
+    title: subject,
+    preheader: `Dùng mã trong thư để đặt lại mật khẩu ${BRAND}. Mã hết hạn sau ${ttlMinutes} phút.`,
+    icon: '&#128272;', // 🔐
+    heading: 'Đặt lại mật khẩu',
+    bodyHtml: [
+      p(`Xin chào <b style="color:${C.ink}">${escapeHtml(name)}</b>,`),
+      p(`Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản ${BRAND} gắn với email này. Nhập mã dưới đây vào cửa sổ đặt lại mật khẩu:`),
+      // letter-spacing chứ không tách từng ô: sao chép ra vẫn là 6 số liền. padding-left bù
+      // khoảng trắng letter-spacing để dãy số nằm đúng giữa.
+      table(`<tr><td align="center" bgcolor="${C.soft}" style="background:${C.soft};border:1px dashed #d4d4d8;border-radius:14px;padding:22px 12px">
+  <div style="margin:0 0 12px;font:600 11px/1 ${FONT};color:${C.sub};letter-spacing:1.6px;text-transform:uppercase">Mã xác nhận</div>
+  <div style="padding-left:10px;font:700 36px/1 ${MONO};color:${C.ink};letter-spacing:10px">${escapeHtml(otp)}</div>
+</td></tr>`, 'margin:4px 0 14px'),
+      p(`Hiệu lực <b style="color:${C.ink}">${ttlMinutes} phút</b> &nbsp;&middot;&nbsp; Chỉ dùng được một lần`, `text-align:center;font-size:13px;color:${C.sub};margin-bottom:22px`),
+      notice(`&#128274; <b>Không chia sẻ mã này với bất kỳ ai</b>, kể cả người tự nhận là nhân viên ${BRAND}. Chúng tôi không bao giờ hỏi mã qua điện thoại hay tin nhắn.`, 'warn'),
+      p('Không phải bạn yêu cầu? Hãy bỏ qua email này, mật khẩu hiện tại vẫn giữ nguyên.', `font-size:13.5px;color:${C.sub};margin:0`),
+    ].join('\n'),
+  });
   return send('otp-dat-lai-mat-khau', { to, subject, text, html });
 }
 
@@ -150,12 +219,24 @@ function sendPasswordChanged({ to, fullName, changedAt = new Date() }) {
     'Nếu chính bạn vừa đổi, bạn không cần làm gì thêm.',
     'Nếu KHÔNG phải bạn: hãy dùng "Quên mật khẩu?" ở cửa sổ đăng nhập để đặt lại mật khẩu ngay, rồi đổi mật khẩu của hộp thư email này — người đổi mật khẩu đã đọc được thư gửi tới hộp thư của bạn.',
   ].join('\n');
-  const html = layout(subject, [
-    p(`Xin chào ${escapeHtml(name)},`),
-    p(`Mật khẩu tài khoản ${BRAND} của bạn đã được đổi lúc <b>${escapeHtml(when)}</b> (giờ Việt Nam), bằng mã xác nhận gửi tới email này.`),
-    p('Nếu chính bạn vừa đổi, bạn không cần làm gì thêm.'),
-    p('<b>Nếu không phải bạn:</b> hãy dùng "Quên mật khẩu?" ở cửa sổ đăng nhập để đặt lại mật khẩu ngay, rồi đổi mật khẩu của hộp thư email này — người đổi mật khẩu đã đọc được thư gửi tới hộp thư của bạn.'),
-  ].join('\n'));
+  const url = storeUrl();
+  const row = (k, v) => `<tr>
+  <td style="padding:10px 0;border-bottom:1px solid ${C.line};font:400 13.5px/1.5 ${FONT};color:${C.sub};width:38%">${k}</td>
+  <td style="padding:10px 0;border-bottom:1px solid ${C.line};font:600 13.5px/1.5 ${FONT};color:${C.ink}">${v}</td>
+</tr>`;
+  const html = layout({
+    title: subject,
+    preheader: `Mật khẩu tài khoản ${BRAND} của bạn vừa được đổi lúc ${when}.`,
+    icon: '&#9989;', // ✅
+    heading: 'Mật khẩu đã được đổi',
+    bodyHtml: [
+      p(`Xin chào <b style="color:${C.ink}">${escapeHtml(name)}</b>, mật khẩu tài khoản ${BRAND} của bạn vừa được đổi thành công.`),
+      table(row('Thời gian', `${escapeHtml(when)} (giờ Việt Nam)`) + row('Cách thực hiện', 'Mã xác nhận gửi tới email này'), 'margin:0 0 20px;border-top:1px solid ' + C.line),
+      p('Nếu chính bạn vừa đổi, bạn không cần làm gì thêm.'),
+      notice(`<b>Không phải bạn?</b> Hãy dùng "Quên mật khẩu?" ở cửa sổ đăng nhập để đặt lại mật khẩu ngay, rồi đổi mật khẩu của hộp thư email này, vì người đổi mật khẩu đã đọc được thư gửi tới hộp thư của bạn.`, 'warn'),
+      url ? button(url, 'Mở cửa hàng để đặt lại mật khẩu') : '',
+    ].join('\n'),
+  });
   return send('da-doi-mat-khau', { to, subject, text, html });
 }
 
@@ -177,13 +258,27 @@ function sendSocialLoginNotice({ to, fullName }) {
     '',
     'Nếu bạn không yêu cầu, hãy bỏ qua email này.',
   ].join('\n');
-  const html = layout(subject, [
-    p(`Xin chào ${escapeHtml(name)},`),
-    p(`Có yêu cầu đặt lại mật khẩu cho tài khoản ${BRAND} gắn với email này. Tài khoản của bạn được tạo bằng <b>Google</b> và chưa có mật khẩu riêng, nên không có mật khẩu nào cần đặt lại.`),
-    p('Để đăng nhập, hãy bấm nút <b>"Đăng nhập bằng Google"</b> trong cửa sổ đăng nhập.'),
-    p('Muốn đăng nhập bằng email và mật khẩu? Sau khi vào bằng Google, mở trang <b>Tài khoản &gt; Bảo mật &amp; Liên kết &gt; Thiết lập mật khẩu</b>.'),
-    p('Nếu bạn không yêu cầu, hãy bỏ qua email này.'),
-  ].join('\n'));
+  const url = storeUrl();
+  const step = (n, html) => `<tr>
+  <td valign="top" style="width:30px;padding:0 0 12px"><div style="width:22px;height:22px;border-radius:11px;background:${C.ink};font:700 12px/22px ${FONT};color:#ffffff;text-align:center">${n}</div></td>
+  <td style="padding:1px 0 12px;font:400 14.5px/1.6 ${FONT};color:${C.body}">${html}</td>
+</tr>`;
+  const html = layout({
+    title: subject,
+    preheader: `Tài khoản ${BRAND} của bạn đăng nhập bằng Google, không có mật khẩu cần đặt lại.`,
+    icon: '&#128273;', // 🔑
+    heading: 'Tài khoản của bạn đăng nhập bằng Google',
+    bodyHtml: [
+      p(`Xin chào <b style="color:${C.ink}">${escapeHtml(name)}</b>, chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản ${BRAND} gắn với email này. Tài khoản của bạn được tạo bằng <b style="color:${C.ink}">Google</b> và chưa có mật khẩu riêng, nên không có mật khẩu nào cần đặt lại.`),
+      table(
+        step(1, 'Mở cửa sổ đăng nhập và bấm <b>"Đăng nhập bằng Google"</b>.')
+        + step(2, 'Muốn đăng nhập bằng email và mật khẩu? Sau khi vào bằng Google, mở <b>Tài khoản &rsaquo; Bảo mật &amp; Liên kết &rsaquo; Thiết lập mật khẩu</b>.'),
+        'margin:4px 0 12px',
+      ),
+      url ? button(url, `Mở ${BRAND}`) : '',
+      p('Không phải bạn yêu cầu? Hãy bỏ qua email này.', `font-size:13.5px;color:${C.sub};margin:18px 0 0`),
+    ].join('\n'),
+  });
   return send('huong-dan-dang-nhap-google', { to, subject, text, html });
 }
 
