@@ -117,6 +117,8 @@ export const api = {
     smartSearchWithImage: (query, imageBase64) => request('/ai/smart-search-image', { method: 'POST', body: JSON.stringify({ query, imageBase64 }) }),
     // Giọng nói -> chữ. Trả { text }; text rỗng nghĩa là không nghe rõ.
     transcribe: (audioBase64, mimeType, signal) => request('/ai/transcribe', { method: 'POST', body: JSON.stringify({ audioBase64, mimeType }), signal }),
+    // AI tư vấn so sánh thiết bị
+    compareAdvice: (data) => request('/b2c/compare-advice', { method: 'POST', body: JSON.stringify(data) }),
   },
 
   // ─── B2B APIs ────────────────────────────────────────────────

@@ -195,8 +195,14 @@ export function resolveCategory(product = {}) {
   return 'cat-phone';
 }
 
+// ── CỜ KIỂM THỬ TẮT CDN ──────────────────────────────────────────
+// Đặt true: Bỏ qua 100% link CDN ảnh bên ngoài (tgdd, unsplash, picsum...),
+// ép toàn bộ sản phẩm trên giao diện hiển thị bằng bộ ảnh Fallback Base64 theo danh mục.
+// Đặt false: Hoạt động bình thường (ưu tiên ảnh CDN thật, chỉ fallback khi lỗi/rỗng).
+export const DISABLE_CDN_FOR_TESTING = true;
+
 /**
- * Lấy URL ảnh sản phẩm hợp lệ, tự động gán ảnh fallback chuẩn danh mục nếu rỗng/thiếu.
+ * Lấy URL ảnh sản phẩm hợp lệ, tự động gán ảnh fallback chuẩn danh mục nếu rỗng/thiếu/khi tắt CDN.
  */
 export function getProductImage(product = {}) {
   let img = product.selectedVariant?.image || product.image || (product.images && product.images.length > 0 ? product.images[0] : null);
@@ -209,11 +215,18 @@ export function getProductImage(product = {}) {
     } catch {}
   }
 
-  if (img && (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image/') || img.startsWith('/images/'))) {
-    return img;
+  // Nếu đang kiểm thử tắt CDN: Bỏ qua http/https ngoài, chỉ dùng Base64
+  if (!DISABLE_CDN_FOR_TESTING) {
+    if (img && (img.startsWith('http://') || img.startsWith('https://') || img.startsWith('data:image/') || img.startsWith('/images/'))) {
+      return img;
+    }
+  } else {
+    if (img && img.startsWith('data:image/')) {
+      return img;
+    }
   }
 
-  // Tự động phân giải danh mục và trả về ảnh fallback tương ứng
+  // Tự động phân giải danh mục và trả về ảnh fallback Base64 tương ứng
   const catKey = resolveCategory(product);
   return CATEGORY_FALLBACK_IMAGES[catKey] || CATEGORY_FALLBACK_IMAGES['cat-phone'];
 }

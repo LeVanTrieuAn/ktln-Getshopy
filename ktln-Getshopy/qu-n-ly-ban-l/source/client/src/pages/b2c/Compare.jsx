@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Typography, Select, Button, Spin, Row, Col, message } from 'antd';
-import { CloseOutlined } from '@ant-design/icons';
+import { Typography, Select, Button, Spin, Row, Col, Input, Tag, message } from 'antd';
+import { CloseOutlined, RobotOutlined, BulbOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import { useCart } from '../../context/CartContext';
@@ -9,6 +9,14 @@ import { generateSpecs } from '../../utils/specsGenerator';
 import { getProductImage, handleImageError } from '../../utils/categoryResolver';
 
 const { Title, Text } = Typography;
+
+const PRESET_NEEDS = [
+  { label: 'Chơi game & Hiệu năng cao', value: 'Chơi game đồ họa nặng, cần chip mạnh và tản nhiệt tốt' },
+  { label: 'Chụp ảnh & Quay video đẹp', value: 'Chụp ảnh sắc nét, camera góc rộng, quay video 4K chống rung' },
+  { label: 'Pin trâu & Dùng bền bỉ', value: 'Pin dung lượng lớn, sạc nhanh, dùng bền bỉ suốt ngày dài' },
+  { label: 'Học tập & Văn phòng nhẹ gọn', value: 'Thiết kế gọn nhẹ, mượt mà các tác vụ văn phòng, học tập và lướt web' },
+  { label: 'Tối ưu ngân sách & Kinh tế', value: 'Mức giá rẻ nhất, tính năng cơ bản đầy đủ và tiết kiệm chi phí' },
+];
 
 // Helper to strip emoji/icons from strings to strictly satisfy "Không sử dụng các icon"
 function cleanText(str) {
@@ -24,6 +32,17 @@ export default function Compare() {
   const [loading, setLoading] = useState(true);
   const [device1Id, setDevice1Id] = useState(null);
   const [device2Id, setDevice2Id] = useState(null);
+
+  const [userNeeds, setUserNeeds] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult, setAiResult] = useState(null);
+  const [aiError, setAiError] = useState(null);
+
+  // Clear AI advice when comparison devices change
+  useEffect(() => {
+    setAiResult(null);
+    setAiError(null);
+  }, [device1Id, device2Id]);
 
   // Initialize selected devices from compareList
   useEffect(() => {
@@ -120,6 +139,50 @@ export default function Compare() {
     }
     addToCart(pToAdd, 1, true);
     message.success(`Đã thêm ${product.name} vào giỏ hàng`);
+  };
+
+  const handleGetAiAdvice = async (customNeeds = userNeeds) => {
+    if (!device1 || !device2) {
+      message.warning('Vui lòng chọn đủ 2 thiết bị để AI tư vấn so sánh');
+      return;
+    }
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await api.ai.compareAdvice({
+        device1Id: device1.id,
+        device2Id: device2.id,
+        userNeeds: customNeeds,
+        device1Data: {
+          id: device1.id,
+          name: device1.name,
+          price: device1.price,
+          description: device1.description,
+          rating: device1.rating,
+          sold: device1.sold,
+          category_id: device1.category_id
+        },
+        device2Data: {
+          id: device2.id,
+          name: device2.name,
+          price: device2.price,
+          description: device2.description,
+          rating: device2.rating,
+          sold: device2.sold,
+          category_id: device2.category_id
+        }
+      });
+      if (res && res.success) {
+        setAiResult(res);
+      } else {
+        setAiError(res?.error || 'Không thể lấy tư vấn AI lúc này');
+      }
+    } catch (err) {
+      console.error('Error fetching AI compare advice:', err);
+      setAiError(err.message || 'Lỗi kết nối khi gọi AI tư vấn');
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   if (loading) {
@@ -252,6 +315,244 @@ export default function Compare() {
             />
           </Col>
         </Row>
+      </div>
+
+      {/* AI Comparison Advisor Card */}
+      <div
+        style={{
+          background: isDark ? '#18181b' : '#ffffff',
+          border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+          borderRadius: 20,
+          padding: 24,
+          marginBottom: 32,
+          boxShadow: '0 4px 20px -2px rgba(0,0,0,0.05)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: 34,
+              height: 34,
+              borderRadius: '50%',
+              background: isDark ? '#27272a' : '#f4f4f5',
+              border: `1px solid ${isDark ? '#3f3f46' : '#e4e4e7'}`,
+              color: isDark ? '#ffffff' : '#18181b'
+            }}>
+              <RobotOutlined style={{ fontSize: 18 }} />
+            </span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: 17, color: isDark ? '#ffffff' : '#18181b' }}>
+                AI Gợi Ý & Tư Vấn Chọn Thiết Bị
+              </div>
+              <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a' }}>
+                Mô hình AI phân tích thông số kỹ thuật thực và nhu cầu cụ thể của bạn
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* User Needs Input */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#d4d4d8' : '#3f3f46', marginBottom: 8 }}>
+            Nhập nhu cầu sử dụng của bạn:
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Input
+              size="large"
+              placeholder="Ví dụ: Cần máy chụp ảnh đẹp, pin trâu dùng cả ngày hoặc ngân sách dưới 15 triệu..."
+              value={userNeeds}
+              onChange={(e) => setUserNeeds(e.target.value)}
+              onPressEnter={() => handleGetAiAdvice(userNeeds)}
+              disabled={aiLoading}
+              style={{
+                flex: 1,
+                minWidth: 260,
+                borderRadius: 12,
+                background: isDark ? '#27272a' : '#ffffff',
+                borderColor: isDark ? '#3f3f46' : '#d4d4d8',
+                color: isDark ? '#ffffff' : '#18181b'
+              }}
+            />
+            <Button
+              type="primary"
+              size="large"
+              loading={aiLoading}
+              onClick={() => handleGetAiAdvice(userNeeds)}
+              icon={<BulbOutlined />}
+              disabled={!device1 || !device2}
+              style={{
+                borderRadius: 12,
+                background: isDark ? '#ffffff' : '#18181b',
+                borderColor: isDark ? '#ffffff' : '#18181b',
+                color: isDark ? '#18181b' : '#ffffff',
+                fontWeight: 700,
+                padding: '0 24px',
+                height: 40
+              }}
+            >
+              {aiLoading ? 'Đang phân tích...' : 'Hỏi AI tư vấn'}
+            </Button>
+          </div>
+        </div>
+
+        {/* Preset Need Tags */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: aiResult || aiLoading ? 20 : 0 }}>
+          <span style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', fontWeight: 500 }}>Gợi ý nhu cầu nhanh:</span>
+          {PRESET_NEEDS.map((preset, idx) => (
+            <Tag
+              key={idx}
+              onClick={() => {
+                setUserNeeds(preset.value);
+                handleGetAiAdvice(preset.value);
+              }}
+              style={{
+                cursor: 'pointer',
+                borderRadius: 14,
+                padding: '4px 12px',
+                fontSize: 12,
+                border: `1px solid ${isDark ? '#3f3f46' : '#e4e4e7'}`,
+                background: isDark ? '#27272a' : '#f4f4f5',
+                color: isDark ? '#e4e4e7' : '#18181b',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              {preset.label}
+            </Tag>
+          ))}
+        </div>
+
+        {/* AI Loading State */}
+        {aiLoading && (
+          <div style={{
+            textAlign: 'center',
+            padding: '32px 16px',
+            background: isDark ? '#202024' : '#fafafa',
+            border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+            borderRadius: 16,
+            marginTop: 16
+          }}>
+            <Spin size="large" />
+            <div style={{ marginTop: 12, fontWeight: 600, color: isDark ? '#e4e4e7' : '#18181b' }}>
+              AI đang đối chiếu thông số kỹ thuật và tạo phân tích cho bạn...
+            </div>
+          </div>
+        )}
+
+        {/* AI Error Alert */}
+        {aiError && !aiLoading && (
+          <div style={{
+            marginTop: 16,
+            padding: 12,
+            borderRadius: 10,
+            background: isDark ? '#2a1215' : '#fef2f2',
+            border: `1px solid ${isDark ? '#5c1d24' : '#fecaca'}`,
+            color: isDark ? '#fca5a5' : '#b91c1c',
+            fontSize: 13
+          }}>
+            {aiError}
+          </div>
+        )}
+
+        {/* AI Result Presentation */}
+        {aiResult && !aiLoading && (
+          <div style={{ marginTop: 20 }}>
+            {/* Quick Verdict Banner */}
+            <div style={{
+              padding: '16px 20px',
+              borderRadius: 14,
+              background: isDark ? '#202024' : '#fafafa',
+              border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+              marginBottom: 16
+            }}>
+              <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.8, color: isDark ? '#a1a1aa' : '#71717a', marginBottom: 6 }}>
+                Nhận định tổng quan từ AI:
+              </div>
+              <div style={{ fontSize: 15, fontWeight: 600, color: isDark ? '#ffffff' : '#18181b', lineHeight: 1.6 }}>
+                {aiResult.summary}
+              </div>
+            </div>
+
+            {/* Side-by-side Suitability Analysis */}
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <div style={{
+                  padding: 18,
+                  borderRadius: 14,
+                  background: isDark ? '#1c1c20' : '#fafafa',
+                  border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+                  height: '100%'
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: isDark ? '#ffffff' : '#18181b', marginBottom: 4 }}>
+                    {device1?.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', fontWeight: 600, marginBottom: 10 }}>
+                    Đặc điểm: {aiResult.advice?.device1?.specsHighlight || 'Thông số tiêu chuẩn'}
+                  </div>
+                  <div style={{ fontSize: 13, color: isDark ? '#d4d4d8' : '#3f3f46', lineHeight: 1.6 }}>
+                    <strong>Sản phẩm này phù hợp với:</strong> {aiResult.advice?.device1?.suitableFor}
+                  </div>
+                </div>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <div style={{
+                  padding: 18,
+                  borderRadius: 14,
+                  background: isDark ? '#1c1c20' : '#fafafa',
+                  border: `1px solid ${isDark ? '#27272a' : '#e4e4e7'}`,
+                  height: '100%'
+                }}>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: isDark ? '#ffffff' : '#18181b', marginBottom: 4 }}>
+                    {device2?.name}
+                  </div>
+                  <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', fontWeight: 600, marginBottom: 10 }}>
+                    Đặc điểm: {aiResult.advice?.device2?.specsHighlight || 'Thông số tiêu chuẩn'}
+                  </div>
+                  <div style={{ fontSize: 13, color: isDark ? '#d4d4d8' : '#3f3f46', lineHeight: 1.6 }}>
+                    <strong>Sản phẩm này phù hợp với:</strong> {aiResult.advice?.device2?.suitableFor}
+                  </div>
+                </div>
+              </Col>
+            </Row>
+
+            {/* Final Verdict Callout */}
+            {aiResult.verdict && (
+              <div style={{
+                marginTop: 16,
+                padding: '14px 18px',
+                borderRadius: 12,
+                background: isDark ? '#27272a' : '#f4f4f5',
+                border: `1px dashed ${isDark ? '#3f3f46' : '#d4d4d8'}`,
+                fontSize: 13,
+                color: isDark ? '#e4e4e7' : '#18181b',
+                lineHeight: 1.6
+              }}>
+                <strong>Lời khuyên chọn mua:</strong> {aiResult.verdict}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Empty state prompt if 2 devices chosen but user hasn't clicked AI yet */}
+        {!aiResult && !aiLoading && device1 && device2 && (
+          <div style={{
+            marginTop: 14,
+            padding: '12px 16px',
+            borderRadius: 10,
+            background: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+            border: `1px dashed ${isDark ? '#3f3f46' : '#e4e4e7'}`,
+            fontSize: 13,
+            color: isDark ? '#a1a1aa' : '#71717a',
+            textAlign: 'center'
+          }}>
+            Bạn đã chọn <strong>{device1.name}</strong> và <strong>{device2.name}</strong>. Hãy bấm <strong>"Hỏi AI tư vấn"</strong> hoặc chọn nhanh một gợi ý bên trên để nhận câu nhận định và phân tích chuyên sâu!
+          </div>
+        )}
       </div>
 
       {/* Side by Side Comparison Container */}
