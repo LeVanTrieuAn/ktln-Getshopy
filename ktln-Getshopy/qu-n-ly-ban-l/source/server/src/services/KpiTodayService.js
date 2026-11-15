@@ -231,6 +231,14 @@ function createKpiToday({ chHot, chWarehouse, tz, today, logger = console, now =
    * @param {{date: string, branchId?: string|null, warehouseQuery?: Function}} opts
    */
   async function fetchToday({ date, branchId = null, warehouseQuery = null }) {
+    // 16/11/2026 (review merge): date/branchId đi thẳng vào chuỗi SQL ở trên (thói quen của
+    // code cũ trong index.js) — chặn ngay ở đây: ngày đúng YYYY-MM-DD, mã chi nhánh chỉ chữ/số/-/_.
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
+      throw Object.assign(new Error('Ngày không hợp lệ (cần YYYY-MM-DD)'), { status: 400 });
+    }
+    if (branchId != null && !/^[\w-]{1,64}$/.test(String(branchId))) {
+      throw Object.assign(new Error('Mã chi nhánh không hợp lệ'), { status: 400 });
+    }
     const branch = branchId && branchId !== 'ALL' ? branchId : null;
     let reason = null;
     const wantHot = !branch && date === today();

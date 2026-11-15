@@ -292,6 +292,7 @@ app.get('/api/dashboard/kpis', authMiddleware, async (req, res) => {
     if (redisIsConnected()) await redis.setEx(cacheKey, today.source === 'realtime' ? 5 : 30, JSON.stringify(result));
     res.json(result);
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     if (err.message.includes('Hệ thống dữ liệu đang quá tải')) return res.status(503).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
