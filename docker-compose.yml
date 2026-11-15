@@ -107,8 +107,11 @@ services:
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_USER: ${AI_REC_CH_USER:-ai_rec}
       CLICKHOUSE_PASSWORD: ${AI_REC_CH_PASSWORD:-}
-      # Tín hiệu hành vi phụ: dwell+cart (thời gian dừng DwellSec + giỏ hàng Carts + yêu thích Wishlists)
-      CF_BEHAVIOR_MODE: ${CF_BEHAVIOR_MODE:-dwell+cart}
+      # Tín hiệu hành vi phụ khi TRAIN: none | count | dwell | dwell+cart.
+      # 15/11/2026 (review merge PR #18): mặc định giữ none như config.py — benchmark
+      # 30/09 cho dwell+cart NDCG -0,004 trên dữ liệu thật. Endpoint realtime-behavior
+      # không cần bật mục này (đọc trọng số từ cf.behavior kể cả khi mode=none).
+      CF_BEHAVIOR_MODE: ${CF_BEHAVIOR_MODE:-none}
       CF_BEHAVIOR_VIEW_WEIGHT: ${CF_BEHAVIOR_VIEW_WEIGHT:-0.25}
       CF_BEHAVIOR_CART_WEIGHT: ${CF_BEHAVIOR_CART_WEIGHT:-1.0}
       CF_BEHAVIOR_WISH_WEIGHT: ${CF_BEHAVIOR_WISH_WEIGHT:-0.5}

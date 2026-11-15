@@ -911,7 +911,9 @@ const aiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use(['/api/b2c/chat', '/api/b2c/visual-search', '/api/ai'], aiLimiter);
+// /api/b2c/compare-advice thêm 15/11/2026 (review merge PR #19): route so sánh AI mới
+// cũng gọi LLM tính tiền nhưng nằm ngoài cả ba prefix cũ.
+app.use(['/api/b2c/chat', '/api/b2c/visual-search', '/api/b2c/compare-advice', '/api/ai'], aiLimiter);
 
 // Forward các path AI sang container ai-bot
 app.post('/api/b2c/chat',             (req, res) => forwardToAiBot(req, res, '/api/b2c/chat'));

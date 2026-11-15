@@ -230,7 +230,7 @@ export function resolveCategory(product = {}) {
 // Đặt true: Bỏ qua 100% link CDN ảnh bên ngoài (tgdd, unsplash, picsum...),
 // ép toàn bộ sản phẩm trên giao diện hiển thị bằng bộ ảnh Fallback Base64 theo danh mục.
 // Đặt false: Hoạt động bình thường (ưu tiên ảnh CDN thật, chỉ fallback khi lỗi/rỗng).
-export const DISABLE_CDN_FOR_TESTING = true;
+export const DISABLE_CDN_FOR_TESTING = false; // 15/11/2026 (review merge PR #19): bản An để true làm mọi sản phẩm chỉ hiện ảnh dự phòng; production phải là false
 
 /**
  * Lấy URL ảnh sản phẩm hợp lệ, tự động gán ảnh fallback chuẩn danh mục nếu rỗng/thiếu/khi tắt CDN.

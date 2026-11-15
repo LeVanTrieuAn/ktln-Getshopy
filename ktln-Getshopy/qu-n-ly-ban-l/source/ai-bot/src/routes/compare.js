@@ -84,32 +84,34 @@ function generateRuleBasedAdvice(p1, p2, userNeeds = '') {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/b2c/compare-advice', async (req, res) => {
   try {
-    const { device1Id, device2Id, userNeeds, device1Data, device2Data } = req.body;
+    const { device1Id, device2Id } = req.body || {};
+    // 15/11/2026 (review merge PR #19): cắt độ dài nhu cầu khách — route công khai,
+    // không giới hạn thì một request nhét được ~100 KB chữ vào prompt LLM tính tiền.
+    const userNeeds = String(req.body?.userNeeds ?? '').slice(0, 300).trim();
 
-    if (!device1Id && !device1Data) {
+    // 15/11/2026 (review merge PR #19): LUÔN đọc sản phẩm từ DB theo id, bỏ qua
+    // device1Data/device2Data client gửi lên. Trước đây dữ liệu đó được tin luôn rồi
+    // đi vào getProductSpecs(), hàm này cache 10 phút theo id và chatbot của MỌI khách
+    // đọc lại cache đó — tức ai cũng POST được thông số giả/chỉ thị lạ cho một sản phẩm
+    // thật. Nhánh DB cũ thì luôn 500 vì id BigInt không JSON.stringify được.
+    const toId = (v) => (/^\d{1,18}$/.test(String(v ?? '')) ? BigInt(v) : null);
+    const select = { id: true, name: true, price: true, description: true, rating: true, sold: true, category_id: true };
+    const load = async (v) => {
+      const id = toId(v);
+      if (!id) return null;
+      const row = await prisma.product.findFirst({ where: { id, is_deleted: false }, select });
+      return row && { ...row, id: Number(row.id) };
+    };
+
+    if (!toId(device1Id)) {
       return res.status(400).json({ error: 'Thiếu thông tin thiết bị 1' });
     }
-    if (!device2Id && !device2Data) {
+    if (!toId(device2Id)) {
       return res.status(400).json({ error: 'Thiếu thông tin thiết bị 2' });
     }
 
-    // 1. Lấy thông tin thiết bị từ body hoặc DB
-    let p1 = device1Data;
-    let p2 = device2Data;
-
-    if (!p1 && device1Id) {
-      p1 = await prisma.product.findUnique({
-        where: { id: device1Id },
-        select: { id: true, name: true, price: true, description: true, rating: true, sold: true, category_id: true }
-      });
-    }
-
-    if (!p2 && device2Id) {
-      p2 = await prisma.product.findUnique({
-        where: { id: device2Id },
-        select: { id: true, name: true, price: true, description: true, rating: true, sold: true, category_id: true }
-      });
-    }
+    // 1. Lấy thông tin thiết bị từ DB
+    const [p1, p2] = await Promise.all([load(device1Id), load(device2Id)]);
 
     if (!p1 || !p2) {
       return res.status(404).json({ error: 'Không tìm thấy sản phẩm cần so sánh' });
