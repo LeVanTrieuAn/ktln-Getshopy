@@ -45,7 +45,7 @@ COUNTED_EVENTS = ("product_view", "add_to_cart", "add_to_wishlist")
 @dataclass(frozen=True)
 class BehaviorConfig:
     mode: str = "none"
-    view_weight: float = 0.5
+    view_weight: float = 0.25
     cart_weight: float = 1.0
     wish_weight: float = 0.5
     min_users: int = 3        # món CHỈ có hành vi phải có ≥ bấy nhiêu khách, như ngưỡng của CF

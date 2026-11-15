@@ -46,6 +46,8 @@ DEFAULT_TOP_K = 10
 # một khách đã mua là 321, cao nhất 527 (mẫu 1.975 khách, Postgres 12/11/2026). Trần
 # rộng gấp vài lần để không bao giờ chặn request hợp lệ, chỉ chặn payload bất thường.
 REALTIME_MAX_PURCHASES = int(os.getenv("REALTIME_MAX_PURCHASES", "1000"))
+# POST /api/v1/recommend/realtime-behavior (15/11/2026): trần số sự kiện tương tác trong phiên.
+REALTIME_MAX_INTERACTIONS = int(os.getenv("REALTIME_MAX_INTERACTIONS", "500"))
 
 
 # ==============================================================================
@@ -248,7 +250,7 @@ PURCHASE_EVENTS_QUERY = (
 # Mặc định TẮT: hành vi đang có trong analytics.user_events là dữ liệu seed không liên
 # quan tới gu mua (evaluation/README.md §Hạn chế) — bật lên chỉ thêm nhiễu.
 CF_BEHAVIOR_MODE = os.getenv("CF_BEHAVIOR_MODE", "none")
-CF_BEHAVIOR_VIEW_WEIGHT = float(os.getenv("CF_BEHAVIOR_VIEW_WEIGHT", "0.5"))
+CF_BEHAVIOR_VIEW_WEIGHT = float(os.getenv("CF_BEHAVIOR_VIEW_WEIGHT", "0.25"))
 CF_BEHAVIOR_CART_WEIGHT = float(os.getenv("CF_BEHAVIOR_CART_WEIGHT", "1"))
 CF_BEHAVIOR_WISH_WEIGHT = float(os.getenv("CF_BEHAVIOR_WISH_WEIGHT", "0.5"))
 BEHAVIOR_TABLE = os.getenv("BEHAVIOR_TABLE", "serving.customer_product_events")
