@@ -70,7 +70,7 @@ request, bắt *mọi* thay đổi kể cả những chỗ code quên, và Kafka
 |---|---|---|---|
 | **Admin Dashboard** | Doanh thu theo ngày × danh mục × thương hiệu × phương thức TT | Vài phút | `serving.mart_revenue` (qua view `analytics.sale_orders`) |
 | **AI-Rec** | Đúng ba cột `CustomerID · ProductID · Quantity`, đã làm sạch theo nghiệp vụ | Chu kỳ train của họ | `serving.processed_data_for_AI_rec` |
-| **Số liệu trực tiếp** | Đơn vừa đặt xong phải thấy ngay | **Giây** | `realtime.orders_live` |
+| **Số liệu trực tiếp** | Đơn vừa đặt xong phải thấy ngay — các thẻ KPI "hôm nay" của Admin Dashboard (từ 16/11/2026, §4.3) | **Giây** | `realtime.orders_live` |
 
 Ba yêu cầu này không thể phục vụ bằng cùng một cơ chế: đường lakehouse không thể
 xuống dưới chu kỳ phút, còn đường realtime không giữ được lịch sử và không làm
@@ -169,7 +169,7 @@ flowchart TB
     end
 
     subgraph CSM["⑦ KHAI THÁC"]
-        ADM["Admin Dashboard<br/>analytics.sale_orders"]
+        ADM["Admin Dashboard<br/>biểu đồ: analytics.sale_orders<br/>KPI hôm nay: realtime.orders_live"]
         AIR["AI-Rec — FastAPI<br/>user ai_rec, chỉ đọc"]
         MTB["Metabase"]
     end
@@ -292,7 +292,7 @@ flowchart LR
 
     KF --> H1
     KF --> C1
-    H3 --> D1["Dashboard: số trực tiếp"]
+    H3 --> D1["Dashboard: số trực tiếp<br/>KPI hôm nay · dự phòng: kho"]
     C3 --> D2["Báo cáo · AI-Rec · đối soát"]
 ```
 
@@ -307,6 +307,31 @@ flowchart LR
 
 > **Consumer group phải TÁCH RIÊNG.** Dùng chung group thì Kafka chia partition
 > cho hai bên và **mỗi bên chỉ thấy một nửa dữ liệu** — lỗi im lặng điển hình.
+
+**Dashboard đọc nhánh nóng (từ 16/11/2026).** Trước ngày này, mũi tên `orders_live → Dashboard`
+chỉ có trên sơ đồ: thẻ KPI (kể cả gói WebSocket đẩy mỗi 5 s) đều đọc `analytics.sale_orders`
+của nhánh lạnh, trễ 5–8 phút. Nay (`server/src/services/KpiTodayService.js`):
+
+- **Chỉ số đọc nhánh nóng** — khi xem *hôm nay* và *tất cả chi nhánh*: doanh thu hôm nay, doanh
+  thu hôm qua (cho "% so với hôm qua"), số đơn, giá trị đơn trung bình, tỷ lệ huỷ. Một câu
+  `SELECT` trên `orders_live FINAL`: doanh thu = `SUM(sub_total)`, số đơn = số dòng sau `FINAL`
+  (một dòng mỗi đơn). Đối chiếu toàn lịch sử theo từng ngày: 370 ngày, 0 ngày lệch so với nhánh
+  lạnh (`results.md` §20).
+- **Quy tắc trạng thái giữ nguyên** và nằm ở một chỗ (`REVENUE_RULES`): đơn được tính khi
+  `payment_status = 'PAID'` **hoặc** `status = 'CONFIRMED'` — đúng với mapping của view
+  (`if(payment_status='PAID','CONFIRMED',order_status)`). Tức đơn COD đã xác nhận mà chưa thu
+  vẫn được tính. Có nên chỉ tính đơn đã thu hay không là câu hỏi còn mở.
+- **Vẫn đọc nhánh lạnh**: lọc theo chi nhánh (bảng `Order` không có cột chi nhánh; chi nhánh nằm
+  ở `OrderItem.branch_id`, mà cột này đang rỗng ở mọi dòng), ngày khác hôm nay, tiền đã thu
+  (theo `paid_at`, đơn cũ hơn 7 ngày đã rơi khỏi TTL) và số đơn chờ đối soát (đếm trên toàn
+  lịch sử).
+- **Dự phòng**: dùng kho nếu thiếu một trong ba đối tượng `realtime.*`, consumer Kafka chưa nhận
+  partition hoặc quá 120 s không poll, nhánh nóng **thiếu đơn mà kho đã có** (hôm qua + hôm nay),
+  hoặc câu truy vấn nhánh nóng lỗi. Kết quả kiểm tra dùng lại 30 s. Lúc khoẻ, nhánh nóng luôn
+  tới trước kho, nên "thiếu đơn mà kho đã có" chỉ xảy ra khi nhánh nóng đã bỏ sót thật. Truy vấn
+  nhánh nóng không đi qua circuit breaker, để nhánh nóng hỏng không kéo theo các biểu đồ khác.
+  Mỗi lần đổi nguồn đều ghi log `[KPI]`. API và gói WebSocket có trường
+  `source: 'realtime' | 'warehouse'`, dashboard hiện nhãn tương ứng.
 
 **Vòng đời nhánh nóng (từ 14/11/2026).** Nhánh nóng từng mất sạch từ 23/10 đến 14/11/2026
 mà không có lỗi nào, vì DDL chỉ được chạy tay rồi volume ClickHouse được tạo lại (§9 mục 18).
@@ -611,6 +636,11 @@ curl -s localhost:8083/connectors/postgres-source-connector/status | jq
   từ `fact_orders_detail` để 16 câu query cũ không phải sửa. Cột `status` cố ý
   map từ `payment_status` chứ **không** phải `order_status`: đơn COD vừa đặt cũng
   mang `order_status = 'CONFIRMED'` trong khi chưa thu đồng nào.
+  Cần nói rõ (đo 16/11/2026): biểu thức là `if(payment_status = 'PAID', 'CONFIRMED', order_status)`,
+  nên đơn có `order_status = 'CONFIRMED'` mà chưa thu **vẫn** ra `'CONFIRMED'` và vẫn được tính.
+  Trên toàn lịch sử có 4.001 đơn như vậy (COD), tổng 95.613.997.640 đ. Đây là câu hỏi còn mở
+  (`results.md` §20).
+  Từ 16/11/2026, các thẻ KPI *hôm nay* đọc `realtime.orders_live` với cùng quy tắc (§4.3).
 - **AI-Rec** dùng user ClickHouse riêng `ai_rec`, **chỉ đọc** `serving.*`, kèm
   settings profile giới hạn `max_execution_time = 60s`, `max_memory_usage = 2GB`,
   `readonly = 1`. Không dùng chung tài khoản admin: hệ khác chỉ được đọc đúng
@@ -706,6 +736,7 @@ Ecom. Warehouse chỉ nói chuyện với hai hệ.
 | 16 | Masterdata: nguồn đổi kiểu một cột là bảng đích im lặng đổi theo | `DROP + CREATE AS SELECT` để `SELECT` suy ra kiểu | `CREATE IF NOT EXISTS` với lược đồ **tường minh** + `TRUNCATE` | ✅ |
 | 17 | `docker compose up` trên máy mới hỏng ở MinIO: `quay.io/minio/minio` trả `no such manifest`, build `bootstrap` hỏng ở `COPY --from=quay.io/minio/mc`. Máy còn image cũ trong cache thì vẫn chạy, nên lỗi không lộ ra ở máy chính | MinIO ngừng phát hành bản cộng đồng dựng sẵn: chỉ còn mã nguồn, repo archive từ 25/04/2026 ([README](https://github.com/minio/minio)); binary `dl.min.io` trả 410 | Build từ mã nguồn, ghim `RELEASE.2025-09-07T16-13-09Z` + go1.24.6 — đúng bản đang dùng, volume giữ nguyên (`local-infra-sandbox/minio/Dockerfile`); bootstrap bỏ `mc`, tạo bucket bằng `curl --aws-sigv4`. Hạn chế: bản cộng đồng hết bản vá bảo mật | ✅ |
 | 18 | Nhánh nóng biến mất: không có database `realtime`, không có consumer group `clickhouse-realtime`; dashboard không có số trực tiếp, không có lỗi nào. Phát hiện 13/11/2026 | `realtime-layer.sql` chỉ chạy tay; volume `kltn_clickhouse_data` được tạo lại 23/10/2026 nên nhánh nóng mất theo | Bootstrap bước 0b tự chạy file (nay idempotent) + nạp bù 7 ngày từ Postgres khi bảng rỗng — §4.3, `results.md` §19 | ✅ 14/11/2026 |
+| 19 | "Số trực tiếp" trên dashboard thực ra trễ 5–8 phút; thẻ "Đơn hôm nay" lớn hơn số đơn thật khoảng 2,27 lần, kéo giá trị đơn trung bình thấp đi chừng ấy | Mọi thẻ KPI (kể cả gói WebSocket 5 s) đọc `analytics.sale_orders` của nhánh lạnh; view này là **một dòng mỗi `OrderItem`**, nên `COUNT(*)` đếm dòng hàng chứ không đếm đơn (toàn lịch sử: 6.381.029 dòng / 2.816.534 đơn) | KPI hôm nay đọc `realtime.orders_live FINAL` (một dòng mỗi đơn), dự phòng bằng kho với `uniqExact(order_id)`, kèm `source` để hiện nhãn — §4.3, `results.md` §20 | ✅ 16/11/2026 |
 
 ---
 

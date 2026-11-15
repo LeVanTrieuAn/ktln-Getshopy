@@ -179,6 +179,11 @@ export default function Dashboard() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Chi nhánh / ngày đang xem, đọc được bên trong onmessage (effect dưới chỉ chạy một lần
+  // nên closure của nó giữ mãi giá trị lúc mở trang).
+  const viewRef = useRef({ branch, date });
+  viewRef.current = { branch, date };
+
   // WebSocket live update
   useEffect(() => {
     // M-07: Dựa vào window.location để tự động detect host, hoạt động cả local lẫn production
@@ -189,7 +194,13 @@ export default function Dashboard() {
       try {
         const msg = JSON.parse(e.data);
         if (msg.type === 'KPI_UPDATE') {
-          setKpis(prev => prev ? { ...prev, revenue_today: msg.data.revenue_today, orders_today: msg.data.orders_today } : prev);
+          // 16/11/2026: gói tin là số HÔM NAY của TẤT CẢ chi nhánh (từ nhánh nóng, hoặc từ
+          // kho khi nhánh nóng hỏng). Đang lọc chi nhánh hay xem ngày khác thì bỏ qua —
+          // trước đây gói tin ghi đè cả lúc đó, thẻ KPI nhảy về số toàn hệ thống sau 5 s.
+          const v = viewRef.current;
+          if (v.branch !== 'ALL' || v.date.format('YYYY-MM-DD') !== msg.data.date) return;
+          const { revenue_today, revenue_vs_yesterday_pct, orders_today, avg_order_value, void_rate, source } = msg.data;
+          setKpis(prev => prev ? { ...prev, revenue_today, revenue_vs_yesterday_pct, orders_today, avg_order_value, void_rate, source } : prev);
         }
       } catch {}
     };
@@ -325,6 +336,18 @@ export default function Dashboard() {
           <p style={{ margin: '5px 0 0', color: subColor, fontSize: 12.5, display: 'flex', alignItems: 'center', gap: 7 }}>
             <span style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', background: M.fg, animation: 'pulse 2s infinite' }} />
             Dữ liệu cập nhật real-time qua CDC Kafka Pipeline
+            {/* Nhãn nguồn của các thẻ doanh thu / số đơn / tỷ lệ huỷ (16/11/2026) */}
+            {kpis?.source && (
+              <Tag
+                bordered={false}
+                style={{ marginInlineEnd: 0 }}
+                title={kpis.source === 'realtime'
+                  ? 'Đọc realtime.orders_live: Kafka → ClickHouse, trễ khoảng 2 giây'
+                  : 'Đọc kho analytics.sale_orders (dbt mỗi 5 phút). Đang xem hôm nay, tất cả chi nhánh mà vẫn thấy nhãn này là nhánh nóng chưa sẵn sàng.'}
+              >
+                {kpis.source === 'realtime' ? 'Nhánh nóng · ~2 giây' : 'Kho dữ liệu · trễ ~5–8 phút'}
+              </Tag>
+            )}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 12 }}>
