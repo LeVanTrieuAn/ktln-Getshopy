@@ -1873,7 +1873,10 @@ export default function ProductDetail() {
                 style={{ height: 56, width: 56, borderRadius: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', borderColor: isWished ? '#ef4444' : (isDark ? '#444' : '#d9d9d9') }} />
               <Button type="default" size="large"
                 icon={<SwapOutlined style={{ color: isCompared ? '#8b5cf6' : undefined }} />}
-                onClick={() => { try { toggleCompare(product); message.success(isCompared ? 'Đã bỏ so sánh' : 'Đã thêm vào so sánh'); } catch (e) { message.error(e.message); } }}
+                onClick={() => {
+                  toggleCompare(product);
+                  message.success(isCompared ? 'Đã bỏ khỏi danh sách so sánh' : 'Đã thêm vào danh sách so sánh');
+                }}
                 style={{ height: 56, width: 56, borderRadius: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', borderColor: isCompared ? '#8b5cf6' : (isDark ? '#444' : '#d9d9d9') }} />
               <Button type="primary" size="large" icon={<ShoppingCartOutlined />}
                 onClick={handleAddToCart} disabled={currentStock <= 0}

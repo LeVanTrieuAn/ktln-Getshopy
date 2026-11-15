@@ -48,10 +48,22 @@ export default function Compare() {
   useEffect(() => {
     setLoading(true);
     if (compareList && compareList.length >= 2) {
-      if (!device1Id) setDevice1Id(compareList[0].id);
-      if (!device2Id) setDevice2Id(compareList[1].id);
+      const dev1Valid = compareList.some(p => p.id === device1Id);
+      const dev2Valid = compareList.some(p => p.id === device2Id);
+
+      const nextDev1 = dev1Valid ? device1Id : compareList[0].id;
+      const nextDev2 = (dev2Valid && device2Id !== nextDev1)
+        ? device2Id
+        : (compareList.find(p => p.id !== nextDev1)?.id || null);
+
+      setDevice1Id(nextDev1);
+      setDevice2Id(nextDev2);
     } else if (compareList && compareList.length === 1) {
-      if (!device1Id) setDevice1Id(compareList[0].id);
+      setDevice1Id(compareList[0].id);
+      setDevice2Id(null);
+    } else {
+      setDevice1Id(null);
+      setDevice2Id(null);
     }
     setLoading(false);
   }, [compareList]);
@@ -222,31 +234,103 @@ export default function Compare() {
         {compareList && compareList.length > 0 && (
           <div style={{ marginTop: 24 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: isDark ? '#a1a1aa' : '#71717a', marginBottom: 12 }}>
-              Các sản phẩm bạn đã chọn để so sánh:
+              Danh sách sản phẩm bạn đã thêm ({compareList.length}):
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'center' }}>
-              {compareList.map(p => (
-                <div key={p.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px',
-                  background: isDark ? 'rgba(255,255,255,0.05)' : '#fff',
-                  border: `1px solid ${isDark ? '#3f3f46' : '#e4e4e7'}`,
-                  borderRadius: 20, fontSize: 13, color: isDark ? '#e4e4e7' : '#18181b',
-                  boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                  <span style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {p.name}
-                  </span>
-                  <CloseOutlined 
+              {compareList.map(p => {
+                const isD1 = device1Id === p.id;
+                const isD2 = device2Id === p.id;
+                return (
+                  <div
+                    key={p.id}
                     onClick={() => {
-                      toggleCompare(p);
-                      if (device1Id === p.id) setDevice1Id(null);
-                      if (device2Id === p.id) setDevice2Id(null);
+                      if (!isD1 && !isD2) {
+                        if (!device1Id) setDevice1Id(p.id);
+                        else if (!device2Id) setDevice2Id(p.id);
+                        else setDevice2Id(p.id);
+                      }
                     }}
-                    style={{ fontSize: 11, cursor: 'pointer', color: '#ef4444' }} 
-                  />
-                </div>
-              ))}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      padding: '6px 14px',
+                      background: (isD1 || isD2)
+                        ? (isDark ? '#27272a' : '#f4f4f5')
+                        : (isDark ? 'rgba(255,255,255,0.04)' : '#fff'),
+                      border: `1px solid ${(isD1 || isD2) ? (isDark ? '#ffffff' : '#18181b') : (isDark ? '#3f3f46' : '#e4e4e7')}`,
+                      borderRadius: 20,
+                      fontSize: 13,
+                      color: isDark ? '#e4e4e7' : '#18181b',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      boxShadow: isDark ? 'none' : '0 2px 8px rgba(0,0,0,0.04)'
+                    }}
+                  >
+                    {isD1 && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: isDark ? '#ffffff' : '#18181b', color: isDark ? '#18181b' : '#ffffff' }}>
+                        Thiết bị 1
+                      </span>
+                    )}
+                    {isD2 && (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 7px', borderRadius: 10, background: isDark ? '#ffffff' : '#18181b', color: isDark ? '#18181b' : '#ffffff' }}>
+                        Thiết bị 2
+                      </span>
+                    )}
+                    <span style={{ maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', fontWeight: (isD1 || isD2) ? 600 : 400 }}>
+                      {p.name}
+                    </span>
+                    <CloseOutlined
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCompare(p);
+                        if (device1Id === p.id) setDevice1Id(null);
+                        if (device2Id === p.id) setDevice2Id(null);
+                      }}
+                      style={{ fontSize: 11, cursor: 'pointer', color: '#ef4444', marginLeft: 4 }}
+                      title="Xóa khỏi danh sách so sánh"
+                    />
+                  </div>
+                );
+              })}
             </div>
+            <div style={{ fontSize: 12, color: isDark ? '#71717a' : '#a1a1aa', marginTop: 10 }}>
+              * Bấm vào sản phẩm bất kỳ để chọn đối chiếu song song 2 thiết bị
+            </div>
+          </div>
+        )}
+
+        {/* Empty state when compareList is empty */}
+        {(!compareList || compareList.length === 0) && (
+          <div style={{
+            marginTop: 24,
+            padding: '24px',
+            borderRadius: 16,
+            background: isDark ? '#1c1c20' : '#fafafa',
+            border: `1px dashed ${isDark ? '#3f3f46' : '#d4d4d8'}`,
+            textAlign: 'center',
+            maxWidth: 520,
+            margin: '24px auto 0'
+          }}>
+            <div style={{ fontSize: 14, fontWeight: 600, color: isDark ? '#e4e4e7' : '#18181b', marginBottom: 6 }}>
+              Chưa có sản phẩm nào trong danh sách so sánh
+            </div>
+            <div style={{ fontSize: 13, color: isDark ? '#a1a1aa' : '#71717a', marginBottom: 16 }}>
+              Vui lòng xem các sản phẩm tại Cửa hàng và nhấn nút "So sánh" để thêm vào danh sách đối chiếu.
+            </div>
+            <Button
+              type="primary"
+              onClick={() => navigate('/shop')}
+              style={{
+                borderRadius: 10,
+                background: isDark ? '#ffffff' : '#18181b',
+                borderColor: isDark ? '#ffffff' : '#18181b',
+                color: isDark ? '#18181b' : '#ffffff',
+                fontWeight: 600
+              }}
+            >
+              Khám phá sản phẩm
+            </Button>
           </div>
         )}
       </div>
