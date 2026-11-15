@@ -436,9 +436,9 @@ async function visualSearch(imageBase64) {
     };
   }
 
-  if (analysis && !analysis.category && analysis.keywords?.length === 0) {
+  if (analysis && (analysis.is_electronic_product === false || (!analysis.category && analysis.keywords?.length === 0))) {
     return {
-      text: `Da em thay trong anh la: "${analysis.description_vi || caption}". Day co ve khong phai san pham dien tu a.`,
+      text: `Dạ em thấy trong ảnh là: "${analysis.description_vi || caption}". Đây có vẻ không phải sản phẩm điện thoại hay đồ công nghệ của cửa hàng ạ! Anh/chị có thể gửi ảnh khác hoặc mô tả thêm bằng chữ giúp em nhé ạ!`,
       products: [], caption, analysis,
     };
   }
@@ -632,6 +632,106 @@ async function smartSearchWithImage(query, imageBase64) {
   const isQueryEmpty  = !rawQuery;
   const isQueryVague  = rawQuery && VAGUE_PATTERNS.test(rawQuery.replace(/\s+/g, ' ').trim());
 
+  // ── TRƯỜNG HỢP AI KHÔNG PHÂN TÍCH ĐƯỢC ẢNH (Lỗi mạng / Quota) ──
+  if (!analysis) {
+    if (rawQuery && !isQueryVague) {
+      console.log(`[SmartSearchImage] AI không phân tích được ảnh nhưng có text "${rawQuery}" -> Query DB.`);
+      try {
+        const dbProducts = await prisma.product.findMany({
+          where: { is_deleted: false, stock: { gt: 0 }, name: { contains: rawQuery, mode: 'insensitive' } },
+          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+          take: 8,
+        });
+        if (dbProducts.length > 0) {
+          return {
+            products: serializeProducts(dbProducts, categoryMap),
+            hint: `Kết quả tìm kiếm cho "${rawQuery}"`,
+            mode: 'db_text',
+          };
+        }
+        const textResult = await smartSearch(rawQuery);
+        return {
+          products: textResult?.products || [],
+          hint: textResult?.hint || `Kết quả gợi ý cho "${rawQuery}"`,
+          mode: 'ai_text',
+        };
+      } catch (e) {
+        console.warn('[SmartSearchImage] DB / Smart Search thất bại:', e.message);
+      }
+    }
+
+    console.log('[SmartSearchImage] AI không phân tích được ảnh và không có text.');
+    return {
+      products: [],
+      hint: 'Hệ thống AI đang bận hoặc không phân tích được ảnh, vui lòng thử lại sau',
+      mode: 'image_only',
+      imageCaption: '',
+      imageAnalysis: null,
+      isError: true,
+    };
+  }
+
+  // ── XỬ LÝ ẢNH OUT OF CONTEXT (phong cảnh, người, động vật, không phải sản phẩm điện tử) ──
+  const isOutOfContext = analysis.is_electronic_product === false ||
+    (!imageCategory && imageKeywords.length === 0 && !imageBrand);
+
+  if (isOutOfContext) {
+    if (rawQuery && !isQueryVague) {
+      // Ảnh không nhận diện được nhưng người dùng tiếp tục search bằng cách nhập chữ
+      // -> Query Database trước, nếu không có sản phẩm thì mới dùng AI Smart Search
+      console.log(`[SmartSearchImage] Ảnh out-of-context. Người dùng nhập chữ "${rawQuery}" -> Query DB trước.`);
+      try {
+        // BƯỚC 1: Query database trước
+        const dbProducts = await prisma.product.findMany({
+          where: {
+            is_deleted: false,
+            stock: { gt: 0 },
+            name: { contains: rawQuery, mode: 'insensitive' },
+          },
+          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+          take: 8,
+        });
+
+        if (dbProducts.length > 0) {
+          console.log(`[SmartSearchImage] DB có ${dbProducts.length} sản phẩm khớp từ khóa "${rawQuery}".`);
+          return {
+            products: serializeProducts(dbProducts, categoryMap),
+            hint: `Kết quả tìm kiếm cho "${rawQuery}"`,
+            mode: 'db_text',
+            imageCaption: imageDescVI,
+            imageAnalysis: { brand: null, category: null, keywords: [] },
+            isOutOfContext: true,
+          };
+        }
+
+        // BƯỚC 2: Nếu DB không có sản phẩm -> dùng AI Smart Search
+        console.log(`[SmartSearchImage] DB không có sản phẩm cho "${rawQuery}" -> Chạy AI Smart Search.`);
+        const textResult = await smartSearch(rawQuery);
+        return {
+          products: textResult?.products || [],
+          hint: textResult?.hint || `Kết quả gợi ý từ AI cho "${rawQuery}"`,
+          mode: 'ai_text',
+          imageCaption: imageDescVI,
+          imageAnalysis: { brand: null, category: null, keywords: [] },
+          isOutOfContext: true,
+        };
+      } catch (e) {
+        console.warn('[SmartSearchImage] Query DB / Smart Search thất bại:', e.message);
+      }
+    }
+
+    // Không có từ khóa chữ hợp lệ -> Trả về mảng rỗng, không fallback ra sản phẩm bán chạy/phổ biến
+    console.log('[SmartSearchImage] Ảnh out-of-context và không có text cụ thể -> Trả về mảng rỗng.');
+    return {
+      products: [],
+      hint: 'Không tìm thấy sản phẩm trong ảnh, thử lại',
+      mode: 'image_only',
+      imageCaption: imageDescVI,
+      imageAnalysis: { brand: null, category: null, keywords: [] },
+      isOutOfContext: true,
+    };
+  }
+
   // Kiểm tra query có liên quan đến ảnh không (dùng rule-based thay vì gọi LLM)
   let isQueryRelated = false;
   if (rawQuery && !isQueryVague) {
@@ -676,42 +776,139 @@ async function smartSearchWithImage(query, imageBase64) {
     const catFilter = buildCategoryFilter(imageCatId);
     const brFilter = imageBrandId ? { brand_id: imageBrandId } : {};
     const searchTerms = [...imageKeywords].filter(Boolean);
+    const color = (analysis?.color || '').toLowerCase().trim();
 
-    // First: brand + category precision
-    if (imageCatId || imageBrandId) {
-      const baseWhere = { ...catFilter, ...brFilter, is_deleted: false };
+    let candidates = [];
 
-      if (searchTerms.length > 0) {
-        let rows = await prisma.product.findMany({
-          where: {
-            ...baseWhere,
-            AND: searchTerms.slice(0, 2).map(k => ({ name: { contains: k, mode: 'insensitive' } })),
-          },
-          take: 50,
-        });
-        if (rows.length === 0) {
-          rows = await prisma.product.findMany({
-            where: {
-              ...baseWhere,
-              OR: searchTerms.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
-            },
-            take: 50,
-          });
-        }
-        rows.forEach(p => {
-          const n = (p.name || '').toLowerCase();
-          p._score = searchTerms.filter(k => n.includes(k.toLowerCase())).length * 5;
-        });
-        rows.sort((a, b) => b._score - a._score || b.sold - a.sold);
-        products = rows.slice(0, 8);
-      } else {
-        products = await prisma.product.findMany({
-          where: baseWhere,
-          orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
-          take: 8,
-        });
-      }
+    // Stage 1: Category + Brand + Keywords (Khớp tối đa)
+    if ((imageCatId || imageBrandId) && searchTerms.length > 0) {
+      const s1 = await prisma.product.findMany({
+        where: {
+          ...catFilter,
+          ...brFilter,
+          is_deleted: false,
+          stock: { gt: 0 },
+          OR: searchTerms.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+        },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 30,
+      });
+      candidates.push(...s1);
     }
+
+    // Stage 2: Category + Brand (không ép keywords)
+    if (imageCatId && imageBrandId && candidates.length < 5) {
+      const s2 = await prisma.product.findMany({
+        where: {
+          ...catFilter,
+          ...brFilter,
+          is_deleted: false,
+          stock: { gt: 0 },
+        },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 30,
+      });
+      candidates.push(...s2);
+    }
+
+    // Stage 3: Category + Keywords (Bỏ giới hạn brand)
+    if (imageCatId && searchTerms.length > 0 && candidates.length < 5) {
+      const s3 = await prisma.product.findMany({
+        where: {
+          ...catFilter,
+          is_deleted: false,
+          stock: { gt: 0 },
+          OR: searchTerms.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+        },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 30,
+      });
+      candidates.push(...s3);
+    }
+
+    // Stage 4: Brand + Keywords (Bỏ giới hạn category, vd: tìm sản phẩm Apple)
+    if (imageBrandId && searchTerms.length > 0 && candidates.length < 5) {
+      const s4 = await prisma.product.findMany({
+        where: {
+          ...brFilter,
+          is_deleted: false,
+          stock: { gt: 0 },
+          OR: searchTerms.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+        },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 30,
+      });
+      candidates.push(...s4);
+    }
+
+    // Stage 5: Category only (Sản phẩm cùng danh mục)
+    if (imageCatId && candidates.length < 5) {
+      const s5 = await prisma.product.findMany({
+        where: {
+          ...catFilter,
+          is_deleted: false,
+          stock: { gt: 0 },
+        },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 20,
+      });
+      candidates.push(...s5);
+    }
+
+    // Stage 6: Brand only (Sản phẩm cùng hãng sản xuất)
+    if (imageBrandId && candidates.length < 5) {
+      const s6 = await prisma.product.findMany({
+        where: {
+          ...brFilter,
+          is_deleted: false,
+          stock: { gt: 0 },
+        },
+        orderBy: [{ sold: 'desc' }, { rating: 'desc' }],
+        take: 20,
+      });
+      candidates.push(...s6);
+    }
+
+    // Stage 7: Keywords only
+    if (searchTerms.length > 0 && candidates.length < 5) {
+      const s7 = await prisma.product.findMany({
+        where: {
+          is_deleted: false,
+          stock: { gt: 0 },
+          OR: searchTerms.map(k => ({ name: { contains: k, mode: 'insensitive' } })),
+        },
+        orderBy: [{ sold: 'desc' }],
+        take: 20,
+      });
+      candidates.push(...s7);
+    }
+
+    // Deduplicate & Multi-dimensional scoring
+    const seen = new Set();
+    const uniqueCandidates = candidates.filter(p => {
+      const key = String(p.id);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    uniqueCandidates.forEach(p => {
+      const pName = (p.name || '').toLowerCase();
+      let score = 0;
+      if (imageCatId) {
+        const catIds = KC.expandCategoryIds(imageCatId);
+        if (catIds.includes(p.category_id)) score += 20;
+      }
+      if (imageBrandId && p.brand_id === imageBrandId) score += 18;
+      searchTerms.forEach(k => { if (pName.includes(k.toLowerCase())) score += 8; });
+      if (color && pName.includes(color)) score += 12; // Ưu tiên màu sắc trùng khớp (ví dụ: cam)
+      score += Math.min(Number(p.sold || 0) / 1000, 3);
+      score += Math.min(Number(p.rating || 0) * 0.5, 2.5);
+      p._score = score;
+    });
+
+    uniqueCandidates.sort((a, b) => b._score - a._score || b.sold - a.sold);
+    products = uniqueCandidates.slice(0, 8);
 
     // ai_both → merge thêm smart-search text results
     if (mode === 'ai_both' && rawQuery) {
@@ -770,14 +967,13 @@ async function smartSearchWithImage(query, imageBase64) {
     }
   }
 
-  // ── Fallback nếu không có kết quả ────────────────────────────────────
+  // ── Xử lý khi không tìm thấy sản phẩm nào khớp với ảnh ────────────────
   if (products.length === 0) {
-    products = await prisma.product.findMany({
-      where: { is_deleted: false, stock: { gt: 0 } },
-      orderBy: [{ sold: 'desc' }],
-      take: 8,
-    });
-    hint = 'Sản phẩm phổ biến';
+    hint = 'Không tìm thấy sản phẩm trong ảnh, thử lại';
+  } else {
+    hint = hint || (mode === 'image_only'
+      ? `Sản phẩm tương tự: ${imageDescVI}`
+      : `Kết quả AI từ ảnh + "${rawQuery}"`);
   }
 
   const serialized = serializeProducts(products, categoryMap);

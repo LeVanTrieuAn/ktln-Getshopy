@@ -555,8 +555,11 @@ export default function AIChatbot() {
                 isDark={isDark}
                 disabled={isTyping || isAnalyzing}
                 onText={(text) => {
-                  setInputValue(prev => (prev.trim() ? prev.trimEnd() + ' ' : '') + text);
-                  setTimeout(() => inputRef.current?.focus(), 0);
+                  const cleanText = (text || '').trim();
+                  if (cleanText) {
+                    setInputValue(cleanText);
+                    setTimeout(() => inputRef.current?.focus(), 0);
+                  }
                 }}
               />
 

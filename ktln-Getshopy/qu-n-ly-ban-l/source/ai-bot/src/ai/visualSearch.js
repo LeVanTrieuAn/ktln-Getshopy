@@ -34,9 +34,10 @@ const GOOGLE_AI_KEY   = process.env.GOOGLE_AI_KEY;
  */
 const GEMINI_MODELS = (
   process.env.GEMINI_MODELS ||
-  'gemini-3.5-flash' // default nếu không set env
+  'gemini-3.1-flash-lite,gemini-flash-lite-latest,gemini-3.8-flash,gemini-3-flash-preview,gemini-3.5-flash'
 ).split(',').map(s => s.trim()).filter(Boolean);
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 
 
 /** Danh sách danh mục sản phẩm THỰC TẾ của cửa hàng (8 cha + 41 con) */
@@ -126,15 +127,21 @@ Cấp 2: ${STORE_CATEGORIES.slice(8).join(', ')}
 
 THƯƠNG HIỆU HỢP LỆ: ${STORE_BRANDS.join(', ')}
 
+Quy tắc quan trọng:
+- Nếu vật thể chính trong ảnh là chiếc điện thoại (smartphone), hãy chọn category là "Điện thoại" (kể cả khi điện thoại có màu sắc đặc biệt như cam/vàng/đỏ hay có ốp lưng).
+- Chỉ chọn "Ốp lưng điện thoại" khi ảnh chụp riêng chiếc ốp lưng tháo rời hoặc vỏ ốp, không phải toàn bộ chiếc điện thoại.
+- Nếu là laptop/máy tính chọn "Laptop". Nếu là tai nghe chọn đúng loại tai nghe (như "Tai nghe Bluetooth").
+
 Trả về JSON:
+- is_electronic_product: boolean (true nếu ảnh có chứa thiết bị/phụ kiện điện tử, công nghệ mà cửa hàng kinh doanh; false nếu là phong cảnh, người, động vật, thức ăn, kiến trúc, out of context...)
 - caption: mô tả ngắn tiếng Anh
 - category: chọn danh mục cụ thể nhất (ưu tiên cấp 2) hoặc null
 - brand: chọn từ danh sách trên hoặc null
 - color: màu sắc chính hoặc null
-- keywords: 3-5 từ khóa tiếng Việt/Anh để tìm trong DB sản phẩm
+- keywords: 3-5 từ khóa tiếng Việt/Anh để tìm trong DB sản phẩm (rỗng [] nếu không phải đồ điện tử)
 - description_vi: mô tả 1 câu tiếng Việt
 
-Nếu không phải sản phẩm điện tử/công nghệ: category=null, keywords=[].
+Nếu không phải sản phẩm điện tử/công nghệ: is_electronic_product=false, category=null, brand=null, keywords=[].
 Chỉ trả về JSON.`;
 
   const { mimeType, base64Data } = parseDataUrl(imageBase64);
@@ -178,6 +185,11 @@ Chỉ trả về JSON.`;
       // Model deprecated/not available → thử model tiếp
       if (response.status === 404 || response.status === 410) {
         console.warn(`[VisualSearch] Model ${model} unavailable (${response.status}) — thử tiếp`);
+        break;
+      }
+      // Quota exceeded → chuyển ngay sang model fallback tiếp theo
+      if (response.status === 429) {
+        console.warn(`[VisualSearch] Model ${model} 429 Quota Exceeded — chuyển model tiếp theo`);
         break;
       }
       // High demand → retry hoặc thử model tiếp
@@ -232,7 +244,11 @@ Chỉ trả về JSON.`;
       if (!Array.isArray(result.keywords)) result.keywords = [];
 
       const caption = result.caption || null;
+      const isElectronic = result.is_electronic_product === true ||
+        (result.is_electronic_product !== false && (!!result.category || (Array.isArray(result.keywords) && result.keywords.length > 0) || !!result.brand));
+
       const analysis = {
+        is_electronic_product: isElectronic,
         category:       result.category       || null,
         brand:          result.brand          || null,
         color:          result.color          || null,
@@ -251,6 +267,68 @@ Chỉ trả về JSON.`;
   }
 
   } // end model loop
+
+  // Fallback sang OpenRouter Vision nếu Google AI Studio hết quota hoặc gặp lỗi
+  if (OPENROUTER_API_KEY) {
+    try {
+      console.log('[VisualSearch] Thử fallback sang OpenRouter Vision...');
+      const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: imageBase64 } },
+            ],
+          }],
+          max_tokens: 500,
+        }),
+        signal: AbortSignal.timeout(25_000),
+      });
+
+      if (orRes.ok) {
+        const orData = await orRes.json();
+        const content = orData?.choices?.[0]?.message?.content?.trim();
+        if (content) {
+          let rawJson = content;
+          const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+          if (fenceMatch) rawJson = fenceMatch[1].trim();
+          const jsonStart = rawJson.indexOf('{');
+          if (jsonStart !== -1) {
+            let jsonStr = rawJson.slice(jsonStart);
+            if (!jsonStr.trimEnd().endsWith('}')) jsonStr = jsonStr.replace(/,?\s*$/, '') + '}';
+            const result = JSON.parse(jsonStr);
+            if (!Array.isArray(result.keywords)) result.keywords = [];
+            const caption = result.caption || null;
+            const isElectronic = result.is_electronic_product === true ||
+              (result.is_electronic_product !== false && (!!result.category || (Array.isArray(result.keywords) && result.keywords.length > 0) || !!result.brand));
+            const analysis = {
+              is_electronic_product: isElectronic,
+              category:       result.category       || null,
+              brand:          result.brand          || null,
+              color:          result.color          || null,
+              keywords:       result.keywords,
+              description_vi: result.description_vi || (caption ? `Sản phẩm: ${caption}` : 'Sản phẩm từ ảnh'),
+            };
+            console.log('[VisualSearch] ✅ OpenRouter phân tích xong:', JSON.stringify({ caption, ...analysis }));
+            return { caption, analysis };
+          }
+        }
+      } else {
+        const errText = await orRes.text().catch(() => '');
+        console.warn('[VisualSearch] OpenRouter Vision HTTP error:', orRes.status, errText.slice(0, 150));
+      }
+    } catch (orErr) {
+      console.error('[VisualSearch] OpenRouter fallback lỗi:', orErr.message);
+    }
+  }
+
   return { caption: null, analysis: null };
 }
 
