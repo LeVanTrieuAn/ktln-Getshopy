@@ -13,6 +13,7 @@ const { authB2C } = require('./middleware/authB2C');
 const { requireAdmin } = require('./middleware/requireAdmin');
 const { validateCustomerInfo } = require('./utils/validators');
 const { redis, isConnected: redisIsConnected, cached: redisCached } = require('./redis');
+const { createKpiToday, toKpiFields } = require('./services/KpiTodayService');
 
 // ─── GLOBAL BIGINT SERIALIZER ────────────────────────────────────────────
 BigInt.prototype.toJSON = function() {
@@ -165,6 +166,23 @@ chBreaker.fallback((queryStr, err) => {
   throw new Error('Hệ thống dữ liệu đang quá tải, vui lòng xem dữ liệu cũ (cached) hoặc thử lại sau.');
 });
 
+// ─── KPI HÔM NAY: NHÁNH NÓNG + DỰ PHÒNG KHO (16/11/2026) ─────────────────
+// Xem services/KpiTodayService.js. Truy vấn nhánh nóng (và câu kiểm tra sức khoẻ của nó)
+// cố ý KHÔNG đi qua chBreaker: realtime.orders_live mất hay consumer treo thì lỗi lặp lại
+// theo nhịp WebSocket 5 s, đủ để mở mạch (volumeThreshold 5) — và khi mạch mở thì MỌI biểu
+// đồ của dashboard cùng 503, kể cả các biểu đồ chỉ đọc kho. Thay vào đó: trần 10 s mỗi câu,
+// lỗi thì quay về kho ngay trong lượt đó.
+const queryClickHouseHot = async (queryStr) => {
+  const result = await ch.query({ query: queryStr, format: 'JSONEachRow', clickhouse_settings: { max_execution_time: 10 } });
+  return await result.json();
+};
+const kpiToday = createKpiToday({
+  chHot: queryClickHouseHot,
+  chWarehouse: queryClickHouse,
+  tz: BUSINESS_TZ,
+  today: () => bizToday(),
+});
+
 async function fetchWithCache(cacheKey, ttl, queryStr) {
   if (redisIsConnected()) {
     const cached = await redis.get(cacheKey);
@@ -239,43 +257,42 @@ app.get('/api/dashboard/kpis', authMiddleware, async (req, res) => {
       if (cached) return res.json(JSON.parse(cached));
     }
 
-    const [revToday, revYest, orders, cash, pending, voidOrders, allOrders] = await Promise.all([
-      chBreaker.fire(`SELECT SUM(net_amount) as val FROM analytics.sale_orders WHERE toDate(order_date, '${BUSINESS_TZ}') = '${targetDate}' AND status = 'CONFIRMED' ${branchFilter}`),
-      chBreaker.fire(`SELECT SUM(net_amount) as val FROM analytics.sale_orders WHERE toDate(order_date, '${BUSINESS_TZ}') = subtractDays(toDate('${targetDate}'), 1) AND status = 'CONFIRMED' ${branchFilter}`),
-      chBreaker.fire(`SELECT COUNT(*) as val FROM analytics.sale_orders WHERE toDate(order_date, '${BUSINESS_TZ}') = '${targetDate}' AND status = 'CONFIRMED' ${branchFilter}`),
+    // 16/11/2026: doanh thu hôm nay/hôm qua, số đơn, tỷ lệ huỷ lấy từ kpiToday — nhánh
+    // nóng khi xem HÔM NAY + TẤT CẢ chi nhánh, còn lại đọc kho (services/KpiTodayService.js).
+    // Hai chỉ số dưới vẫn đọc kho, vì nhánh nóng không có tương đương sạch:
+    //   - cash_collected: phiếu thu lấy theo ngày THANH TOÁN (paid_at), mà đơn đặt quá 7 ngày
+    //     rồi mới trả (COD giao chậm) đã rơi khỏi orders_live do TTL tính theo order_date;
+    //   - pending_recon: đếm trên TOÀN BỘ lịch sử, orders_live chỉ giữ 7 ngày.
+    const [today, cash, pending] = await Promise.all([
+      kpiToday.fetchToday({ date: targetDate, branchId: branch_id, warehouseQuery: (q) => chBreaker.fire(q) }),
       chBreaker.fire(`SELECT SUM(amount) as val FROM analytics.input_vouchers WHERE toDate(voucher_date, '${BUSINESS_TZ}') = '${targetDate}' ${branchFilter}`),
       // Đếm trên TOÀN BỘ lịch sử (6,8 triệu dòng, ~1,3 s một mình — đo 11/11/2026) nên
       // không chạy lại theo nhịp 30 s của cache KPI: cache riêng 5 phút.
       fetchWithCache(`kpi:pending:${branch_id || 'ALL'}`, 300, `SELECT COUNT(*) as val FROM analytics.sale_orders WHERE status = 'CONFIRMED' ${branchFilter} AND order_id NOT IN (SELECT order_id FROM analytics.input_vouchers)`),
-      chBreaker.fire(`SELECT COUNT(*) as val FROM analytics.sale_orders WHERE toDate(order_date, '${BUSINESS_TZ}') = '${targetDate}' AND status = 'VOIDED' ${branchFilter}`),
-      chBreaker.fire(`SELECT COUNT(*) as val FROM analytics.sale_orders WHERE toDate(order_date, '${BUSINESS_TZ}') = '${targetDate}' ${branchFilter}`)
     ]);
 
-    const rt = parseFloat(revToday[0]?.val || 0);
-    const ry = parseFloat(revYest[0]?.val || 0);
-    const ot = parseInt(orders[0]?.val || 0);
     const ct = parseFloat(cash[0]?.val || 0);
     const pr = parseInt(pending[0]?.val || 0);
-    const vo = parseInt(voidOrders[0]?.val || 0);
-    const ao = parseInt(allOrders[0]?.val || 0);
-
-    const changePct = ry > 0 ? ((rt - ry) / ry * 100).toFixed(1) : 0;
-    const voidRate = ao > 0 ? (vo / ao * 100).toFixed(1) : 0;
+    const k = toKpiFields(today);
 
     const result = {
-      revenue_today: rt,
-      revenue_vs_yesterday_pct: parseFloat(changePct),
-      orders_today: ot,
-      avg_order_value: ot > 0 ? Math.round(rt / ot) : 0,
+      revenue_today: k.revenue_today,
+      revenue_vs_yesterday_pct: k.revenue_vs_yesterday_pct,
+      orders_today: k.orders_today,          // số ĐƠN (trước 16/11/2026: số dòng hàng)
+      avg_order_value: k.avg_order_value,
       cash_collected: ct,
       net_cash: ct,
       pending_recon: pr,
-      void_rate: parseFloat(voidRate),
+      void_rate: k.void_rate,
+      source: k.source,                      // 'realtime' | 'warehouse' — nguồn của 5 chỉ số trên
     };
 
-    if (redisIsConnected()) await redis.setEx(cacheKey, 30, JSON.stringify(result));
+    // Số từ nhánh nóng chỉ giữ 5 s (bằng nhịp WebSocket): cache 30 s sẽ trả lại con số cũ
+    // tới nửa phút, xoá mất cái lợi của độ trễ ~2 s.
+    if (redisIsConnected()) await redis.setEx(cacheKey, today.source === 'realtime' ? 5 : 30, JSON.stringify(result));
     res.json(result);
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ error: err.message });
     if (err.message.includes('Hệ thống dữ liệu đang quá tải')) return res.status(503).json({ error: err.message });
     res.status(500).json({ error: err.message });
   }
@@ -705,17 +722,17 @@ async function fetchAndBroadcastKpi() {
     // Chỉ query khi cache hết hạn
     if (!_wsKpiCache || now - _wsKpiLastFetch >= WS_KPI_TTL_MS) {
       const today = bizToday();
-      const rows = await queryClickHouse(
-        `SELECT SUM(net_amount) as revenue, COUNT(*) as orders
-         FROM analytics.sale_orders
-         WHERE toDate(order_date, '${BUSINESS_TZ}') = '${today}' AND status = 'CONFIRMED'`
-      );
+      // 16/11/2026: đọc nhánh nóng qua kpiToday (dự phòng kho) thay cho analytics.sale_orders
+      // — đọc kho thì đẩy mỗi 5 s cũng chỉ là đẩy lại con số trễ 5–8 phút. Gói tin mang thêm
+      // `date` để client chỉ áp khi đang xem đúng hôm nay + tất cả chi nhánh, và `source`
+      // để hiện nhãn nguồn số. orders_today giờ là số ĐƠN (trước đây COUNT(*) số dòng hàng).
+      const t = await kpiToday.fetchToday({ date: today });
       _wsKpiCache = {
         type: 'KPI_UPDATE',
         data: {
-          revenue_today: parseFloat(rows[0]?.revenue || 0),
-          orders_today:  parseInt(rows[0]?.orders  || 0),
-          timestamp:     new Date().toISOString(),
+          date:      today,
+          ...toKpiFields(t),
+          timestamp: new Date().toISOString(),
         },
       };
       _wsKpiLastFetch = now;

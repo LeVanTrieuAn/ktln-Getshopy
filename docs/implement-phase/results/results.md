@@ -1088,3 +1088,177 @@ Hai container chạy trên cùng một máy nên dùng chung đồng hồ. Scrip
   giây cho sự kiện đầu sau một quãng rảnh. Con số "~1 giây" trước đây chưa từng được đo và đã được
   thay trong `architecture.md`. Muốn nhanh hơn thì chỉnh `kafka_flush_interval_ms` hoặc
   `kafka_poll_timeout_ms`; chưa chỉnh.
+
+## 20. KPI "hôm nay" của dashboard đọc nhánh nóng, dự phòng bằng kho (16/11)
+
+Đến hết 15/11, các thẻ KPI của dashboard (kể cả gói WebSocket đẩy mỗi 5 s) đều đọc
+`analytics.sale_orders` của nhánh lạnh, nên số "trực tiếp" thực ra trễ 5–8 phút. Thẻ "Đơn hôm nay"
+cũng sai: view này có **một dòng cho mỗi `OrderItem`**, nên `COUNT(*)` đếm dòng hàng chứ không đếm
+đơn. Phương án "A+" được người dùng duyệt ngày 16/11:
+
+- Doanh thu hôm nay và hôm qua lấy `SUM(sub_total)` trên `realtime.orders_live FINAL`, giữ đúng quy
+  tắc trạng thái hiện hành.
+- Số đơn đếm theo đơn.
+- Khi nhánh nóng không dùng được thì quay về kho, và trả kèm `source` để giao diện hiện nhãn nguồn.
+
+Mã nằm ở `server/src/services/KpiTodayService.js`, được dùng trong `index.js` cho cả REST
+`/api/dashboard/kpis` lẫn WebSocket. Phía giao diện là `Dashboard.jsx`. Không đổi DDL nào.
+
+Mọi số dưới đây đo ngày 16/11/2026, từ 01:00 đến 01:25 giờ VN, trên production (`build_prod`
+569ea61). Trên production chỉ chạy truy vấn **chỉ đọc**; kiểm thử có ghi dữ liệu chạy trên
+ClickHouse tạm.
+
+### 20.1 Cột chi nhánh: không có trong nguồn của nhánh nóng
+
+- Bảng `Order` trong Postgres (`information_schema.columns`) gồm 16 cột: `id, customer, customer_id,
+  province, total, discount, shippingFee, subTotal, status, date, payment_method, payment_status,
+  payment_ref, paid_at, paid_amount, expires_at`. Không có cột chi nhánh, nên message CDC của
+  `Order` (nguồn của `orders_live`) cũng không có.
+- Chi nhánh chỉ có ở `OrderItem.branch_id`, mà cột này rỗng ở **6.795.760/6.795.760** dòng.
+  `masterdata.dim_branches` có 4 chi nhánh.
+- Vì vậy không thêm cột vào `orders_live`, không sửa `realtime-layer.sql` hay bootstrap. Khi có lọc
+  chi nhánh, KPI đọc kho như trước. Kho cũng trả 0 cho mọi chi nhánh vì cột rỗng; đó là hành vi
+  có từ trước.
+
+### 20.2 Đối chiếu ngữ nghĩa trên toàn lịch sử, từng ngày
+
+`orders_live` là bản sao CDC của `Order`, có đủ các cột `status`, `payment_status`, `subTotal` và
+`date`. Vì vậy áp quy tắc của dashboard lên `Order` sẽ cho đúng con số mà câu SQL trên
+`orders_live` trả về. Đem so con số đó với kho theo từng ngày giờ VN:
+
+```sql
+-- kho (ClickHouse)
+SELECT toDate(order_date,'Asia/Ho_Chi_Minh') d, sumIf(net_amount, status='CONFIRMED'),
+       uniqExactIf(order_id, status='CONFIRMED'), countIf(status='CONFIRMED')
+FROM analytics.sale_orders GROUP BY d ORDER BY d;
+-- nguồn (psql, chỉ đọc)
+SELECT (date AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Ho_Chi_Minh')::date,
+       sum("subTotal") FILTER (WHERE payment_status='PAID' OR status='CONFIRMED'),
+       count(*)        FILTER (WHERE payment_status='PAID' OR status='CONFIRMED')
+FROM "Order" GROUP BY 1 ORDER BY 1;
+```
+
+Kết quả so trên 370 ngày (23/10/2025 → 12/11/2026):
+
+- **0 ngày lệch doanh thu, 0 ngày lệch số đơn.**
+- Tổng doanh thu hai bên cùng là 68.499.919.241.040 đ, trên 2.816.534 đơn.
+- Kho có 6.381.029 dòng tính doanh thu, tức **2,27 dòng mỗi đơn**. Theo từng ngày, tỉ lệ này từ
+  1,00 đến 2,31.
+- Ví dụ ngày 22/10/2026 có 7.618 đơn, nhưng thẻ cũ sẽ hiện 17.394.
+
+### 20.3 Bảng so sánh 7 ngày gần nhất
+
+Chạy đúng câu SQL do module sinh ra (`hotTodaySql`, `warehouseTodaySql`) với từng ngày. "Số dòng"
+là con số thẻ cũ hiện, tức `COUNT(*) WHERE status='CONFIRMED'`.
+
+| Ngày (giờ VN) | Kho: doanh thu | Kho: số dòng (thẻ cũ) | Kho: số đơn | Nóng: doanh thu | Nóng: số đơn | Doanh thu hôm qua (kho = nóng) | Khớp |
+|---|---|---|---|---|---|---|---|
+| 10/11 | 7.238.640 | 2 | 2 | 7.238.640 | 2 | 0 | ✅ |
+| 11/11 | 875.000 | 5 | 5 | 875.000 | 5 | 7.238.640 | ✅ |
+| 12/11 | 19.990.000 | 3 | 3 | 19.990.000 | 3 | 875.000 | ✅ |
+| 13/11 | 0 | 0 | 0 | 0 | 0 | 19.990.000 | ✅ |
+| 14/11 | 0 | 0 | 0 | 0 | 0 | 0 | ✅ |
+| 15/11 | 0 | 0 | 0 | 0 | 0 | 0 | ✅ |
+| 16/11 (hôm nay) | 0 | 0 | 0 | 0 | 0 | 0 | ✅ |
+
+- Số đơn mọi trạng thái (mẫu số của tỷ lệ huỷ) ở hai nhánh đều là 2 / 5 / 4 / 0 / 0 / 0 / 0. Số đơn
+  `VOIDED` ở cả hai nhánh đều là 0.
+- Không ngày nào lệch vì kho chậm. Lượt dbt gần nhất có `max(_loaded_at)` = 15/11 18:01:07 UTC. Sự
+  kiện CDC mới nhất trong kho có `max(_order_event_ts)` = 13/11 17:45:24.959 UTC, đúng sự kiện đo độ
+  trễ ở §19. Như vậy mọi ngày trong bảng đều đã qua dbt.
+- Bảy ngày này rất thưa: chỉ 11 đơn, đơn nào cũng chỉ một dòng hàng. Vì thế số dòng bằng số đơn,
+  và lỗi đếm dòng chỉ lộ ra ở những ngày có đơn nhiều món (§20.2). Lúc đo, hôm nay chưa có đơn nào.
+- Với từng ngày trên, câu kiểm tra sức khoẻ (`probeCountSql`) trả `missing_in_hot = 0`; số đơn hai
+  nhánh của cửa sổ hôm qua + hôm nay bằng nhau: 2, 7, 9, 4, 0, 0, 0.
+
+### 20.4 Kiểm thử trên ClickHouse tạm
+
+Dùng image 24.8.14.39 chạy với `--network none`. DDL của `orders_live` trích nguyên từ
+`realtime-layer.sql`. Bảng chạy `SYSTEM STOP MERGES` để `FINAL` phải tự gộp: 8 dòng thô còn 4 dòng
+sau `FINAL`.
+
+Dữ liệu thử gồm năm đơn:
+
+| Đơn | Dữ liệu thử | Kỳ vọng |
+|---|---|---|
+| A | `CONFIRMED/UNPAID` rồi `SHIPPING/UNPAID` | Bản mới nhất thắng nên không tính |
+| B | 00:30 giờ VN ngày 16/11 (17:30 UTC ngày 15/11), PAID | Rơi vào hôm nay |
+| C | 23:59:59.999 giờ VN ngày 15/11, `CONFIRMED/UNPAID` | Rơi vào hôm qua |
+| D | Bản cuối có `_is_deleted = 1` | Loại |
+| E | Dòng nạp bù (epoch 0) UNPAID, sau đó sự kiện CDC PAID | Sự kiện CDC thắng |
+
+Kết quả:
+
+- Nhánh nóng: doanh thu hôm nay 6.000, hôm qua 10.000, 2 đơn, 3 đơn mọi trạng thái — đúng như tính
+  tay.
+- Kho dạng dòng hàng (B có 2 dòng, E có 3 dòng) ra cùng kết quả. Cách đếm cũ sẽ ra 5.
+- Quy tắc `paid_only`: hôm nay 6.000, hôm qua 0.
+- Thêm đơn F chỉ có ở kho thì `missing_in_hot` = 1, tức kiểm tra sức khoẻ bắt được.
+
+Quy mô: nạp 1.000.000 đơn, mỗi đơn 2 phiên bản CDC (2 triệu dòng; merge nền gộp còn khoảng 1,89
+triệu dòng ở 2 part). Với `max_threads = 4`, câu KPI nhánh nóng chạy 63–80 ms (trung bình 69 ms),
+`read_rows` 1,94 triệu, đọc 138 MiB, bộ nhớ đỉnh 28,9 MiB. Container tạm không bị giới hạn RAM 3 GiB
+như production, nên con số này chỉ cho thấy bậc độ lớn.
+
+Ngoài ra có 13 kiểm thử đơn vị cho đường chọn nguồn và các nhánh dự phòng, chạy bằng
+`node --test tests/kpi-today.test.js` (không cần dịch vụ nào): 13/13 đạt.
+
+### 20.5 Chi phí truy vấn trên production
+
+Số liệu lấy từ `system.query_log` (lọc theo `log_comment`) và `clickhouse-client --time`:
+
+| Câu | Số lần chạy | TB (ms) | Max (ms) | `read_rows` | Bộ nhớ đỉnh |
+|---|---|---|---|---|---|
+| KPI nhánh nóng (`hotTodaySql`) | 7 | 4,1 | 6 | 11 | 72 KiB |
+| KPI kho, dùng khi dự phòng (`warehouseTodaySql`) | 7 | 14,1 (trung vị 5) | 43 | 22 | 126 KiB |
+| Kiểm tra 1 (`PROBE_META_SQL`) | 1 | 17 | 17 | 6 | 58 KiB |
+| Kiểm tra 2 (`probeCountSql`) | 7 | 13,4 | 20 | 67 | 453 KiB |
+| 5 câu KPI cũ, tính mỗi câu | 5 | 5 | 6 | 4 | 66 KiB |
+
+- Nhịp chạy: một câu KPI nhánh nóng mỗi 5 s (WebSocket). Hai câu kiểm tra chạy tối đa mỗi 30 s một
+  lần. Tất cả chỉ chạy khi dashboard đang mở: REST lúc tải trang, WebSocket khi trang vẫn mở. Hiện chỉ
+  trang Dashboard mở WebSocket.
+- Bảy ngày qua chỉ có 11 đơn nên mọi con số ở bảng này rất nhỏ. Chi phí khi có tải xem §20.4.
+- Câu đơn chờ đối soát giữ như cũ, cache 5 phút. Một lần chạy câu đó, có thêm cột
+  `uniqExact(order_id)` để so, mất 2,0 s.
+
+### 20.6 Quy tắc trạng thái: số liệu cho câu hỏi còn mở
+
+Khoá luận viết rằng doanh thu "chỉ tính đơn đã thu tiền". Mapping hiện hành
+`if(payment_status='PAID','CONFIRMED',order_status)` lại tính cả đơn **chưa thu** đang ở trạng thái
+`CONFIRMED`. Đơn COD chuyển sang `SHIPPING` mà chưa thu thì rơi ra, đến khi `DELIVERED` kèm `PAID`
+mới được tính lại. Lần này chưa đổi quy tắc, chỉ gom về một chỗ là `REVENUE_RULES` / `REVENUE_RULE`.
+
+So hai quy tắc trên nhánh nóng:
+
+| Ngày (giờ VN) | Hiện hành: PAID hoặc CONFIRMED | Chỉ PAID |
+|---|---|---|
+| 16/11 (hôm nay) | 0 đ (0 đơn) | 0 đ (0 đơn) |
+| 15/11 (hôm qua) | 0 đ (0 đơn) | 0 đ (0 đơn) |
+| 12/11 | 19.990.000 đ (3 đơn) | 0 đ (0 đơn) |
+| 11/11 | 875.000 đ (5 đơn) | 50.000 đ (1 đơn) |
+| 10/11 | 7.238.640 đ (2 đơn) | 0 đ (0 đơn) |
+
+- Trên toàn lịch sử (Postgres), hai quy tắc chênh nhau đúng ở 4.001 đơn `CONFIRMED/UNPAID/COD`,
+  tổng 95.613.997.640 đ.
+- 5.617 đơn `SHIPPING/UNPAID/COD` không được tính ở cả hai quy tắc.
+- Muốn đổi sang "chỉ PAID": đặt `REVENUE_RULE = 'paid_only'`. Muốn các biểu đồ khác của dashboard
+  đổi theo thì sửa thêm mapping trong `scripts/etl/compat-sale-orders.sql`; nếu không, thẻ KPI và
+  biểu đồ sẽ lệch nhau.
+
+### 20.7 Hạn chế và việc còn mở
+
+- **Đơn chờ đối soát vẫn đếm dòng hàng.** Lúc đo, chỉ số này là 9.041 dòng, tương ứng 4.001 đơn,
+  nhưng thẻ ghi đơn vị là "hóa đơn". Chưa sửa vì nằm ngoài phạm vi A+. Chỉ số này cũng không chuyển
+  sang nhánh nóng được, vì nó đếm trên toàn lịch sử mà `orders_live` chỉ giữ 7 ngày.
+- **Tiền đã thu vẫn đọc kho.** Phiếu thu tính theo ngày thanh toán, mà đơn đặt quá 7 ngày rồi mới
+  trả đã bị TTL loại khỏi `orders_live`.
+- **Tỷ lệ huỷ luôn bằng 0** ở cả hai nhánh: `Order.status` không có giá trị `VOIDED`, chỉ có
+  CONFIRMED, SHIPPING, DELIVERED, COMPLETED và CANCELLED. Giữ nguyên nghĩa cũ.
+- **Biểu đồ theo giờ của hôm nay vẫn đọc kho**, và đường "Đơn hàng" trên đó vẫn đếm dòng hàng. Vì
+  vậy trong 5–8 phút đầu, tổng của biểu đồ có thể thấp hơn thẻ doanh thu.
+- **Gói WebSocket không xác thực** (có từ trước): ai kết nối được cổng 8080 đều nhận số doanh thu.
+- **Giao diện so ngày theo đồng hồ trình duyệt** (`dayjs()`), còn server theo `BUSINESS_TZ`. Trình
+  duyệt ở múi giờ khác thì quanh nửa đêm gói WebSocket bị bỏ qua; số từ REST vẫn đúng.
+- **Xoá cứng `Order` vẫn không phản ánh sang `orders_live`** (§19). Mã server không xoá cứng đơn.
+- **Triển khai:** chỉ cần build lại image `server` và `client`, không cần chạy lại bootstrap.
