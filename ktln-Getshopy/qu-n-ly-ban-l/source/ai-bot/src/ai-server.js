@@ -57,10 +57,12 @@ app.get('/api/health', (req, res) => {
 const searchRouter  = require('./routes/search');
 const chatbotRouter = require('./routes/chatbot');
 const speechRouter  = require('./routes/speech');
+const compareRouter = require('./routes/compare');
 
 app.use('/api', searchRouter);
 app.use('/api', chatbotRouter);
 app.use('/api', speechRouter);
+app.use('/api', compareRouter);
 
 // ─── START ───────────────────────────────────────────────────────────────────
 app.listen(PORT, '0.0.0.0', () => {

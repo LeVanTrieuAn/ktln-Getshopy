@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { message } from 'antd';
 import vi from '../i18n/vi';
 import en from '../i18n/en';
 import { api } from '../services/api';
@@ -80,6 +81,7 @@ export function AppProvider({ children }) {
   };
 
   const toggleCompare = (product) => {
+    let wasAdded = false;
     setCompareList(prev => {
       const exists = prev.find(p => p.id === product.id);
       if (exists) {
@@ -87,14 +89,17 @@ export function AppProvider({ children }) {
         localStorage.setItem('b2c_compare', JSON.stringify(next));
         return next;
       } else {
-        if (prev.length >= 3) {
-          throw new Error('Chỉ có thể so sánh tối đa 3 sản phẩm');
+        if (prev.length >= 20) {
+          message.warning('Danh sách so sánh tối đa 20 sản phẩm');
+          return prev;
         }
+        wasAdded = true;
         const next = [...prev, product];
         localStorage.setItem('b2c_compare', JSON.stringify(next));
         return next;
       }
     });
+    return wasAdded;
   };
 
   const addRecentlyViewed = (product) => {

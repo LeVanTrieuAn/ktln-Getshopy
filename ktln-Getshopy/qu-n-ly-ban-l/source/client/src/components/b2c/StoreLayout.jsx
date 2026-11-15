@@ -207,6 +207,8 @@ export default function StoreLayout() {
   const [searchImageBase64, setSearchImageBase64] = useState(null);
   const [isImageSearching, setIsImageSearching] = useState(false);
   const [imageSearchHint, setImageSearchHint] = useState('');
+  const imageSearchFailedRef = useRef(false);
+  const lastImageSearchKeyRef = useRef('');
   const searchRef = useRef(null);
   const searchInputRef = useRef(null);
   const searchImageInputRef = useRef(null);
@@ -261,6 +263,9 @@ export default function StoreLayout() {
     if (!validTypes.includes(file.type)) { message.warning('Chỉ hỗ trợ JPG, PNG, WEBP, GIF'); return; }
     try {
       const b64 = await resizeAndEncodeForSearch(file);
+      imageSearchFailedRef.current = false;
+      lastImageSearchKeyRef.current = '';
+      setIsImageSearching(true);
       setSearchImageBase64(b64);
       setSearchResults([]);
       setImageSearchHint('');
@@ -270,6 +275,8 @@ export default function StoreLayout() {
   };
 
   const clearSearchImage = () => {
+    imageSearchFailedRef.current = false;
+    lastImageSearchKeyRef.current = '';
     setSearchImageBase64(null);
     setImageSearchHint('');
     setSearchResults([]);
@@ -278,18 +285,65 @@ export default function StoreLayout() {
 
   // Debounced search
   useEffect(() => {
-    // Có ảnh → dùng smart-search-image (4 trường hợp)
+    const trimmedKeyword = searchKeyword.trim();
+
+    // Trường hợp 1: Có ảnh nhưng ảnh KHÔNG tìm kiếm được (out of context / 0 kết quả),
+    // và người dùng tiếp tục nhập chữ -> Query Database trước, nếu không có sản phẩm thì mới dùng AI Smart Search
+    if (searchImageBase64 && imageSearchFailedRef.current && trimmedKeyword) {
+      const timer = setTimeout(async () => {
+        try {
+          setIsSearching(true);
+          const results = await api.b2c.getProducts('ALL', trimmedKeyword, 'newest');
+          const top5 = (results?.data || []).slice(0, 5);
+          if (top5.length > 0) {
+            setSearchResults(top5);
+            setImageSearchHint(`Ảnh không tìm thấy sản phẩm. Đang hiển thị kết quả cho "${trimmedKeyword}"`);
+          } else {
+            setIsAiSearching(true);
+            try {
+              const aiResult = await api.ai.smartSearch(trimmedKeyword);
+              setSearchResults((aiResult?.products || []).slice(0, 5));
+              setImageSearchHint(aiResult?.hint || `Kết quả gợi ý từ AI cho "${trimmedKeyword}"`);
+            } catch (aiErr) {
+              console.warn('[SmartSearch] AI failed:', aiErr.message);
+              setSearchResults([]);
+              setImageSearchHint(`Không tìm thấy sản phẩm cho "${trimmedKeyword}"`);
+            } finally {
+              setIsAiSearching(false);
+            }
+          }
+        } catch (e) {
+          console.error(e);
+          setSearchResults([]);
+        } finally {
+          setIsSearching(false);
+        }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+
+    // Trường hợp 2: Có ảnh (lần đầu upload hoặc query kết hợp ảnh + text)
     if (searchImageBase64) {
+      const currentKey = `${searchImageBase64.slice(0, 80)}::${trimmedKeyword}`;
+      if (lastImageSearchKeyRef.current === currentKey) {
+        return;
+      }
+      lastImageSearchKeyRef.current = currentKey;
+
       const timer = setTimeout(async () => {
         try {
           setIsImageSearching(true);
           setShowSearchDropdown(true);
           const result = await api.ai.smartSearchWithImage(searchKeyword, searchImageBase64);
-          setSearchResults((result?.products || []).slice(0, 5));
+          const prods = (result?.products || []).slice(0, 5);
+          setSearchResults(prods);
           setImageSearchHint(result?.hint || '');
+          imageSearchFailedRef.current = Boolean(result?.isOutOfContext || prods.length === 0);
         } catch (e) {
           console.warn('[ImageSearch]', e.message);
           setSearchResults([]);
+          imageSearchFailedRef.current = true;
+          lastImageSearchKeyRef.current = '';
         } finally {
           setIsImageSearching(false);
         }
@@ -297,8 +351,8 @@ export default function StoreLayout() {
       return () => clearTimeout(timer);
     }
 
-    // Không có ảnh → text search thường
-    if (!searchKeyword.trim()) {
+    // Trường hợp 3: Không có ảnh → text search thường
+    if (!trimmedKeyword) {
       setSearchResults([]);
       setIsAiSearching(false);
       return;
@@ -307,14 +361,14 @@ export default function StoreLayout() {
     const timer = setTimeout(async () => {
       try {
         setIsSearching(true);
-        const results = await api.b2c.getProducts('ALL', searchKeyword, 'newest');
+        const results = await api.b2c.getProducts('ALL', trimmedKeyword, 'newest');
         const top5 = (results?.data || []).slice(0, 5);
         if (top5.length > 0) {
           setSearchResults(top5);
         } else {
           setIsAiSearching(true);
           try {
-            const aiResult = await api.ai.smartSearch(searchKeyword);
+            const aiResult = await api.ai.smartSearch(trimmedKeyword);
             setSearchResults((aiResult?.products || []).slice(0, 5));
           } catch (aiErr) {
             console.warn('[SmartSearch] AI failed:', aiErr.message);
@@ -594,9 +648,12 @@ export default function StoreLayout() {
                   size={20}
                   fontSize={12}
                   onText={(text) => {
-                    setSearchKeyword(prev => (prev.trim() ? prev.trimEnd() + ' ' : '') + text);
-                    setShowSearchDropdown(true);
-                    setTimeout(() => searchInputRef.current?.focus(), 0);
+                    const cleanText = (text || '').trim();
+                    if (cleanText) {
+                      setSearchKeyword(cleanText);
+                      setShowSearchDropdown(true);
+                      setTimeout(() => searchInputRef.current?.focus(), 0);
+                    }
                   }}
                 />
                 <button
@@ -625,9 +682,19 @@ export default function StoreLayout() {
                       {isAiSearching ? 'AI đang tìm kiếm...' : isImageSearching ? 'Phân tích ảnh...' : 'Đang tìm kiếm...'}
                     </div>
                   )}
-                  {imageSearchHint && !isImageSearching && (
+                  {imageSearchHint && !isImageSearching && searchResults.length > 0 && (
                     <div style={{ padding: '8px 16px 4px', fontSize: 11.5, color: isDark ? 'rgba(255,255,255,0.5)' : '#52525b', borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.06)' : '#f4f4f5'}`, display: 'flex', alignItems: 'center', gap: 6 }}>
                       <InfoCircleOutlined style={{ fontSize: 11, opacity: 0.6 }} /> {imageSearchHint}
+                    </div>
+                  )}
+                  {searchResults.length === 0 && !isSearching && !isAiSearching && !isImageSearching && imageSearchHint && (
+                    <div style={{ padding: '22px 16px', textAlign: 'center', color: isDark ? '#a1a1aa' : '#71717a', fontSize: 13, lineHeight: 1.5 }}>
+                      <div style={{ fontWeight: 600, marginBottom: 4, color: isDark ? '#e4e4e7' : '#3f3f46' }}>
+                        {imageSearchHint}
+                      </div>
+                      <div style={{ fontSize: 12, color: isDark ? '#71717a' : '#a1a1aa' }}>
+                        Bạn có thể nhập tên sản phẩm vào ô tìm kiếm để AI tìm giúp bạn.
+                      </div>
                     </div>
                   )}
                   {searchResults.map(prod => (
