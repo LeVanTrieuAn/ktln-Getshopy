@@ -83,7 +83,7 @@ class HybridParams:
 
 @dataclass(frozen=True)
 class LivePurchases:
-    """Phần của danh sách "đã mua" gửi lúc gọi mà bản train CHƯA biết (12/11/2026).
+    """Phần của danh sách "đã mua" và hành vi gửi lúc gọi mà bản train CHƯA biết (12/11/2026, 15/11/2026).
 
     Chỉ chứa phần MỚI: món bản train đã có thì giữ nguyên trọng số đã học. Lý do —
     server chỉ gửi mã món (không kèm ngày, số lượng), nên với món đã có trong hồ sơ
@@ -93,10 +93,11 @@ class LivePurchases:
     """
 
     cf_cols: np.ndarray   # cột ma trận HỒ SƠ (không gian món của CF) thêm vào hồ sơ khách
-    cf_weight: float      # trọng số mỗi cột thêm — CollaborativeFiltering.fresh_purchase_weight
+    cf_weight: float      # trọng số mặc định — CollaborativeFiltering.fresh_purchase_weight
     cand: np.ndarray      # chỉ số ứng viên của món mua mới -> đánh dấu đã mua
     rep: np.ndarray       # điểm kênh mua lại của từng món trong cand
     unknown: int = 0      # số mã không thuộc CF lẫn tập ứng viên — bị bỏ qua
+    cf_weights: np.ndarray | None = None  # trọng số riêng cho từng cột nếu khác nhau (hành vi)
 
     @property
     def empty(self) -> bool:
@@ -246,6 +247,123 @@ class HybridRecommender:
             unknown=unknown,
         )
 
+    def live_interactions(
+        self,
+        customer_id: str,
+        purchased_product_ids: Iterable[str] = (),
+        interactions: Iterable[object] = (),
+    ) -> LivePurchases:
+        """Tách danh sách mua và hành vi gửi lúc gọi thành phần bản train chưa biết (15/11/2026).
+
+        Kế thừa toàn bộ logic của live_purchases cho phần đơn mua, và bổ sung:
+        1. Tín hiệu hành vi trong phiên (view, cart, wish):
+           - Tính trọng số thô:
+             - view (product_view): view_weight * (min(dwell, 600) / 60) nếu dwell > 0, ngược lại view_weight
+             - cart (add_to_cart): cart_weight
+             - wish (add_to_wishlist): wish_weight
+             - purchase: 1.0 (và đánh dấu đã mua)
+           - Nếu một món có nhiều tương tác: cộng dồn trọng số thô
+           - Chuyển sang thang của model: log1p(w_raw) nếu log, ngược lại w_raw
+           - Đưa vào hồ sơ CF (cf_cols và cf_weights) để kích hoạt gợi ý các món tương quan.
+           - KHÔNG đưa vào cand loại trừ (món đã xem/bỏ giỏ vẫn được gợi ý lại).
+           - KHÔNG đưa vào kênh mua lại rep (rep chỉ dành cho đơn mua thật).
+        2. Đơn mua (purchased_product_ids):
+           - Đưa vào cf_cols với fresh_purchase_weight
+           - Đưa vào cand đánh dấu đã mua (để loại trừ nếu allow_repeat = False)
+           - Đưa vào rep (kênh mua lại)
+        """
+        cid = str(customer_id)
+        purchased_ids = [p for p in dict.fromkeys(str(x).strip() for x in purchased_product_ids) if p]
+
+        profile = self.cf.profile
+        pidx = profile._user_map.get(cid)
+        have = set(profile.mat[pidx].indices.tolist()) if pidx is not None else set()
+
+        from models.behavior import BehaviorConfig
+        beh = getattr(self.cf, "behavior", None)
+        beh = beh if isinstance(beh, BehaviorConfig) else BehaviorConfig()
+        w_view = getattr(beh, "view_weight", 0.25)
+        w_cart = getattr(beh, "cart_weight", 1.0)
+        w_wish = getattr(beh, "wish_weight", 0.5)
+
+        raw_weights: dict[str, float] = {}
+        all_purchased_ids: set[str] = set(purchased_ids)
+
+        for p in purchased_ids:
+            if p:
+                raw_weights[p] = raw_weights.get(p, 0.0) + 1.0
+
+        for item in interactions:
+            if isinstance(item, dict):
+                pid = str(item.get("product_id", "")).strip()
+                etype = str(item.get("event_type", "")).strip().lower()
+                dwell = item.get("dwell_seconds")
+            else:
+                pid = str(getattr(item, "product_id", "")).strip()
+                etype = str(getattr(item, "event_type", "")).strip().lower()
+                dwell = getattr(item, "dwell_seconds", None)
+
+            if not pid:
+                continue
+
+            if etype in ("purchase",):
+                raw_weights[pid] = raw_weights.get(pid, 0.0) + 1.0
+                all_purchased_ids.add(pid)
+            elif etype in ("cart", "add_to_cart"):
+                raw_weights[pid] = raw_weights.get(pid, 0.0) + w_cart
+            elif etype in ("wish", "add_to_wishlist", "wishlist"):
+                raw_weights[pid] = raw_weights.get(pid, 0.0) + w_wish
+            elif etype in ("view", "product_view"):
+                if dwell is not None and float(dwell) > 0:
+                    d_sec = min(float(dwell), 600.0)
+                    w_v = w_view * (d_sec / 60.0)
+                else:
+                    w_v = w_view
+                raw_weights[pid] = raw_weights.get(pid, 0.0) + w_v
+
+        scale = getattr(self.cf, "input_scale", "linear")
+        if scale is None:
+            scale = self.cf.resolved_input_scale()
+
+        cf_cols: list[int] = []
+        cf_weights: list[float] = []
+
+        for p, r_w in raw_weights.items():
+            j = profile._item_map.get(p)
+            if j is not None and j not in have:
+                scaled_w = float(np.log1p(r_w)) if scale == "log" else float(r_w)
+                cf_cols.append(j)
+                cf_weights.append(scaled_w)
+
+        known = self._trained_purchases(cid)
+        repeat = getattr(self, "repeat", None)
+        bought_space = self.cf.user_item_matrix._item_map
+        cand: list[int] = []
+        rep: list[float] = []
+        weight_purchase = self.cf.fresh_purchase_weight()
+
+        for p in all_purchased_ids:
+            i = self._pos.get(p)
+            if i is None or p in known:
+                continue
+            cand.append(i)
+            if repeat is not None:
+                rep.append(1.0)
+            else:
+                rep.append(weight_purchase if p in bought_space else 0.0)
+
+        all_seen_keys = set(raw_weights.keys())
+        unknown = sum(1 for p in all_seen_keys if p not in profile._item_map and p not in self._pos)
+
+        return LivePurchases(
+            cf_cols=np.asarray(cf_cols, dtype=np.int64),
+            cf_weight=weight_purchase,
+            cand=np.asarray(cand, dtype=np.int64),
+            rep=np.asarray(rep, dtype=np.float32),
+            unknown=unknown,
+            cf_weights=np.asarray(cf_weights, dtype=np.float32) if cf_weights else None,
+        )
+
     @staticmethod
     def _profile_vector(
         profile: SparseUserItemMatrix, pidx: int | None, live: LivePurchases | None,
@@ -260,7 +378,10 @@ class HybridRecommender:
             prow = profile.mat[pidx]
             cols, vals = prow.indices, prow.data
         if live is not None and live.cf_cols.size:
-            extra = np.full(live.cf_cols.size, live.cf_weight, dtype=np.float32)
+            if getattr(live, "cf_weights", None) is not None and live.cf_weights.size == live.cf_cols.size:
+                extra = live.cf_weights.astype(np.float32)
+            else:
+                extra = np.full(live.cf_cols.size, live.cf_weight, dtype=np.float32)
             cols = live.cf_cols if cols is None else np.concatenate([cols, live.cf_cols])
             vals = extra if vals is None else np.concatenate([vals, extra])
         return cols, vals

@@ -510,3 +510,34 @@ class CFModelService:
             " (dùng đường GET)" if live.empty else "",
         )
         return self._response(cid, items)
+
+    def recommend_realtime_behavior(
+        self,
+        customer_id: str,
+        purchased_product_ids: list[str],
+        interactions: list[object],
+        top_k: int = 10,
+    ) -> CustomerRecommendationResponse:
+        """Gợi ý có tính cả đơn mua và tương tác hành vi (view/dwell/cart/wish) trong phiên (15/11/2026).
+
+        Mở rộng từ recommend_realtime: nhận thêm danh sách interactions để ghép cả hành vi
+        vừa xảy ra vào hồ sơ khách lúc suy luận. Món chỉ xem/giỏ được ghép vào hồ sơ CF
+        với trọng số tương ứng nhưng KHÔNG bị đánh dấu đã mua (vẫn được gợi ý lại).
+        """
+        bundle = self._bundle
+        if bundle is None:
+            return CustomerRecommendationResponse(customer_id=customer_id, recommendations=[])
+
+        cid = str(customer_id)
+        live = bundle.model.live_interactions(cid, purchased_product_ids, interactions)
+        if live.empty:
+            items = self._cached_or_computed(bundle, cid, top_k)
+        else:
+            items = [(pid, reason) for pid, _, reason in bundle.model.recommend(cid, top_k=top_k, live=live)]
+        logger.debug(
+            "Realtime-Behavior khách %s: %d mã mua, %d tương tác gửi lên, %d món mới vào hồ sơ CF, "
+            "%d món mới đã mua, %d mã lạ bị bỏ qua%s.",
+            cid, len(purchased_product_ids), len(interactions), live.cf_cols.size, live.cand.size, live.unknown,
+            " (dùng đường GET)" if live.empty else "",
+        )
+        return self._response(cid, items)

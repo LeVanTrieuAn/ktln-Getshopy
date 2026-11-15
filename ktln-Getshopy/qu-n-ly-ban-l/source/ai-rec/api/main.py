@@ -13,6 +13,7 @@ from fastapi.responses import RedirectResponse
 from api.schemas import (
     CustomerRecommendationResponse,
     HealthResponse,
+    RealtimeBehaviorRecommendationRequest,
     RealtimeRecommendationRequest,
 )
 from api.service import CFModelService
@@ -151,5 +152,35 @@ def recommend_realtime(body: RealtimeRecommendationRequest) -> CustomerRecommend
         )
     except Exception as exc:
         logger.error("Error generating realtime recommendations for customer %s: %s", body.customer_id, exc)
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# 15/11/2026 — Gợi ý realtime kết hợp cả đơn mua lẫn tương tác hành vi chi tiết trong phiên
+# (view, dwell time, cart, wishlist). Nhận danh sách interactions để ghép vào hồ sơ CF
+# với trọng số tương ứng lúc suy luận, không train lại. Món chỉ xem/giỏ vẫn được gợi ý lại.
+@app.post(
+    "/api/v1/recommend/realtime-behavior",
+    response_model=CustomerRecommendationResponse,
+    tags=["Recommendations"],
+    summary="Recommend products, folding in purchases and in-session behavior interactions",
+    description=(
+        "Same hybrid as /api/v1/recommend/realtime, but accepts in-session behavior interactions "
+        "(view with dwell time, cart, wishlist) in addition to purchased product ids. "
+        "These behavior signals are folded into the customer profile at inference time with their "
+        "configured weights (view_weight=0.25, cart_weight=1.0, wish_weight=0.5) without retraining. "
+        "Viewed and carted items remain recommendable, while purchased items are masked."
+    ),
+)
+def recommend_realtime_behavior(body: RealtimeBehaviorRecommendationRequest) -> CustomerRecommendationResponse:
+    service = CFModelService.get_instance()
+    try:
+        return service.recommend_realtime_behavior(
+            customer_id=body.customer_id,
+            purchased_product_ids=body.purchased_product_ids,
+            interactions=body.interactions,
+            top_k=body.top_k,
+        )
+    except Exception as exc:
+        logger.error("Error generating realtime behavior recommendations for customer %s: %s", body.customer_id, exc)
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

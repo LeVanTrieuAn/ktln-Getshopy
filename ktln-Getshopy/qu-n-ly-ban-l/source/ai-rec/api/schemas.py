@@ -4,7 +4,52 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from config import DEFAULT_TOP_K, REALTIME_MAX_PURCHASES
+from config import DEFAULT_TOP_K, REALTIME_MAX_INTERACTIONS, REALTIME_MAX_PURCHASES
+
+
+class BehaviorInteractionItem(BaseModel):
+    """Một tương tác hành vi đơn lẻ của khách hàng trong phiên duyệt web.
+
+    Nhận mã món (product_id), loại sự kiện (view, cart, wish, purchase), và thời gian
+    nán lại trang tính bằng giây (dwell_seconds, tối đa 600s = 10 phút, chỉ cho view).
+    """
+
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+    product_id: str = Field(..., min_length=1, max_length=64, description="Mã sản phẩm (ProductID)")
+    event_type: str = Field(
+        ...,
+        description="Loại sự kiện: view | cart | wish | purchase (hoặc product_view, add_to_cart, add_to_wishlist)",
+    )
+    dwell_seconds: float | None = Field(
+        None,
+        ge=0,
+        le=600,
+        description="Thời gian nán lại trang xem sản phẩm (giây, trần 600s = 10 phút). Áp dụng cho event_type = view",
+    )
+
+
+class RealtimeBehaviorRecommendationRequest(BaseModel):
+    """Body của POST /api/v1/recommend/realtime-behavior (15/11/2026).
+
+    Nhận mã món đã mua (như /realtime) KÈM danh sách các tương tác hành vi chi tiết
+    (view kèm dwell time, cart, wishlist) phát sinh từ mốc train gần nhất đến nay.
+    """
+
+    model_config = ConfigDict(coerce_numbers_to_str=True)
+
+    customer_id: str = Field(..., min_length=1, max_length=64, description="Mã khách hàng (CustomerID)")
+    purchased_product_ids: list[str] = Field(
+        default_factory=list,
+        max_length=REALTIME_MAX_PURCHASES,
+        description="Mã các món khách đã mua tới lúc gọi (đơn thanh toán, không huỷ)",
+    )
+    interactions: list[BehaviorInteractionItem] = Field(
+        default_factory=list,
+        max_length=REALTIME_MAX_INTERACTIONS,
+        description="Danh sách tương tác hành vi gần đây trong phiên (xem, giỏ hàng, yêu thích)",
+    )
+    top_k: int = Field(DEFAULT_TOP_K, ge=1, le=50, description="Số lượng sản phẩm đề xuất tối đa")
 
 
 class RealtimeRecommendationRequest(BaseModel):

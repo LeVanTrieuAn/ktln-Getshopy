@@ -19,6 +19,7 @@
    - 4.2 [Xử lý 1 request](#42-xử-lý-1-request)
    - 4.3 [Phân luồng theo loại khách](#43-phân-luồng-theo-loại-khách)
    - 4.4 [Gợi ý realtime — đơn mua sau lần train](#44-gợi-ý-realtime--đơn-mua-sau-lần-train)
+   - 4.5 [Gợi ý realtime kết hợp hành vi trong phiên](#45-gợi-ý-realtime-kết-hợp-hành-vi-trong-phiên)
 5. [Xử lý lỗi và dự phòng](#5-xử-lý-lỗi-và-dự-phòng)
 6. [Endpoint Health](#6-endpoint-health)
 7. [Tương tác với hệ thống khác](#7-tương-tác-với-hệ-thống-khác)
@@ -378,6 +379,7 @@ def _precompute(model, top_k, budget_s):
 | `GET` | `/health` | Trạng thái service + model |
 | `GET` | `/api/v1/recommend/customer/{customer_id}?top_k=10` | Gợi ý top-K cho khách |
 | `POST` | `/api/v1/recommend/realtime` | Như GET, có ghép đơn mua sau lần train — §4.4 |
+| `POST` | `/api/v1/recommend/realtime-behavior` | Gợi ý realtime kết hợp cả đơn mua và tương tác hành vi duyệt web (view, dwell, cart, wish) — §4.5 |
 | `GET` | `/docs` | Swagger UI |
 | `GET` | `/redoc` | ReDoc UI |
 
@@ -551,6 +553,42 @@ với dbt) → POST (timeout 1,5 s) → lỗi/hết giờ thì GET cũ → lỗi
 **Hạn chế:** chỉ gửi mã món nên món đã có trong hồ sơ mà khách mua thêm hôm nay chưa được tăng
 trọng số; đơn huỷ sau lần train còn trong hồ sơ tới 22:00 (danh sách chỉ cộng, không bớt); giả
 định 1 cái/món.
+
+### 4.5 Gợi ý realtime kết hợp hành vi trong phiên (`/api/v1/recommend/realtime-behavior`)
+
+*(15/11/2026)* Mở rộng từ `/api/v1/recommend/realtime` (§4.4): ngoài các món đã mua, endpoint này nhận thêm danh sách các tương tác hành vi chi tiết (`interactions`) mà khách hàng vừa thực hiện trong phiên lướt web (xem sản phẩm kèm thời lượng dwell, thêm giỏ hàng, thả tim).
+
+**Request:**
+
+```json
+POST /api/v1/recommend/realtime-behavior
+{
+  "customer_id": "3822",
+  "purchased_product_ids": ["1043"],
+  "interactions": [
+    { "product_id": "2050", "event_type": "product_view", "dwell_seconds": 180 },
+    { "product_id": "3012", "event_type": "add_to_cart" },
+    { "product_id": "4001", "event_type": "add_to_wishlist" }
+  ],
+  "top_k": 8
+}
+```
+
+* `interactions`: Danh sách tối đa `REALTIME_MAX_INTERACTIONS` (500) tương tác.
+* `dwell_seconds`: Thời gian nán lại trang xem (giây, chặn trần 600s = 10 phút, chỉ tính cho `view`).
+
+**Quy tắc phân tách cốt lõi (Core Invariants):**
+
+| Tín hiệu | Trọng số thô | Thang mô hình | Đưa vào hồ sơ CF? | Đánh dấu đã mua (loại trừ)? | Kênh mua lại? |
+|---|---|---|:---:|:---:|:---:|
+| **Mua** (`purchased_product_ids` hoặc event `purchase`) | 1,0 | $\log(1 + 1) = 0,693$ (log) | ✅ Có | ✅ Có (loại trừ nếu `allow_repeat=False`) | ✅ Có (+1 đơn) |
+| **Xem** (`view` / `product_view`) | $w_{\text{view}} \cdot \frac{\min(\text{dwell}, 600)}{60}$ (mặc định $w_{\text{view}} = 0,25$) | $\log(1 + w_{\text{raw}})$ | ✅ Có | ❌ **Không** (vẫn được gợi ý lại) | ❌ Không |
+| **Giỏ hàng** (`cart` / `add_to_cart`) | $w_{\text{cart}} = 1,0$ | $\log(1 + 1,0) = 0,693$ | ✅ Có | ❌ **Không** (vẫn được gợi ý lại) | ❌ Không |
+| **Yêu thích** (`wish` / `add_to_wishlist`) | $w_{\text{wish}} = 0,5$ | $\log(1 + 0,5) = 0,405$ | ✅ Có | ❌ **Không** (vẫn được gợi ý lại) | ❌ Không |
+
+* **Cộng dồn:** Nếu một món vừa được xem lâu vừa được cho vào giỏ, trọng số thô được cộng dồn trước khi đưa qua hàm $\log(1 + w)$.
+* **Bảo toàn bản train:** Món nào khách đã có trong ma trận hồ sơ bản train thì giữ nguyên trọng số đã học.
+* **Cache:** Khi cả `purchased_product_ids` và `interactions` đều rỗng (hoặc chỉ chứa mã lạ ngoài catalog), service tự động dùng lại cache tính sẵn của đường GET để phản hồi tức thì.
 
 ---
 
@@ -796,7 +834,7 @@ Service được triển khai qua Docker Compose trong repo gốc (`local-infra-
 | `HYBRID_REPEAT_WEIGHT` | `1` | Trọng số kênh mua lại (γ) |
 | `HYBRID_ALLOW_REPEAT` | `1` | Cho phép gợi ý món đã mua |
 | `CF_BEHAVIOR_MODE` | `none` | `none` \| `count` \| `dwell` \| `dwell+cart` |
-| `CF_BEHAVIOR_VIEW_WEIGHT` | `0.5` | Trọng số lượt xem |
+| `CF_BEHAVIOR_VIEW_WEIGHT` | `0.25` | Trọng số lượt xem |
 | `CF_BEHAVIOR_CART_WEIGHT` | `1` | Trọng số thêm giỏ |
 | `CF_BEHAVIOR_WISH_WEIGHT` | `0.5` | Trọng số yêu thích |
 | `CB_ONBOARDING_PSEUDO_COUNT` | `1` | 1 lựa chọn onboarding = bấy nhiêu lần mua |

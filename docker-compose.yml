@@ -107,6 +107,11 @@ services:
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_USER: ${AI_REC_CH_USER:-ai_rec}
       CLICKHOUSE_PASSWORD: ${AI_REC_CH_PASSWORD:-}
+      # Tín hiệu hành vi phụ: dwell+cart (thời gian dừng DwellSec + giỏ hàng Carts + yêu thích Wishlists)
+      CF_BEHAVIOR_MODE: ${CF_BEHAVIOR_MODE:-dwell+cart}
+      CF_BEHAVIOR_VIEW_WEIGHT: ${CF_BEHAVIOR_VIEW_WEIGHT:-0.25}
+      CF_BEHAVIOR_CART_WEIGHT: ${CF_BEHAVIOR_CART_WEIGHT:-1.0}
+      CF_BEHAVIOR_WISH_WEIGHT: ${CF_BEHAVIOR_WISH_WEIGHT:-0.5}
     expose: ["8000"]
     volumes:
       - ai_data:/app/data

@@ -75,6 +75,7 @@ im lặng.
 | `GET` | `/health` | Trạng thái, số khách/món, bản train, nguồn đang dùng, lỗi gần nhất |
 | `GET` | `/api/v1/recommend/customer/{customer_id}?top_k=10` | `{customer_id, recommendations: [{product_id, reason}]}` — `reason ∈ cf, content, repeat, popular` |
 | `POST` | `/api/v1/recommend/realtime` — body `{customer_id, purchased_product_ids: [..], top_k?}` | Cùng schema với GET. Món bản train chưa biết được ghép vào hồ sơ khách lúc suy luận (không train lại); không có gì mới thì trùng hẳn GET (dùng cache) |
+| `POST` | `/api/v1/recommend/realtime-behavior` — body `{customer_id, purchased_product_ids: [..], interactions: [{product_id, event_type, dwell_seconds?}], top_k?}` | Cùng schema với GET. Ghép cả đơn mua và tương tác hành vi trong phiên (view, cart, wish) vào hồ sơ lúc suy luận. Món chỉ xem/giỏ vẫn được gợi ý lại. |
 
 **Realtime (12/11/2026).** Train chỉ chạy mỗi ngày một lần nên đơn trong ngày chưa có trong
 hồ sơ khách. Item-based CF tách được hai phần — độ tương đồng món–món học offline, hồ sơ khách
