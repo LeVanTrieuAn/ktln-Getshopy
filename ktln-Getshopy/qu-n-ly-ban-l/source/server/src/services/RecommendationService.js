@@ -28,6 +28,7 @@ const { prisma } = require('../db');
 const KC  = require('./KnowledgeCache');
 const PSC = require('./ProductSpecsCache');
 const BS  = require('./BehaviorService');
+const BI  = require('./behaviorInteractions');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AI Rec Container Integration (Collaborative Filtering via HTTP)
@@ -72,7 +73,8 @@ async function fetchAIRecRecommendations(customerId, topK = 8) {
 // biết vào hồ sơ lúc suy luận, chấm bằng ma trận tương đồng đã train — không train lại
 // (ai-rec/models/hybrid.py, live_purchases). Response cùng schema với GET.
 //
-// Giai đoạn 1 CHỈ gửi món đã mua; hành vi xem/giỏ chưa gửi (phạm vi người dùng đã duyệt).
+// Giai đoạn 1 CHỈ gửi món đã mua. Giai đoạn 2 (16/11/2026, đang chạy) gửi thêm hành vi
+// xem / thêm giỏ / yêu thích gần đây lên /realtime-behavior — xem fetchAIRecForCustomer.
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Mẫu 1.975 khách (Postgres, 12/11/2026): số món khác nhau đã mua có trung vị 83, p90 207,
@@ -86,7 +88,25 @@ const AI_REC_LIVE_PURCHASES_LIMIT = 200;
 // GET rồi rule-based — khách không thấy lỗi, chỉ thấy gợi ý chưa tính đơn hôm nay.
 // Ngoại lệ đã gặp: lần gọi ĐẦU sau lúc nhàn rỗi mất 2,6 s (máy 16 GB, nghi bộ nhớ model bị
 // đẩy ra) — khi đó POST hết giờ và GET gánh, tổng chờ tối đa 1,5 s + 3 s của GET.
+// 16/11/2026: từ giai đoạn 2 đây là ngân sách CHUNG cho cả /realtime-behavior lẫn /realtime
+// (một mốc hạn, không cộng dồn) — tổng chờ xấu nhất vẫn như giai đoạn 1.
 const AI_REC_REALTIME_TIMEOUT_MS = 1500;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Giai đoạn 2 — hành vi gần đây (16/11/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Cửa sổ / số sự kiện / ngưỡng dwell — biến môi trường AI_REC_BEHAVIOR_* (.env.example).
+// Đọc một lần lúc nạp module, như AI_REC_URL: đổi giá trị thì khởi động lại server.
+const AI_REC_BEHAVIOR = BI.readBehaviorConfig();
+
+// Đo 16/11/2026 trên production, qua HTTP từ container server (đúng hàm
+// BehaviorService.getRecentProductEventsForCustomer), 30 lần: p95 5,5 ms (cửa sổ 24 h) và
+// 6,5 ms (cửa sổ 720 h, 33 hàng). 300 ms dư gần hai bậc độ lớn, và truy vấn chạy SONG SONG
+// với truy vấn món đã mua ở Postgres nên lúc bình thường không cộng thêm độ trễ. Quá hạn
+// (ClickHouse bận vì dbt build) thì bỏ hành vi, gọi /realtime như giai đoạn 1 — mất tối đa
+// 300 ms chứ không phải 30 s mặc định của @clickhouse/client.
+const AI_REC_BEHAVIOR_QUERY_TIMEOUT_MS = 300;
 
 /**
  * Mã các món khách ĐÃ MUA THẬT, món mua gần nhất trước, tối đa `limit` món khác nhau.
@@ -126,24 +146,71 @@ async function getRecentPurchasedProductIds(customerId, limit = AI_REC_LIVE_PURC
 }
 
 /**
- * POST /api/v1/recommend/realtime. Trả mảng product_id theo thứ hạng của AI.
+ * Món khách THÊM VÀO YÊU THÍCH trong `windowHours` giờ gần nhất (Postgres "Wishlist").
+ *
+ * 16/11/2026. Lấy từ bảng Wishlist chứ không từ sự kiện add_to_wishlist trong ClickHouse:
+ * bảng giữ trạng thái HIỆN TẠI (bỏ yêu thích = xoá dòng, routes/tracking.js), còn sự kiện
+ * không ghi lượt bỏ — món đã bỏ thích không được tính là đang thích.
+ * Index: unique (customer_id, product_id) và (customer_id); EXPLAIN ANALYZE 16/11/2026 dùng
+ * Bitmap Index Scan trên unique index, 0,2 ms.
+ */
+async function getRecentWishlistRows(customerId, windowHours, limit) {
+  const rows = await prisma.wishlist.findMany({
+    where: {
+      customer_id: BigInt(customerId),
+      created_at: { gte: new Date(Date.now() - windowHours * 3600 * 1000) },
+    },
+    orderBy: { created_at: 'desc' },
+    take: limit,
+    select: { product_id: true, created_at: true },
+  });
+  return rows.map(r => ({
+    product_id: String(r.product_id),
+    event_type: 'add_to_wishlist',
+    ts: r.created_at.getTime(),
+  }));
+}
+
+/**
+ * Hành vi thô gần đây của khách: xem + thêm giỏ (ClickHouse) và yêu thích (Postgres),
+ * chạy song song. KHÔNG ném lỗi: nguồn nào lỗi thì bỏ nguồn đó và ghi cảnh báo — thiếu
+ * hành vi chỉ có nghĩa là quay về giai đoạn 1, không đáng làm hỏng cả ô gợi ý.
+ */
+async function getRecentBehaviorRows(customerId) {
+  const { windowHours, maxEvents } = AI_REC_BEHAVIOR;
+  const [events, wishes] = await Promise.allSettled([
+    BS.getRecentProductEventsForCustomer(customerId, {
+      windowHours, limit: maxEvents, timeoutMs: AI_REC_BEHAVIOR_QUERY_TIMEOUT_MS,
+    }),
+    getRecentWishlistRows(customerId, windowHours, maxEvents),
+  ]);
+  const rows = [];
+  if (events.status === 'fulfilled') rows.push(...events.value);
+  else {
+    const e = events.reason || {};
+    const why = e.name === 'AbortError' ? `quá ${AI_REC_BEHAVIOR_QUERY_TIMEOUT_MS} ms` : e.message;
+    console.warn('[RecommendationService] Không đọc được hành vi (ClickHouse), bỏ qua:', why);
+  }
+  if (wishes.status === 'fulfilled') rows.push(...wishes.value);
+  else console.warn('[RecommendationService] Không đọc được Wishlist, bỏ qua:', wishes.reason?.message);
+  return rows;
+}
+
+/**
+ * POST một endpoint realtime của AI-Rec. Trả mảng product_id theo thứ hạng của AI.
  *
  * NÉM lỗi khi HTTP lỗi hoặc hết giờ (khác fetchAIRecRecommendations trả []): bên gọi phải
  * phân biệt "AI trả lời, không có gì để gợi ý" với "AI không trả lời" — chỉ trường hợp
- * sau mới rơi về GET. Đồng hồ bao cả lúc đọc body.
+ * sau mới rơi xuống bậc dưới. Đồng hồ bao cả lúc đọc body.
  */
-async function fetchAIRecRealtime(customerId, purchasedProductIds, topK) {
+async function postAIRecRealtime(path, body, timeoutMs) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), AI_REC_REALTIME_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const response = await fetch(`${AI_REC_URL}/api/v1/recommend/realtime`, {
+    const response = await fetch(`${AI_REC_URL}${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customer_id: String(customerId),
-        purchased_product_ids: purchasedProductIds,
-        top_k: topK,
-      }),
+      body: JSON.stringify(body),
       signal: controller.signal,
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -155,25 +222,67 @@ async function fetchAIRecRealtime(customerId, purchasedProductIds, topK) {
 }
 
 /**
- * Nhánh AI cho khách đã đăng nhập. Chuỗi dự phòng:
- *   1. POST realtime kèm món đã mua (đọc Postgres)  — gợi ý tính cả đơn hôm nay
- *   2. GET cũ                                       — đọc Postgres lỗi, hoặc POST lỗi/hết giờ
- *   3. []  -> getRecommendations() lấp bằng rule-based như trước
+ * Nhánh AI cho khách đã đăng nhập. Chuỗi dự phòng (16/11/2026, giai đoạn 2):
+ *   1. POST /realtime-behavior — món đã mua + hành vi gần đây. Chỉ gọi khi CÓ hành vi
+ *      sau khi lọc (behaviorInteractions); không có thì đi thẳng bậc 2, y như giai đoạn 1.
+ *   2. POST /realtime          — chỉ món đã mua (giai đoạn 1). Bậc 1 trả HTTP lỗi (vd. ai-rec
+ *      bản cũ chưa có endpoint -> 404, body bị từ chối -> 422) thì thử bậc này.
+ *   3. GET cũ                  — đọc món đã mua lỗi, hoặc bậc 1/2 hết giờ.
+ *   4. []  -> getRecommendations() lấp bằng rule-based như trước.
+ *
+ * Ngân sách thời gian: bậc 1 và 2 dùng CHUNG một mốc hạn AI_REC_REALTIME_TIMEOUT_MS (1,5 s)
+ * tính từ lúc gọi bậc đầu tiên, không mỗi bậc 1,5 s. Bậc 1 HẾT GIỜ thì mốc đã qua nên bỏ
+ * luôn bậc 2, xuống GET: hai endpoint chạy trên cùng tiến trình và cùng model, cái này treo
+ * thì cái kia gần như chắc chắn cũng treo, còn GET đi đường cache tính sẵn. Nhờ vậy tổng
+ * chờ xấu nhất vẫn như giai đoạn 1: đọc Postgres + 1,5 s + 3 s của GET. Đọc hành vi chạy
+ * song song với đọc món đã mua và có hạn riêng 300 ms.
+ *
+ * Không có ngữ cảnh "món đang xem": ô gợi ý duy nhất gọi API này là trang chủ (Home.jsx),
+ * không gửi tham số nào — nên không có món nào cần loại khỏi kết quả.
  *
  * @returns {Promise<string[]>}
  */
 async function fetchAIRecForCustomer(customerId, topK) {
-  let purchased = null;
-  try {
-    purchased = await getRecentPurchasedProductIds(customerId);
-  } catch (err) {
-    console.warn('[RecommendationService] Không đọc được món đã mua, dùng GET AI-Rec:', err.message);
+  const behaviorOn = AI_REC_BEHAVIOR.maxEvents > 0;
+  const [purchasedRes, behaviorRes] = await Promise.allSettled([
+    getRecentPurchasedProductIds(customerId),
+    behaviorOn ? getRecentBehaviorRows(customerId) : Promise.resolve([]),
+  ]);
+
+  if (purchasedRes.status === 'rejected') {
+    console.warn('[RecommendationService] Không đọc được món đã mua, dùng GET AI-Rec:',
+      purchasedRes.reason?.message);
+    return fetchAIRecRecommendations(String(customerId), topK);
   }
-  if (purchased !== null) {
+  const purchased = purchasedRes.value;
+  const interactions = behaviorRes.status === 'fulfilled'
+    ? BI.buildBehaviorInteractions(behaviorRes.value, {
+      purchasedIds: purchased,
+      maxEvents: AI_REC_BEHAVIOR.maxEvents,
+      minDwellSeconds: AI_REC_BEHAVIOR.minDwellSeconds,
+    })
+    : [];
+
+  const body = { customer_id: String(customerId), purchased_product_ids: purchased, top_k: topK };
+  const deadline = Date.now() + AI_REC_REALTIME_TIMEOUT_MS;
+
+  if (interactions.length > 0) {
     try {
-      return await fetchAIRecRealtime(customerId, purchased, topK);
+      return await postAIRecRealtime('/api/v1/recommend/realtime-behavior',
+        { ...body, interactions }, AI_REC_REALTIME_TIMEOUT_MS);
     } catch (err) {
+      const left = deadline - Date.now();
       const why = err.name === 'AbortError' ? `quá ${AI_REC_REALTIME_TIMEOUT_MS} ms` : err.message;
+      console.warn(`[RecommendationService] AI-Rec realtime-behavior lỗi, rơi về ${left > 0 ? '/realtime' : 'GET'}:`, why);
+    }
+  }
+
+  const remaining = deadline - Date.now();
+  if (remaining > 0) {
+    try {
+      return await postAIRecRealtime('/api/v1/recommend/realtime', body, remaining);
+    } catch (err) {
+      const why = err.name === 'AbortError' ? `hết ngân sách ${AI_REC_REALTIME_TIMEOUT_MS} ms` : err.message;
       console.warn('[RecommendationService] AI-Rec realtime lỗi, rơi về GET:', why);
     }
   }
@@ -373,6 +482,7 @@ async function getRecommendations(_email = null, { categoryId, brandId, sessionI
   // AI REC CONTAINER — Collaborative Filtering (Item-CF via HTTP)
   // Gọi AI container nếu có customerId và chưa đủ 8 kết quả.
   // 12/11/2026: gửi kèm món đã mua (POST realtime), lỗi thì GET cũ — fetchAIRecForCustomer
+  // 16/11/2026: có hành vi gần đây thì gọi /realtime-behavior trước (giai đoạn 2)
   // ═══════════════════════════════════════════════════════════════════════
   if (results.length < 8 && customerId && AI_REC_URL) {
     try {
@@ -538,4 +648,6 @@ module.exports = {
   getRelatedProducts,
   getActiveFlashSaleItems,
   applyFlashSaleToProduct,
+  // Cho script kiểm tra end-to-end (chỉ đọc) gọi thẳng nhánh AI-Rec
+  _internal: { fetchAIRecForCustomer, getRecentBehaviorRows, getRecentPurchasedProductIds, AI_REC_BEHAVIOR },
 };

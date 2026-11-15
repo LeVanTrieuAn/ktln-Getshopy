@@ -86,6 +86,13 @@ thang log) rồi nhân với ma trận đã train. Món đã có giữ nguyên t
 bị bỏ qua ở CF. Chi tiết: `models/hybrid.py` (`live_purchases`), `doc/service-flow.md` §4.4;
 độ trễ đo bằng `evaluation/realtime_latency.py`.
 
+**Realtime kèm hành vi — giai đoạn 2 (đang chạy từ 16/11/2026).** Với khách đã đăng nhập, server
+Node đọc lượt xem (kèm dwell) và thêm giỏ gần đây từ ClickHouse `analytics.user_events`, món yêu
+thích từ Postgres `Wishlist` (mặc định 24 giờ, tối đa 100 sự kiện), gộp mỗi (món, loại) một mục, bỏ
+món đã mua và lượt xem dưới 5 giây, rồi gọi `/realtime-behavior`. Chuỗi dự phòng:
+`/realtime-behavior` → `/realtime` → GET → rule-based, hai bậc POST chung hạn 1,5 s. Chi tiết và số
+đo: `doc/service-flow.md` §4.5 (mục "Phía server").
+
 ## Chạy
 
 ```bash
