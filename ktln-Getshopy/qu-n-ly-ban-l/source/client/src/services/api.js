@@ -17,6 +17,8 @@ function getToken(path = '') {
     : (localStorage.getItem('token') || localStorage.getItem('b2c_token'));
 }
 
+let accountDisabledNoticeShown = false;
+
 async function request(path, options = {}) {
   const res = await fetch(`${BASE}${path}`, {
     ...options,
@@ -27,9 +29,16 @@ async function request(path, options = {}) {
     },
   });
   if (res.status === 401) {
+    const body = await res.json().catch(() => ({}));
     if (path.includes('/login')) {
-      const body = await res.json().catch(() => ({}));
       throw new Error(body.error || 'Request failed');
+    }
+    // (16/11/2026) Quản trị vô hiệu hoá tài khoản: server (authB2C) từ chối token cũ với mã
+    // ACCOUNT_DISABLED. Báo lý do MỘT lần trước khi xoá phiên — không thì khách chỉ thấy
+    // mình bị đá ra trang chủ mà không biết vì sao. Cờ chặn nhiều request song song cùng hiện.
+    if (body.code === 'ACCOUNT_DISABLED' && !accountDisabledNoticeShown) {
+      accountDisabledNoticeShown = true;
+      window.alert(body.error || 'Tài khoản đã bị vô hiệu hoá, vui lòng liên hệ cửa hàng');
     }
     localStorage.clear();
     if (path.startsWith('/b2c')) {
@@ -127,8 +136,15 @@ export const api = {
   // ─── B2B APIs ────────────────────────────────────────────────
   b2b: {
     // Phân trang ở máy chủ — trả { data, total, page, limit }
-    getCustomers: ({ page = 1, limit = 20, search = '' } = {}) =>
-      request('/b2b/customers?' + new URLSearchParams({ page, limit, search })),
+    // status: all | active | inactive (16/11/2026)
+    getCustomers: ({ page = 1, limit = 20, search = '', status = 'all' } = {}) =>
+      request('/b2b/customers?' + new URLSearchParams({ page, limit, search, status })),
+    // Quản lý khách hàng (16/11/2026). Không có xoá: "xoá" = vô hiệu hoá (setCustomerActive).
+    getCustomer: (id) => request(`/b2b/customers/${id}`),
+    addCustomer: (data) => request('/b2b/customers', { method: 'POST', body: JSON.stringify(data) }),
+    updateCustomer: (id, data) => request(`/b2b/customers/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+    setCustomerActive: (id, active) =>
+      request(`/b2b/customers/${id}/status`, { method: 'PATCH', body: JSON.stringify({ active }) }),
     getReviews: () => request('/b2b/reviews'),
     replyReview: (id, reply) => request(`/b2b/reviews/${id}/reply`, { method: 'POST', body: JSON.stringify({ reply }) }),
     

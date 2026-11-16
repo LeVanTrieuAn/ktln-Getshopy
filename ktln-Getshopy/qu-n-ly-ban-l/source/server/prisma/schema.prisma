@@ -29,6 +29,14 @@ model B2CCustomer {
   avatar         String?
   provider       String   @default("local")
   created_at     DateTime @default(now())
+  // (16/11/2026) "Xoá" khách ở trang quản trị = VÔ HIỆU HOÁ, không bao giờ xoá dòng:
+  // Order.customer_id là BigInt trần (không có FK) kèm bản chụp Json, và LoyaltyTransaction,
+  // Wishlist, ChatLog, analytics.user_events cũng trỏ tới id này — xoá dòng là để lại dữ
+  // liệu mồ côi mà không ràng buộc nào báo. false = không đăng nhập được (mật khẩu lẫn
+  // Google), token đã cấp bị authB2C từ chối, không nhận mã OTP đặt lại mật khẩu.
+  // Mặc định true nên migration giữ nguyên trạng thái mọi khách đang có.
+  is_active      Boolean   @default(true)
+  deactivated_at DateTime? // lần vô hiệu hoá gần nhất; null khi đang hoạt động
   // Trường ẢO của Prisma — không tạo cột nào trong bảng B2CCustomer.
   preference     CustomerPreference?
 }

@@ -1,8 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, Cascader, Row, Col, InputNumber, Select, Space, Upload, message, Tabs, Popconfirm, DatePicker, Slider, Tooltip, Switch, Tag } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
+import { Table, Button, Modal, Form, Input, Cascader, Row, Col, InputNumber, Select, Space, Upload, message, Tabs, Popconfirm, DatePicker, Slider, Tooltip, Switch, Tag, Checkbox, Drawer, Descriptions, Alert } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined, StopOutlined, CheckCircleOutlined, EyeOutlined } from '@ant-design/icons';
 import { api } from '../services/api';
+import { fullNameRules, phoneRules } from '../utils/validators';
 import dayjs from 'dayjs';
+
+// Trần điểm khi quản trị nhập — cùng số với LOYALTY_POINTS_MAX ở server/src/services/customerAdmin.js.
+const LOYALTY_POINTS_MAX = 1000000;
 
 const cityOptions = [
   {
@@ -62,6 +66,13 @@ export default function GeneralManagement() {
   const [customers, setCustomers] = useState([]);
   const [customerPage, setCustomerPage] = useState({ current: 1, pageSize: 20, total: 0 });
   const [customerSearch, setCustomerSearch] = useState('');
+  // Quản lý khách hàng (16/11/2026): modal thêm/sửa RIÊNG (không dùng chung modal của các tab
+  // khác — tiêu đề, nút và luật ô email khác hẳn), bộ lọc trạng thái, ngăn chi tiết.
+  const [customerStatusFilter, setCustomerStatusFilter] = useState('all');
+  const [customerModal, setCustomerModal] = useState({ open: false, editing: null });
+  const [customerSaving, setCustomerSaving] = useState(false);
+  const [customerDetail, setCustomerDetail] = useState({ open: false, loading: false, data: null });
+  const [formCustomer] = Form.useForm();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -112,12 +123,12 @@ export default function GeneralManagement() {
   }, []);
 
   // Khách hàng: cũng phân trang ở máy chủ (40.008 dòng — trước đây nạp hết một lần).
-  const loadCustomers = useCallback(async (page = 1, pageSize = 20, search = '') => {
+  const loadCustomers = useCallback(async (page = 1, pageSize = 20, search = '', status = 'all') => {
     try {
-      const res = await api.b2b.getCustomers({ page, limit: pageSize, search });
+      const res = await api.b2b.getCustomers({ page, limit: pageSize, search, status });
       setCustomers(res.data || []);
       setCustomerPage({ current: res.page || page, pageSize, total: res.total || 0 });
-    } catch (e) { console.error(e); }
+    } catch (e) { console.error(e); message.error(e.message || 'Không tải được danh sách khách hàng'); }
   }, []);
 
   const loadData = useCallback(async () => {
@@ -139,6 +150,8 @@ export default function GeneralManagement() {
       setBrands(brds);
       setCustomers(cust.data || []);
       setCustomerPage(cp => ({ ...cp, current: 1, total: cust.total || 0 }));
+      // Danh sách vừa nạp là "tất cả trạng thái" — ô lọc phải khớp với nó.
+      setCustomerStatusFilter('all');
     } catch(e) {
       console.error(e);
       message.error('Không thể tải dữ liệu');
@@ -303,6 +316,93 @@ export default function GeneralManagement() {
     }
   };
 
+  // --- Khách hàng (16/11/2026) ---
+  // Nạp lại trang đang xem, giữ ô tìm và bộ lọc trạng thái.
+  const reloadCustomers = (page = customerPage.current) =>
+    loadCustomers(page, customerPage.pageSize, customerSearch, customerStatusFilter);
+
+  // Modal luôn được render (forceRender), nên resetFields + setFieldsValue áp ngay; không dùng
+  // destroyOnHidden vì Form mount lại sẽ trộn giá trị cũ còn trong store vào initialValues.
+  const openCustomerModal = (record = null) => {
+    formCustomer.resetFields();
+    if (record) {
+      formCustomer.setFieldsValue({
+        full_name: record.full_name,
+        email: record.email,
+        phone: record.phone || '',
+        loyalty_points: record.loyalty_points ?? 0,
+      });
+    }
+    setCustomerModal({ open: true, editing: record });
+  };
+
+  const closeCustomerModal = () => setCustomerModal({ open: false, editing: null });
+
+  const handleCustomerSubmit = async (values) => {
+    const editing = customerModal.editing;
+    setCustomerSaving(true);
+    try {
+      if (editing) {
+        const payload = {
+          full_name: values.full_name,
+          phone: values.phone || '',
+          loyalty_points: values.loyalty_points ?? 0,
+        };
+        // Tài khoản có Google: server từ chối đổi email, nên không gửi ô (đang bị khoá) lên.
+        if (editing.email_editable) payload.email = values.email;
+        const res = await api.b2b.updateCustomer(editing.id, payload);
+        message.success(res?.changed === false ? 'Không có thay đổi nào' : 'Đã cập nhật khách hàng');
+        closeCustomerModal();
+        reloadCustomers();
+      } else {
+        const res = await api.b2b.addCustomer({
+          full_name: values.full_name,
+          email: values.email,
+          phone: values.phone || '',
+          loyalty_points: values.loyalty_points ?? 0,
+          send_welcome_email: !!values.send_welcome_email,
+        });
+        message.success('Đã tạo khách hàng');
+        // Tạo khách không bao giờ hỏng vì email; server báo riêng thư đã gửi được hay chưa.
+        const notice = res?.email;
+        if (notice?.sent) message.success(notice.message);
+        else if (notice && notice.code !== 'NOT_REQUESTED') message.warning({ content: notice.message, duration: 10 });
+        closeCustomerModal();
+        reloadCustomers(1);
+      }
+    } catch (e) {
+      message.error(e.message);
+    } finally {
+      setCustomerSaving(false);
+    }
+  };
+
+  const openCustomerDetail = async (id) => {
+    setCustomerDetail({ open: true, loading: true, data: null });
+    try {
+      const data = await api.b2b.getCustomer(id);
+      setCustomerDetail({ open: true, loading: false, data });
+    } catch (e) {
+      message.error(e.message);
+      setCustomerDetail({ open: false, loading: false, data: null });
+    }
+  };
+
+  // "Xoá" khách = vô hiệu hoá: không xoá dòng nào, đơn và điểm giữ nguyên, kích hoạt lại được.
+  const handleCustomerStatus = async (record, active) => {
+    try {
+      await api.b2b.setCustomerActive(record.id, active);
+      message.success(active ? `Đã kích hoạt lại tài khoản ${record.email}` : `Đã vô hiệu hoá tài khoản ${record.email}`);
+      reloadCustomers();
+      if (customerDetail.open && customerDetail.data?.id === record.id) openCustomerDetail(record.id);
+    } catch (e) {
+      message.error(e.message);
+    }
+  };
+
+  const customerEditing = customerModal.editing;
+  const customerEmailLocked = !!customerEditing && !customerEditing.email_editable;
+
   // --- Table Columns ---
   const branchColumns = [
     { title: 'ID', dataIndex: 'id', key: 'id' },
@@ -417,13 +517,77 @@ export default function GeneralManagement() {
     { title: 'Điểm tích lũy', dataIndex: 'loyalty_points', key: 'loyalty_points', render: (val) => <Tag color="gold">{Number(val || 0).toLocaleString('vi-VN')}</Tag> },
     { title: 'Đăng nhập', dataIndex: 'provider', key: 'provider' },
     { title: 'Ngày tham gia', dataIndex: 'created_at', key: 'created_at', render: (t) => dayjs(t).format('DD/MM/YYYY') },
+    {
+      title: 'Trạng thái',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (active, record) => (active
+        ? <Tag color="green">Hoạt động</Tag>
+        : (
+          <Tooltip title={record.deactivated_at ? `Vô hiệu hoá lúc ${dayjs(record.deactivated_at).format('HH:mm DD/MM/YYYY')}` : null}>
+            <Tag color="red">Đã vô hiệu hoá</Tag>
+          </Tooltip>
+        )),
+    },
+    {
+      title: 'Hành động',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="small" wrap>
+          <Button icon={<EyeOutlined />} onClick={() => openCustomerDetail(record.id)} size="small">Chi tiết</Button>
+          <Button icon={<EditOutlined />} onClick={() => openCustomerModal(record)} size="small">Sửa</Button>
+          {record.is_active ? (
+            <Popconfirm
+              title="Vô hiệu hoá tài khoản này?"
+              description="Khách sẽ không đăng nhập, đặt hàng hay đặt lại mật khẩu được. Đơn hàng và điểm vẫn giữ nguyên; có thể kích hoạt lại."
+              okText="Vô hiệu hoá"
+              okButtonProps={{ danger: true }}
+              cancelText="Hủy"
+              onConfirm={() => handleCustomerStatus(record, false)}
+            >
+              <Button icon={<StopOutlined />} danger size="small">Vô hiệu hoá</Button>
+            </Popconfirm>
+          ) : (
+            <Popconfirm
+              title="Kích hoạt lại tài khoản này?"
+              okText="Kích hoạt lại"
+              cancelText="Hủy"
+              onConfirm={() => handleCustomerStatus(record, true)}
+            >
+              <Button icon={<CheckCircleOutlined />} size="small">Kích hoạt lại</Button>
+            </Popconfirm>
+          )}
+        </Space>
+      ),
+    },
+  ];
+
+  const customerDetailItems = (c) => [
+    { key: 'id', label: 'ID', children: c.id },
+    { key: 'full_name', label: 'Họ tên', children: c.full_name },
+    { key: 'email', label: 'Email', children: c.email },
+    { key: 'phone', label: 'Số điện thoại', children: c.phone || '-' },
+    { key: 'provider', label: 'Đăng nhập bằng', children: c.provider },
+    {
+      key: 'status',
+      label: 'Trạng thái',
+      children: c.is_active
+        ? <Tag color="green">Hoạt động</Tag>
+        : <span><Tag color="red">Đã vô hiệu hoá</Tag>{c.deactivated_at ? dayjs(c.deactivated_at).format('HH:mm DD/MM/YYYY') : ''}</span>,
+    },
+    { key: 'points', label: 'Điểm tích lũy', children: Number(c.loyalty_points || 0).toLocaleString('vi-VN') },
+    { key: 'created_at', label: 'Ngày tham gia', children: dayjs(c.created_at).format('DD/MM/YYYY') },
+    { key: 'orders', label: 'Số đơn', children: Number(c.stats?.order_count || 0).toLocaleString('vi-VN') },
+    { key: 'paid', label: 'Đơn đã thanh toán', children: Number(c.stats?.paid_order_count || 0).toLocaleString('vi-VN') },
+    { key: 'spent', label: 'Đã chi tiêu', children: `${Number(c.stats?.total_spent || 0).toLocaleString('vi-VN')} đ` },
+    { key: 'last', label: 'Đơn gần nhất', children: c.stats?.last_order_date ? dayjs(c.stats.last_order_date).format('HH:mm DD/MM/YYYY') : '-' },
   ];
 
   return (
     <div style={{ padding: 24 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
         <h2>Quản lý chung</h2>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => openModal()}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => (activeTab === '5' ? openCustomerModal() : openModal())}>
           Thêm mới
         </Button>
       </div>
@@ -433,12 +597,27 @@ export default function GeneralManagement() {
         { key: '4', label: 'Thương hiệu', children: <Table dataSource={brands} columns={brandColumns} rowKey="id" loading={loading} /> },
         { key: '5', label: 'Khách hàng', children: (
           <>
-            <Input.Search
-              allowClear
-              placeholder="Tìm theo tên, email, số điện thoại hoặc ID…"
-              onSearch={(v) => { setCustomerSearch(v); loadCustomers(1, customerPage.pageSize, v); }}
-              style={{ maxWidth: 360, marginBottom: 12 }}
-            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+              <Input.Search
+                allowClear
+                placeholder="Tìm theo tên, email, số điện thoại hoặc ID…"
+                onSearch={(v) => { setCustomerSearch(v); loadCustomers(1, customerPage.pageSize, v, customerStatusFilter); }}
+                style={{ maxWidth: 360, flex: '1 1 240px' }}
+              />
+              <Select
+                value={customerStatusFilter}
+                onChange={(v) => { setCustomerStatusFilter(v); loadCustomers(1, customerPage.pageSize, customerSearch, v); }}
+                style={{ width: 200 }}
+                options={[
+                  { value: 'all', label: 'Tất cả trạng thái' },
+                  { value: 'active', label: 'Đang hoạt động' },
+                  { value: 'inactive', label: 'Đã vô hiệu hoá' },
+                ]}
+              />
+              <Button type="primary" icon={<PlusOutlined />} onClick={() => openCustomerModal()} style={{ marginLeft: 'auto' }}>
+                Thêm khách hàng
+              </Button>
+            </div>
             <Table
               dataSource={customers} columns={customerColumns} rowKey="id" loading={loading}
               scroll={{ x: 'max-content' }}
@@ -449,7 +628,7 @@ export default function GeneralManagement() {
                 showSizeChanger: true,
                 pageSizeOptions: [20, 50, 100],
                 showTotal: (t) => `${t.toLocaleString('vi-VN')} khách hàng`,
-                onChange: (pg, size) => loadCustomers(pg, size, customerSearch),
+                onChange: (pg, size) => loadCustomers(pg, size, customerSearch, customerStatusFilter),
               }}
             />
           </>
@@ -771,6 +950,93 @@ export default function GeneralManagement() {
           </Form>
         </div>
       </Modal>
+
+      {/* Thêm / sửa khách hàng (16/11/2026). Không có ô mật khẩu: server tự sinh mật khẩu ngẫu
+          nhiên, khách tự đặt mật khẩu bằng "Quên mật khẩu?" ở cửa hàng. */}
+      <Modal
+        title={customerEditing ? `Sửa khách hàng #${customerEditing.id}` : 'Thêm khách hàng'}
+        open={customerModal.open}
+        onCancel={closeCustomerModal}
+        onOk={() => formCustomer.submit()}
+        okText="Lưu"
+        cancelText="Hủy"
+        confirmLoading={customerSaving}
+        forceRender
+      >
+        <Form
+          form={formCustomer}
+          layout="vertical"
+          onFinish={handleCustomerSubmit}
+          initialValues={{ loyalty_points: 0, send_welcome_email: true }}
+        >
+          <Form.Item name="full_name" label="Họ và tên" rules={fullNameRules}>
+            <Input placeholder="VD: Nguyễn Văn An" maxLength={100} />
+          </Form.Item>
+          <Form.Item
+            name="email"
+            label="Email"
+            rules={[
+              { required: true, whitespace: true, message: 'Vui lòng nhập email' },
+              { type: 'email', message: 'Email không hợp lệ' },
+            ]}
+            extra={customerEmailLocked
+              ? 'Tài khoản đăng nhập bằng Google: email gắn với tài khoản Google nên không đổi được.'
+              : 'Khách dùng email này để đăng nhập và nhận mã đặt lại mật khẩu.'}
+          >
+            <Input type="email" placeholder="VD: an.nguyen@gmail.com" disabled={customerEmailLocked} autoComplete="off" />
+          </Form.Item>
+          <Form.Item name="phone" label="Số điện thoại (không bắt buộc)" rules={phoneRules(false)}>
+            <Input inputMode="tel" placeholder="VD: 0912345678" />
+          </Form.Item>
+          <Form.Item
+            name="loyalty_points"
+            label="Điểm tích lũy"
+            rules={[{ required: true, message: 'Vui lòng nhập điểm (0 nếu không có)' }]}
+            extra="1 điểm = 1.000 đ khi khách dùng để giảm giá. Mọi thay đổi được ghi vào sổ điểm."
+          >
+            <InputNumber min={0} max={LOYALTY_POINTS_MAX} precision={0} style={{ width: '100%' }} />
+          </Form.Item>
+          {!customerEditing && (
+            <>
+              <Form.Item name="send_welcome_email" valuePropName="checked">
+                <Checkbox>Gửi email hướng dẫn đặt mật khẩu</Checkbox>
+              </Form.Item>
+              <Alert
+                type="info"
+                showIcon
+                message='Hệ thống tự tạo mật khẩu ngẫu nhiên và không hiển thị cho ai. Khách tự đặt mật khẩu bằng "Quên mật khẩu?" ở cửa hàng.'
+              />
+            </>
+          )}
+        </Form>
+      </Modal>
+
+      <Drawer
+        title="Chi tiết khách hàng"
+        open={customerDetail.open}
+        loading={customerDetail.loading}
+        onClose={() => setCustomerDetail({ open: false, loading: false, data: null })}
+        width="min(520px, 100vw)"
+        destroyOnHidden
+        extra={customerDetail.data ? (
+          // Đóng ngăn trước: modal (forceRender) nằm ở portal tạo sớm hơn nên sẽ bị ngăn che.
+          <Button
+            icon={<EditOutlined />}
+            size="small"
+            onClick={() => {
+              const c = customerDetail.data;
+              setCustomerDetail({ open: false, loading: false, data: null });
+              openCustomerModal(c);
+            }}
+          >
+            Sửa
+          </Button>
+        ) : null}
+      >
+        {customerDetail.data && (
+          <Descriptions column={1} size="small" bordered items={customerDetailItems(customerDetail.data)} />
+        )}
+      </Drawer>
     </div>
   );
 }

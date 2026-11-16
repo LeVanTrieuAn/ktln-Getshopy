@@ -1,6 +1,7 @@
 'use strict';
 /**
- * Gửi email giao dịch qua SMTP (Nodemailer) — hiện dùng cho "Quên mật khẩu" bằng mã OTP.
+ * Gửi email giao dịch qua SMTP (Nodemailer) — hiện dùng cho "Quên mật khẩu" bằng mã OTP và
+ * (từ 16/11/2026) thư hướng dẫn đặt mật khẩu khi quản trị tạo tài khoản khách.
  *
  * (12/11/2026) Trước ngày này hệ thống KHÔNG gửi email nào: nút "Quên mật khẩu?" ở cửa
  * hàng chỉ hiện "liên hệ bộ phận hỗ trợ". Đây là chỗ DUY NHẤT nói chuyện với máy chủ
@@ -114,6 +115,12 @@ function notice(html, tone = 'neutral') {
     : { bg: C.soft, bd: C.line, fg: C.body };
   return table(`<tr><td style="background:${s.bg};border:1px solid ${s.bd};border-radius:12px;padding:14px 16px;font:400 13.5px/1.6 ${FONT};color:${s.fg}">${html}</td></tr>`, 'margin:0 0 16px');
 }
+
+/** Một bước đánh số (1, 2, 3...) trong thư hướng dẫn. */
+const step = (n, html) => `<tr>
+  <td valign="top" style="width:30px;padding:0 0 12px"><div style="width:22px;height:22px;border-radius:11px;background:${C.ink};font:700 12px/22px ${FONT};color:#ffffff;text-align:center">${n}</div></td>
+  <td style="padding:1px 0 12px;font:400 14.5px/1.6 ${FONT};color:${C.body}">${html}</td>
+</tr>`;
 
 function button(href, label) {
   return table(`<tr><td style="border-radius:10px;background:${C.ink}" bgcolor="${C.ink}">
@@ -259,10 +266,6 @@ function sendSocialLoginNotice({ to, fullName }) {
     'Nếu bạn không yêu cầu, hãy bỏ qua email này.',
   ].join('\n');
   const url = storeUrl();
-  const step = (n, html) => `<tr>
-  <td valign="top" style="width:30px;padding:0 0 12px"><div style="width:22px;height:22px;border-radius:11px;background:${C.ink};font:700 12px/22px ${FONT};color:#ffffff;text-align:center">${n}</div></td>
-  <td style="padding:1px 0 12px;font:400 14.5px/1.6 ${FONT};color:${C.body}">${html}</td>
-</tr>`;
   const html = layout({
     title: subject,
     preheader: `Tài khoản ${BRAND} của bạn đăng nhập bằng Google, không có mật khẩu cần đặt lại.`,
@@ -282,10 +285,57 @@ function sendSocialLoginNotice({ to, fullName }) {
   return send('huong-dan-dang-nhap-google', { to, subject, text, html });
 }
 
+/**
+ * (16/11/2026) Quản trị vừa tạo tài khoản cho khách ở trang Quản lý chung → Khách hàng.
+ * Thư KHÔNG chứa mật khẩu: server sinh mật khẩu ngẫu nhiên và không ai biết nó; khách tự đặt
+ * mật khẩu bằng "Quên mật khẩu?" (mã OTP gửi tới chính hộp thư này — đồng thời là bước xác
+ * minh khách sở hữu email mà quản trị đã nhập).
+ */
+function sendAccountCreated({ to, fullName }) {
+  const name = displayName(fullName);
+  const subject = `Tài khoản ${BRAND} của bạn đã được tạo`;
+  const url = storeUrl();
+  const where = url ? `cửa hàng ${BRAND} (${url})` : `cửa hàng ${BRAND}`;
+  const text = [
+    `Xin chào ${name},`,
+    '',
+    `${BRAND} vừa tạo tài khoản mua hàng cho bạn. Email đăng nhập: ${to}`,
+    '',
+    'Để bắt đầu sử dụng, hãy tự đặt mật khẩu:',
+    `  1. Mở ${where}, bấm "Đăng nhập".`,
+    `  2. Chọn "Quên mật khẩu?" và nhập email ${to}.`,
+    '  3. Nhập mã 6 chữ số gửi tới hộp thư này, rồi đặt mật khẩu mới.',
+    '',
+    `${BRAND} không gửi mật khẩu qua email và không bao giờ hỏi mật khẩu của bạn.`,
+    `Nếu bạn không đăng ký mua hàng tại ${BRAND}, hãy bỏ qua email này.`,
+  ].join('\n');
+  const html = layout({
+    title: subject,
+    preheader: `Đặt mật khẩu bằng "Quên mật khẩu?" để bắt đầu mua sắm tại ${BRAND}.`,
+    icon: '&#128075;', // 👋
+    heading: 'Tài khoản của bạn đã sẵn sàng',
+    bodyHtml: [
+      p(`Xin chào <b style="color:${C.ink}">${escapeHtml(name)}</b>, ${BRAND} vừa tạo tài khoản mua hàng cho bạn với email đăng nhập <b style="color:${C.ink}">${escapeHtml(to)}</b>.`),
+      p('Để bắt đầu sử dụng, hãy tự đặt mật khẩu:'),
+      table(
+        step(1, `Mở cửa hàng ${BRAND} và bấm <b>"Đăng nhập"</b>.`)
+        + step(2, `Chọn <b>"Quên mật khẩu?"</b> và nhập email <b>${escapeHtml(to)}</b>.`)
+        + step(3, 'Nhập mã 6 chữ số gửi tới hộp thư này, rồi đặt mật khẩu mới.'),
+        'margin:4px 0 12px',
+      ),
+      url ? button(url, `Mở ${BRAND} để đặt mật khẩu`) : '',
+      notice(`&#128274; ${BRAND} không gửi mật khẩu qua email và không bao giờ hỏi mật khẩu của bạn.`),
+      p(`Không đăng ký mua hàng tại ${BRAND}? Hãy bỏ qua email này.`, `font-size:13.5px;color:${C.sub};margin:18px 0 0`),
+    ].join('\n'),
+  });
+  return send('tai-khoan-moi-tu-quan-tri', { to, subject, text, html });
+}
+
 module.exports = {
   configError,
   sendPasswordResetOtp,
   sendPasswordChanged,
   sendSocialLoginNotice,
+  sendAccountCreated,
   setTransportForTests,
 };

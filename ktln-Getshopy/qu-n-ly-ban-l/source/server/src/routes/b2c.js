@@ -132,6 +132,7 @@ if (!JWT_SECRET) {
   throw new Error('Thiếu JWT_SECRET. Sinh bằng: openssl rand -base64 48');
 }
 const { authB2C } = require('../middleware/authB2C');
+const { MSG_ACCOUNT_DISABLED } = require('../middleware/authB2CCore');
 const { normalizePhoneVN, isValidPhoneVN, isValidEmail, isValidFullName } = require('../utils/validators');
 const { OAuth2Client } = require('google-auth-library');
 
@@ -1154,6 +1155,14 @@ router.post('/auth/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(401).json({ error: 'Email hoặc mật khẩu không chính xác' });
 
+    // (16/11/2026) Tài khoản bị quản trị vô hiệu hoá. Kiểm SAU mật khẩu: chỉ người biết đúng
+    // mật khẩu mới biết tài khoản bị khoá, người dò email không phân biệt được. 403 chứ không
+    // 401: client (services/api.js) gặp 401 ngoài đường /login là xoá phiên và chuyển trang,
+    // còn ở đây phải hiện được câu báo trong hộp đăng nhập.
+    if (user.is_active === false) {
+      return res.status(403).json({ error: MSG_ACCOUNT_DISABLED, code: 'ACCOUNT_DISABLED' });
+    }
+
     const token = jwt.sign({ id: Number(user.id), role: 'customer' }, JWT_SECRET, { expiresIn: '7d' });
     const { password_hash: _, ...userWithoutPass } = user;
     
@@ -1229,6 +1238,12 @@ router.post('/auth/social', async (req, res) => {
     const avatar = payload.picture || ('https://api.dicebear.com/7.x/avataaars/svg?seed=' + email);
 
     let user = await prisma.b2CCustomer.findUnique({ where: { email } });
+
+    // (16/11/2026) Tài khoản bị vô hiệu hoá: chặn TRƯỚC khi gộp provider / cấp token. Google đã
+    // xác minh người gọi là chủ email nên báo rõ lý do không lộ gì cho người ngoài.
+    if (user && user.is_active === false) {
+      return res.status(403).json({ error: MSG_ACCOUNT_DISABLED, code: 'ACCOUNT_DISABLED' });
+    }
 
     if (!user) {
       user = await prisma.b2CCustomer.create({

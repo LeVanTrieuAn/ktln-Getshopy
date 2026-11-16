@@ -133,3 +133,33 @@ Mục này tổng hợp kết quả đọc mã tại ngày 29/10/2026. Cột "Gh
 - Báo cáo (§7.5) đã ghi nhận việc luân chuyển khoá. Giữ nguyên.
 
 **Việc cần làm nếu sau này sửa mã:** mọi thay đổi ở Phần 3.2 ảnh hưởng tới cả hai hệ. Với hệ thương mại điện tử, đổi sang kiểm vai trò sẽ làm hỏng nút xuất dữ liệu hội thoại. Với hệ dữ liệu lớn, đóng `simulate-sale` không ảnh hưởng chuỗi CDC. Sau khi sửa, các bảng trong báo cáo (A.6, A.7, A.9, A.10, §7.4) phải được cập nhật lại cho khớp.
+
+## 7. Cập nhật 16/11/2026: quản lý khách hàng và trạng thái tài khoản
+
+Khác với các phần trên (chỉ đọc mã), phần này **đi kèm thay đổi mã nguồn** (nhánh `feat/customer-crud`). Mọi tuyến bên dưới nằm sau `requireAdmin` (cổng chung của `/api/b2b` từ 11/11/2026).
+
+### 7.1. Tuyến mới / đổi ở Bảng A.7
+
+| Phương thức | Đường dẫn | Xác thực | Chức năng |
+|---|---|---|---|
+| GET | `/api/b2b/customers` | Quản trị | (đổi) Phân trang, tìm theo tên / email / SĐT / ID, thêm lọc `status=all\|active\|inactive`; mỗi dòng có `is_active`, `deactivated_at` |
+| GET | `/api/b2b/customers/:id` | Quản trị | Chi tiết khách kèm số đơn, số đơn đã thanh toán, tổng đã chi tiêu (đơn `payment_status = 'PAID'`), ngày đơn gần nhất. Chỉ đọc |
+| POST | `/api/b2b/customers` | Quản trị | Thêm khách (`full_name`, `email`, `phone` tuỳ chọn, `loyalty_points` tuỳ chọn, `send_welcome_email`). Server tự sinh mật khẩu ngẫu nhiên, chỉ lưu bản băm bcrypt; khách tự đặt mật khẩu bằng "Quên mật khẩu?". 409 nếu email trùng (không phân biệt hoa thường) |
+| PUT | `/api/b2b/customers/:id` | Quản trị | Sửa họ tên, SĐT, điểm; email chỉ sửa được ở tài khoản thuần mật khẩu (`provider = local`), tài khoản có Google bị từ chối 400. Thay đổi điểm ghi vào sổ `LoyaltyTransaction` (`ADMIN_ADJUST`) |
+| PATCH | `/api/b2b/customers/:id/status` | Quản trị | `{ "active": false }` vô hiệu hoá, `{ "active": true }` kích hoạt lại |
+
+Không có tuyến xoá khách: `Order.customer_id` không có khoá ngoại, xoá dòng khách sẽ để lại đơn hàng, điểm và wishlist mồ côi. "Xoá" ở giao diện là vô hiệu hoá.
+
+### 7.2. Thay đổi ở phía khách (đoạn bổ sung cho §5.1.2)
+
+> Bảng `B2CCustomer` có thêm cột `is_active` (mặc định `true`) và `deactivated_at` (migration `20261116090000_add_customer_active_status`). Khi quản trị vô hiệu hoá một tài khoản, khách không đăng nhập được bằng mật khẩu lẫn Google (máy chủ trả "Tài khoản đã bị vô hiệu hoá, vui lòng liên hệ cửa hàng"), và không nhận được mã đặt lại mật khẩu (tuyến quên mật khẩu vẫn trả cùng một câu như với email không tồn tại). Vì JWT của khách có hạn 7 ngày, middleware `authB2C` kiểm thêm trạng thái tài khoản sau khi kiểm chữ ký, nên token đã cấp bị từ chối ngay ở yêu cầu kế tiếp, kể cả tuyến đặt hàng. `optionalAuthB2C` coi tài khoản bị vô hiệu hoá như khách vãng lai.
+
+Số đo (16/11/2026) dùng để chọn cách kiểm trạng thái:
+
+| Phép đo | Kết quả | Nơi đo |
+|---|---|---|
+| Tra một khách theo khoá chính | 0,05 ms (1,2 ms lần đầu) | Production, `EXPLAIN ANALYZE`, 40.010 khách |
+| Áp migration lên bảng 40.010 dòng | 6,8 ms; mọi dòng cũ đọc ra `is_active = true` | PostgreSQL 16 dựng tạm, cùng cấu trúc production |
+| Thống kê đơn của khách nhiều đơn nhất (624 đơn) | 1,9 ms | Production, `EXPLAIN ANALYZE` |
+
+Truy vấn trạng thái rẻ, nhưng tuyến ghi hành vi (`/api/b2c/track`) được gọi theo từng lô sự kiện của mọi khách đang xem trang, nên `authB2C` đệm trạng thái trong bộ nhớ 30 giây cho mỗi khách (tối đa 5.000 khách) để không chiếm kết nối cơ sở dữ liệu ở mỗi lần gọi. Tuyến vô hiệu hoá xoá mục đệm ngay trong cùng tiến trình, nên việc chặn có hiệu lực tức thì.
