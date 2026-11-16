@@ -548,7 +548,9 @@ qua FastAPI kèm body 200 mã p50 17,2 ms / p95 25,9 ms.
 
 **Phía server** (`server/src/services/RecommendationService.js`): đọc tối đa 200 món đã mua gần
 nhất (đơn `payment_status = 'PAID' AND status <> 'CANCELLED'`, sản phẩm còn bán — cùng định nghĩa
-với dbt) → POST (timeout 1,5 s) → lỗi/hết giờ thì GET cũ → lỗi nữa thì rule-based.
+với dbt) → POST (timeout 1,5 s) → lỗi/hết giờ thì GET cũ → lỗi nữa thì rule-based. Từ 16/11/2026
+(giai đoạn 2) khách có hành vi gần đây được gọi `/realtime-behavior` trước — chuỗi đầy đủ ở §4.5,
+mục "Phía server"; khách không có hành vi vẫn đi đúng đường này.
 
 **Hạn chế:** chỉ gửi mã món nên món đã có trong hồ sơ mà khách mua thêm hôm nay chưa được tăng
 trọng số; đơn huỷ sau lần train còn trong hồ sơ tới 22:00 (danh sách chỉ cộng, không bớt); giả
@@ -589,6 +591,88 @@ POST /api/v1/recommend/realtime-behavior
 * **Cộng dồn:** Nếu một món vừa được xem lâu vừa được cho vào giỏ, trọng số thô được cộng dồn trước khi đưa qua hàm $\log(1 + w)$.
 * **Bảo toàn bản train:** Món nào khách đã có trong ma trận hồ sơ bản train thì giữ nguyên trọng số đã học.
 * **Cache:** Khi cả `purchased_product_ids` và `interactions` đều rỗng (hoặc chỉ chứa mã lạ ngoài catalog), service tự động dùng lại cache tính sẵn của đường GET để phản hồi tức thì.
+
+**Phía server — giai đoạn 2, đang chạy từ 16/11/2026** (`server/src/services/RecommendationService.js`
+`fetchAIRecForCustomer`, luật gộp ở `server/src/services/behaviorInteractions.js`). Chỉ áp dụng cho
+khách đã đăng nhập (danh tính lấy từ token); khách vãng lai không đổi.
+
+| Tín hiệu | Nguồn | Vì sao nguồn này |
+|---|---|---|
+| Xem (`product_view`, kèm `dwell_time_ms`), thêm giỏ (`add_to_cart`) | ClickHouse `analytics.user_events` | Nơi duy nhất server ghi sự kiện tracking; Postgres không có bảng sự kiện, giỏ hàng nằm ở localStorage |
+| Yêu thích (`add_to_wishlist`) | Postgres `"Wishlist"` | Giữ trạng thái hiện tại (bỏ thích = xoá dòng); sự kiện trong ClickHouse không ghi lượt bỏ |
+| Đã mua | Postgres đơn PAID, không huỷ (như §4.4) | Sự kiện `purchase` trong ClickHouse có cả đơn đã huỷ — không dùng |
+
+Cửa sổ và giới hạn (biến môi trường, `.env.example` gốc): `AI_REC_BEHAVIOR_WINDOW_HOURS` (mặc định
+72 h — đổi từ 24 h ngày 16/11/2026), `AI_REC_BEHAVIOR_MAX_EVENTS` (mặc định 100 sự kiện thô mới nhất; 0 = tắt giai đoạn 2),
+`AI_REC_BEHAVIOR_MIN_DWELL_SECONDS` (mặc định 5 s). Server cũng đọc sự kiện còn nằm trong buffer
+5 giây của chính nó (chưa ghi ClickHouse), lọc trùng theo (loại, món, mốc ms).
+
+Phía client (16/11/2026): trang chủ xin gợi ý lại **mỗi lần được mở** (effect khi mount), và với khách
+đã đăng nhập thì gọi `flushTracking()` (`client/src/hooks/useTracking.js`) trước — gửi ngay sự kiện
+còn chờ trong buffer 5 giây của trình duyệt (lượt xem được ghi đúng lúc rời trang chi tiết), chờ tối
+đa 0,8 s. Không có bước này, khách xem sản phẩm rồi bấm về trang chủ sẽ nhận gợi ý chưa tính lượt xem
+vừa rồi. Cùng ngày bỏ lệnh ghi trùng `add_to_cart` / `add_to_wishlist` ở `ProductDetail.jsx`
+(CartContext / AppContext đã ghi), trước đó mỗi cú bấm thành hai sự kiện.
+
+Luật gộp trước khi gửi:
+
+1. Không gửi `purchase`, và bỏ mọi tương tác trên món đã có trong `purchased_product_ids` — gửi cả
+   hai thì trọng số mua bị cộng hai lần, lệch với thứ lượt train sẽ học khi `CF_BEHAVIOR_MODE=none`
+   (đang chạy: `/health` báo `behavior=false`).
+2. Bỏ lượt xem có `referrer = 'recommendation'`, như lúc train (`models/behavior.py`).
+3. Mỗi (món, loại) đúng một mục. Lượt xem: dwell = tổng các lượt, kẹp vào [0, 600] s. AI-Rec
+   **không tự kẹp**: một `dwell_seconds` > 600 làm cả request trả 422 (kiểm 16/11/2026). Thêm
+   giỏ/yêu thích không đếm số lần — trang chi tiết đang ghi `add_to_cart`/`add_to_wishlist` hai lần
+   cho một cú bấm (`ProductDetail.jsx` và `CartContext`/`AppContext` cùng gọi).
+4. Bỏ lượt xem có tổng dwell < 5 s, kể cả dwell trống/0. Hai lý do: (a) `live_interactions` coi
+   dwell trống **hoặc bằng 0** như lượt xem 60 s; (b) trọng số nhỏ không che được nhiễu — kênh CF
+   chuẩn hoá theo max (`_unit_max`) và với `HYBRID_CF_SHRINK_K = 0`, α = 1 ngay khi hồ sơ có 1 món,
+   nên với khách chưa có hồ sơ một lượt liếc vài giây đủ để CF đè hẳn content-based. 5 s là ngưỡng
+   kỹ thuật, **chưa tinh chỉnh trên dữ liệu** (production mới có 45 sự kiện `product_view`).
+
+Chuỗi dự phòng: có tương tác sau khi lọc → `POST /realtime-behavior`; không có → `POST /realtime`
+(y như giai đoạn 1). `/realtime-behavior` trả HTTP lỗi (404 nếu ai-rec bản cũ, 422, 500) → thử
+`/realtime`. Hai bậc POST dùng **chung một mốc hạn 1,5 s**; `/realtime-behavior` hết giờ thì bỏ
+`/realtime` (cùng tiến trình, cùng model — cái này treo thì cái kia cũng treo) và xuống GET (3 s,
+cache tính sẵn) → rule-based. Tổng chờ xấu nhất vì thế giữ như giai đoạn 1: đọc Postgres + 1,5 s +
+3 s. Đọc hành vi chạy song song với đọc món đã mua, ClickHouse có hạn riêng 300 ms; lỗi/quá hạn thì
+bỏ hành vi, gọi `/realtime`. Server không cache kết quả gợi ý (Redis hay bộ nhớ), trang chủ gọi lại
+mỗi lần mở, nên không có TTL nào che hành vi mới. Không có ngữ cảnh "món đang xem": ô gợi ý duy nhất
+gọi API là trang chủ, không gửi tham số. Kiểm chuỗi dự phòng và ngân sách: `server/tests/aiRecRealtimeChain.test.js`.
+
+Index và đo đạc (16/11/2026, giờ Việt Nam, production, chỉ đọc):
+
+- ClickHouse: bảng `ORDER BY (event_type, session_id, event_time)`, `PARTITION BY toYYYYMM(event_time)`.
+  `EXPLAIN indexes = 1` của truy vấn (cửa sổ 24 h, khách 40018) — minmax `event_time` chọn 0/4 part;
+  cửa sổ 720 h — khoá chính (`event_type`, `event_time`) chọn 1/4 granule. `customer_id` không nằm
+  trong khoá nên được lọc bằng quét trong granule còn lại; khi bảng lớn cần data-skipping index cho
+  `customer_id` (chưa thêm — đổi schema bảng dùng chung phải được duyệt). Lệnh:
+  `docker exec kltn-clickhouse-1 clickhouse-client --query "EXPLAIN indexes = 1 SELECT ..."`.
+- Postgres `Wishlist`: `EXPLAIN (ANALYZE, BUFFERS)` dùng Bitmap Index Scan trên unique index
+  `(customer_id, product_id)`, 0,2 ms (bảng đang rỗng).
+- Độ trễ qua HTTP từ container server (script nạp code mới, chạy bằng
+  `docker exec -i kltn-server-1 node - < e2e.js`), 30 lần tuần tự: truy vấn ClickHouse p50 4,4 ms /
+  p95 5,5 ms (cửa sổ 24 h) và p50 5,1 ms / p95 6,5 ms (720 h, 33 hàng). Khách 40018 (14 tương tác,
+  body 918 byte): `/realtime` p50 3,3 ms / p95 4,7 ms, `/realtime-behavior` p50 7,2 ms / p95 8,1 ms.
+
+Kết quả end-to-end trên dữ liệu thật (cùng script, top-8, 16/11/2026):
+
+| Khách | Đã mua | Tương tác gửi đi | So với `/realtime` |
+|---|---:|---:|---|
+| 40018 | 1 | 14 (cửa sổ 720 h) | Đổi 7/8 món: từ `content` sang `cf`; món vừa xem 600 s + thêm giỏ lên hạng 1 |
+| 40021 | 0 | 6 (720 h) | Đổi 7/8 món: từ `popular` sang `cf` |
+| 8 | 28 | 5 (720 h) | Trùng hẳn — AI-Rec không thấy gì mới: 2 món có mã > 600000 (nhóm 495 món thêm từ 11/11/2026, chưa có trong bản train theo ghi nhận vận hành), món còn lại cũng không thêm được gì vào hồ sơ |
+| 40016 | 0 | 4 (720 h) | Trùng hẳn (`popular`) — 2 món tương tác không nằm trong không gian món của CF nên `live_interactions` bỏ qua |
+| 40012 | 1 | 0 | Món duy nhất đã mua; món còn lại xem 3,3 s bị bỏ → gọi `/realtime` |
+
+Với cửa sổ mặc định 24 h, cả 5 khách đều có 0 tương tác (sự kiện mới nhất trong bảng lúc đo là
+14/11/2026) nên đều gọi `/realtime` — đúng như giai đoạn 1.
+
+**Hạn chế (giai đoạn 2):** client gom sự kiện 5 giây mới gửi (`useTracking.js`), nên lượt xem vừa
+rời trang chi tiết rồi quay về trang chủ (điều hướng SPA) thường chưa tới server khi trang chủ xin
+gợi ý; tương tác trên món đã có trong hồ sơ bản train bị AI-Rec bỏ qua (giữ trọng số đã học); món mới
+ngoài không gian CF không đổi được gì; món vừa xem/thêm giỏ thường lên đầu danh sách vì tự tương
+đồng với chính nó (thiết kế "vẫn được gợi ý lại" của endpoint).
 
 ---
 
@@ -785,11 +869,16 @@ response = httpx.post(
 
 **Giao thức:** REST API
 
-**Request từ Server:**
+**Request từ Server** (`RecommendationService.fetchAIRecForCustomer`, chuỗi dự phòng 16/11/2026 —
+chi tiết §4.4 và §4.5 "Phía server"):
 ```
-GET /api/v1/recommend/customer/{customer_id}?top_k=10
-Authorization: <token khách hàng>
+1. POST /api/v1/recommend/realtime-behavior   — có hành vi gần đây (giai đoạn 2)
+2. POST /api/v1/recommend/realtime            — không có hành vi, hoặc bậc 1 trả HTTP lỗi
+   (bậc 1 + 2 dùng chung hạn 1,5 s)
+3. GET  /api/v1/recommend/customer/{customer_id}?top_k=N   — bậc trên hết giờ / đọc Postgres lỗi
+4. rule-based trong server                    — AI-Rec không trả lời
 ```
+`customer_id` luôn lấy từ token của khách ở phía server, không bao giờ do client gửi.
 
 **Response:**
 ```json
@@ -803,9 +892,8 @@ Authorization: <token khách hàng>
 ```
 
 **Server Node sử dụng:**
-- Trang chủ: "Dành riêng cho bạn" (8 ô)
-- Trang sản phẩm: "Khách hàng mua cùng cũng mua"
-- Trang lịch sử đơn: "Có thể bạn muốn mua lại"
+- Trang chủ: "Dành riêng cho bạn" (8 ô) — nơi DUY NHẤT gọi `GET /api/b2c/recommendations` (kiểm mã
+  client 16/11/2026: chỉ `pages/b2c/Home.jsx`). Trang sản phẩm và lịch sử đơn chưa dùng AI-Rec.
 
 ### 7.4 Dockerfile và triển khai
 

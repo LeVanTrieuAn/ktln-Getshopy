@@ -25,6 +25,7 @@
  */
 
 const { createClient } = require('@clickhouse/client');
+const { mergeBufferedEvents } = require('./behaviorInteractions');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLICKHOUSE CLIENT (shared instance, async_insert for high throughput)
@@ -515,6 +516,86 @@ async function getPopularByBehavior(categoryId = null, limit = 8) {
 }
 
 /**
+ * Sự kiện xem / thêm giỏ gần đây của MỘT khách — đầu vào gợi ý realtime giai đoạn 2
+ * (RecommendationService -> behaviorInteractions.buildBehaviorInteractions). 16/11/2026.
+ *
+ * Trả hàng THÔ (mới nhất trước), không gộp trong SQL: luật gộp nằm ở hàm thuần để kiểm
+ * bằng node --test. 'purchase' không lấy — món đã mua đi đường purchased_product_ids
+ * (Postgres, đơn PAID), lấy cả hai là cộng hai lần.
+ *
+ * Index: bảng ORDER BY (event_type, session_id, event_time), PARTITION BY tháng. Điều kiện
+ * event_type IN (...) dùng khoá chính, event_time dùng minmax/partition để bỏ part cũ;
+ * customer_id KHÔNG nằm trong khoá nên được lọc bằng quét trong các granule còn lại (đo
+ * EXPLAIN trên production: ghi ở ai-rec/doc/service-flow.md §4.5). Bảng lớn lên thì cần
+ * data-skipping index cho customer_id — chưa thêm vì đổi schema bảng dùng chung với hệ
+ * dữ liệu phải được người dùng duyệt.
+ *
+ * Gộp thêm sự kiện CÒN TRONG BUFFER (chưa flush): server gom tối đa 5 s mới ghi ClickHouse,
+ * nên khách vừa xem xong rồi tải lại trang chủ sẽ không thấy lượt xem đó nếu chỉ đọc bảng.
+ *
+ * NÉM lỗi khi ClickHouse lỗi hoặc quá `timeoutMs`: bên gọi coi như không có hành vi và
+ * quay về giai đoạn 1. Không có timeout thì client mặc định chờ 30 s — ClickHouse treo
+ * (vd. đang chạy dbt nặng) sẽ treo luôn ô gợi ý.
+ *
+ * @param {number|string|bigint} customerId - B2CCustomer.id (từ token)
+ * @param {{windowHours:number, limit:number, timeoutMs:number}} opts
+ * @returns {Promise<Array<{product_id:string, event_type:string, dwell_time_ms:number|null, referrer:string, ts:number}>>}
+ */
+async function getRecentProductEventsForCustomer(customerId, { windowHours, limit, timeoutMs }) {
+  const cid = _int(customerId, 0, Number.MAX_SAFE_INTEGER, 0);
+  const lim = _int(limit, 1, 500, 100);
+
+  // Chụp buffer TRƯỚC khi truy vấn: sự kiện được flush trong lúc chờ ClickHouse vẫn có ở
+  // ít nhất một nơi; trùng thì mergeBufferedEvents lọc.
+  const pending = _eventBuffer
+    .filter(e => e.customer_id === cid && e.product_id
+      && (e.event_type === 'product_view' || e.event_type === 'add_to_cart'))
+    .map(e => ({
+      product_id: String(e.product_id),
+      event_type: e.event_type,
+      dwell_time_ms: e.dwell_time_ms,
+      referrer: e.referrer,
+      ts: Date.parse(e.event_time),
+    }));
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const result = await ch.query({
+      query: `
+        SELECT toString(product_id) AS product_id,
+               event_type,
+               dwell_time_ms,
+               referrer,
+               toUnixTimestamp64Milli(event_time) AS ts
+        FROM analytics.user_events
+        WHERE event_type IN ('product_view', 'add_to_cart')
+          AND customer_id = {cid:Int64}
+          AND product_id IS NOT NULL
+          AND event_time >= now64(3) - toIntervalHour({hours:UInt32})
+        ORDER BY event_time DESC
+        LIMIT {lim:UInt32}
+      `,
+      format: 'JSONEachRow',
+      query_params: { cid, hours: _int(windowHours, 1, 2160, 24), lim },
+      abort_signal: controller.signal,
+    });
+    const rows = await result.json();
+    // Int64 về dạng chuỗi trong JSON (output_format_json_quote_64bit_integers)
+    const stored = rows.map(r => ({
+      product_id: r.product_id,
+      event_type: r.event_type,
+      dwell_time_ms: r.dwell_time_ms == null ? null : Number(r.dwell_time_ms),
+      referrer: r.referrer,
+      ts: Number(r.ts),
+    }));
+    return mergeBufferedEvents(pending, stored, lim);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Kiểm tra ClickHouse connectivity & event count.
  */
 async function getStats() {
@@ -567,6 +648,7 @@ module.exports = {
   getTrendingProducts,
   getCollaborativeRecommendations,
   getPopularByBehavior,
+  getRecentProductEventsForCustomer,
   getStats,
   shutdown,
   // Expose for testing
