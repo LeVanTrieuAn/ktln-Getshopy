@@ -159,7 +159,7 @@ async function overQuota(limits) {
  */
 async function findAccountByEmail(email) {
   const rows = await prisma.$queryRaw`
-    SELECT id, email, full_name, password_hash, provider
+    SELECT id, email, full_name, password_hash, provider, is_active
     FROM "B2CCustomer"
     WHERE lower(email) = lower(${email})
     ORDER BY id
@@ -235,7 +235,11 @@ router.post('/auth/forgot-password', async (req, res) => {
     }
     await hitLimits(emailLimits);
 
-    const account = await findAccountByEmail(email);
+    // (16/11/2026) Tài khoản bị quản trị vô hiệu hoá được đối xử Y HỆT email không có tài
+    // khoản: bản ghi mồi, không gửi thư nào, cùng câu trả lời — không lộ trạng thái khoá cho
+    // người gọi API, và không cho đặt lại mật khẩu để vòng qua lệnh khoá.
+    const found = await findAccountByEmail(email);
+    const account = found && found.is_active !== false ? found : null;
     const hasPassword = Boolean(account && account.password_hash);
 
     // Mọi nhánh đều sinh mã, băm và ghi Redis như nhau (cùng thời gian xử lý); chỉ tài
@@ -336,11 +340,23 @@ router.post('/auth/reset-password', async (req, res) => {
       return res.status(400).json({ error: MSG_OTP_EXPIRED, code: 'OTP_EXPIRED' });
     }
 
+    // (16/11/2026) Mã cấp TRƯỚC khi quản trị vô hiệu hoá tài khoản, hoặc đổi email của nó sang
+    // địa chỉ khác (trang Quản lý chung → Khách hàng), thì không còn giá trị: không cho mở lại
+    // tài khoản đã khoá, và hộp thư CŨ không còn quyền đặt mật khẩu. Trả cùng câu "mã hết hạn".
+    const target = await prisma.b2CCustomer.findUnique({
+      where: { id: BigInt(record.cid) },
+      select: { email: true, is_active: true },
+    });
+    if (!target || target.is_active === false || target.email.toLowerCase() !== email.toLowerCase()) {
+      return res.status(400).json({ error: MSG_OTP_EXPIRED, code: 'OTP_EXPIRED' });
+    }
+
     const password_hash = await bcrypt.hash(newPassword, BCRYPT_COST);
     let customer;
     try {
       customer = await prisma.b2CCustomer.update({
-        where: { id: BigInt(record.cid) },
+        // is_active trong điều kiện: bị khoá đúng lúc đang băm mật khẩu thì P2025 bên dưới.
+        where: { id: BigInt(record.cid), is_active: true },
         data: { password_hash },
         select: { email: true, full_name: true },
       });

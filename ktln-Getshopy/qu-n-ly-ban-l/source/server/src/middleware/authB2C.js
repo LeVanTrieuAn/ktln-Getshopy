@@ -10,9 +10,17 @@
  * của đơn người khác.
  *
  * Quy tắc: customer_id LUÔN lấy từ token, KHÔNG BAO GIỜ từ request body.
+ *
+ * (16/11/2026) Thêm kiểm tra TRẠNG THÁI tài khoản sau chữ ký: quản trị vô hiệu hoá khách
+ * thì token cũ (sống 7 ngày) bị từ chối ngay, không phải chờ hết hạn. Logic nằm ở
+ * authB2CCore.js (kiểm thử được không cần node_modules); file này chỉ gắn jsonwebtoken và
+ * Prisma vào. Chi phí và cách đệm: services/customerStatusCache.js.
  */
 
 const jwt = require('jsonwebtoken');
+const { prisma } = require('../db');
+const { createAuthB2C } = require('./authB2CCore');
+const { createCustomerStatusCache } = require('../services/customerStatusCache');
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -25,46 +33,19 @@ if (!JWT_SECRET) {
   );
 }
 
-/** Bắt buộc đăng nhập. Gắn req.b2cUser = { id, role }. */
-function authB2C(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
+// Một bộ đệm cho cả tiến trình. routes/b2b.js gọi customerStatus.invalidate(id) khi quản trị
+// đổi trạng thái để lần gọi kế tiếp đọc lại DB ngay.
+const customerStatus = createCustomerStatusCache({
+  // Chỉ một cột, tra theo khoá chính.
+  load: (id) => prisma.b2CCustomer.findUnique({
+    where: { id: BigInt(id) },
+    select: { is_active: true },
+  }),
+});
 
-  if (!token) {
-    return res.status(401).json({ error: 'Vui lòng đăng nhập để tiếp tục' });
-  }
+const { authB2C, optionalAuthB2C } = createAuthB2C({
+  verifyToken: (token) => jwt.verify(token, JWT_SECRET),
+  statusCache: customerStatus,
+});
 
-  try {
-    const payload = jwt.verify(token, JWT_SECRET);
-    if (payload.role !== 'customer') {
-      // Token admin không được dùng thay token khách — hai không gian id khác nhau
-      // (User.id vs B2CCustomer.id), nhầm lẫn sẽ gán đơn cho sai người.
-      return res.status(403).json({ error: 'Token không hợp lệ cho khu vực khách hàng' });
-    }
-    req.b2cUser = { id: Number(payload.id), role: payload.role };
-    next();
-  } catch (err) {
-    const expired = err.name === 'TokenExpiredError';
-    return res.status(401).json({
-      error: expired ? 'Phiên đăng nhập đã hết hạn' : 'Token không hợp lệ',
-      code: expired ? 'TOKEN_EXPIRED' : 'TOKEN_INVALID',
-    });
-  }
-}
-
-/** Không bắt buộc đăng nhập, nhưng nhận diện nếu có token hợp lệ. */
-function optionalAuthB2C(req, res, next) {
-  const header = req.headers.authorization || '';
-  const token = header.startsWith('Bearer ') ? header.slice(7) : null;
-  if (token) {
-    try {
-      const payload = jwt.verify(token, JWT_SECRET);
-      if (payload.role === 'customer') {
-        req.b2cUser = { id: Number(payload.id), role: payload.role };
-      }
-    } catch { /* token hỏng thì coi như khách vãng lai */ }
-  }
-  next();
-}
-
-module.exports = { authB2C, optionalAuthB2C };
+module.exports = { authB2C, optionalAuthB2C, customerStatus };

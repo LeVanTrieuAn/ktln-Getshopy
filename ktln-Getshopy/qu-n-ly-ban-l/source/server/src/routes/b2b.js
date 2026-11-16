@@ -4,6 +4,11 @@ const { invalidate } = require('../redis');
 // Cache số đếm / thứ hạng danh sách sản phẩm của cửa hàng (routes/b2c.js, 12/11/2026):
 // xoá khi thêm/sửa/xoá sản phẩm để "N sản phẩm" và danh mục cập nhật ngay.
 const { invalidateListingCache } = require('./b2c');
+// Quản lý khách hàng (16/11/2026) — phần thuần ở services/customerAdmin.js.
+const bcrypt = require('bcryptjs');
+const customerAdmin = require('../services/customerAdmin');
+const mail = require('../services/mailService');
+const { customerStatus } = require('../middleware/authB2C');
 const router = express.Router();
 
 // Get all reviews
@@ -509,22 +514,15 @@ router.delete('/flash-sales/:id', async (req, res) => {
 // Phân trang + tìm ở máy chủ. Bản cũ trả cả bảng (40.008 khách, ~7 MB JSON, 1,5–2,5 s
 // mỗi lần mở trang Quản lý chung — đo 11/11/2026) để bảng antd tự chia trang ở client.
 // Trả { data, total, page, limit } giống /b2b/products.
+// (16/11/2026) Thêm ?status=all|active|inactive và cột is_active / deactivated_at. Đo trên
+// production cùng ngày (40.010 khách, EXPLAIN ANALYZE): count 15 ms, trang 20 dòng 16 ms.
 router.get('/customers', async (req, res) => {
   try {
     const page   = Math.max(1, Number(req.query.page) || 1);
     const limit  = Math.min(100, Math.max(1, Number(req.query.limit) || 20));
-    const search = String(req.query.search || '').trim().slice(0, 100);
-
-    const where = {};
-    if (search) {
-      const or = [
-        { full_name: { contains: search, mode: 'insensitive' } },
-        { email:     { contains: search, mode: 'insensitive' } },
-        { phone:     { contains: search } },
-      ];
-      if (/^\d+$/.test(search) && search.length <= 18) or.push({ id: BigInt(search) });
-      where.OR = or;
-    }
+    const built = customerAdmin.buildCustomerListWhere({ search: req.query.search, status: req.query.status });
+    if (!built.ok) return res.status(400).json({ error: built.error });
+    const { where } = built;
 
     const [total, customers] = await Promise.all([
       prisma.b2CCustomer.count({ where }),
@@ -533,18 +531,166 @@ router.get('/customers', async (req, res) => {
         orderBy: [{ created_at: 'desc' }, { id: 'desc' }],
         skip: (page - 1) * limit,
         take: limit,
-        select: {
-          id: true,
-          full_name: true,
-          email: true,
-          phone: true,
-          loyalty_points: true,
-          provider: true,
-          created_at: true
-        }
+        select: customerAdmin.CUSTOMER_SELECT,
       }),
     ]);
-    res.json({ data: customers.map(c => ({ ...c, id: Number(c.id) })), total, page, limit });
+    res.json({ data: customers.map(customerAdmin.toCustomerDto), total, page, limit });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── Quản lý khách hàng: thêm / sửa / vô hiệu hoá / kích hoạt lại (16/11/2026) ───
+// KHÔNG có DELETE: "xoá" khách = vô hiệu hoá (xem services/customerAdmin.js). Mọi route ở
+// đây đã qua requireAdmin (index.js gắn cho cả /api/b2b).
+
+// Cùng cost với /auth/register (routes/b2c.js) và passwordReset.js.
+const BCRYPT_COST = 10;
+const { MSG: CUSTOMER_MSG } = customerAdmin;
+
+/**
+ * Khách KHÁC đang dùng email này, so không phân biệt hoa thường (/auth/register lưu email
+ * nguyên văn nên "An@x.com" và "an@x.com" có thể cùng tồn tại). lower() = lower() là phép
+ * so bằng, không phải ILIKE: email có "_" hay "%" không bị hiểu thành ký tự đại diện.
+ * Quét tuần tự: 21 ms trên 40.010 khách (production, 16/11/2026) — chỉ chạy khi quản trị
+ * thêm / sửa email nên không đáng một index biểu thức.
+ */
+async function findEmailOwner(email, excludeId = BigInt(-1)) {
+  const rows = await prisma.$queryRaw`
+    SELECT id FROM "B2CCustomer"
+    WHERE lower(email) = lower(${email}) AND id <> ${excludeId}
+    LIMIT 1`;
+  return rows[0] || null;
+}
+
+const adminTag = (req) => `quản trị #${req.adminUser?.id ?? '?'}`;
+
+// Chi tiết + thống kê đơn (chỉ đọc). "Đã chi tiêu" = tổng đơn payment_status = 'PAID' (đã
+// thu tiền; đơn hoàn tiền chuyển sang REFUNDED nên tự rơi ra). Dùng index Order(customer_id):
+// khách nhiều đơn nhất trên production (624 đơn) tốn 1,9 ms — đo 16/11/2026.
+router.get('/customers/:id', async (req, res) => {
+  const id = customerAdmin.parseCustomerId(req.params.id);
+  if (!id) return res.status(400).json({ error: CUSTOMER_MSG.ID });
+  try {
+    const [customer, stats] = await Promise.all([
+      prisma.b2CCustomer.findUnique({ where: { id }, select: customerAdmin.CUSTOMER_SELECT }),
+      prisma.$queryRaw`
+        SELECT count(*)::int AS order_count,
+               count(*) FILTER (WHERE payment_status = 'PAID')::int AS paid_order_count,
+               COALESCE(sum(total) FILTER (WHERE payment_status = 'PAID'), 0)::bigint AS total_spent,
+               max(date) AS last_order_date
+        FROM "Order" WHERE customer_id = ${id}`,
+    ]);
+    if (!customer) return res.status(404).json({ error: CUSTOMER_MSG.NOT_FOUND });
+    res.json({ ...customerAdmin.toCustomerDto(customer), stats: customerAdmin.toOrderStats(stats[0]) });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/customers', async (req, res) => {
+  try {
+    const checked = customerAdmin.validateCreateCustomer(req.body);
+    if (!checked.ok) return res.status(400).json({ error: checked.errors[0], errors: checked.errors });
+    const v = checked.value;
+
+    if (await findEmailOwner(v.email)) {
+      return res.status(409).json({ error: CUSTOMER_MSG.DUPLICATE_EMAIL, code: 'EMAIL_TAKEN' });
+    }
+
+    // Mật khẩu ngẫu nhiên, băm xong là bỏ: không trả ra, không ghi log, không gửi email.
+    // Khách tự đặt mật khẩu bằng "Quên mật khẩu?" (OTP gửi tới chính email này).
+    const password_hash = await bcrypt.hash(customerAdmin.generateInitialPassword(), BCRYPT_COST);
+    const created = await prisma.$transaction(async (tx) => {
+      const c = await tx.b2CCustomer.create({
+        data: { ...customerAdmin.buildCreateData(v), password_hash },
+        select: customerAdmin.CUSTOMER_SELECT,
+      });
+      const adj = customerAdmin.buildLoyaltyAdjustment(c.id, v.loyalty_points);
+      if (adj) await tx.loyaltyTransaction.create({ data: adj });
+      return c;
+    });
+    const customer = customerAdmin.toCustomerDto(created);
+    console.log(`[customers] ${adminTag(req)} tạo khách #${customer.id}`);
+
+    // Lỗi SMTP không làm hỏng việc tạo khách: sendWelcomeEmail không bao giờ ném lỗi, chỉ
+    // báo lại để trang quản trị hiện "chưa gửi được email".
+    const email = await customerAdmin.sendWelcomeEmail({ mail, customer, requested: v.send_welcome_email });
+    res.status(201).json({ message: 'Đã tạo khách hàng', customer, email });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: CUSTOMER_MSG.DUPLICATE_EMAIL, code: 'EMAIL_TAKEN' });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/customers/:id', async (req, res) => {
+  const id = customerAdmin.parseCustomerId(req.params.id);
+  if (!id) return res.status(400).json({ error: CUSTOMER_MSG.ID });
+  try {
+    const existing = await prisma.b2CCustomer.findUnique({
+      where: { id },
+      select: { email: true, provider: true, loyalty_points: true },
+    });
+    if (!existing) return res.status(404).json({ error: CUSTOMER_MSG.NOT_FOUND });
+
+    const checked = customerAdmin.validateUpdateCustomer(req.body, existing);
+    if (!checked.ok) return res.status(400).json({ error: checked.errors[0], errors: checked.errors });
+    const data = checked.data;
+
+    if (data.email && await findEmailOwner(data.email, id)) {
+      return res.status(409).json({ error: CUSTOMER_MSG.DUPLICATE_EMAIL, code: 'EMAIL_TAKEN' });
+    }
+    if (Object.keys(data).length === 0) {
+      const current = await prisma.b2CCustomer.findUnique({ where: { id }, select: customerAdmin.CUSTOMER_SELECT });
+      return res.json({ message: 'Không có thay đổi nào', changed: false, customer: customerAdmin.toCustomerDto(current) });
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      let delta = 0;
+      if (data.loyalty_points !== undefined) {
+        // Khoá dòng rồi mới tính chênh lệch: checkout trừ điểm (decrement) cùng lúc thì số ghi
+        // vào sổ cái vẫn đúng bằng phần quản trị thực sự đổi.
+        const rows = await tx.$queryRaw`SELECT loyalty_points FROM "B2CCustomer" WHERE id = ${id} FOR UPDATE`;
+        if (!rows.length) throw Object.assign(new Error('not found'), { code: 'P2025' });
+        delta = data.loyalty_points - Number(rows[0].loyalty_points);
+      }
+      const c = await tx.b2CCustomer.update({ where: { id }, data, select: customerAdmin.CUSTOMER_SELECT });
+      const adj = customerAdmin.buildLoyaltyAdjustment(id, delta);
+      if (adj) await tx.loyaltyTransaction.create({ data: adj });
+      return c;
+    });
+    console.log(`[customers] ${adminTag(req)} sửa khách #${id}: ${Object.keys(data).join(', ')}`);
+    res.json({ message: 'Đã cập nhật khách hàng', changed: true, customer: customerAdmin.toCustomerDto(updated) });
+  } catch (err) {
+    if (err.code === 'P2002') return res.status(409).json({ error: CUSTOMER_MSG.DUPLICATE_EMAIL, code: 'EMAIL_TAKEN' });
+    if (err.code === 'P2025') return res.status(404).json({ error: CUSTOMER_MSG.NOT_FOUND });
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// { active: false } = vô hiệu hoá, { active: true } = kích hoạt lại. Gọi lại với trạng thái
+// đang có thì không đổi gì (giữ nguyên deactivated_at của lần vô hiệu hoá đầu).
+router.patch('/customers/:id/status', async (req, res) => {
+  const id = customerAdmin.parseCustomerId(req.params.id);
+  if (!id) return res.status(400).json({ error: CUSTOMER_MSG.ID });
+  const active = customerAdmin.parseStatusBody(req.body);
+  if (active === null) return res.status(400).json({ error: CUSTOMER_MSG.STATUS_BODY });
+  try {
+    // updateMany có điều kiện trạng thái cũ: một câu lệnh, không đọc-rồi-ghi.
+    const { count } = await prisma.b2CCustomer.updateMany({
+      where: { id, is_active: !active },
+      data: { is_active: active, deactivated_at: active ? null : new Date() },
+    });
+    // Xoá bộ đệm của authB2C NGAY: token của khách bị từ chối từ request kế tiếp.
+    customerStatus.invalidate(id);
+    const customer = await prisma.b2CCustomer.findUnique({ where: { id }, select: customerAdmin.CUSTOMER_SELECT });
+    if (!customer) return res.status(404).json({ error: CUSTOMER_MSG.NOT_FOUND });
+    if (count) console.log(`[customers] ${adminTag(req)} ${active ? 'kích hoạt lại' : 'vô hiệu hoá'} khách #${id}`);
+    res.json({
+      message: active ? 'Đã kích hoạt lại tài khoản' : 'Đã vô hiệu hoá tài khoản',
+      changed: count > 0,
+      customer: customerAdmin.toCustomerDto(customer),
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
