@@ -1432,7 +1432,10 @@ export default function ProductDetail() {
   const { addToCart, toggleSelectAll } = useCart();
   const { isDark, t, wishlist, toggleWishlist, compareList, toggleCompare, recentlyViewed, addRecentlyViewed, b2cUser, openAuthModal } = useApp();
   const navigate = useNavigate();
-  const { trackAddToCart, trackAddToWishlist, trackReviewSubmit } = useTracking();
+  // 16/11/2026: bỏ trackAddToCart/trackAddToWishlist ở trang này — CartContext.addToCart và
+  // AppContext.toggleWishlist đã ghi đúng sự kiện đó; gọi thêm ở đây làm mỗi cú bấm thành 2 sự
+  // kiện cho cùng một món, thổi phồng số giỏ/yêu thích trong dữ liệu hành vi.
+  const { trackReviewSubmit } = useTracking();
   const avgRating = product?.reviews?.length > 0 ? (product.reviews.reduce((a,c) => a + c.rating, 0) / product.reviews.length) : 0;
 
   // Auto-track product view with dwell time + scroll depth
@@ -1563,12 +1566,10 @@ export default function ProductDetail() {
   const handleAddToCart = () => {
     const pToAdd = getProductToAdd();
     addToCart(pToAdd, quantity, true);
-    trackAddToCart(product, quantity);
   };
   const handleBuyNow = () => {
     const pToAdd = getProductToAdd();
     addToCart(pToAdd, quantity, false, true);
-    trackAddToCart(product, quantity);
 
     if (!b2cUser && !localStorage.getItem('b2c_token')) {
       message.warning('Vui lòng đăng nhập để thực hiện mua hàng');
@@ -1875,11 +1876,7 @@ export default function ProductDetail() {
               <Button type="default" size="large"
                 icon={isWished ? <HeartFilled style={{ color: '#ef4444' }} /> : <HeartOutlined />}
                 onClick={() => {
-                  toggleWishlist(product);
-                  if (!isWished) {
-                    // Chỉ track khi ADD (không track khi remove)
-                    trackAddToWishlist(product, { pageSource: 'detail' });
-                  }
+                  toggleWishlist(product); // tự ghi sự kiện add_to_wishlist khi thêm
                   message.success(isWished ? 'Đã bỏ yêu thích' : 'Đã thêm vào yêu thích');
                 }}
                 style={{ height: 56, width: 56, borderRadius: 16, display: 'flex', justifyContent: 'center', alignItems: 'center', background: isDark ? 'rgba(255,255,255,0.05)' : '#fff', borderColor: isWished ? '#ef4444' : (isDark ? '#444' : '#d9d9d9') }} />

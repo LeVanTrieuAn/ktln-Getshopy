@@ -194,7 +194,7 @@ test('mergeBufferedEvents: sự kiện chưa flush đứng trước, lọc trùn
 });
 
 test('readBehaviorConfig: mặc định, đọc số, kẹp biên, giá trị rác', () => {
-  assert.deepEqual(readBehaviorConfig({}), { windowHours: 24, maxEvents: 100, minDwellSeconds: 5 });
+  assert.deepEqual(readBehaviorConfig({}), { windowHours: 72, maxEvents: 100, minDwellSeconds: 5 });
   assert.deepEqual(readBehaviorConfig({
     AI_REC_BEHAVIOR_WINDOW_HOURS: '48', AI_REC_BEHAVIOR_MAX_EVENTS: '0', AI_REC_BEHAVIOR_MIN_DWELL_SECONDS: '10',
   }), { windowHours: 48, maxEvents: 0, minDwellSeconds: 10 });
@@ -203,5 +203,5 @@ test('readBehaviorConfig: mặc định, đọc số, kẹp biên, giá trị r�
   }), { windowHours: 2160, maxEvents: 500, minDwellSeconds: 1 });
   assert.deepEqual(readBehaviorConfig({
     AI_REC_BEHAVIOR_WINDOW_HOURS: 'abc', AI_REC_BEHAVIOR_MAX_EVENTS: ' ', AI_REC_BEHAVIOR_MIN_DWELL_SECONDS: '-3',
-  }), { windowHours: 24, maxEvents: 100, minDwellSeconds: 1 });
+  }), { windowHours: 72, maxEvents: 100, minDwellSeconds: 1 });
 });

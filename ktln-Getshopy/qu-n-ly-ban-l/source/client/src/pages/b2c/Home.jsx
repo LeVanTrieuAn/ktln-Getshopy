@@ -28,6 +28,7 @@ import {
   ThunderboltOutlined
 } from '@ant-design/icons';
 import { api } from '../../services/api';
+import { flushTracking } from '../../hooks/useTracking';
 import { useCart } from '../../context/CartContext';
 import { useApp } from '../../context/AppContext';
 import { getProductImage, handleImageError } from '../../utils/categoryResolver';
@@ -147,6 +148,11 @@ export default function Home() {
     async function loadRecommendations() {
       try {
         setLoadingRec(true);
+        // 16/11/2026: mỗi lần vào trang chủ đều xin gợi ý lại, và server gửi kèm hành vi gần
+        // đây sang ai-rec (/realtime-behavior). Gửi ngay sự kiện còn chờ trong buffer (vd. lượt
+        // xem sản phẩm vừa rời) để gợi ý tính cả nó — tối đa 0,8 s, lỗi cũng không chặn.
+        if (b2cUser) await flushTracking();
+        if (ignore) return;
         const recData = await api.recommendation.get(b2cUser?.email || '');
         if (ignore) return;
         if (Array.isArray(recData) && recData.length > 0) {

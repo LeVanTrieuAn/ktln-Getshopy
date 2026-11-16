@@ -114,6 +114,20 @@ function _scheduleFlush() {
   }, FLUSH_INTERVAL_MS);
 }
 
+/**
+ * Gửi NGAY các sự kiện đang chờ, không đợi hẹn giờ 5 giây. 16/11/2026.
+ *
+ * Trang chủ gọi trước khi xin "Dành riêng cho bạn": khách xem sản phẩm rồi bấm về trang chủ
+ * thì lượt xem chỉ vừa được ghi vào buffer (lúc trang chi tiết unmount) — không gửi trước,
+ * server gợi ý mà không biết khách vừa xem gì. Server gộp cả buffer 5 s của chính nó nên sự
+ * kiện vừa tới được tính ngay. Chờ tối đa `timeoutMs`: gửi chậm/lỗi thì vẫn xin gợi ý.
+ */
+export async function flushTracking(timeoutMs = 800) {
+  if (_flushTimer) { clearTimeout(_flushTimer); _flushTimer = null; }
+  if (_buffer.length === 0) return;
+  await Promise.race([_flushEvents(), new Promise(r => setTimeout(r, timeoutMs))]);
+}
+
 // Gửi nốt buffer khi trang bị ẩn hoặc đóng.
 //
 // fetch keepalive thay cho sendBeacon: sendBeacon KHÔNG gửi được header

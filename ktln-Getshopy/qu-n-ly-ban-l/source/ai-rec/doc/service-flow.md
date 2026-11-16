@@ -603,9 +603,16 @@ khách đã đăng nhập (danh tính lấy từ token); khách vãng lai không
 | Đã mua | Postgres đơn PAID, không huỷ (như §4.4) | Sự kiện `purchase` trong ClickHouse có cả đơn đã huỷ — không dùng |
 
 Cửa sổ và giới hạn (biến môi trường, `.env.example` gốc): `AI_REC_BEHAVIOR_WINDOW_HOURS` (mặc định
-24 h), `AI_REC_BEHAVIOR_MAX_EVENTS` (mặc định 100 sự kiện thô mới nhất; 0 = tắt giai đoạn 2),
+72 h — đổi từ 24 h ngày 16/11/2026), `AI_REC_BEHAVIOR_MAX_EVENTS` (mặc định 100 sự kiện thô mới nhất; 0 = tắt giai đoạn 2),
 `AI_REC_BEHAVIOR_MIN_DWELL_SECONDS` (mặc định 5 s). Server cũng đọc sự kiện còn nằm trong buffer
 5 giây của chính nó (chưa ghi ClickHouse), lọc trùng theo (loại, món, mốc ms).
+
+Phía client (16/11/2026): trang chủ xin gợi ý lại **mỗi lần được mở** (effect khi mount), và với khách
+đã đăng nhập thì gọi `flushTracking()` (`client/src/hooks/useTracking.js`) trước — gửi ngay sự kiện
+còn chờ trong buffer 5 giây của trình duyệt (lượt xem được ghi đúng lúc rời trang chi tiết), chờ tối
+đa 0,8 s. Không có bước này, khách xem sản phẩm rồi bấm về trang chủ sẽ nhận gợi ý chưa tính lượt xem
+vừa rồi. Cùng ngày bỏ lệnh ghi trùng `add_to_cart` / `add_to_wishlist` ở `ProductDetail.jsx`
+(CartContext / AppContext đã ghi), trước đó mỗi cú bấm thành hai sự kiện.
 
 Luật gộp trước khi gửi:
 

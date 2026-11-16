@@ -37,7 +37,9 @@ const EV_WISH = 'add_to_wishlist';
 const SENT_TYPES = new Set([EV_VIEW, EV_CART, EV_WISH]);
 
 // Mặc định cho các biến môi trường (xem .env.example, mục "AI-Rec realtime giai đoạn 2").
-const DEFAULT_WINDOW_HOURS = 24;
+// 72 h (16/11/2026, người dùng duyệt): 24 h thì khách quay lại sau 1–2 ngày mất hết hành vi —
+// lượt train hằng ngày chạy CF_BEHAVIOR_MODE=none nên hành vi ngoài cửa sổ không được dùng ở đâu cả.
+const DEFAULT_WINDOW_HOURS = 72;
 const DEFAULT_MAX_EVENTS = 100;
 const DEFAULT_MIN_DWELL_SECONDS = 5;
 
