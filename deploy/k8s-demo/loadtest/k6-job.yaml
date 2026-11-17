@@ -1,0 +1,103 @@
+# Tải thử ngắn (≤ 2 phút) để HPA thấy CPU tăng. demo.ps1 bước "hpa" áp file này; KHÔNG nằm
+# trong manifests/ để `kubectl apply -f manifests/` không vô tình bắn tải.
+#
+# k6 chạy NGAY TRONG cluster (Job), gọi Service qua DNS nội bộ — tải đi thẳng qua kube-proxy,
+# không vòng qua bộ chuyển cổng của Docker Desktop trên Windows.
+#
+# Endpoint: GET /api/b2c/categories — chỉ đọc, kết quả nằm trong cache bộ nhớ của từng pod
+# (cached(..., 300 s) ở routes/b2c.js): mỗi pod hỏi Postgres production ~1 lần / 5 phút, phần
+# còn lại là CPU của Node (định tuyến, serialize JSON) — đúng thứ HPA đo. KHÔNG dùng
+# /api/products (cũ): route đó trả toàn bộ catalog ~600k sản phẩm mỗi lần gọi.
+#
+# Image grafana/k6:1.8.2 (~37 MB, bản 1.x bảo trì, phát hành 12/10/2026) — cần kéo về:
+#   docker pull grafana/k6:1.8.2      (hoặc để kubelet tự kéo lúc chạy, cần mạng)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-script
+  namespace: getshopy-demo
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo
+data:
+  load.js: |
+    import http from 'k6/http';
+    import { check } from 'k6';
+
+    const TARGET = __ENV.TARGET;
+    const RATE = parseInt(__ENV.RATE || '1000', 10);
+    const HOLD = __ENV.HOLD || '75s';
+
+    export const options = {
+      // Mỗi request một kết nối TCP mới. Service chia theo KẾT NỐI: giữ keep-alive thì kết nối
+      // cũ dính pod cũ, pod HPA vừa thêm không nhận được tải nào.
+      noConnectionReuse: true,
+      discardResponseBodies: true,
+      scenarios: {
+        load: {
+          // Cố định số request/giây (không phụ thuộc độ trễ): 15 s tăng dần, giữ HOLD, 10 s giảm.
+          executor: 'ramping-arrival-rate',
+          startRate: Math.max(1, Math.floor(RATE / 10)),
+          timeUnit: '1s',
+          preAllocatedVUs: 50,
+          maxVUs: 300,
+          stages: [
+            { target: RATE, duration: '15s' },
+            { target: RATE, duration: HOLD },
+            { target: 0, duration: '10s' },
+          ],
+        },
+      },
+      summaryTrendStats: ['avg', 'med', 'p(95)', 'p(99)', 'max'],
+    };
+
+    export default function () {
+      // Rate limit của server là 2000 request/phút/IP, lưu trong bộ nhớ từng pod. Mọi request
+      // từ pod k6 chung một IP -> phần lớn sẽ là 429. Server tin X-Forwarded-For từ IP mạng
+      // riêng (trust proxy ở index.js), nên mỗi request mang một IP giả trong 198.18.0.0/15 —
+      // dải RFC 2544 dành riêng cho đo kiểm — để mô phỏng nhiều khách khác nhau.
+      const ip = `198.18.${Math.floor(Math.random() * 256)}.${1 + Math.floor(Math.random() * 254)}`;
+      const res = http.get(TARGET, { headers: { 'X-Forwarded-For': ip } });
+      check(res, { 'status 200': (r) => r.status === 200 });
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load
+  namespace: getshopy-demo
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo
+spec:
+  backoffLimit: 0
+  ttlSecondsAfterFinished: 900
+  template:
+    metadata:
+      labels:
+        app: k6-load
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: k6
+          image: grafana/k6:1.8.2
+          imagePullPolicy: IfNotPresent
+          args: ["run", "--quiet", "/scripts/load.js"]
+          env:
+            - {name: TARGET, value: "http://server.getshopy-demo.svc.cluster.local:30080/api/b2c/categories"}
+            # demo.ps1 -LoadRps / -LoadHoldSeconds thay hai giá trị dưới trước khi apply.
+            - {name: RATE, value: "1000"}
+            - {name: HOLD, value: "75s"}
+          resources:
+            requests:
+              cpu: 500m
+              memory: 128Mi
+            # Trần cho chính k6 để bộ sinh tải không giành hết CPU của máy ảo đang chạy production.
+            limits:
+              cpu: "2"
+              memory: 512Mi
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+      volumes:
+        - name: script
+          configMap:
+            name: k6-script

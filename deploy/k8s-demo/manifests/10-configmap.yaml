@@ -1,0 +1,22 @@
+# Biến môi trường KHÔNG bí mật, riêng cho demo. Phần lấy từ .env (DATABASE_URL, JWT_SECRET...)
+# nằm trong Secret "server-env" do make-secret.ps1 sinh — không commit.
+#
+# Cố ý KHÔNG có REDIS_URL, AI_REC_URL, AI_BOT_URL: Redis / ai-rec / ai-bot của production
+# không publish cổng ra host, và demo không mở thêm đường nào tới chúng (xem README, mục
+# "Redis / ai-rec / ai-bot"). Server tự lùi về cache trong bộ nhớ và gợi ý theo luật.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-config
+  namespace: getshopy-demo
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo
+data:
+  PORT: "8080"
+  # Bật header X-Served-By (src/middleware/servedBy.js) — production không đặt biến này.
+  SERVED_BY_HEADER: "1"
+  # Pod gọi ra máy host qua host.docker.internal; ClickHouse production publish 0.0.0.0:8123.
+  # Đổi CLICKHOUSE_HTTP_PORT trong .env thì sửa cổng ở đây (make-secret.ps1 sẽ cảnh báo).
+  CLICKHOUSE_HOST: "http://host.docker.internal:8123"
+  # Heap V8 dưới mức limit 512Mi của container: để Node tự GC sớm thay vì bị kernel OOM-kill.
+  NODE_OPTIONS: "--max-old-space-size=320"

@@ -1,0 +1,44 @@
+# HorizontalPodAutoscaler — tự thêm / bớt pod theo CPU trung bình (cần metrics-server,
+# xem ../metrics-server/).
+#
+#   số pod mong muốn = ceil(số pod hiện tại x CPU trung bình / 60%)   (kẹp trong [2, 4])
+#
+# CPU tính theo requests.cpu của Deployment (250m): vượt 150m trung bình mỗi pod là tăng.
+# max 4: máy ảo Docker có 9 GB RAM và đang chạy cả production; 4 x 512Mi limit là trần.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: server
+  namespace: getshopy-demo
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: server
+  minReplicas: 2
+  maxReplicas: 4
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 60
+  behavior:
+    scaleUp:
+      # Tăng ngay khi vượt ngưỡng, tối đa +2 pod mỗi 15 s (mặc định cũng nhanh như vậy).
+      stabilizationWindowSeconds: 0
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 15
+    scaleDown:
+      # Mặc định HPA chờ 5 phút mới giảm. Rút xuống 60 s để buổi demo thấy được cả chiều
+      # giảm; bớt từng pod một mỗi 30 s. Production nên giữ cửa sổ dài để khỏi dao động.
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 30

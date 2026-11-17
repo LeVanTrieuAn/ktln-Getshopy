@@ -40,6 +40,11 @@ const app = express();
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 // Không quảng cáo "X-Powered-By: Express" ra Internet (gian hàng đang public qua Funnel).
 app.disable('x-powered-by');
+// 17/11/2026: header X-Served-By (tên pod) cho demo Kubernetes ở deploy/k8s-demo — để thấy
+// request nào do pod nào trả lời. Chỉ bật khi SERVED_BY_HEADER=1; compose không đặt biến này
+// nên production không đổi. Gắn trước rate limiter để cả response 429 cũng mang header.
+const servedBy = require('./middleware/servedBy').createServedBy();
+if (servedBy) app.use(servedBy);
 const server = http.createServer(app);
 
 // Lỗi 5xx trên API của gian hàng (/api/b2c, /api/ai — hai nhánh duy nhất gateway

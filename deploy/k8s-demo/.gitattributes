@@ -1,0 +1,2 @@
+# Bản vendor giữ nguyên byte như upstream (LF) để đối chiếu sha256 ghi trong kustomization.yaml
+metrics-server/components-*.yaml text eol=lf
