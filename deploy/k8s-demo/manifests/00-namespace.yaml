@@ -1,0 +1,9 @@
+# Namespace riêng cho demo: teardown = `kubectl delete namespace getshopy-demo` xoá sạch
+# Deployment, Service, HPA, ConfigMap, Secret, Job k6 một lần. Không đụng gì tới production
+# (Docker Compose, project "kltn").
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: getshopy-demo
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo

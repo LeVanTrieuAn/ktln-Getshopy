@@ -1,0 +1,29 @@
+# Service type LoadBalancer — "bộ cân bằng tải" của demo.
+#
+# Docker Desktop gắn Service LoadBalancer ra máy host ở cổng `port` (status hiện
+# hostname: localhost). Trong cluster, kube-proxy chia KẾT NỐI TCP (L4) ngẫu nhiên giữa các
+# pod Ready của selector — chia theo kết nối chứ không theo request, nên client giữ
+# keep-alive sẽ dính một pod (demo.ps1 tắt keep-alive vì vậy).
+#
+# 30080: không trùng cổng nào đang dùng trên máy (3000, 3001, 5432, 8000, 8080, 8083, 8085,
+# 8123, 9000-9001, 9010, 9092, 4443, 18000, 18081, 18090 — kiểm 17/11/2026).
+# LƯU Ý: Docker Desktop có thể mở cổng này trên MỌI địa chỉ của máy (0.0.0.0), không chỉ
+# localhost — demo.ps1 in ra địa chỉ thật sau khi apply. Chỉ chạy demo trên mạng tin cậy và
+# teardown ngay sau đó (README, mục Giới hạn).
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  namespace: getshopy-demo
+  labels:
+    app.kubernetes.io/name: server
+    app.kubernetes.io/part-of: getshopy-demo
+spec:
+  type: LoadBalancer
+  selector:
+    app: server
+  ports:
+    - name: http
+      port: 30080
+      targetPort: http
+      protocol: TCP

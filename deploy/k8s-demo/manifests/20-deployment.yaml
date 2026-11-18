@@ -1,0 +1,98 @@
+# Deployment "server" — tầng ứng dụng (Express API) chạy thành nhiều pod giống hệt nhau.
+# Tầng dữ liệu (Postgres, ClickHouse) vẫn là container Compose của production; pod gọi tới
+# qua host.docker.internal.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: getshopy-demo
+  labels:
+    app.kubernetes.io/name: server
+    app.kubernetes.io/part-of: getshopy-demo
+spec:
+  # Khởi đầu 2 pod = minReplicas của HPA. Từ lúc HPA chạy, HPA quyết định số pod; demo.ps1
+  # chỉ apply file này MỘT lần (rollout restart chỉ vá annotation, không đặt lại replicas).
+  replicas: 2
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: server
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      # Thêm 1 pod mới, đợi nó Ready rồi mới bỏ 1 pod cũ: không lúc nào ít hơn số pod mong muốn.
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: server
+        app.kubernetes.io/part-of: getshopy-demo
+    spec:
+      # Không bơm biến SERVER_PORT=tcp://... của Service vào env (dễ đè nhầm biến của app).
+      enableServiceLinks: false
+      # Node là PID 1 và server chưa bắt SIGTERM, nên pod cũ cứ phục vụ tới hết thời hạn này
+      # rồi mới bị SIGKILL. Endpoint đã gỡ pod ngay khi nó chuyển Terminating, nên request mới
+      # không tới nó nữa; 15 s đủ cho request đang dở, và rollout không phải chờ 30 s mặc định.
+      terminationGracePeriodSeconds: 15
+      containers:
+        - name: server
+          # Image build từ nhánh này (có header X-Served-By), tag riêng để KHÔNG ghi đè
+          # kltn-server:latest mà Compose production dùng. demo.ps1 -Image đổi được tag.
+          image: kltn-server:k8s-demo
+          # Dùng image có sẵn trong Docker Desktop (cluster kubeadm dùng chung image store
+          # với Docker Engine) — không có registry nào để pull.
+          imagePullPolicy: Never
+          # BỎ QUA docker-entrypoint.sh: entrypoint chạy migrate deploy, DROP/CREATE TRIGGER
+          # trên bảng Inventory và seed-demo.js — mỗi lần pod khởi động (tự phục hồi, scale,
+          # rolling update) là một lần ghi vào DB production, có khi 4 pod cùng lúc. Schema
+          # đã do container server của Compose áp; pod demo chỉ chạy server.
+          command: ["node", "src/index.js"]
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: server-config
+            - secretRef:
+                name: server-env
+          env:
+            # Downward API: tên pod -> header X-Served-By.
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          resources:
+            # requests.cpu là mẫu số của HPA (60% x 250m = 150m trung bình mỗi pod). Server lúc
+            # rảnh dùng vài millicore (container production: ~0% CPU, 68 MiB lúc đo 17/11/2026),
+            # nên chỉ tải thật mới vượt ngưỡng. 4 pod tối đa cũng chỉ giữ chỗ 1 CPU / 16.
+            requests:
+              cpu: 250m
+              memory: 192Mi
+            # Node.js chủ yếu chạy một luồng: hơn 1 CPU cũng không dùng hết. 512Mi đủ chỗ cho
+            # heap 320 MB (NODE_OPTIONS) + bộ đệm; 4 pod x 512Mi = 2 GiB là trần xấu nhất.
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          # /api/health ping ClickHouse: pod chưa nối được tầng dữ liệu thì chưa nhận request.
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Cùng endpoint nhưng nới tay (6 x 10 s = 1 phút): health phụ thuộc ClickHouse, siết
+          # chặt thì ClickHouse chậm một lúc là mọi pod cùng bị restart. Bản production nên có
+          # endpoint liveness riêng không phụ thuộc dịch vụ ngoài.
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          securityContext:
+            allowPrivilegeEscalation: false

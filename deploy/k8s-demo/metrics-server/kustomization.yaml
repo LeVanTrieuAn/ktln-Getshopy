@@ -1,0 +1,30 @@
+# metrics-server cho HPA — áp bằng:  kubectl apply -k deploy/k8s-demo/metrics-server
+#
+# components-v0.8.1.yaml là bản GỐC, không sửa một byte, tải ngày 17/11/2026 từ
+#   https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.1/components.yaml
+#   sha256 4a672c4891902573a3ff753cece5de1bf1f55dd053403dfec39df9d1636b7ff1
+# (.gitattributes ở thư mục cha giữ file ở LF để sha256 vẫn khớp sau khi checkout trên Windows.)
+#
+# Chọn 0.8.x chứ không phải 0.9.x mới nhất: theo bảng tương thích trong README của
+# metrics-server, 0.9.x chỉ hỗ trợ Kubernetes 1.34+, còn 0.8.x hỗ trợ 1.31+ — chạy được cả khi
+# Docker Desktop dựng phiên bản Kubernetes cũ hơn. Hai bản chỉ khác dòng image.
+#
+# Image registry.k8s.io/metrics-server/metrics-server:v0.8.1 được kéo lúc apply (cần mạng),
+# hoặc kéo trước:  docker pull registry.k8s.io/metrics-server/metrics-server:v0.8.1
+resources:
+  - components-v0.8.1.yaml
+
+patches:
+  # Kubelet của Docker Desktop dùng chứng chỉ tự ký, không có IP SAN — metrics-server từ chối
+  # với lỗi x509 và HPA không có số CPU. Bỏ kiểm chứng chỉ kubelet: CHỈ chấp nhận được cho
+  # cluster demo một node trên máy cá nhân, không dùng ở production.
+  - target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: metrics-server
+      namespace: kube-system
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/0/args/-
+        value: --kubelet-insecure-tls
