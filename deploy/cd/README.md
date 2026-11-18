@@ -75,7 +75,7 @@ Danh sách tag có sẵn: trang *Packages* của repo, hoặc cột "Image" tron
 
 **4. Xem log**
 - GitHub: tab *Actions* → lần chạy *Rebuild & Deploy* (tóm tắt deploy nằm ở *Summary*); trang
-  *Deployments* (environment `production`).
+  *Deployments* (environment `kltn-Getshopy`).
 - Máy production: `%LOCALAPPDATA%\getshopy-cd\deploy.log` (bộ thực thi),
   `listener.log` (yêu cầu nhận/từ chối), `state.json` (bản đang chạy / bản trước), `jobs\<id>.json`.
 
@@ -107,7 +107,7 @@ Bật dự phòng (thay listener): `.\deploy\cd\register-task.ps1 -Poll` — ch�
 
 - **Chữ ký**: `X-Hub-Signature-256: sha256=HMAC-SHA256(secret, body thô)`, so sánh thời gian hằng.
   Secret ≥ 32 ký tự, nằm ở `%LOCALAPPDATA%\getshopy-cd\webhook.secret` (ngoài repo) và secret
-  `DEPLOY_WEBHOOK_SECRET` của environment `production` trên GitHub.
+  `DEPLOY_WEBHOOK_SECRET` của environment `kltn-Getshopy` trên GitHub.
 - **Chống gửi lại**: body có `timestamp` (lệch tối đa ±5 phút) và `nonce` dùng một lần (lưu ra đĩa,
   còn hiệu lực qua khởi động lại listener).
 - **Dữ liệu chặt**: body chỉ được có `kind, tag, sha, ref, timestamp, nonce`; `kind=build_prod`,
@@ -131,7 +131,7 @@ Bật dự phòng (thay listener): `.\deploy\cd\register-task.ps1 -Poll` — ch�
 
 **Trên GitHub** (repo *Settings*):
 
-1. *Environments* → *New environment* `production`:
+1. *Environments* → *New environment* `kltn-Getshopy` (tên chủ repo đã tạo 19/11/2026 — workflow dùng đúng tên này; đổi tên thì sửa `deploy.yml` và `images.yml`):
    - *Environment secrets*: `DEPLOY_WEBHOOK_SECRET` = giá trị tạo ở bước máy production (4).
    - *Deployment branches*: *Selected branches* → `main`, `build_prod`
      (comment `/rebuild` và *Run workflow* chạy trong ngữ cảnh `main`).

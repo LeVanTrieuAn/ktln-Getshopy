@@ -17,7 +17,7 @@
 #
 # Chặn "pwn request": KHÔNG bao giờ checkout/build code của PR — chỉ build commit đã nằm trên
 # build_prod. Người comment phải có quyền write/admin (hỏi API, lỗi = từ chối). Nội dung
-# comment chỉ được so khớp, không chèn vào lệnh. Secret deploy nằm ở environment production,
+# comment chỉ được so khớp, không chèn vào lệnh. Secret deploy nằm ở environment kltn-Getshopy,
 # chỉ job deploy (không checkout) đọc được.
 # =============================================================================
 name: Rebuild & Deploy
