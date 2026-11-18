@@ -4,8 +4,10 @@
 # trạng thái tới khi máy deploy + health check xong.
 #
 # Job KHÔNG checkout code và không chạy gì của repo: chỉ jq/openssl/curl. Secret
-# DEPLOY_WEBHOOK_SECRET là secret của environment "production" (không phải secret repo):
-# chỉ job khai báo environment này đọc được; environment giới hạn deployment branch.
+# DEPLOY_WEBHOOK_SECRET là secret của environment "kltn-Getshopy" (tên chủ repo đã tạo trên
+# GitHub 19/11/2026; đổi tên environment thì sửa cả ở đây và images.yml). Chỉ job khai báo
+# environment này đọc được; environment giới hạn deployment branch. Secret đặt ở mức repo
+# cũng chạy (job đọc secret environment trước, rồi tới secret repo).
 # =============================================================================
 name: Deploy
 
@@ -33,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment:
-      name: production
+      name: kltn-Getshopy
       url: ${{ vars.PRODUCTION_URL }}
     # Mọi lần deploy xếp hàng một-một trên toàn repo; lần chờ mới hơn thay lần chờ cũ
     concurrency:
@@ -54,7 +56,10 @@ jobs:
           [[ "$TAG" =~ ^sha-([0-9a-f]{40})$ ]] || { echo "::error::tag phải là sha-<40 ký tự hex>"; exit 1; }
           sha=${BASH_REMATCH[1]}
           [ -n "$HOOK_URL" ] || { echo "::error::Chưa đặt biến DEPLOY_HOOK_URL (vd. https://<máy>.ts.net/hooks) — deploy/cd/README.md"; exit 1; }
-          [ -n "$SECRET" ] || { echo "::error::Chưa có secret DEPLOY_WEBHOOK_SECRET trong environment production — deploy/cd/README.md"; exit 1; }
+          # Bỏ khoảng trắng / xuống dòng lỡ dán kèm vào ô secret: chữ ký tính trên chuỗi này, còn
+          # listener cũng cắt khoảng trắng khi đọc file -> hai bên luôn so cùng một chuỗi.
+          SECRET="$(printf '%s' "$SECRET" | tr -d '[:space:]')"
+          [ -n "$SECRET" ] || { echo "::error::Chưa có secret DEPLOY_WEBHOOK_SECRET (environment kltn-Getshopy hoặc secret repo) — deploy/cd/README.md"; exit 1; }
           HOOK_URL="${HOOK_URL%/}"
           for attempt in 1 2 3; do
             # timestamp + nonce mới mỗi lần thử: listener từ chối nonce đã dùng (chống gửi lại)

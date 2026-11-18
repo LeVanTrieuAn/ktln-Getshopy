@@ -1,16 +1,16 @@
 # =============================================================================
 # Build + đẩy image 4 service ứng dụng lên GHCR. Workflow tái sử dụng, KHÔNG có trigger
 # riêng — chỉ được gọi sau khi đã kiểm:
-#   - ci.yml (job images): push vào build_prod/main sau khi test qua
-#   - pr-rebuild.yml: comment /rebuild trên PR đã merge vào build_prod -> build lại ĐÚNG
-#     commit head hiện tại của build_prod (inputs.sha), fresh = không dùng cache
+#   - rebuild-deploy.yml: comment /rebuild trên PR đã merge vào build_prod (hoặc Run workflow
+#     tick "rebuild") -> build lại ĐÚNG commit head hiện tại của build_prod (inputs.sha),
+#     fresh = không dùng cache. Push / merge vào build_prod, main KHÔNG build image.
 #
 #   ghcr.io/levantrieuan/ktln-getshopy-<service>:sha-<40 ký tự sha>   (máy production kéo tag này)
 #   ghcr.io/levantrieuan/ktln-getshopy-<service>:<nhánh>             (build_prod | main, tag trôi)
 #
 # Chỉ build code đã nằm trên build_prod/main — không bao giờ build code PR chưa merge.
 # Job không có secret nào ngoài GITHUB_TOKEN (packages: write); secret deploy nằm ở
-# environment "production" của deploy.yml. Hạ tầng (kafka-connect, minio, ...) vẫn build tại máy.
+# environment "kltn-Getshopy" của deploy.yml. Hạ tầng (kafka-connect, minio, ...) vẫn build tại máy.
 # =============================================================================
 name: Images
 
@@ -46,6 +46,10 @@ jobs:
     name: ${{ matrix.service }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # Biến VITE_* có thể nằm ở mức repo HOẶC trong environment kltn-Getshopy (chủ repo đặt ở
+    # đó). Biến của environment chỉ job khai báo environment mới đọc được -> leg client khai báo;
+    # ba leg còn lại không cần biến nào nên không khai (chuỗi rỗng = không dùng environment).
+    environment: ${{ matrix.service == 'client' && 'kltn-Getshopy' || '' }}
     permissions:
       contents: read
       packages: write
@@ -71,6 +75,14 @@ jobs:
           # Ghim theo sha: lần /rebuild build đúng commit build_prod đã đọc ở bước kiểm tra
           ref: ${{ env.COMMIT }}
           persist-credentials: false
+
+      # Thiếu client ID thì Vite vẫn build xong nhưng web mất nút đăng nhập Google — dừng sớm.
+      - name: Kiểm biến build của client
+        if: matrix.service == 'client'
+        env:
+          GOOGLE_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: |
+          [ -n "$GOOGLE_ID" ] || { echo "::error::Thiếu biến VITE_GOOGLE_CLIENT_ID (Repository variables hoặc environment kltn-Getshopy) — build ra sẽ mất nút đăng nhập Google"; exit 1; }
 
       - uses: docker/setup-buildx-action@v4
 
