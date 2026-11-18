@@ -70,8 +70,12 @@ function routeLabel(req) {
  * Router của Express 5 gán `req.route = route` đúng lúc khớp route, khi req.baseUrl còn là tiền
  * tố của router đó. Lúc response xong thì baseUrl có thể đã bị trả về '' (lỗi ném ra từ handler
  * async -> next(err) -> rời router con) -> chặn phép gán để ghi lại mẫu đầy đủ ngay lúc khớp.
+ * Gọi nhiều lần (middleware số đo + log request, middleware/requestLog.js) cũng chỉ gắn một lần.
  */
+const ROUTE_CAPTURED = Symbol('routeCaptured');
 function captureRoute(req) {
+  if (req[ROUTE_CAPTURED]) return;
+  req[ROUTE_CAPTURED] = true;
   let route = req.route;
   try {
     Object.defineProperty(req, 'route', {
@@ -214,4 +218,4 @@ function createMetrics({
   return { register, middleware, start, stop, port, hostname: name };
 }
 
-module.exports = { createMetrics, routeLabel, joinRoute, DURATION_BUCKETS, DEFAULT_PORT };
+module.exports = { createMetrics, captureRoute, routeLabel, joinRoute, DURATION_BUCKETS, DEFAULT_PORT };
