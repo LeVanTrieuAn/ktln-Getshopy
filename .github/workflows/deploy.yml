@@ -67,10 +67,14 @@ jobs:
               --arg nonce "$(openssl rand -hex 16)-$GITHUB_RUN_ID-$attempt" \
               '{kind:"build_prod", tag:$tag, sha:$sha, ref:"refs/heads/build_prod", timestamp:$ts, nonce:$nonce}')
             sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')
+            # `|| true` thay vì `|| echo 000`: curl nhận 202 rồi mới lỗi (kết nối bị cắt) thì
+            # -w đã in "202"; nối thêm "000" thành "202000" -> tưởng hỏng, gửi lại -> deploy 2
+            # lần (19/11/2026). Còn sót thì listener cũng gộp yêu cầu trùng về một job.
             code=$(curl -sS -o resp.json -w '%{http_code}' --max-time 30 -X POST \
               -H 'Content-Type: application/json' -H "X-Hub-Signature-256: sha256=$sig" \
-              --data-binary "$body" "$HOOK_URL/deploy" || echo 000)
-            if [ "$code" = 202 ]; then break; fi
+              --data-binary "$body" "$HOOK_URL/deploy" || true)
+            code=${code:-000}
+            case "$code" in 202*) break ;; esac
             echo "Lần $attempt: HTTP $code $(head -c 300 resp.json 2>/dev/null || true)"
             # 4xx = yêu cầu bị từ chối (chữ ký, dữ liệu) -> thử lại cũng vô ích
             case "$code" in 4*) echo "::error::Máy production từ chối yêu cầu (HTTP $code)"; exit 1 ;; esac

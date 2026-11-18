@@ -349,6 +349,22 @@ function Start-AppServices([string[]]$Only) {
     }
 }
 
+# Mọi container của 4 service đã chạy ĐÚNG image (so ID, không so tag) của $ImageTag chưa.
+# So ID: /rebuild cùng một commit ra image MỚI cùng tag -> vẫn phải deploy.
+function Test-AlreadyRunning([string]$ImageTag) {
+    foreach ($svc in $Services) {
+        $want = (Invoke-Exe -Quiet -Exe 'docker' -Arguments @('image', 'inspect', '--format', '{{.Id}}', (Get-ImageRef $svc $ImageTag))).Output
+        if (-not $want) { return $false }
+        $ids = @((Invoke-Compose -Quiet -ComposeArgs @('ps', '-q', $svc)).Output -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+        if ($ids.Count -eq 0) { return $false }
+        foreach ($cid in $ids) {
+            $have = (Invoke-Exe -Quiet -Exe 'docker' -Arguments @('inspect', '--format', '{{.Image}}', $cid)).Output
+            if ($have -ne $want) { return $false }
+        }
+    }
+    return $true
+}
+
 # Gắn tag :rollback cho image của container ĐANG chạy — rollback về đúng thứ vừa chạy, kể cả
 # lần đầu (image build tại máy, chưa có tag sha nào). Trả về các service đã ghi nhớ được.
 function Save-RunningImages {
@@ -574,6 +590,15 @@ function Invoke-Deploy([hashtable]$State, [string]$DKind, [string]$DTag, [string
         }
     }
 
+    # ── Bản này đang chạy rồi (yêu cầu gửi lặp): không tạo lại container, không ghi nhớ lại
+    #    :rollback, không đổi state — trước đây lần lặp ghi đè "bản trước" bằng chính bản hiện
+    #    tại, -Rollback hết đích quay về (19/11/2026). -Force để deploy lại bằng mọi giá.
+    if (-not $DryRun -and -not $Force -and (Test-AlreadyRunning $DTag)) {
+        Write-Log 'INFO' "Mọi container đã chạy đúng image $DTag — không đổi gì (yêu cầu trùng)."
+        Set-Job 'succeeded' "$DTag đang chạy sẵn — không đổi gì"
+        return 0
+    }
+
     $snapshot = Save-RunningImages
 
     if ($gitAction -eq 'ff') {
@@ -625,10 +650,13 @@ function Invoke-Deploy([hashtable]$State, [string]$DKind, [string]$DTag, [string
     # ── Thành công
     Set-LocalAlias $DTag
     $prevTag = Get-Val $State 'deployed_tag'
-    $State['previous_kind'] = Get-Val $State 'deployed_kind'
-    $State['previous_tag'] = $prevTag
-    $State['previous_sha'] = Get-Val $State 'deployed_sha'
-    $State['previous_checkout_sha'] = $headSha
+    # Cùng tag (vd. /rebuild lại đúng commit đang chạy): giữ "bản trước" cũ, đừng thay bằng chính nó
+    if ($prevTag -ne $DTag) {
+        $State['previous_kind'] = Get-Val $State 'deployed_kind'
+        $State['previous_tag'] = $prevTag
+        $State['previous_sha'] = Get-Val $State 'deployed_sha'
+        $State['previous_checkout_sha'] = $headSha
+    }
     $State['deployed_kind'] = $DKind
     $State['deployed_tag'] = $DTag
     $State['deployed_sha'] = $DSha

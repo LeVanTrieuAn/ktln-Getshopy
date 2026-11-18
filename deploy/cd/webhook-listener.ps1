@@ -240,6 +240,19 @@ function Invoke-Request($Ctx) {
             return
         }
         $r = $v.Req
+        # Yêu cầu TRÙNG (Actions gửi lại cùng bản — gặp thật 19/11/2026: 2 job cùng tag cách
+        # nhau 10 s): trả lại job đang chạy / đang chờ của đúng bản đó, không tạo job mới.
+        $existingIds = @()
+        if ($script:Running) { $existingIds += $script:Running.Id }
+        if ($script:Queued) { $existingIds += $script:Queued }
+        foreach ($eid in $existingIds) {
+            $ej = Read-Job $eid
+            if ($ej -and $ej.tag -eq $r.tag) {
+                Write-Log 'INFO' "Yêu cầu trùng $($r.tag) từ $from -> dùng lại job $($eid.Substring(0, 8))"
+                Send-Json $Ctx 202 @{ id = $eid; status = $ej.status; status_url = "$PathPrefix/deploy/status/$eid" }
+                return
+            }
+        }
         $id = New-JobId
         Write-Job $id @{
             id = $id; status = 'queued'; kind = $r.kind; tag = $r.tag; sha = $r.sha; ref = $r.ref
