@@ -83,6 +83,14 @@ $StateFile = Join-Path $StateDir 'state.json'
 $LockFile = Join-Path $StateDir 'deploy.lock'
 $ComposeFile = Join-Path $RepoDir 'docker-compose.yml'
 
+# Deploy CHỈ THAY CODE, KHÔNG ĐỤNG DB (người dùng yêu cầu 19/11/2026). Mọi lệnh docker compose
+# của script (kể cả rollback) chạy với SERVER_DB_PREP=off -> container server mới bỏ qua migrate,
+# SQL tồn kho, seed (docker-entrypoint.sh, DB_PREP). Migration là bước làm tay: bản cần
+# migration chưa áp thì CHẶN deploy (Get-PendingMigrations — chỉ ĐỌC _prisma_migrations).
+$env:SERVER_DB_PREP = 'off'
+$MigrationsPath = 'ktln-Getshopy/qu-n-ly-ban-l/source/server/prisma/migrations'
+$MigrationNamePattern = '^\d{14}_[A-Za-z0-9_-]+$'
+
 # Thay đổi ở đây agent KHÔNG tự áp (chỉ cập nhật 4 service ứng dụng) -> cảnh báo làm tay
 $ManualPaths = [ordered]@{
     '^docker-compose[^/]*\.ya?ml$'                          = 'compose: service ứng dụng tự áp; service hạ tầng/gateway thì chạy tay  docker compose up -d <service>'
@@ -210,6 +218,22 @@ function Invoke-Compose([string[]]$ComposeArgs, [switch]$Mutating, [switch]$Quie
 }
 
 function Get-ImageRef([string]$Service, [string]$ImageTag) { return "$ImagePrefix-${Service}:$ImageTag" }
+
+# Migration có trong commit $Sha mà Postgres CHƯA áp xong. Chỉ đọc: git ls-tree + SELECT trên
+# _prisma_migrations qua psql trong container postgres. Trả $null nếu không đọc được (-> chặn).
+# Chuỗi lệnh sh không chứa dấu nháy kép: PowerShell 5.1 truyền nháy kép cho lệnh ngoài sai.
+function Get-PendingMigrations([string]$Sha) {
+    $ls = Invoke-Git -Quiet -GitArgs @('ls-tree', '--name-only', "${Sha}:$MigrationsPath")
+    if ($ls.ExitCode -ne 0) { return $null }
+    $wanted = @($ls.Output -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match $MigrationNamePattern })
+    $sql = 'select migration_name from _prisma_migrations where finished_at is not null and rolled_back_at is null'
+    $q = Invoke-Compose -Quiet -ComposeArgs @('exec', '-T', 'postgres', 'sh', '-c', "psql -q -U `$POSTGRES_USER -d `$POSTGRES_DB -tAc '$sql'")
+    if ($q.ExitCode -ne 0) { return $null }
+    $applied = @($q.Output -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -match $MigrationNamePattern })
+    if ($applied.Count -eq 0) { return $null }   # bảng rỗng / đọc sai -> không đoán, chặn
+    # Dấu phẩy: giữ mảng RỖNG là mảng (không có nó PowerShell trả $null = "không đọc được")
+    return , @($wanted | Where-Object { $applied -notcontains $_ })
+}
 
 function Short([string]$Value) {
     if ($Value -match '^sha-([0-9a-f]{7})') { return "sha-$($Matches[1])" }
@@ -510,6 +534,16 @@ function Invoke-Deploy([hashtable]$State, [string]$DKind, [string]$DTag, [string
         if ($freeGB -lt $MinFreeGB) { $blocked += "ổ ${DockerDrive}: còn $freeGB GB < $MinFreeGB GB" }
     } else {
         Write-Log 'WARN' "Không đọc được dung lượng ổ ${DockerDrive}: — bỏ qua kiểm tra đĩa."
+    }
+
+    # ── DB: deploy không đụng DB (SERVER_DB_PREP=off) -> bản cần migration chưa áp thì chặn
+    $pending = Get-PendingMigrations $DSha
+    if ($null -eq $pending) {
+        $blocked += 'không đọc được danh sách migration đã áp trong Postgres (_prisma_migrations) — không đoán, dừng'
+    } elseif (@($pending).Count -gt 0) {
+        $blocked += "bản $(Short $DSha) cần migration CHƯA áp vào DB: $(@($pending) -join ', '). Deploy không đụng DB — áp tay trước (deploy/cd/README.md, mục Migration) rồi deploy lại"
+    } else {
+        Write-Log 'INFO' 'Migration: DB đã có đủ migration của bản này — deploy chỉ thay code.'
     }
 
     if ($blocked.Count -gt 0) {

@@ -205,6 +205,32 @@ Gỡ listener: `.\deploy\cd\register-task.ps1 -Unregister`. Tạm dừng khi tha
   .\deploy\cd\pull-deploy.ps1 -Tag sha-<...> -DryRun    # chỉ in kế hoạch, không đổi gì
   ```
 
+## Deploy chỉ thay code — không đụng DB
+
+Quy tắc (19/11/2026): deploy **chỉ thay code**, không chạy script nào lên Postgres.
+
+- `pull-deploy.ps1` chạy mọi lệnh `docker compose` với `SERVER_DB_PREP=off` → container server mới
+  (`docker-entrypoint.sh`, biến `DB_PREP`) **bỏ qua** migrate, SQL ràng buộc tồn kho,
+  `ensure-inventory`, `seed-demo`, seed nền và khoá khởi động — chỉ chạy `node src/index.js`.
+  ai-bot lúc khởi động chỉ `prisma db pull` (đọc schema, không ghi DB); ai-rec, client không nối Postgres.
+- **Migration là bước làm tay.** Trước khi đổi gì, deploy **đọc** bảng `_prisma_migrations`; commit
+  cần migration chưa áp → job `rejected`, production giữ nguyên. Áp tay (sau khi backup), rồi
+  comment `/rebuild` hoặc *Run workflow* lại:
+
+  ```powershell
+  # backup: ghi file TRONG container rồi chép ra (PowerShell 5.1 `>` đổi mã hoá -> làm hỏng dump nhị phân)
+  docker compose exec -T postgres sh -c 'pg_dump -U $POSTGRES_USER -d $POSTGRES_DB -Fc -f /tmp/backup.dump'
+  docker compose cp postgres:/tmp/backup.dump backups\truoc-migrate-<ngày>.dump
+  docker compose exec server ./node_modules/.bin/prisma migrate deploy
+  ```
+- Máy production nên đặt `SERVER_DB_PREP=off` trong `.env` để cả lần `docker compose up -d` gõ tay
+  cũng chỉ thay code. Máy mới dựng lần đầu giữ mặc định `auto` (tự migrate + seed nền khi DB trống
+  thật: chưa có tài khoản **và** chưa có sản phẩm; đếm lỗi thì container dừng, không seed).
+- Lần deploy CD **đầu tiên**: image `:rollback` là bản build tại máy, entrypoint cũ chưa có `DB_PREP`
+  — nếu lần đó phải rollback, server cũ khởi động lại sẽ chạy các bước chuẩn bị DB như trước
+  (migrate không có gì để áp, chỉ xoá tồn kho mồ côi, seed-demo idempotent). Từ lần sau `:rollback`
+  là image CD, đã tôn trọng `DB_PREP=off`.
+
 ## Rào chắn của mỗi lần deploy
 
 Ổ `D:` còn ≥ 20 GB · đủ 4 image trên GHCR · commit thuộc `origin/build_prod` · working tree sạch ·
@@ -226,6 +252,8 @@ báo** trong `deploy.log` kèm lệnh cần chạy tay.
 | HTTP 401 "timestamp lệch" | đồng hồ máy production sai — đồng bộ giờ Windows |
 | job `rejected`: thiếu image | package private chưa `docker login ghcr.io` (Cài đặt 5), hoặc tag chưa từng build (chạy với rebuild) |
 | job `rejected`: working tree có thay đổi | `git status` trên máy production, commit/stash bằng tay |
+| job `rejected`: cần migration CHƯA áp | backup rồi áp tay (mục "Deploy chỉ thay code"), rồi deploy lại |
+| job `rejected`: không đọc được `_prisma_migrations` | Postgres tắt / container `postgres` không chạy — `docker compose ps postgres` |
 | job `rolled_back` | bản mới không healthy; production đang chạy lại bản trước — xem `deploy.log` |
 | job `rollback_failed` | kiểm tra tay: `docker compose ps`, `git status`; quay về bằng `pull-deploy.ps1 -Rollback` hoặc `-Tag <tag cũ>` |
 
@@ -234,7 +262,8 @@ báo** trong `deploy.log` kèm lệnh cần chạy tay.
 - Một máy, Docker Compose: mỗi lần deploy **tạo lại** 4 container → gián đoạn ngắn `[đo]` giây (gateway
   trả trang bảo trì 503). Kubernetes làm được rolling update không gián đoạn — xem `deploy/k8s-demo/`.
 - Mỗi lần deploy khởi động lại cả 4 service kể cả service không đổi (tag theo commit).
-- Rollback chỉ quay **image và checkout**; migration Prisma mà server đã áp **không** được hoàn tác.
+- Rollback chỉ quay **image và checkout**; deploy không áp migration (xem mục trên), migration áp tay
+  thì cũng không được hoàn tác tự động.
 - Hạ tầng (gateway, DB, Kafka, MinIO, ClickHouse...) vẫn deploy tay.
 - Funnel/listener/Docker Desktop tắt hoặc máy ngủ → không deploy được (Actions báo lỗi, không treo).
 - Chỉ chạy khi người dùng đã đăng nhập Windows (Docker Desktop cũng vậy).

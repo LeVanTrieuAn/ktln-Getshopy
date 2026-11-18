@@ -19,6 +19,17 @@ if [ -z "${DIRECT_URL:-}" ]; then
   export DIRECT_URL
 fi
 
+# ── DB_PREP (19/11/2026) ─────────────────────────────────────────────────────
+# off  = KHÔNG ĐỤNG DB: bỏ qua toàn bộ phần dưới (migrate, ràng buộc tồn kho, seed nền,
+#        ensure-inventory, seed-demo) và khoá khởi động — chỉ chạy server. Deploy (CD,
+#        deploy/cd/pull-deploy.ps1) LUÔN đặt off: deploy chỉ thay code. Thay đổi DB
+#        (migration) là bước làm tay riêng — CD chặn deploy nếu còn migration chưa áp.
+# auto = như trước: máy mới dựng lần đầu tự migrate + seed nền (mặc định của compose).
+if [ "${DB_PREP:-auto}" = "off" ]; then
+  echo "DB_PREP=off — không chạy migrate/seed, không đụng DB; chỉ khởi động server."
+  exec "$@"
+fi
+
 # ── Khoá khởi động (18/11/2026, cân bằng tải) ───────────────────────────────
 # compose chạy N bản server (deploy.replicas) và cả N cùng khởi động. Phần chuẩn bị DB bên
 # dưới — migrate, ràng buộc tồn kho (DROP/CREATE TRIGGER), seed nền khi DB trống,
@@ -96,19 +107,29 @@ echo "Seeding baseline application data..."
 #   docker compose --profile seed run --rm seed-data
 # Lý do tách: lần `up` đầu trước đây chặn cả stack 10–20 phút (client chờ server healthy).
 #
-# Điều kiện seed nền là CHƯA CÓ TÀI KHOẢN NÀO. seed-categories/seed-brands XOÁ rồi tạo
-# lại danh mục/hãng và gán lại cho mọi sản phẩm đang có — chạy trên DB đã có catalog
-# là xáo trộn toàn bộ catalog. Các bước còn lại idempotent.
+# Điều kiện seed nền: DB TRỐNG THẬT — chưa có tài khoản nào VÀ chưa có sản phẩm nào.
+# seed-categories/seed-brands XOÁ rồi tạo lại danh mục/hãng và gán lại cho mọi sản phẩm
+# đang có — chạy trên DB đã có catalog là xáo trộn toàn bộ catalog. Các bước còn lại
+# idempotent.
+# Đếm lỗi (Postgres hết kết nối, chập chờn...) thì DỪNG container, KHÔNG coi là 0: bản
+# trước in "0" khi lỗi -> một lần đếm hỏng là seed nền chạy trên DB thật (19/11/2026).
 count_of() {
   node -e "
     const { PrismaClient } = require('@prisma/client');
     const p = new PrismaClient();
-    p.$1.count().then(n => { console.log(n); p.\$disconnect(); }).catch(() => { console.log(0); p.\$disconnect(); });
-  " 2>/dev/null || echo "0"
+    p.$1.count().then(n => { console.log(n); p.\$disconnect(); }).catch(() => { console.log('ERR'); p.\$disconnect(); });
+  " 2>/dev/null || echo "ERR"
 }
 USER_COUNT=$(count_of user)
+PRODUCT_COUNT_BEFORE=$(count_of product)
+case "$USER_COUNT $PRODUCT_COUNT_BEFORE" in
+  *ERR*)
+    echo "!! Không đếm được User/Product trong Postgres — DỪNG, không seed (tránh seed nhầm lên DB có dữ liệu)."
+    exit 1
+    ;;
+esac
 
-if [ "$USER_COUNT" = "0" ]; then
+if [ "$USER_COUNT" = "0" ] && [ "$PRODUCT_COUNT_BEFORE" = "0" ]; then
   echo "══════════════════════════════════════════════════════════"
   echo "  DB trống — seed NỀN (nhẹ, vài giây)"
   echo "══════════════════════════════════════════════════════════"
@@ -125,7 +146,7 @@ if [ "$USER_COUNT" = "0" ]; then
   echo "  [5/5] Voucher, hạng thành viên, tài khoản test, flash sale..."
   node scripts/seed-demo.js
 else
-  echo "Đã có dữ liệu ($USER_COUNT tài khoản) — bỏ qua seed nền."
+  echo "Đã có dữ liệu ($USER_COUNT tài khoản, $PRODUCT_COUNT_BEFORE sản phẩm) — bỏ qua seed nền."
   # Vá tồn kho còn thiếu (dữ liệu seed bằng bản cũ, hoặc thêm sản phẩm bằng script rời).
   node scripts/ensure-inventory.js
   node scripts/seed-demo.js
