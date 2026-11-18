@@ -61,3 +61,6 @@ backups/*
 # nó thì Docker tự tạo thư mục do root sở hữu, và pg_dump ghi vào không được.
 !backups/.gitkeep
 *.dump
+
+# Kết quả đo tải k6 (scripts/lb-demo.ps1) — chép số liệu cần giữ vào docs/implement-phase/results/
+scripts/loadtest/results/
