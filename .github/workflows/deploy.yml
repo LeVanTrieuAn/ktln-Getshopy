@@ -1,0 +1,115 @@
+# =============================================================================
+# Deploy lên máy production (workflow tái sử dụng — chỉ rebuild-deploy.yml gọi): gửi yêu
+# cầu KÝ HMAC tới webhook-listener.ps1 trên máy qua Tailscale Funnel (path /hooks), rồi hỏi
+# trạng thái tới khi máy deploy + health check xong.
+#
+# Job KHÔNG checkout code và không chạy gì của repo: chỉ jq/openssl/curl. Secret
+# DEPLOY_WEBHOOK_SECRET là secret của environment "production" (không phải secret repo):
+# chỉ job khai báo environment này đọc được; environment giới hạn deployment branch.
+# =============================================================================
+name: Deploy
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        description: sha-<40 ký tự> — image đã có trên GHCR
+        type: string
+        required: true
+    outputs:
+      status:
+        description: succeeded | failed | rejected | rolled_back | rollback_failed | superseded | timeout
+        value: ${{ jobs.deploy.outputs.status }}
+      message:
+        description: Tóm tắt từ máy deploy (gồm kết quả health check)
+        value: ${{ jobs.deploy.outputs.message }}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_URL }}
+    # Mọi lần deploy xếp hàng một-một trên toàn repo; lần chờ mới hơn thay lần chờ cũ
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    outputs:
+      status: ${{ steps.wait.outputs.status }}
+      message: ${{ steps.wait.outputs.message }}
+    steps:
+      - id: send
+        name: Gửi yêu cầu đã ký tới máy production
+        env:
+          HOOK_URL: ${{ vars.DEPLOY_HOOK_URL }}
+          SECRET: ${{ secrets.DEPLOY_WEBHOOK_SECRET }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          [[ "$TAG" =~ ^sha-([0-9a-f]{40})$ ]] || { echo "::error::tag phải là sha-<40 ký tự hex>"; exit 1; }
+          sha=${BASH_REMATCH[1]}
+          [ -n "$HOOK_URL" ] || { echo "::error::Chưa đặt biến DEPLOY_HOOK_URL (vd. https://<máy>.ts.net/hooks) — deploy/cd/README.md"; exit 1; }
+          [ -n "$SECRET" ] || { echo "::error::Chưa có secret DEPLOY_WEBHOOK_SECRET trong environment production — deploy/cd/README.md"; exit 1; }
+          HOOK_URL="${HOOK_URL%/}"
+          for attempt in 1 2 3; do
+            # timestamp + nonce mới mỗi lần thử: listener từ chối nonce đã dùng (chống gửi lại)
+            body=$(jq -nc --arg tag "$TAG" --arg sha "$sha" --argjson ts "$(date +%s)" \
+              --arg nonce "$(openssl rand -hex 16)-$GITHUB_RUN_ID-$attempt" \
+              '{kind:"build_prod", tag:$tag, sha:$sha, ref:"refs/heads/build_prod", timestamp:$ts, nonce:$nonce}')
+            sig=$(printf '%s' "$body" | openssl dgst -sha256 -hmac "$SECRET" | awk '{print $NF}')
+            code=$(curl -sS -o resp.json -w '%{http_code}' --max-time 30 -X POST \
+              -H 'Content-Type: application/json' -H "X-Hub-Signature-256: sha256=$sig" \
+              --data-binary "$body" "$HOOK_URL/deploy" || echo 000)
+            if [ "$code" = 202 ]; then break; fi
+            echo "Lần $attempt: HTTP $code $(head -c 300 resp.json 2>/dev/null || true)"
+            # 4xx = yêu cầu bị từ chối (chữ ký, dữ liệu) -> thử lại cũng vô ích
+            case "$code" in 4*) echo "::error::Máy production từ chối yêu cầu (HTTP $code)"; exit 1 ;; esac
+            if [ "$attempt" = 3 ]; then echo "::error::Không gọi được máy production (Funnel/listener tắt?)"; exit 1; fi
+            sleep 15
+          done
+          id=$(jq -r '.id' resp.json)
+          [[ "$id" =~ ^[0-9a-f]{32}$ ]] || { echo "::error::Phản hồi lạ từ listener"; exit 1; }
+          # Log của repo public ai cũng đọc được: che id job (ai có id thì xem được trạng thái)
+          echo "::add-mask::$id"
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "Máy production đã nhận yêu cầu deploy $TAG."
+
+      - id: wait
+        name: Chờ máy production deploy + health check
+        env:
+          HOOK_URL: ${{ vars.DEPLOY_HOOK_URL }}
+          ID: ${{ steps.send.outputs.id }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -uo pipefail
+          HOOK_URL="${HOOK_URL%/}"
+          status=timeout
+          message='Quá 25 phút chưa xong — xem deploy.log trên máy production'
+          last=''
+          for _ in $(seq 1 150); do
+            sleep 10
+            if ! curl -fsS --max-time 15 -o st.json "$HOOK_URL/deploy/status/$ID"; then
+              echo "(chưa hỏi được trạng thái, thử lại)"; continue
+            fi
+            s=$(jq -r '.status // "unknown"' st.json)
+            m=$(jq -r '.message // ""' st.json | tr '\r\n' '  ')
+            if [ "$s" != "$last" ]; then echo "[$s] $m"; last=$s; fi
+            case "$s" in
+              succeeded|failed|rejected|rolled_back|rollback_failed|superseded) status=$s; message=$m; break ;;
+            esac
+          done
+          {
+            echo "status=$status"
+            echo "message=$message"
+          } >> "$GITHUB_OUTPUT"
+          {
+            echo "### Deploy \`$TAG\`: $status"
+            echo
+            echo "$message"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != succeeded ]; then echo "::error::Deploy $TAG: $status — $message"; exit 1; fi

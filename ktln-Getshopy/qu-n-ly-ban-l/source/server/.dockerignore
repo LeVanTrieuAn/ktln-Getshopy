@@ -3,3 +3,10 @@ node_modules
 npm-debug.log*
 .env.local
 .env.*.local
+
+# Bí mật không vào image (thêm 18/11/2026 cùng CI/CD): .env ở mọi cấp, bản sao lưu .env, khoá
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key

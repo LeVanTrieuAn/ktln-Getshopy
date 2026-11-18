@@ -1,0 +1,126 @@
+# =============================================================================
+# Build + đẩy image 4 service ứng dụng lên GHCR. Workflow tái sử dụng, KHÔNG có trigger
+# riêng — chỉ được gọi sau khi đã kiểm:
+#   - ci.yml (job images): push vào build_prod/main sau khi test qua
+#   - pr-rebuild.yml: comment /rebuild trên PR đã merge vào build_prod -> build lại ĐÚNG
+#     commit head hiện tại của build_prod (inputs.sha), fresh = không dùng cache
+#
+#   ghcr.io/levantrieuan/ktln-getshopy-<service>:sha-<40 ký tự sha>   (máy production kéo tag này)
+#   ghcr.io/levantrieuan/ktln-getshopy-<service>:<nhánh>             (build_prod | main, tag trôi)
+#
+# Chỉ build code đã nằm trên build_prod/main — không bao giờ build code PR chưa merge.
+# Job không có secret nào ngoài GITHUB_TOKEN (packages: write); secret deploy nằm ở
+# environment "production" của deploy.yml. Hạ tầng (kafka-connect, minio, ...) vẫn build tại máy.
+# =============================================================================
+name: Images
+
+on:
+  workflow_call:
+    inputs:
+      sha:
+        description: Commit cần build (mặc định github.sha của lần chạy gọi tới)
+        type: string
+        required: false
+        default: ''
+      branch:
+        description: Tên nhánh gắn làm tag trôi (mặc định github.ref_name)
+        type: string
+        required: false
+        default: ''
+      fresh:
+        description: true = build lại từ đầu (no-cache, kéo lại base image)
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  SRC: ktln-Getshopy/qu-n-ly-ban-l/source
+  # GHCR bắt buộc tên viết thường (chủ repo là LeVanTrieuAn)
+  IMAGE_PREFIX: ghcr.io/levantrieuan/ktln-getshopy
+
+jobs:
+  build:
+    name: ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      # Một service lỗi không huỷ ba service kia; "Re-run failed jobs" chỉ build lại phần lỗi
+      fail-fast: false
+      matrix:
+        service: [client, server, ai-bot, ai-rec]
+    env:
+      COMMIT: ${{ inputs.sha || github.sha }}
+      BRANCH: ${{ inputs.branch || github.ref_name }}
+      # Vite nhúng VITE_* vào bundle LÚC BUILD. Lấy từ Variables của repo (Settings >
+      # Secrets and variables > Actions > Variables) — đây là giá trị CÔNG KHAI, có mặt
+      # trong JS gửi cho mọi trình duyệt; tuyệt đối không đặt secret vào đây.
+      # Mặc định khớp docker-compose.yml (VITE_API_URL=/api, VITE_WS_URL rỗng).
+      CLIENT_BUILD_ARGS: |
+        VITE_API_URL=${{ vars.VITE_API_URL || '/api' }}
+        VITE_WS_URL=${{ vars.VITE_WS_URL }}
+        VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # Ghim theo sha: lần /rebuild build đúng commit build_prod đã đọc ở bước kiểm tra
+          ref: ${{ env.COMMIT }}
+          persist-credentials: false
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE_PREFIX }}-${{ matrix.service }}
+          flavor: latest=false
+          # Tag tự ghép (không dùng type=sha): với issue_comment, github.sha là main chứ không
+          # phải commit đang build
+          tags: |
+            type=raw,value=sha-${{ env.COMMIT }}
+            type=raw,value=${{ env.BRANCH }}
+          # org.opencontainers.image.source (= URL repo) do action tự thêm — GHCR dựa vào
+          # nhãn này để nối package với repo
+          labels: |
+            org.opencontainers.image.title=ktln-getshopy-${{ matrix.service }}
+            org.opencontainers.image.description=Getshopy ${{ matrix.service }} (build từ ${{ env.SRC }}/${{ matrix.service }})
+            org.opencontainers.image.revision=${{ env.COMMIT }}
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: ${{ env.SRC }}/${{ matrix.service }}
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.service == 'client' && env.CLIENT_BUILD_ARGS || '' }}
+          # Một manifest đơn nền tảng, không kèm attestation: máy deploy chỉ cần amd64,
+          # và trang package không hiện mục "unknown/unknown"
+          provenance: false
+          no-cache: ${{ inputs.fresh }}
+          pull: ${{ inputs.fresh }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+      - name: Tóm tắt
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          SVC: ${{ matrix.service }}
+        run: |
+          {
+            echo "### $SVC"
+            echo '```'
+            echo "$TAGS"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
