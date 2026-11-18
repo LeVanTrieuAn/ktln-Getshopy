@@ -73,16 +73,41 @@ async function cached(key, ttlSeconds, fetchFn) {
   return data;
 }
 
-async function invalidate(...keys) {
-  // Xóa khỏi cả in-memory và Redis
+/**
+ * Xoá bộ đệm L2 trong tiến trình — không có keys thì xoá hết. Gọi từ invalidate() bên dưới và
+ * từ bus (cluster/index.js) khi bản server KHÁC invalidate.
+ */
+function dropLocal(keys) {
+  if (!keys) { memCache.clear(); return; }
   keys.forEach(k => memCache.delete(k));
-
-  if (!isConnected) return;
-  try {
-    await redis.del(keys);
-  } catch (err) {
-    console.warn(`Redis invalidate failed for [${keys.join(', ')}]:`, err.message);
-  }
 }
 
-module.exports = { redis, isConnected: () => isConnected, cached, invalidate };
+async function invalidate(...keys) {
+  // Xóa khỏi cả in-memory và Redis
+  dropLocal(keys);
+
+  if (isConnected) {
+    try {
+      await redis.del(keys);
+    } catch (err) {
+      console.warn(`Redis invalidate failed for [${keys.join(', ')}]:`, err.message);
+    }
+  }
+
+  // 18/11/2026 — nhiều bản server sau nginx: memCache là Map RIÊNG của từng bản. cached() ở
+  // trên đọc Redis trước rồi mới tới memCache, nên sau khi key Redis bị xoá, bản B vẫn trả
+  // bản cũ trong Map của nó (tới hết TTL, 5 phút với branches/brands). Báo cho mọi bản xoá
+  // phần của mình — SAU khi xoá Redis, để bản B không kịp đọc lại bản cũ từ Redis.
+  // require muộn: cluster/index.js require ngược lại file này.
+  await require('./cluster').bus.publish('mem-cache', { keys });
+}
+
+module.exports = {
+  redis,
+  isConnected: () => isConnected,
+  // Trạng thái THẬT của kết nối (isConnected ở trên chỉ bật một lần, không tắt khi Redis rớt).
+  isReady: () => Boolean(redis && redis.isReady),
+  cached,
+  invalidate,
+  dropLocal,
+};

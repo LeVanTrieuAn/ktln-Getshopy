@@ -233,6 +233,18 @@ docker compose --profile seed run --rm seed-catalog       # seed 600k sản ph�
 python3 data-platform-poc/pos_simulator.py --orders 200   # bắn đơn giả lập
 ```
 
+### 4b. Cân bằng tải — nhiều bản `server`
+
+`server` chạy **N bản** sau gateway nginx (mặc định 3, đặt `SERVER_REPLICAS` trong `.env`).
+Trạng thái dùng chung giữa các bản, tắt êm, số kết nối Postgres và demo k6:
+[docs/load-balancing.md](docs/load-balancing.md).
+
+```powershell
+docker compose up -d --no-deps --scale server=2 server   # đổi số bản tạm thời
+docker compose exec server node scripts/...              # lệnh tay: chạy ở bản số 1
+.\scripts\lb-demo.ps1                                    # demo phân bố + k6 với 1/2/3 bản
+```
+
 ### ⚠️ Lệnh KHÔNG được chạy
 
 ```bash

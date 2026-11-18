@@ -8,7 +8,7 @@ const { invalidateListingCache } = require('./b2c');
 const bcrypt = require('bcryptjs');
 const customerAdmin = require('../services/customerAdmin');
 const mail = require('../services/mailService');
-const { customerStatus } = require('../middleware/authB2C');
+const { invalidateCustomerStatus } = require('../middleware/authB2C');
 const router = express.Router();
 
 // Get all reviews
@@ -681,8 +681,10 @@ router.patch('/customers/:id/status', async (req, res) => {
       where: { id, is_active: !active },
       data: { is_active: active, deactivated_at: active ? null : new Date() },
     });
-    // Xoá bộ đệm của authB2C NGAY: token của khách bị từ chối từ request kế tiếp.
-    customerStatus.invalidate(id);
+    // Xoá bộ đệm của authB2C NGAY: token của khách bị từ chối từ request kế tiếp — trên MỌI
+    // bản server (cân bằng tải, 18/11/2026). await: Redis nhận tin rồi mới trả lời quản trị;
+    // không bao giờ ném lỗi, Redis rớt thì trả ngay (bản khác chờ TTL 30 s).
+    await invalidateCustomerStatus(id);
     const customer = await prisma.b2CCustomer.findUnique({ where: { id }, select: customerAdmin.CUSTOMER_SELECT });
     if (!customer) return res.status(404).json({ error: CUSTOMER_MSG.NOT_FOUND });
     if (count) console.log(`[customers] ${adminTag(req)} ${active ? 'kích hoạt lại' : 'vô hiệu hoá'} khách #${id}`);
