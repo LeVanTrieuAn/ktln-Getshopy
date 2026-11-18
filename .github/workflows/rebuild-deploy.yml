@@ -158,6 +158,10 @@ jobs:
     uses: ./.github/workflows/deploy.yml
     with:
       tag: ${{ needs.guard.outputs.tag }}
+    # Reusable workflow KHÔNG tự nhận secret của repo: thiếu dòng này thì DEPLOY_WEBHOOK_SECRET
+    # đặt ở mức repo (Repository secrets) bị rỗng trong deploy.yml (19/11/2026). Secret đặt trong
+    # environment production thì deploy.yml vẫn đọc được nhờ khai environment ở job.
+    secrets: inherit
 
   report:
     name: Trả lời trên PR
