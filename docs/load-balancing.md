@@ -10,10 +10,10 @@ Mọi con số hiệu năng để `[đo]` — điền sau khi chạy `scripts/lb
 
 ```mermaid
 flowchart LR
-    U["Trình duyệt / Tailscale<br/>Funnel / ngrok"] --> GW
+    U["Trình duyệt / SePay<br/>qua Tailscale Funnel"] --> GW
     subgraph C["docker compose — project kltn"]
         GW["gateway nginx 1.27.5<br/>upstream getshopy_server<br/>least_conn · keepalive · resolve"]
-        CL["client nginx :3000<br/>(webhook SePay qua ngrok)"]
+        CL["client nginx :3000<br/>(cổng web cũ, vẫn proxy /api)"]
         S1["server #1"]
         S2["server #2"]
         S3["server #N"]
@@ -48,7 +48,7 @@ flowchart LR
 | `proxy_connect_timeout 1s` | — | container vừa gỡ mà nginx còn nhớ IP thì connect treo (không bị từ chối) tới hết hạn — mặc định 60 s |
 | `map $http_upgrade $connection_upgrade` | — | WebSocket qua upstream có keep-alive [2] |
 
-`client/nginx.conf` (cổng 3000, đường ngrok → webhook SePay) chuyển sang `proxy_pass` qua biến +
+`client/nginx.conf` (cổng 3000 — trước đây ngrok đưa webhook SePay vào đây) chuyển sang `proxy_pass` qua biến +
 `resolver`: phân giải mỗi request, DNS Docker trả IP mọi bản, nginx xoay vòng. Trước đây tên tĩnh
 chỉ phân giải lúc khởi động — scale xong là giữ IP cũ.
 
