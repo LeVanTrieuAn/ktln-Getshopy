@@ -1,0 +1,12 @@
+# Namespace riêng cho bước blue-green (demo.ps1 -Step bluegreen).
+#
+# Tách khỏi getshopy-demo để Deployment "server", HPA và mọi bước khác (rolling, badrelease,
+# hpa...) không bị đụng: hai màu blue / green là hai Deployment RIÊNG, cùng nhãn app=server, và
+# Service công khai chọn một màu bằng nhãn `track`. Dọn: `kubectl delete namespace getshopy-bg`
+# (bước teardown xoá cả getshopy-demo lẫn getshopy-bg).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: getshopy-bg
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo

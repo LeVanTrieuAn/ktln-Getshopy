@@ -1,6 +1,11 @@
 # Deployment "server" — tầng ứng dụng (Express API) chạy thành nhiều pod giống hệt nhau.
 # Tầng dữ liệu (Postgres, ClickHouse) vẫn là container Compose của production; pod gọi tới
 # qua host.docker.internal.
+#
+# Phiên bản: kltn-server:k8s-v1 và kltn-server:k8s-v2 là HAI TAG CỦA CÙNG MỘT IMAGE production
+# (demo.ps1 -Step images chỉ `docker tag kltn-server:latest`, không build). Demo minh hoạ CƠ CHẾ
+# phát hành — đổi image trong pod template là Kubernetes tạo ReplicaSet mới và thay pod cuốn
+# chiếu — chứ không phải khác biệt code giữa hai bản.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -9,18 +14,38 @@ metadata:
   labels:
     app.kubernetes.io/name: server
     app.kubernetes.io/part-of: getshopy-demo
+    # Phiên bản đang phát hành. Đặt ở Deployment, KHÔNG đặt trong pod template: `kubectl set
+    # image` chỉ đổi image, nhãn trong template sẽ đứng yên ở v1 và nói sai (muốn đổi cả hai thì
+    # phải gộp vào một lần sửa template). demo.ps1 đổi nhãn này sau mỗi lần nâng cấp; phiên bản
+    # của TỪNG pod đọc từ image của ReplicaSet sinh ra nó (`kubectl get rs -o wide`).
+    app.kubernetes.io/version: v1
+  annotations:
+    # Cột CHANGE-CAUSE của `kubectl rollout history`. Deployment controller chép annotation
+    # này sang ReplicaSet của revision hiện tại; demo.ps1 ghi lại sau mỗi lần phát hành.
+    kubernetes.io/change-cause: "v1: triển khai ban đầu (kltn-server:k8s-v1)"
 spec:
   # Khởi đầu 2 pod = minReplicas của HPA. Từ lúc HPA chạy, HPA quyết định số pod; demo.ps1
-  # chỉ apply file này MỘT lần (rollout restart chỉ vá annotation, không đặt lại replicas).
+  # chỉ apply file này MỘT lần (set image / rollout undo chỉ sửa template, không đặt lại replicas).
   replicas: 2
+  # Giữ 3 ReplicaSet cũ (0 pod) — đó là "bản lưu" để `kubectl rollout undo` quay về.
   revisionHistoryLimit: 3
+  # Pod mới phải Ready LIÊN TỤC 5 s mới tính là "available"; chỉ khi đó rollout mới bỏ một pod
+  # cũ. Bản khởi động được nhưng chết sau vài giây bị chặn ở pod mới đầu tiên, pod cũ vẫn đủ.
+  # (Service đưa khách vào pod ngay khi nó Ready — minReadySeconds làm chậm việc BỎ pod cũ,
+  # không làm chậm việc nhận khách.)
+  minReadySeconds: 5
+  # 90 s không có pod mới nào available thì Deployment ghi Progressing=False,
+  # reason ProgressDeadlineExceeded và `kubectl rollout status` thoát lỗi. Kubernetes KHÔNG tự
+  # rollback: quyết định `rollout undo` là của người vận hành / CI (bước badrelease).
+  progressDeadlineSeconds: 90
   selector:
     matchLabels:
       app: server
   strategy:
     type: RollingUpdate
     rollingUpdate:
-      # Thêm 1 pod mới, đợi nó Ready rồi mới bỏ 1 pod cũ: không lúc nào ít hơn số pod mong muốn.
+      # Thêm 1 pod mới, đợi nó available rồi mới bỏ 1 pod cũ: không lúc nào ít hơn số pod mong
+      # muốn đang phục vụ. Bản mới không bao giờ Ready thì rollout dừng ở đó, pod cũ giữ nguyên.
       maxSurge: 1
       maxUnavailable: 0
   template:
@@ -31,22 +56,27 @@ spec:
     spec:
       # Không bơm biến SERVER_PORT=tcp://... của Service vào env (dễ đè nhầm biến của app).
       enableServiceLinks: false
-      # Node là PID 1 và server chưa bắt SIGTERM, nên pod cũ cứ phục vụ tới hết thời hạn này
-      # rồi mới bị SIGKILL. Endpoint đã gỡ pod ngay khi nó chuyển Terminating, nên request mới
-      # không tới nó nữa; 15 s đủ cho request đang dở, và rollout không phải chờ 30 s mặc định.
-      terminationGracePeriodSeconds: 15
+      # Trần thời gian từ SIGTERM tới SIGKILL. Phải lớn hơn SHUTDOWN_TIMEOUT_MS (20 s, mốc cứng
+      # của chính server, đã GỒM 5 s drain): 30 s = 20 s + 10 s dự phòng — server luôn tự thoát
+      # trước, Kubernetes không phải SIGKILL. Bình thường pod cũ thoát sau ~drain + vài trăm ms
+      # ([đo] trong log "[shutdown] xong sau ... ms"); con số 30 chỉ là trần.
+      terminationGracePeriodSeconds: 30
       containers:
         - name: server
-          # Image build từ nhánh này (có header X-Served-By), tag riêng để KHÔNG ghi đè
-          # kltn-server:latest mà Compose production dùng. demo.ps1 -Image đổi được tag.
-          image: kltn-server:k8s-demo
+          image: kltn-server:k8s-v1
           # Dùng image có sẵn trong Docker Desktop (cluster kubeadm dùng chung image store
           # với Docker Engine) — không có registry nào để pull.
           imagePullPolicy: Never
-          # BỎ QUA docker-entrypoint.sh: entrypoint chạy migrate deploy, DROP/CREATE TRIGGER
-          # trên bảng Inventory và seed-demo.js — mỗi lần pod khởi động (tự phục hồi, scale,
-          # rolling update) là một lần ghi vào DB production, có khi 4 pod cùng lúc. Schema
-          # đã do container server của Compose áp; pod demo chỉ chạy server.
+          # AN TOÀN DB PRODUCTION — BỎ QUA docker-entrypoint.sh.
+          # Image: ENTRYPOINT ["sh", "/app/docker-entrypoint.sh"], CMD ["node", "src/index.js"].
+          # Entrypoint chạy migrate deploy, DROP/CREATE TRIGGER trên Inventory (prisma/sql/
+          # inventory_constraints.sql), seed nền khi DB trống, ensure-inventory, seed-demo — và
+          # KHÔNG có công tắc bỏ qua (STARTUP_LOCK=0 chỉ bỏ khoá xếp hàng, việc ghi DB vẫn chạy).
+          # Pod demo trỏ vào DB production: mỗi lần pod khởi động (tự phục hồi, scale, rolling,
+          # blue-green) sẽ là một lần ghi vào DB production. Trong Kubernetes `command` THAY
+          # ENTRYPOINT của image, và vì không khai `args` nên CMD của image cũng bị bỏ — container
+          # chạy thẳng `node src/index.js`. Schema đã do container server của Compose áp.
+          # Node là PID 1 và tự bắt SIGTERM (src/lifecycle/gracefulShutdown.js) — tắt êm vẫn chạy.
           command: ["node", "src/index.js"]
           ports:
             - name: http
@@ -54,14 +84,35 @@ spec:
           envFrom:
             - configMapRef:
                 name: server-config
+            # DATABASE_URL (connection_limit=5 mỗi pod), JWT_SECRET... — make-secret.ps1.
             - secretRef:
                 name: server-env
           env:
-            # Downward API: tên pod -> header X-Served-By.
+            # Downward API: tên pod -> header X-Served-By (SERVED_BY_HEADER=1 trong ConfigMap).
+            # Tên pod = <tên ReplicaSet>-<5 ký tự>, nên demo.ps1 biết response đến từ bản cũ hay mới.
             - name: POD_NAME
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.name
+            # ── Tắt êm khi pod bị bỏ (rolling update, scale xuống, xoá pod) ──────────────
+            # Khi pod bị xoá, HAI việc chạy SONG SONG, không chờ nhau: kubelet gửi SIGTERM vào
+            # container, còn EndpointSlice controller gỡ pod khỏi Service rồi kube-proxy (và bộ
+            # chuyển cổng LoadBalancer của Docker Desktop) mới cập nhật luật định tuyến. SIGTERM
+            # có thể tới TRƯỚC khi luật đổi xong; nếu server đóng cổng ngay thì kết nối mới vẫn
+            # được đưa tới nó và bị từ chối. Vì vậy sau SIGTERM server:
+            #   - ngay lập tức: /api/health trả 503, mọi response kèm `Connection: close`;
+            #   - VẪN PHỤC VỤ request bình thường thêm SHUTDOWN_DRAIN_DELAY_MS;
+            #   - rồi mới server.close(), chờ request dở dang, dọn dẹp, exit.
+            # 5 s: mức thường dùng cho khoảng trễ này (cùng ý với preStop `sleep 5`), dư nhiều so
+            # với một cluster một node, mà vẫn giữ mỗi pod cũ chỉ tắt mất ~5 s. Muốn thấy vì sao
+            # cần: đặt 0 rồi chạy lại bước rolling, so số request lỗi ([đo], README mục 3).
+            - name: SHUTDOWN_DRAIN_DELAY_MS
+              value: "5000"
+            # Mốc cứng cho CẢ quá trình, tính từ SIGTERM (đã gồm 5 s drain): 5 s drain + tới
+            # ~12,5 s cho request dở dang + 2,5 s dọn dẹp (đẩy buffer hành vi, đóng Prisma,
+            # ClickHouse). Phải nhỏ hơn terminationGracePeriodSeconds ở trên.
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: "20000"
           resources:
             # requests.cpu là mẫu số của HPA (60% x 250m = 150m trung bình mỗi pod). Server lúc
             # rảnh dùng vài millicore (container production: ~0% CPU, 68 MiB lúc đo 17/11/2026),
@@ -74,18 +125,25 @@ spec:
             limits:
               cpu: "1"
               memory: 512Mi
-          # /api/health ping ClickHouse: pod chưa nối được tầng dữ liệu thì chưa nhận request.
+          # Pod chỉ nhận khách khi THẬT sự sẵn sàng: /api/health trả 200 HAI lần liên tiếp cách
+          # nhau 2 s (successThreshold 2) — tiến trình đã nạp xong route, nghe cổng 8080, ping được
+          # ClickHouse — chứ không chỉ "cổng đã mở". Thăm dò 2 s/lần để pod mới vào Service sớm
+          # và pod hỏng ra khỏi Service sau ~4 s (failureThreshold 2).
+          # Giới hạn: /api/health KHÔNG kiểm Postgres; bước bluegreen bù bằng smoke test nghiệp
+          # vụ (danh mục, sản phẩm) trước khi chuyển khách.
           readinessProbe:
             httpGet:
               path: /api/health
               port: http
-            initialDelaySeconds: 3
-            periodSeconds: 5
-            timeoutSeconds: 3
-            failureThreshold: 3
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            timeoutSeconds: 2
+            successThreshold: 2
+            failureThreshold: 2
           # Cùng endpoint nhưng nới tay (6 x 10 s = 1 phút): health phụ thuộc ClickHouse, siết
-          # chặt thì ClickHouse chậm một lúc là mọi pod cùng bị restart. Bản production nên có
-          # endpoint liveness riêng không phụ thuộc dịch vụ ngoài.
+          # chặt thì ClickHouse chậm một lúc là mọi pod cùng bị restart. Lúc tắt êm /api/health
+          # trả 503 tối đa 20 s — chưa đủ 6 lần trượt nên liveness không giết pod giữa chừng.
+          # Bản production nên có endpoint liveness riêng không phụ thuộc dịch vụ ngoài.
           livenessProbe:
             httpGet:
               path: /api/health

@@ -1,0 +1,15 @@
+# Cùng nội dung với ../manifests/10-configmap.yaml (xem chú thích ở đó), chỉ khác namespace.
+# Sửa một bên thì sửa cả bên kia. Secret "server-env" của namespace này cũng do make-secret.ps1
+# sinh (demo.ps1 -Step bluegreen gọi với -Namespace getshopy-bg, connection_limit=5 mỗi pod).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: server-config
+  namespace: getshopy-bg
+  labels:
+    app.kubernetes.io/part-of: getshopy-demo
+data:
+  PORT: "8080"
+  SERVED_BY_HEADER: "1"
+  CLICKHOUSE_HOST: "http://host.docker.internal:8123"
+  NODE_OPTIONS: "--max-old-space-size=320"
