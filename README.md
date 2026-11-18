@@ -144,44 +144,50 @@ Tài khoản có sẵn:
 
 ### 3b. Webhook SePay và mở web cho người khác
 
-Hai việc khác nhau, hai công cụ khác nhau (chốt 07/10/2026):
+Máy production ra Internet bằng **Tailscale Funnel** — cả web lẫn webhook SePay, URL cố định.
+(Trước đây webhook đi qua ngrok và web đi qua `cloudflared`; ngrok không còn dùng.)
 
 | Việc | Công cụ | URL |
 |---|---|---|
-| SePay báo "tiền đã về" (webhook) | **ngrok**, domain cố định miễn phí | cố định — khai SePay MỘT lần |
-| Cho người khác mở web đang chạy | `cloudflared` quick tunnel | ngẫu nhiên, đổi mỗi lần chạy — chỉ để xem, gửi lại link là xong |
+| SePay báo "tiền đã về" (webhook) | Tailscale Funnel, **cổng 8443**, chỉ mở đúng path webhook | cố định — khai SePay MỘT lần |
+| Web production (khách hàng, trang quản trị) | Tailscale Funnel, cổng 443 | cố định — `https://msi.taild22ef7.ts.net` |
+| Cho người khác xem web chạy trên **máy dev** | `cloudflared` quick tunnel | ngẫu nhiên, đổi mỗi lần chạy — chỉ để xem |
 
-Cả hai dẫn vào **ĐÚNG MÁY đang chạy tunnel**, không dẫn vào code ai vừa pull.
+Funnel dẫn vào **ĐÚNG MÁY production**, không dẫn vào code ai vừa pull.
+Nguồn: [Tailscale Funnel](https://tailscale.com/kb/1223/funnel).
 
-#### Webhook SePay — ngrok, domain cố định
+#### Webhook SePay — Tailscale Funnel cổng 8443
 
-Vì sao ngrok: gói miễn phí cho mỗi tài khoản một domain cố định nên khai SePay một lần là
-xong; chạy qua cổng 443 nên không vướng cổng 7844 như `cloudflared`; trang cảnh báo của
-gói miễn phí chỉ hiện với trình duyệt, không chặn webhook; giới hạn 20.000 request và
-1 GB mỗi tháng thừa cho webhook nhưng KHÔNG đủ để cả nhóm mở web — nên web đi đường
-`cloudflared` bên dưới. Nguồn: [giới hạn gói miễn phí](https://ngrok.com/docs/pricing-limits/free-plan-limits),
-[CLI](https://ngrok.com/docs/agent/cli/).
+Cấu hình trên máy production (`tailscale funnel status`):
 
-Dựng một lần, trên máy nhận webhook (nên là máy demo chạy lâu dài):
-
-```bash
-ngrok config add-authtoken <TOKEN>        # token lấy ở dashboard ngrok — BÍ MẬT, không commit, không gửi chat nhóm
-# Dashboard ngrok → Domains: lấy domain cố định, dạng <tên>.ngrok-free.app
-ngrok http 3000 --url https://<tên>.ngrok-free.app    # chạy bằng docker compose
-ngrok http 8080 --url https://<tên>.ngrok-free.app    # chạy server native để dev
+```
+https://msi.taild22ef7.ts.net:8443 (Funnel on)
+|-- /api/payment/webhook/sepay proxy http://127.0.0.1:18000/api/payment/webhook/sepay
 ```
 
-Khai vào dashboard SePay một lần: `https://<tên>.ngrok-free.app/api/payment/webhook/sepay`.
+`127.0.0.1:18000` là cổng 80 của gateway publish ra loopback (`GATEWAY_SERVE_PORT`); gateway
+chia request cho các bản server ([docs/load-balancing.md](docs/load-balancing.md)). Cổng 8443
+chỉ mở đúng path này; trên cổng 443 path webhook cũng chỉ nhận POST (`gateway/nginx.conf`).
+Server xác thực bằng chữ ký HMAC / API key của SePay.
 
-- Mỗi lúc **chỉ một máy** chạy agent với domain đó, nên chỉ máy đó nhận xác nhận thanh toán.
-- ngrok tắt, máy ngủ hay mất mạng thì webhook KHÔNG về: đơn chuyển khoản nằm PENDING rồi
-  hết hạn dù tiền đã vào tài khoản, và không có lỗi nào hiện ra. Nhưng URL không đổi —
-  bật lại `ngrok http …` là chạy, không phải sửa SePay.
-- Trỏ sai cổng (3000 khi chạy compose, 8080 khi chạy native) thì webhook lỗi 502 và SePay
-  thử lại trong im lặng.
-- Kiểm: `pgrep -f 'ngrok http'` chỉ biết tiến trình còn chạy. Chắc chắn thì mở
-  `https://<tên>.ngrok-free.app/` — thấy trang cảnh báo của ngrok rồi vào được web là thông
-  — hoặc xem mục Endpoints trên dashboard ngrok.
+Khai vào dashboard SePay một lần: `https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay`.
+
+Mở lại nếu cấu hình Funnel bị xoá (vd. sau `tailscale serve reset`); cấu hình chạy `--bg`
+được lưu qua các lần khởi động máy:
+
+```powershell
+tailscale funnel --bg --https=8443 --set-path=/api/payment/webhook/sepay http://127.0.0.1:18000/api/payment/webhook/sepay
+```
+
+- Tailscale tắt / đăng xuất, máy ngủ hay mất mạng thì webhook KHÔNG về: đơn chuyển khoản nằm
+  PENDING rồi hết hạn dù tiền đã vào tài khoản, và không có lỗi nào hiện ra. URL không đổi —
+  bật lại Tailscale là chạy, không phải sửa SePay.
+- Đổi `GATEWAY_SERVE_PORT` mà không sửa Funnel thì webhook lỗi 502 và SePay thử lại trong im lặng.
+- Đổi tên máy / tailnet thì tên miền `*.ts.net` đổi — PHẢI khai lại URL bên SePay.
+- Kiểm (Windows: `& "C:\Program Files\Tailscale\tailscale.exe" funnel status`): phải còn dòng
+  `:8443` ở trên. GET `https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay` trả
+  **404 do server** (route chỉ nhận POST) là đường thông; 502/503 là gateway/server không trả
+  lời; không kết nối được là Funnel/Tailscale tắt. Không POST giả lập lên production.
 
 **Dev test luồng thanh toán ở máy mình** — không cần tunnel: dùng adapter mô phỏng. Nó đi
 qua đúng code đối soát của webhook thật, chỉ bỏ đoạn mạng từ SePay về và bước kiểm chữ ký
@@ -194,9 +200,12 @@ curl -X POST http://localhost:3000/api/payment/webhook/simulator \
   -d '{"amount": <tổng tiền đơn>, "content": "<nội dung CK trên màn hình QR>"}'
 ```
 
-Muốn test luồng THẬT (chuyển tiền thật, SePay báo về) thì test trên máy đang chạy ngrok.
+Muốn test luồng THẬT (chuyển tiền thật, SePay báo về) thì test trên máy production (đường
+Funnel ở trên).
 
-#### Mở web cho người khác xem — `cloudflared` quick tunnel
+#### Mở web trên máy dev cho người khác xem — `cloudflared` quick tunnel
+
+Web production đã có URL Funnel cố định ở trên; mục này cho máy dev không chạy Tailscale.
 
 ```bash
 cloudflared tunnel --url http://localhost:3000
@@ -214,14 +223,15 @@ kết nối được, log không có `Registered tunnel connection`, có `QUIC c
 - Chặn cả TCP 7844 (kiểm: `curl -sv --connect-timeout 5 https://region1.v2.argotunnel.com:7844/`
   không in `Connected to`): đổi mạng (hotspot điện thoại, mạng nhà) hoặc nhờ IT mở cổng.
 
-#### Chung cho cả hai
+#### Chung
 
-- Giữ máy chạy tunnel không ngủ: macOS `caffeinate -dims`, Windows tắt Sleep trong Power settings.
-- `docker compose up -d --build`, `down`/`up`, `restart`, sửa `.env` KHÔNG ảnh hưởng tunnel —
-  `ngrok` và `cloudflared` chạy ngoài Docker.
-- **⚠️ Bảo mật:** tunnel đưa CẢ trang quản trị ra Internet — domain ngrok lại cố định nên
+- Giữ máy production / máy chạy tunnel không ngủ: macOS `caffeinate -dims`, Windows tắt Sleep
+  trong Power settings.
+- `docker compose up -d --build`, `down`/`up`, `restart`, sửa `.env` KHÔNG ảnh hưởng Funnel hay
+  `cloudflared` — cả hai chạy ngoài Docker; chỉ hụt vài giây lúc gateway/server được tạo lại.
+- **⚠️ Bảo mật:** Funnel / tunnel đưa CẢ trang quản trị ra Internet — URL Funnel lại cố định nên
   càng dễ bị dò — mà tài khoản mặc định ở bảng trên ghi công khai trong README này.
-  **Đổi mật khẩu admin và `DEMO_PASSWORD` trên máy chạy tunnel trước khi mở.**
+  **Đổi mật khẩu admin và `DEMO_PASSWORD` trên máy production trước khi mở.**
 
 ### 4. Lệnh hay dùng
 
