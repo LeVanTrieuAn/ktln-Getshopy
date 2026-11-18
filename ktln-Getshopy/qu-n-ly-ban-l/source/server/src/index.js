@@ -47,6 +47,11 @@ const app = express();
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 // Không quảng cáo "X-Powered-By: Express" ra Internet (gian hàng đang public qua Funnel).
 app.disable('x-powered-by');
+// 19/11/2026: số đo Prometheus (src/metrics, docs/monitoring.md). Chỉ bật khi METRICS_ENABLED=1
+// (compose bật mặc định). /metrics nằm trên cổng RIÊNG METRICS_PORT (mặc định 9464), không phải
+// route của app này — gateway / Funnel không chạm tới được. Gắn đầu tiên để đo cả 429, 503.
+const metrics = require('./metrics').createMetrics();
+if (metrics) app.use(metrics.middleware);
 // 17/11/2026: header X-Served-By (tên pod) cho demo Kubernetes ở deploy/k8s-demo — để thấy
 // request nào do pod nào trả lời. Chỉ bật khi SERVED_BY_HEADER=1 — từ 18/11/2026 compose bật
 // mặc định cho demo cân bằng tải (cổng public 8090 của gateway gỡ header). Gắn trước rate
@@ -1021,6 +1026,8 @@ const graceful = createGracefulShutdown({
     { name: 'job đóng đơn quá hạn', fn: () => expireScheduler.stop() },
   ],
   cleanup: [
+    // HTTP đã đóng -> bản này hết phục vụ: đóng luôn cổng số đo để Prometheus thấy bản biến mất.
+    ...(metrics ? [{ name: 'cổng số đo Prometheus', fn: () => metrics.stop() }] : []),
     { name: 'đẩy buffer hành vi sang ClickHouse', fn: () => BehaviorService.shutdown() },
     { name: 'bus Redis Pub/Sub', fn: () => bus.stop() },
     // quit() chờ lệnh dở dang; Redis đang rớt thì quit() xếp hàng mãi -> disconnect().
@@ -1042,6 +1049,8 @@ server.listen(PORT, '0.0.0.0', () => {
 
   // Job đóng đơn quá hạn — không chạy thì kho giữ chỗ mãi không nhả.
   expireScheduler.start(prisma);
+  // Cổng số đo mở SAU cổng chính. Lỗi (cổng bận) chỉ ghi log, không làm server dừng.
+  if (metrics) metrics.start();
   console.log(`🚀 iStore Analytics Server on http://localhost:${PORT}`);
   console.log(`🔌 WebSocket server ready`);
 });
