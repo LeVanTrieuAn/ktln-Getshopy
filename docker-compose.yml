@@ -97,7 +97,13 @@ services:
       # luôn đặt off. Máy production nên đặt SERVER_DB_PREP=off trong .env để cả lần
       # `docker compose up -d` gõ tay cũng chỉ thay code.
       DB_PREP: ${SERVER_DB_PREP:-auto}
-    expose: ["8080"]
+      # Số đo Prometheus (src/metrics, docs/monitoring.md) trên cổng RIÊNG 9464 — không phải route
+      # của Express nên gateway / Funnel không tới được; cổng chỉ `expose` trong network.
+      # Prometheus tìm mọi bản qua DNS (monitoring/prometheus/prometheus.yml, cổng 9464 ghi cứng ở
+      # đó — đổi một chỗ thì đổi cả hai). Tắt: METRICS_ENABLED=0 trong .env.
+      METRICS_ENABLED: ${METRICS_ENABLED:-1}
+      METRICS_PORT: "9464"
+    expose: ["8080", "9464"]
     # docker stop / --scale xuống: SIGTERM, chờ chừng này rồi mới SIGKILL (mặc định 10 s).
     stop_grace_period: 12s
     depends_on:
@@ -504,6 +510,72 @@ services:
         "PG_SOURCE_USER=${POSTGRES_USER:-getshopy}","PG_SOURCE_PASSWORD=${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}"]
     restart: unless-stopped
 
+  # ═══ GIÁM SÁT — Prometheus + Grafana (19/11/2026) ════════════════════════
+  # Thấy gateway chia tải cho các bản server theo thời gian thực: request/s, độ trễ, lỗi,
+  # CPU/RAM từng bản. Tài liệu, cách đọc dashboard, bảo mật: docs/monitoring.md.
+  # Không nằm trong CD (deploy/cd chỉ tạo lại 4 service ứng dụng) — bật / cập nhật bằng tay:
+  #   docker compose up -d prometheus grafana
+  # Không có cổng nào ra ngoài trừ Grafana trên loopback.
+
+  prometheus:
+    # 3.13 là bản LTS của Prometheus; 3.13.5 (21/10/2026) gồm các bản vá bảo mật.
+    image: prom/prometheus:v3.13.5
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      # Giữ dữ liệu theo THỜI GIAN và theo DUNG LƯỢNG — chạm mức nào trước thì xoá block cũ
+      # trước. Ổ D: chật (từng đầy, sập production 15/11): trần dung lượng là bắt buộc.
+      # https://prometheus.io/docs/prometheus/latest/storage/#operational-aspects
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION_TIME:-7d}
+      - --storage.tsdb.retention.size=${PROMETHEUS_RETENTION_SIZE:-1GB}
+    volumes:
+      - ./monitoring/prometheus:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    # Không publish cổng: chỉ Grafana (cùng network) đọc. Xem target / chạy truy vấn khi cần:
+    #   docker compose exec prometheus wget -qO- http://localhost:9090/api/v1/targets
+    # hoặc dùng Explore của Grafana.
+    expose: ["9090"]
+    mem_limit: ${PROMETHEUS_MEM_LIMIT:-512m}
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:13.2.5
+    depends_on: [prometheus]
+    ports:
+      # CHỈ loopback: Grafana có trang đăng nhập admin, không đưa ra LAN / Funnel. Xem từ máy
+      # khác trong tailnet: `tailscale serve` (KHÔNG phải funnel) — docs/monitoring.md.
+      - "127.0.0.1:${GRAFANA_PORT:-3001}:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      # ĐẶT GRAFANA_ADMIN_PASSWORD trong .env TRƯỚC lần khởi động đầu: Grafana chỉ đọc biến này
+      # khi tạo tài khoản admin lần đầu (volume grafana_data còn trống); đổi sau đó phải dùng
+      #   docker compose exec grafana grafana cli admin reset-admin-password <mật-khẩu-mới>
+      # Cố ý KHÔNG dùng ${VAR:?}: CD chạy `docker compose config/up` với .env production, thiếu
+      # biến bắt buộc là hỏng mọi lần deploy. Thiếu biến -> "admin" = mặc định của Grafana, lần
+      # đăng nhập đầu Grafana đòi đổi mật khẩu; cổng chỉ nghe loopback.
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      # Không gọi ra Internet: không báo số liệu sử dụng, không kiểm tra bản mới, không tự cài
+      # plugin lúc khởi động (máy production dùng chung, mạng ra ngoài không cần thiết).
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
+      # Grafana 13 chạy MỖI datasource đóng gói sẵn thành một tiến trình riêng (~25 MB RSS mỗi cái,
+      # đo 19/11/2026). Chỉ cần Prometheus -> không nạp 12 datasource còn lại.
+      GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,grafana-postgresql-datasource,grafana-pyroscope-datasource,influxdb,jaeger,loki,mssql,mysql,opentsdb,stackdriver,tempo,zipkin
+      # Mở Grafana là vào thẳng dashboard cân bằng tải
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/getshopy/getshopy-load-balancing.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/etc/grafana/dashboards/getshopy:ro
+      - grafana_data:/var/lib/grafana
+    mem_limit: ${GRAFANA_MEM_LIMIT:-512m}
+    restart: unless-stopped
+
   # ═══ GATEWAY ═════════════════════════════════════════════════════════════
 
   # Một cổng vào cho web, server, ai-rec và ai-bot, chia theo đường dẫn — bảng
@@ -554,3 +626,5 @@ volumes:
   minio_data:
   ai_data:
   ai_models:
+  prometheus_data:
+  grafana_data:

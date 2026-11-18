@@ -1,0 +1,19 @@
+# Dashboard nạp từ file trong repo (provisioning), 19/11/2026.
+# https://grafana.com/docs/grafana/latest/administration/provisioning/#dashboards
+#
+# Sửa dashboard: sửa file JSON trong monitoring/grafana/dashboards/ (Grafana đọc lại sau
+# updateIntervalSeconds). Sửa trên giao diện thì KHÔNG lưu được (allowUiUpdates: false) — muốn
+# giữ thay đổi: Export -> JSON rồi chép đè file trong repo.
+apiVersion: 1
+
+providers:
+  - name: getshopy
+    folder: Getshopy
+    type: file
+    disableDeletion: true
+    allowUiUpdates: false
+    updateIntervalSeconds: 30
+    options:
+      # docker-compose.yml mount ./monitoring/grafana/dashboards vào đây (chỉ đọc)
+      path: /etc/grafana/dashboards/getshopy
+      foldersFromFilesStructure: false

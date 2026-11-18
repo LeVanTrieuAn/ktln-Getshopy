@@ -37,6 +37,8 @@ param(
     # Gateway qua cổng loopback trên máy (GATEWAY_SERVE_PORT trong compose, mặc định 18000)
     [string]$BaseUrl = 'http://localhost:18000',
     [string]$K6Image = 'grafana/k6:1.8.2',
+    # Chỉ để in gợi ý: dashboard Grafana xem song song (docs/monitoring.md, GRAFANA_PORT mặc định 3001)
+    [string]$GrafanaUrl = 'http://localhost:3001',
     # Trần CPU / RAM cho container k6 — bộ sinh tải không được giành hết máy đang chạy production
     [string]$K6Cpus = '2',
     [string]$K6Memory = '1g',
@@ -176,6 +178,7 @@ try {
     Write-Note "Thư mục compose : $Root"
     Write-Note "Network         : $network"
     Write-Note "Bản server hiện : $before"
+    Write-Note "Grafana         : $($GrafanaUrl.TrimEnd('/'))/d/getshopy-lb  (xem trực tiếp; cần docker compose up -d prometheus grafana — docs/monitoring.md)"
     if (-not $SkipLoad) {
         Write-Note "Sẽ scale server : $($Replicas -join ' -> '), mỗi mức k6 $Rate req/s, khởi động $Warmup + đo $Duration"
         Write-Note "Kết quả lưu ở   : $OutDir"

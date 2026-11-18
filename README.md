@@ -130,6 +130,7 @@ Lưu ý khi giữ máy demo chạy lâu dài:
 | http://localhost:8123 | ClickHouse HTTP |
 | http://localhost:8083 | Kafka Connect REST |
 | http://localhost:9001 | MinIO Console |
+| http://localhost:3001 | Grafana — dashboard cân bằng tải (chỉ loopback; tài khoản `admin`, mật khẩu `GRAFANA_ADMIN_PASSWORD` trong `.env`) — [docs/monitoring.md](docs/monitoring.md) |
 | localhost:5432 | Postgres |
 
 Backend Node và AI-Rec **không mở cổng ra ngoài** — gọi qua `localhost:3000/api`,
@@ -236,7 +237,7 @@ kết nối được, log không có `Registered tunnel connection`, có `QUIC c
 ### 4. Lệnh hay dùng
 
 ```bash
-docker compose ps                                  # trạng thái 14 service
+docker compose ps                                  # trạng thái 16 service
 docker compose logs -f <service>                   # xem log
 docker compose --profile dbt run --rm dbt build    # chạy dbt ngay, không chờ lịch
 docker compose --profile seed run --rm seed-catalog       # seed 600k sản phẩm (một lần)
@@ -253,6 +254,15 @@ Trạng thái dùng chung giữa các bản, tắt êm, số kết nối Postgre
 docker compose up -d --no-deps --scale server=2 server   # đổi số bản tạm thời
 docker compose exec server node scripts/...              # lệnh tay: chạy ở bản số 1
 .\scripts\lb-demo.ps1                                    # demo phân bố + k6 với 1/2/3 bản
+```
+
+Xem trực tiếp gateway chia tải (request/s, độ trễ, lỗi, CPU/RAM từng bản) trên Grafana —
+Prometheus + Grafana, số đo của server, cách đọc dashboard, bảo mật:
+[docs/monitoring.md](docs/monitoring.md).
+
+```powershell
+docker compose up -d prometheus grafana     # bật giám sát (lần đầu: đặt GRAFANA_ADMIN_PASSWORD trong .env TRƯỚC)
+.\scripts\grafana-demo.ps1                   # demo trực tiếp: tải ổn định -> scale 1..4 -> 1 server chết
 ```
 
 ### ⚠️ Lệnh KHÔNG được chạy

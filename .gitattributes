@@ -7,3 +7,6 @@
 *.sh            text eol=lf
 Dockerfile      text eol=lf
 Dockerfile.*    text eol=lf
+
+# Cấu hình Prometheus / Grafana được mount nguyên thư mục vào container Linux (19/11/2026).
+monitoring/**    text eol=lf

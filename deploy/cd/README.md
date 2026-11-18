@@ -240,8 +240,10 @@ tới `client` · health `/api/health` và `/` qua gateway trong 120 s · lỗi 
 `git reset --keep` (từ chối thay vì ghi đè thay đổi cục bộ) · xong → giữ tag hiện tại + tag trước.
 
 Thay đổi ở `docker-compose.yml` của 4 service ứng dụng được áp tự động. Thay đổi hạ tầng (gateway,
-service khác trong compose, `local-infra-sandbox/`, `scripts/`, `.env.example`...) chỉ được **ghi cảnh
-báo** trong `deploy.log` kèm lệnh cần chạy tay.
+service khác trong compose, `local-infra-sandbox/`, `scripts/`, `monitoring/`, `.env.example`...) chỉ
+được **ghi cảnh báo** trong `deploy.log` kèm lệnh cần chạy tay. Prometheus + Grafana
+([docs/monitoring.md](../../docs/monitoring.md)) không nằm trong CD: bật / cập nhật bằng
+`docker compose up -d prometheus grafana`.
 
 ## Sự cố
 

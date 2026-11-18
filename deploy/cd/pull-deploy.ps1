@@ -100,6 +100,7 @@ $ManualPaths = [ordered]@{
     '^data-platform-poc/'                                   = 'seed-data: docker compose --profile seed build seed-data (khi cần)'
     '^ktln-Getshopy/qu-n-ly-ban-l/source/clickhouse-init/'  = 'clickhouse-init chỉ chạy khi volume ClickHouse còn trống — áp tay nếu cần'
     '^\.env\.example$'                                      = '.env.example đổi: so với .env production, thêm biến mới bằng tay'
+    '^monitoring/'                                          = 'giám sát (Prometheus/Grafana, docs/monitoring.md): docker compose up -d prometheus grafana; chỉ sửa prometheus.yml thì docker compose kill -s SIGHUP prometheus'
 }
 $InfoPaths = [ordered]@{
     '^ktln-Getshopy/qu-n-ly-ban-l/source/server/prisma/migrations/' = 'migration mới: server tự áp khi khởi động; rollback image KHÔNG hoàn tác schema'
