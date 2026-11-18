@@ -14,6 +14,13 @@ const { requireAdmin } = require('./middleware/requireAdmin');
 const { validateCustomerInfo } = require('./utils/validators');
 const { redis, isConnected: redisIsConnected, cached: redisCached } = require('./redis');
 const { createKpiToday, toKpiFields } = require('./services/KpiTodayService');
+// Cân bằng tải nhiều bản server (18/11/2026): bus Redis Pub/Sub giữa các bản, rate limit đếm
+// chung trong Redis, WebSocket phát cho client của mọi bản, tắt êm khi nhận SIGTERM.
+const { bus } = require('./cluster');
+const { createWsFanout } = require('./cluster/wsFanout');
+const { createRateLimitStore } = require('./middleware/rateLimitStore');
+const { createGracefulShutdown } = require('./lifecycle/gracefulShutdown');
+const BehaviorService = require('./services/BehaviorService');
 
 // ─── GLOBAL BIGINT SERIALIZER ────────────────────────────────────────────
 BigInt.prototype.toJSON = function() {
@@ -41,10 +48,15 @@ app.set('trust proxy', 'loopback, linklocal, uniquelocal');
 // Không quảng cáo "X-Powered-By: Express" ra Internet (gian hàng đang public qua Funnel).
 app.disable('x-powered-by');
 // 17/11/2026: header X-Served-By (tên pod) cho demo Kubernetes ở deploy/k8s-demo — để thấy
-// request nào do pod nào trả lời. Chỉ bật khi SERVED_BY_HEADER=1; compose không đặt biến này
-// nên production không đổi. Gắn trước rate limiter để cả response 429 cũng mang header.
+// request nào do pod nào trả lời. Chỉ bật khi SERVED_BY_HEADER=1 — từ 18/11/2026 compose bật
+// mặc định cho demo cân bằng tải (cổng public 8090 của gateway gỡ header). Gắn trước rate
+// limiter để cả response 429 cũng mang header.
 const servedBy = require('./middleware/servedBy').createServedBy();
 if (servedBy) app.use(servedBy);
+// Đang tắt (SIGTERM) thì mọi response kèm `Connection: close` — nginx không gửi request mới
+// vào kết nối keep-alive tới bản sắp tắt. `graceful` khai báo ở cuối file (cần wss, timer...),
+// hàm này chỉ chạy lúc có request, khi đó nó đã có.
+app.use((req, res, next) => graceful.middleware(req, res, next));
 const server = http.createServer(app);
 
 // Lỗi 5xx trên API của gian hàng (/api/b2c, /api/ai — hai nhánh duy nhất gateway
@@ -93,12 +105,18 @@ app.use(express.json({
 }));
 
 // ─── RATE LIMITING ────────────────────────────────────────────
+// 18/11/2026: đếm trong Redis (chung cho mọi bản server sau nginx) thay vì bộ nhớ từng bản —
+// với N bản, MemoryStore cho mỗi khách N x max. Redis rớt thì tự quay về bộ nhớ, không treo
+// request (middleware/rateLimitStore.js). passOnStoreError: store lỗi nốt thì cho request qua
+// (ghi log) thay vì trả 500 cho cả cửa hàng.
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
   max: 2000,     // Increased so CI/automated tests (495+ req) don't get rate-limited
   message: { error: 'Quá nhiều request, vui lòng thử lại sau.' },
   standardHeaders: true,
   legacyHeaders: false,
+  store: createRateLimitStore({ client: redis, prefix: 'rl:api:' }),
+  passOnStoreError: true,
 });
 // Webhook thanh toán KHÔNG đi qua rate limiter: provider bắn dồn khi có nhiều
 // giao dịch cùng lúc, bị chặn là mất tín hiệu tiền vào. Bảo vệ của endpoint này
@@ -691,6 +709,8 @@ app.get('/api/products', async (req, res) => {
 
 // ─── HEALTH CHECK ─────────────────────────────────────────────
 app.get('/api/health', async (req, res) => {
+  // Đang tắt êm: báo "chưa sẵn sàng" để healthcheck / readiness probe thôi gửi request tới.
+  if (graceful.isDraining()) return res.status(503).json({ status: 'draining', timestamp: new Date() });
   try {
     const chPing = await ch.ping();
     res.json({ status: 'ok', clickhouse: chPing.success ? 'connected' : 'error', timestamp: new Date() });
@@ -706,11 +726,13 @@ wss.on('connection', (ws) => {
   ws.on('close', () => wsClients.delete(ws));
 });
 
+// 18/11/2026 — nhiều bản server: client WebSocket nối vào bản nào thì chỉ bản đó gửi được cho
+// nó. Sự kiện phát sinh từ request (đơn mới, thanh toán, huỷ) đi qua bus để MỌI bản gửi cho
+// client của mình, mỗi client nhận đúng một lần (cluster/wsFanout.js).
+const wsFanout = createWsFanout({ bus, getClients: () => wsClients, openState: WebSocket.OPEN });
+
 function broadcastStockUpdate() {
-  const payload = JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() });
-  wsClients.forEach(ws => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(payload);
-  });
+  wsFanout.broadcast(JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() }));
 }
 app.locals.broadcastStockUpdate = broadcastStockUpdate;
 
@@ -742,15 +764,15 @@ async function fetchAndBroadcastKpi() {
       };
       _wsKpiLastFetch = now;
     }
-    // Broadcast cache đến tất cả clients — không query thêm
-    const payload = JSON.stringify(_wsKpiCache);
-    wsClients.forEach(ws => { if (ws.readyState === WebSocket.OPEN) ws.send(payload); });
+    // Broadcast cache đến tất cả clients — không query thêm. CHỈ client của bản này: bản nào
+    // cũng tự chạy timer này, đi qua bus thì client nhận N lần.
+    wsFanout.sendLocal(JSON.stringify(_wsKpiCache));
   } catch {
     // ClickHouse not ready yet, skip
   }
 }
 
-setInterval(fetchAndBroadcastKpi, 5000);
+const kpiTimer = setInterval(fetchAndBroadcastKpi, 5000);
 
 // ─── SIMULATE MANUAL DATA ENTRY ────────────────────────────────
 app.post('/api/admin/simulate-sale', authMiddleware, async (req, res) => {
@@ -858,12 +880,8 @@ app.post('/api/b2c/checkout', authB2C, async (req, res) => {
       },
     });
 
-    // Báo client cập nhật tồn kho hiển thị
-    wsClients.forEach(ws => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'STOCK_UPDATE', timestamp: new Date().toISOString() }));
-      }
-    });
+    // Báo client cập nhật tồn kho hiển thị — client của MỌI bản server (qua bus)
+    broadcastStockUpdate();
 
     return res.json({ success: true, ...result });
   } catch (err) {
@@ -932,6 +950,9 @@ const aiLimiter = rateLimit({
   message: { error: 'Bạn dùng tính năng AI quá nhanh, vui lòng thử lại sau ít phút.' },
   standardHeaders: true,
   legacyHeaders: false,
+  // Đếm chung trong Redis (18/11/2026): 20/phút là 20/phút cho cả cụm, không phải 20 x N bản.
+  store: createRateLimitStore({ client: redis, prefix: 'rl:ai:' }),
+  passOnStoreError: true,
 });
 // /api/b2c/compare-advice thêm 15/11/2026 (review merge PR #19): route so sánh AI mới
 // cũng gọi LLM tính tiền nhưng nằm ngoài cả ba prefix cũ.
@@ -986,10 +1007,38 @@ app.use('/api/b2b', aiAdminRouter);
 const behaviorAnalyticsRouter = require('./routes/behavior-analytics');
 app.use('/api/b2b/analytics/behavior', behaviorAnalyticsRouter);
 
+// ─── GRACEFUL SHUTDOWN (18/11/2026) ──────────────────────────
+// docker stop / compose --scale xuống / rolling update gửi SIGTERM. Trình tự và lý do:
+// lifecycle/gracefulShutdown.js. SHUTDOWN_TIMEOUT_MS phải nhỏ hơn stop_grace_period của
+// compose (12 s) — quá hạn đó Docker SIGKILL, mất buffer hành vi chưa đẩy.
+const graceful = createGracefulShutdown({
+  server,
+  wss,
+  timeoutMs: Number(process.env.SHUTDOWN_TIMEOUT_MS) || 8000,
+  drainDelayMs: Number(process.env.SHUTDOWN_DRAIN_DELAY_MS) || 0,
+  stopBackground: [
+    { name: 'timer KPI WebSocket', fn: () => clearInterval(kpiTimer) },
+    { name: 'job đóng đơn quá hạn', fn: () => expireScheduler.stop() },
+  ],
+  cleanup: [
+    { name: 'đẩy buffer hành vi sang ClickHouse', fn: () => BehaviorService.shutdown() },
+    { name: 'bus Redis Pub/Sub', fn: () => bus.stop() },
+    // quit() chờ lệnh dở dang; Redis đang rớt thì quit() xếp hàng mãi -> disconnect().
+    { name: 'Redis', fn: () => (redis && redis.isOpen ? (redis.isReady ? redis.quit() : redis.disconnect()) : null) },
+    { name: 'Prisma', fn: () => prisma.$disconnect() },
+    { name: 'ClickHouse', fn: () => ch.close() },
+  ],
+});
+graceful.install();
+
 // ─── START ────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
   // Lỗi cấu hình thanh toán không tự báo ra — chỉ lộ khi có tiền thật chạy qua.
   checkPaymentConfig();
+
+  // Nghe kênh bus của cụm. Không await: Redis chưa lên thì node-redis tự thử lại, server vẫn
+  // phục vụ (bus chạy cục bộ tới khi nối được).
+  bus.start();
 
   // Job đóng đơn quá hạn — không chạy thì kho giữ chỗ mãi không nhả.
   expireScheduler.start(prisma);

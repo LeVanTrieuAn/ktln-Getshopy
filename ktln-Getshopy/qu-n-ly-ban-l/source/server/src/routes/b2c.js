@@ -1,6 +1,8 @@
 const express = require('express');
 const { prisma } = require('../db');
 const { cached, redis, isConnected: redisIsConnected } = require('../redis');
+// Báo các bản server khác khi xoá cache danh sách (cân bằng tải, 18/11/2026) — cluster/bus.js
+const { bus } = require('../cluster');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const router = express.Router();
@@ -494,16 +496,24 @@ async function listingCached(key, compute) {
  */
 async function invalidateListingCache() {
   _listingMem.clear();
-  if (!redisIsConnected()) return;
-  try {
-    // redis v4: scanIterator trả từng khoá. SCAN thay cho KEYS để không chặn Redis.
-    for await (const key of redis.scanIterator({ MATCH: 'products:*', COUNT: 200 })) {
-      await redis.del(key);
+  if (redisIsConnected()) {
+    try {
+      // redis v4: scanIterator trả từng khoá. SCAN thay cho KEYS để không chặn Redis.
+      for await (const key of redis.scanIterator({ MATCH: 'products:*', COUNT: 200 })) {
+        await redis.del(key);
+      }
+    } catch (err) {
+      console.warn('[products] Xoá cache danh sách lỗi:', err.message);
     }
-  } catch (err) {
-    console.warn('[products] Xoá cache danh sách lỗi:', err.message);
   }
+  // 18/11/2026 — nhiều bản server: _listingMem là Map riêng của từng bản; bản khác vẫn trả số
+  // cũ tới 2 phút (LISTING_FRESH_MS) rồi thêm một request nữa. Báo cho mọi bản xoá Map của
+  // mình, SAU khi đã xoá Redis để bản khác không đọc lại bản cũ từ Redis.
+  await bus.publish('listing-cache');
 }
+bus.on('listing-cache', () => _listingMem.clear());
+// Bản này lỡ tin khi mất kết nối Redis -> nối lại thì xoá luôn cho chắc.
+bus.onResync(() => _listingMem.clear());
 
 // Bảng Branch hiện có 4 chi nhánh. Mỗi chi nhánh thêm một biểu thức FILTER cho mọi dòng,
 // nên chỉ gộp tối đa ngần này chi nhánh vào một lần quét; phần dư đếm riêng.

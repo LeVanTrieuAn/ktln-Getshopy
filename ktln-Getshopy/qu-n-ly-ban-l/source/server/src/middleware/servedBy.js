@@ -7,9 +7,13 @@
  * trong Deployment, không có thì os.hostname() — trong container chính là tên pod / id
  * container) để demo.ps1 đếm phân bố request giữa các pod.
  *
- * MẶC ĐỊNH TẮT: chỉ bật khi SERVED_BY_HEADER=1 (đúng chuỗi "1"). Production chạy bằng
- * Docker Compose không đặt biến này nên không đổi gì — và cũng không nên bật ở production:
- * tên máy / container là thông tin hạ tầng, khách không cần thấy.
+ * MẶC ĐỊNH TẮT: chỉ bật khi SERVED_BY_HEADER=1 (đúng chuỗi "1").
+ *
+ * 18/11/2026 — cân bằng tải bằng Docker Compose (nhiều bản `server` sau nginx gateway):
+ * docker-compose.yml đặt SERVED_BY_HEADER=${SERVED_BY_HEADER:-1} để scripts/lb-demo.ps1 đếm
+ * phân bố request. Tên ở đây là hostname = id ngắn của container. Tên máy / container là thông
+ * tin hạ tầng, khách không cần thấy: cổng PUBLIC 8090 của gateway gỡ header này
+ * (proxy_hide_header trong gateway/nginx.conf); muốn tắt hẳn thì đặt SERVED_BY_HEADER=0 trong .env.
  *
  * Không phụ thuộc thư viện nào (env, hostname truyền vào được) để kiểm thử bằng `node --test`.
  */

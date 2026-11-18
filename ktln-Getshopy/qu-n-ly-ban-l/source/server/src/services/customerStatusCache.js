@@ -12,9 +12,11 @@
  * không đệm thì mỗi lô chiếm một kết nối trong pool Prisma. Đệm TTL_MS = 30 s theo từng khách
  * nghĩa là tối đa 1 truy vấn / khách / 30 s.
  *
- * Vô hiệu hoá có hiệu lực NGAY: route quản trị gọi invalidate(id) trong cùng tiến trình
- * (compose chạy đúng một container server, một tiến trình node). TTL chỉ là lưới an toàn khi
- * ai đó sửa DB trực tiếp hoặc sau này chạy nhiều bản server — khi đó trễ tối đa 30 s.
+ * Vô hiệu hoá có hiệu lực NGAY: route quản trị gọi invalidate(id) trong cùng tiến trình.
+ * 18/11/2026 compose chạy NHIỀU bản server sau nginx: middleware/authB2C.js nối bộ đệm này vào
+ * bus Redis Pub/Sub (cluster/bus.js) để bản nào cũng xoá mục của khách vừa đổi trạng thái.
+ * TTL chỉ còn là lưới an toàn khi ai đó sửa DB trực tiếp hoặc một bản lỡ tin (mất kết nối
+ * Redis đúng lúc đó; nối lại thì bản đó xoá sạch bộ đệm) — khi đó trễ tối đa 30 s.
  *
  * Không phụ thuộc thư viện nào (load được truyền vào) để kiểm thử bằng `node --test`.
  */

@@ -19,6 +19,19 @@ if [ -z "${DIRECT_URL:-}" ]; then
   export DIRECT_URL
 fi
 
+# ── Khoá khởi động (18/11/2026, cân bằng tải) ───────────────────────────────
+# compose chạy N bản server (deploy.replicas) và cả N cùng khởi động. Phần chuẩn bị DB bên
+# dưới — migrate, ràng buộc tồn kho (DROP/CREATE TRIGGER), seed nền khi DB trống,
+# ensure-inventory, seed-demo — không chịu được chạy song song: hai bản cùng thấy "DB trống"
+# là seed hai lần, DROP/CREATE TRIGGER cùng lúc thì lỗi và `set -e` làm container thoát.
+# Chạy lại CHÍNH script này dưới advisory lock của Postgres (scripts/with-startup-lock.js),
+# lần lượt từng bản, rồi mới khởi động server. seed-catalog gọi script này cũng xếp hàng chung.
+# STARTUP_LOCK=0 để bỏ khoá (chắc chắn chỉ chạy một bản).
+if [ -z "${GETSHOPY_STARTUP_LOCK_HELD:-}" ] && [ "${STARTUP_LOCK:-1}" != "0" ]; then
+  GETSHOPY_STARTUP_LOCK_HELD=1 node scripts/with-startup-lock.js sh "$0" true
+  exec "$@"
+fi
+
 echo "Synchronising PostgreSQL schema..."
 # migrate deploy chứ không phải db push: db push đồng bộ schema nhưng KHÔNG ghi
 # vào _prisma_migrations, nên mất lịch sử và không biết bản nào đã áp dụng.
