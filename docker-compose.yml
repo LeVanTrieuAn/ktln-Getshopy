@@ -92,6 +92,11 @@ services:
       # Tắt êm khi SIGTERM (src/lifecycle/gracefulShutdown.js): mốc cứng phải nhỏ hơn
       # stop_grace_period bên dưới, nếu không Docker SIGKILL trước khi dọn xong.
       SHUTDOWN_TIMEOUT_MS: ${SERVER_SHUTDOWN_TIMEOUT_MS:-8000}
+      # Chuẩn bị DB lúc khởi động (docker-entrypoint.sh): auto = migrate + seed nền khi DB
+      # trống (máy mới dựng lần đầu); off = không đụng DB, chỉ chạy server. Deploy qua CD
+      # luôn đặt off. Máy production nên đặt SERVER_DB_PREP=off trong .env để cả lần
+      # `docker compose up -d` gõ tay cũng chỉ thay code.
+      DB_PREP: ${SERVER_DB_PREP:-auto}
     expose: ["8080"]
     # docker stop / --scale xuống: SIGTERM, chờ chừng này rồi mới SIGKILL (mặc định 10 s).
     stop_grace_period: 12s
