@@ -5,3 +5,10 @@ npm-debug.log*
 .env.local
 .env.*.local
 .env.development
+
+# Bí mật không vào image (thêm 18/11/2026 cùng CI/CD). Không chặn .env.production: Vite đọc nó
+# lúc build và VITE_* vốn công khai trong bundle.
+**/.env
+.env.bak*
+*.pem
+*.key

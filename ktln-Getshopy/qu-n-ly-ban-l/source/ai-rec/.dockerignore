@@ -14,3 +14,10 @@ __pycache__/
 ai_recommendation_system.egg-info/
 reports/
 doc/
+
+# Bí mật không vào image (thêm 18/11/2026 cùng CI/CD): .env ở mọi cấp, bản sao lưu .env, khoá
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key

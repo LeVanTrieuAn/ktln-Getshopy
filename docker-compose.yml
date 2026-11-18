@@ -42,6 +42,7 @@ services:
   # ═══ ECOMMERCE ═══════════════════════════════════════════════════════════
 
   client:
+    image: ghcr.io/levantrieuan/ktln-getshopy-client:${IMAGE_TAG:-local}  # IMAGE_TAG: deploy/cd/README.md
     build:
       context: ./ktln-Getshopy/qu-n-ly-ban-l/source/client
       args:
@@ -64,6 +65,7 @@ services:
   # (gateway/nginx.conf). Trạng thái dùng chung giữa các bản và lý do từng quyết định:
   # docs/load-balancing.md.
   server:
+    image: ghcr.io/levantrieuan/ktln-getshopy-server:${IMAGE_TAG:-local}
     build:
       context: ./ktln-Getshopy/qu-n-ly-ban-l/source/server
     deploy:
@@ -109,6 +111,7 @@ services:
     restart: unless-stopped
 
   ai-bot:
+    image: ghcr.io/levantrieuan/ktln-getshopy-ai-bot:${IMAGE_TAG:-local}
     build:
       context: ./ktln-Getshopy/qu-n-ly-ban-l/source/ai-bot
     env_file: [.env]
@@ -121,6 +124,7 @@ services:
     restart: unless-stopped
 
   ai-rec:
+    image: ghcr.io/levantrieuan/ktln-getshopy-ai-rec:${IMAGE_TAG:-local}
     build:
       context: ./ktln-Getshopy/qu-n-ly-ban-l/source/ai-rec
     environment:

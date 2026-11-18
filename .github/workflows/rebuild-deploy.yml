@@ -1,0 +1,207 @@
+# =============================================================================
+# Build image + deploy lên máy production. Cách DUY NHẤT để image mới tới production
+# (push/merge vào build_prod chỉ chạy CI):
+#
+#   1. Comment trên PR đã MERGE vào build_prod — cả comment chỉ gồm đúng
+#        /rebuild   hoặc   rebuild   (không phân biệt hoa thường; alias /deploy)
+#      -> build lại TỪ ĐẦU (no-cache) commit HEAD hiện tại của build_prod -> deploy -> trả lời
+#         trên PR (✅/❌, tag, sha build_prod, link lần chạy, kết quả health check).
+#      "rebuild" nằm trong một câu dài hơn KHÔNG kích hoạt.
+#   2. Actions > Rebuild & Deploy > Run workflow (deploy lại / quay về):
+#        tag trống, rebuild bỏ chọn -> deploy image sha-<HEAD build_prod> đã có
+#        tag = sha-<40 ký tự>        -> deploy (quay về) đúng image đó
+#        rebuild chọn                -> build lại HEAD build_prod rồi deploy
+#
+# Cả issue_comment lẫn workflow_dispatch chạy file workflow của NHÁNH MẶC ĐỊNH (main), nên
+# commit cần build được đọc tường minh từ build_prod qua API, không dùng github.sha.
+#
+# Chặn "pwn request": KHÔNG bao giờ checkout/build code của PR — chỉ build commit đã nằm trên
+# build_prod. Người comment phải có quyền write/admin (hỏi API, lỗi = từ chối). Nội dung
+# comment chỉ được so khớp, không chèn vào lệnh. Secret deploy nằm ở environment production,
+# chỉ job deploy (không checkout) đọc được.
+# =============================================================================
+name: Rebuild & Deploy
+
+on:
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag image cần deploy (sha-<40 ký tự>). Trống = HEAD hiện tại của build_prod.'
+        type: string
+        required: false
+        default: ''
+      rebuild:
+        description: 'Build lại HEAD build_prod từ đầu rồi mới deploy (bỏ qua ô tag)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  DEPLOY_BRANCH: build_prod
+
+jobs:
+  guard:
+    name: Kiểm tra yêu cầu
+    # Comment: lọc thô ở đây (contains không phân biệt hoa thường), kiểm chính xác ở bước dưới
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || (github.event.issue.pull_request
+          && contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+          && (contains(github.event.comment.body, 'rebuild') || contains(github.event.comment.body, '/deploy')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write          # reaction + trả lời trên PR
+      pull-requests: read
+    outputs:
+      go: ${{ steps.check.outputs.go }}
+      build: ${{ steps.check.outputs.build }}
+      sha: ${{ steps.check.outputs.sha }}
+      tag: ${{ steps.check.outputs.tag }}
+    steps:
+      - id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          REPO: ${{ github.repository }}
+          ACTOR: ${{ github.event.comment.user.login || github.actor }}
+          BODY: ${{ github.event.comment.body }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          PR: ${{ github.event.issue.number }}
+          IN_TAG: ${{ inputs.tag }}
+          IN_REBUILD: ${{ inputs.rebuild }}
+        run: |
+          set -euo pipefail
+          shopt -s extglob
+          api() {
+            curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
+          }
+          reply() {
+            if [ "$EVENT" = issue_comment ]; then
+              jq -nc --arg b "$1" '{body:$b}' | api -X POST "https://api.github.com/repos/$REPO/issues/$PR/comments" -d @- >/dev/null || true
+            fi
+          }
+          stop() { echo "go=false" >> "$GITHUB_OUTPUT"; reply "❌ $1"; echo "::error::$1"; exit 1; }
+          head_of_branch() { api "https://api.github.com/repos/$REPO/branches/$DEPLOY_BRANCH" | jq -r '.commit.sha'; }
+
+          if [ "$EVENT" = issue_comment ]; then
+            # Cả comment (bỏ khoảng trắng đầu/cuối, chữ thường) phải đúng là một lệnh
+            t="${BODY//$'\r'/}"; t="${t##+([[:space:]])}"; t="${t%%+([[:space:]])}"; t="${t,,}"
+            case "$t" in
+              /rebuild|rebuild|/deploy) ;;
+              *) echo "go=false" >> "$GITHUB_OUTPUT"; echo "Không phải lệnh rebuild — bỏ qua."; exit 0 ;;
+            esac
+            api -X POST "https://api.github.com/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+              -d '{"content":"eyes"}' >/dev/null || true
+          fi
+
+          # Quyền thật trên repo (author_association chỉ là lọc thô). Lỗi API = từ chối.
+          perm=$(api "https://api.github.com/repos/$REPO/collaborators/$ACTOR/permission" | jq -r '.permission' || echo none)
+          case "$perm" in admin|write) ;; *) stop "@$ACTOR cần quyền write trên repo để rebuild/deploy (hiện: $perm)." ;; esac
+
+          if [ "$EVENT" = issue_comment ]; then
+            api "https://api.github.com/repos/$REPO/pulls/$PR" > pr.json || stop "Không đọc được PR #$PR."
+            base=$(jq -r '.base.ref' pr.json)
+            merged=$(jq -r '.merged' pr.json)
+            [ "$base" = "$DEPLOY_BRANCH" ] || stop "rebuild chỉ áp dụng cho PR vào \`$DEPLOY_BRANCH\` (PR này vào \`$base\`)."
+            [ "$merged" = true ] || stop "PR chưa merge vào $DEPLOY_BRANCH — merge trước rồi comment rebuild."
+            build=true
+            sha=$(head_of_branch)
+          elif [ "$IN_REBUILD" = true ]; then
+            build=true
+            sha=$(head_of_branch)
+          elif [ -n "$IN_TAG" ]; then
+            [[ "$IN_TAG" =~ ^sha-([0-9a-f]{40})$ ]] || stop "tag phải là sha-<40 ký tự hex>."
+            build=false
+            sha=${BASH_REMATCH[1]}
+          else
+            build=false
+            sha=$(head_of_branch)
+          fi
+          [[ "$sha" =~ ^[0-9a-f]{40}$ ]] || stop "Không đọc được HEAD của $DEPLOY_BRANCH."
+          {
+            echo "go=true"; echo "build=$build"; echo "sha=$sha"; echo "tag=sha-$sha"
+          } >> "$GITHUB_OUTPUT"
+          echo "build=$build, deploy sha-$sha (yêu cầu bởi $ACTOR qua $EVENT)"
+
+  images:
+    name: Build image (HEAD build_prod)
+    needs: guard
+    if: needs.guard.outputs.go == 'true' && needs.guard.outputs.build == 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/images.yml
+    with:
+      sha: ${{ needs.guard.outputs.sha }}
+      branch: build_prod
+      fresh: true
+
+  deploy:
+    name: Deploy
+    needs: [guard, images]
+    # images bị bỏ qua (deploy tag có sẵn) vẫn deploy; images lỗi thì không
+    if: >-
+      !cancelled() && needs.guard.outputs.go == 'true'
+      && (needs.images.result == 'success' || needs.images.result == 'skipped')
+    permissions:
+      contents: read
+    uses: ./.github/workflows/deploy.yml
+    with:
+      tag: ${{ needs.guard.outputs.tag }}
+
+  report:
+    name: Trả lời trên PR
+    needs: [guard, images, deploy]
+    if: always() && github.event_name == 'issue_comment' && needs.guard.outputs.go == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      issues: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          TAG: ${{ needs.guard.outputs.tag }}
+          SHA: ${{ needs.guard.outputs.sha }}
+          IMAGES: ${{ needs.images.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+          STATUS: ${{ needs.deploy.outputs.status }}
+          MESSAGE: ${{ needs.deploy.outputs.message }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          SITE: ${{ vars.PRODUCTION_URL }}
+        run: |
+          set -euo pipefail
+          api() {
+            curl -fsS -H "Authorization: Bearer $GH_TOKEN" -H 'Accept: application/vnd.github+json' \
+              -H 'X-GitHub-Api-Version: 2022-11-28' "$@"
+          }
+          if [ "$DEPLOY" = success ] && [ "$STATUS" = succeeded ]; then
+            icon='✅'; reaction=rocket
+            head="Đã build lại và deploy build_prod lên production${SITE:+ ($SITE)}."
+          elif [ "$IMAGES" != success ]; then
+            icon='❌'; reaction=confused
+            head="Build image thất bại ($IMAGES) — production giữ nguyên bản cũ."
+          else
+            icon='❌'; reaction=confused
+            head="Deploy không thành công (${STATUS:-$DEPLOY})."
+          fi
+          tick='`'
+          body="$icon $head
+
+          - Image: ${tick}${TAG}${tick}
+          - build_prod: ${tick}${SHA}${tick}
+          - Máy production: ${MESSAGE:-(không có phản hồi)}
+          - Lần chạy: $RUN_URL"
+          jq -nc --arg b "$body" '{body:$b}' | api -X POST "https://api.github.com/repos/$REPO/issues/$PR/comments" -d @- >/dev/null
+          api -X POST "https://api.github.com/repos/$REPO/issues/comments/$COMMENT_ID/reactions" \
+            -d "{\"content\":\"$reaction\"}" >/dev/null || true
