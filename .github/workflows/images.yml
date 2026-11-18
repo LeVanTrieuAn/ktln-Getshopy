@@ -10,7 +10,7 @@
 #
 # Chỉ build code đã nằm trên build_prod/main — không bao giờ build code PR chưa merge.
 # Job không có secret nào ngoài GITHUB_TOKEN (packages: write); secret deploy nằm ở
-# environment "kltn-Getshopy" của deploy.yml. Hạ tầng (kafka-connect, minio, ...) vẫn build tại máy.
+# environment "production" của deploy.yml. Hạ tầng (kafka-connect, minio, ...) vẫn build tại máy.
 # =============================================================================
 name: Images
 
@@ -46,10 +46,10 @@ jobs:
     name: ${{ matrix.service }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    # Biến VITE_* có thể nằm ở mức repo HOẶC trong environment kltn-Getshopy (chủ repo đặt ở
+    # Biến VITE_* có thể nằm ở mức repo HOẶC trong environment production (chủ repo đặt ở
     # đó). Biến của environment chỉ job khai báo environment mới đọc được -> leg client khai báo;
     # ba leg còn lại không cần biến nào nên không khai (chuỗi rỗng = không dùng environment).
-    environment: ${{ matrix.service == 'client' && 'kltn-Getshopy' || '' }}
+    environment: ${{ matrix.service == 'client' && 'production' || '' }}
     permissions:
       contents: read
       packages: write
@@ -82,7 +82,7 @@ jobs:
         env:
           GOOGLE_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
         run: |
-          [ -n "$GOOGLE_ID" ] || { echo "::error::Thiếu biến VITE_GOOGLE_CLIENT_ID (Repository variables hoặc environment kltn-Getshopy) — build ra sẽ mất nút đăng nhập Google"; exit 1; }
+          [ -n "$GOOGLE_ID" ] || { echo "::error::Thiếu biến VITE_GOOGLE_CLIENT_ID (Repository variables hoặc environment production) — build ra sẽ mất nút đăng nhập Google"; exit 1; }
 
       - uses: docker/setup-buildx-action@v4
 
