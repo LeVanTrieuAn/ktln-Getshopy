@@ -126,7 +126,7 @@ Prisma mặc định mở tới `2 × số CPU + 1` kết nối mỗi tiến tr�
 | khoá khởi động | +1 mỗi bản, chỉ lúc khởi động |
 | ai-bot (Prisma, chưa đặt `connection_limit`) | 2 × CPU + 1 |
 | Debezium (kafka-connect), pg_dump, dbt, seed | vài kết nối, phần lớn ngắn |
-| demo Kubernetes nếu đang chạy | 4 × 5 = 20 |
+| demo Kubernetes nếu đang chạy (`deploy/k8s-demo`, `connection_limit=5` mỗi pod) | `getshopy-demo` tối đa 4 pod (HPA) × 5 = 20; bước blue-green thêm 2 màu × 2 pod × 5 = 20 |
 
 Giữ `SERVER_REPLICAS × SERVER_DB_CONNECTION_LIMIT` + phần còn lại < 97. `SERVER_DB_CONNECTION_LIMIT`
 tối thiểu 2 (job đóng đơn giữ một kết nối làm khoá). Lưu ý khi so sánh: mỗi bản có pool riêng, nên
