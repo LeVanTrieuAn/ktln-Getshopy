@@ -81,7 +81,6 @@ end
 subgraph L8["⑧ KHAI THÁC KHÁC"]
     direction LR
     ADMIN["Admin Dashboard<br/>view analytics.sale_orders"]
-    MTB["Metabase"]
 end
 
 %% ══ LUỒNG HAPPY CASE ══════════════════════════════════════════════
@@ -108,7 +107,6 @@ SV_REC  -->|"⓱ /recommend/customer/{id} · timeout 3s<br/>→ ⓲ top-K đọc
 SV_REC  -.-> REDIS
 MART    --> ADMIN
 DIMS    --> ADMIN
-MART    --> MTB
 
 %% ══ MÀU ═══════════════════════════════════════════════════════════
 classDef ecom    fill:#e8f0fe,stroke:#4c6ef5,color:#1a1a1a

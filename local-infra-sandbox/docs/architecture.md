@@ -171,7 +171,6 @@ flowchart TB
     subgraph CSM["⑦ KHAI THÁC"]
         ADM["Admin Dashboard<br/>biểu đồ: analytics.sale_orders<br/>KPI hôm nay: realtime.orders_live"]
         AIR["AI-Rec — FastAPI<br/>user ai_rec, chỉ đọc"]
-        MTB["Metabase"]
     end
 
     subgraph AUD["ĐỐI SOÁT — xuyên tầng"]
@@ -192,7 +191,6 @@ flowchart TB
     OLV --> ADM
     DIM --> ADM
     AIT --> AIR
-    MRT --> MTB
     PG -.-> CHK
     V2 -.-> CHK
     FCT -.-> CHK
@@ -207,7 +205,7 @@ flowchart TB
 | ③ | Lake | MinIO (S3 API) | Tệp Parquet | Vĩnh viễn (bất biến) | Staging, audit |
 | ④ | Staging | ClickHouse `s3()` | **View** | Không lưu | Warehouse, audit |
 | ⑤ | Warehouse | ClickHouse ReplacingMergeTree | Bảng fact | Vĩnh viễn | Serving, audit, view tương thích |
-| ⑥ | Serving | ClickHouse MergeTree / ReplacingMergeTree | Bảng tổng hợp | Vĩnh viễn | Dashboard, AI-Rec, Metabase |
+| ⑥ | Serving | ClickHouse MergeTree / ReplacingMergeTree | Bảng tổng hợp | Vĩnh viễn | Dashboard, AI-Rec |
 | — | Masterdata | ClickHouse `postgresql()` | Bảng chiều | Ghi đè mỗi lượt sync | Serving, dashboard |
 | — | Nhánh nóng | ClickHouse Kafka engine + MV | Bảng sự kiện | **TTL 7 ngày** | Dashboard số trực tiếp |
 | — | Đối soát | dbt model | Bảng lịch sử checksum | Vĩnh viễn | Người vận hành, scheduler |
@@ -645,7 +643,6 @@ curl -s localhost:8083/connectors/postgres-source-connector/status | jq
   settings profile giới hạn `max_execution_time = 60s`, `max_memory_usage = 2GB`,
   `readonly = 1`. Không dùng chung tài khoản admin: hệ khác chỉ được đọc đúng
   bảng nó cần và không được chạy truy vấn nặng làm nghẽn dashboard.
-- **Metabase** cho người dùng nghiệp vụ tự khám phá.
 
 ---
 
@@ -803,7 +800,7 @@ hoặc join `masterdata.dim_customers`. Không chặn luồng nào khác.
 | **Prometheus + Grafana** | Không đo được độ trễ, thông lượng, sức khoẻ merge | 2 container + exporter |
 | **Airflow / Dagster** | Phụ thuộc giữa job, backfill theo mốc, lineage khi thực thi | 3–4 container + CSDL metadata |
 | **Cụm nhiều máy** (Kafka RF=3, MinIO erasure coding, ClickHouse replica + Keeper) | Tính sẵn sàng cao, diễn tập sự cố | Nhiều VM, độ phức tạp vận hành |
-| **Keycloak** | Đăng nhập một lần, phân quyền theo vai trò cho Metabase/API | Một service + tích hợp |
+| **Keycloak** | Đăng nhập một lần, phân quyền theo vai trò cho trang quản trị/API | Một service + tích hợp |
 
 ---
 

@@ -111,7 +111,7 @@ node(1130, 620, 230, 80, 'bd', ['serving.mart_revenue', 'paid_revenue', '→ Adm
 node(1130, 740, 230, 70, 'bd', ['audit.checksum_orders', 'đối soát src ↔ stg ↔ wh']);
 node(640, 740, 240, 70, 'bd', ['realtime.orders_live', 'Kafka engine + Materialized View', 'trễ ~1 s · TTL 7 ngày']);
 
-node(380, 620, 200, 80, 'bd', ['Metabase', 'BI tự phục vụ']);
+node(380, 620, 200, 80, 'ec', ['Admin Dashboard', 'biểu đồ doanh thu', 'qua Server · REST + WS']);
 node(380, 740, 200, 70, 'note', ['Độ trễ end-to-end', 'nhánh lạnh ≈ 5–6 phút', 'nhánh nóng ≈ 1 s']);
 
 node(385, 905, 200, 90, 'bd', ['Debezium 2.5.4', 'đọc WAL · pgoutput', 'slot getshopy_cdc_slot']);

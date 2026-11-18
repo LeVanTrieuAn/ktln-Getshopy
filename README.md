@@ -127,7 +127,6 @@ Lưu ý khi giữ máy demo chạy lâu dài:
 | Địa chỉ | Là gì |
 |---|---|
 | http://localhost:3000 | **Cửa hàng + trang quản trị** (`/admin/dashboard`) |
-| http://localhost:3001 | Metabase |
 | http://localhost:8123 | ClickHouse HTTP |
 | http://localhost:8083 | Kafka Connect REST |
 | http://localhost:9001 | MinIO Console |
