@@ -2,7 +2,7 @@
 # KLTN — toàn bộ hệ thống trong một compose
 #
 #   Ecommerce : client, server, ai-bot, ai-rec, postgres, redis
-#   BigData   : kafka, zookeeper, kafka-connect, minio, clickhouse, metabase
+#   BigData   : kafka, zookeeper, kafka-connect, minio, clickhouse
 #
 # Ba hệ dùng CHUNG một network và một file .env ở thư mục này.
 #
@@ -21,7 +21,7 @@ name: kltn
 
 # KHÔNG dùng profiles cho các service hạ tầng.
 #
-# Trước đây zookeeper/kafka/kafka-connect/minio/metabase/bootstrap/dbt-scheduler
+# Trước đây zookeeper/kafka/kafka-connect/minio/bootstrap/dbt-scheduler
 # nằm sau `profiles: [bigdata]`, nên `docker compose up` chỉ dựng nửa hệ thống:
 # web chạy được nhưng CDC không chảy, dbt không có lịch, warehouse rỗng. Người
 # mới vào không có cách nào biết mình đang thiếu gì — không có lỗi nào báo ra.
@@ -316,18 +316,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-    restart: unless-stopped
-
-  metabase:
-    image: metabase/metabase:latest
-    # 3000 đã dành cho client Getshopy
-    ports: ["${METABASE_PORT:-3001}:3000"]
-    environment:
-      # Heap JVM — không đặt thì JVM lấy tối đa 1/4 RAM máy ảo (~2,2 GB) và giữ
-      # 1,45 GiB kể cả khi không ai mở dashboard (benchmark 23/10).
-      JAVA_OPTS: "-Xmx1g"
-    depends_on:
-      clickhouse: {condition: service_healthy}
     restart: unless-stopped
 
   # Chạy một lần sau khi các service sẵn sàng, rồi thoát.

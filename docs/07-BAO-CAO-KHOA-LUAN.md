@@ -274,7 +274,7 @@ flowchart LR
   API -- "sự kiện hành vi" --> CH[("ClickHouse<br/>analytics")] --> SRV
   SRV -- "HTTP, chỉ đọc serving" --> REC
   API -- "customer_id" --> REC
-  SRV --> DASH["Dashboard quản trị · Metabase"]
+  SRV --> DASH["Dashboard quản trị"]
 ```
 
 **Hình 3.1.** Ba phân hệ và các đường dữ liệu giữa chúng.
@@ -571,10 +571,9 @@ Toàn hệ thống mô tả trong một tệp `docker-compose.yml` ở gốc rep
 
 | Nhóm | Service |
 |---|---|
-| Ứng dụng | `client` (React build + Nginx), `server`, `ai-bot`, `ai-rec` |
+| Ứng dụng | `client` (React build + Nginx), `server`, `ai-bot`, `ai-rec`, `gateway` (Nginx, một cổng cho web và API) |
 | Dữ liệu tác nghiệp | `postgres`, `redis` |
 | Lakehouse | `zookeeper`, `kafka`, `kafka-connect`, `minio`, `clickhouse`, `dbt`, `dbt-scheduler`, `bootstrap` |
-| BI | `metabase` |
 | Seed (chạy riêng) | `seed-catalog`, `seed-data` |
 
 - `docker compose up` chỉ chạy migrate và seed nền (vài giây).

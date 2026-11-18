@@ -38,7 +38,7 @@ Nếu trình chiếu qua link public: kiểm tra tunnel cloudflared sau khi bậ
 
 - khởi động lại Docker Desktop rồi mới bật stack, để demo chạy trên máy ảo có swap còn trống; không để stack chạy sẵn nhiều giờ trước đó;
 - đóng bớt ứng dụng nặng trên máy (trình duyệt nhiều tab, IDE);
-- nếu không trình chiếu Metabase hay chatbot thì dừng chúng: `$DC stop metabase ai-bot`.
+- nếu không trình chiếu chatbot thì dừng nó: `$DC stop ai-bot`.
 
 ### 0.3 Dừng lịch dbt
 
@@ -240,5 +240,5 @@ Các đơn demo ở lại trong database với tiền tố `POS-` và thuộc v�
 | Bước 1 báo `Không có mặt hàng nào còn tồn` | Chưa seed catalog và tồn kho | `$DC --profile seed run --rm seed-catalog` (10–20 phút; làm trước, không làm lúc demo) |
 | Kafka UI không thấy message mới | Connector không ở trạng thái RUNNING | Tab Kafka Connect → xem lỗi; `$DC restart kafka-connect` |
 | `ket_qua = LỆCH` | Sink chưa ghi nốt file cuối, hoặc máy POS chưa dừng | Chờ 20 s rồi chạy lại `dbt build`. Lệch kéo dài mới là mất dữ liệu |
-| dbt hoặc ClickHouse báo `MEMORY_LIMIT_EXCEEDED`, container bị kill | Hết RAM: dbt chạy chồng lượt, hoặc ứng dụng khác chiếm RAM | Kiểm tra `dbt-scheduler` đã dừng (0.3); dừng Metabase và ai-bot (0.2) |
+| dbt hoặc ClickHouse báo `MEMORY_LIMIT_EXCEEDED`, container bị kill | Hết RAM: dbt chạy chồng lượt, hoặc ứng dụng khác chiếm RAM | Kiểm tra `dbt-scheduler` đã dừng (0.3); dừng ai-bot (0.2) |
 | Log AI-Rec không có "Bản train" sau 3 phút | ClickHouse đang bận (dbt) hoặc lỗi đọc dữ liệu | `$DC logs --since 5m ai-rec`; model cũ vẫn phục vụ trong lúc chờ |
