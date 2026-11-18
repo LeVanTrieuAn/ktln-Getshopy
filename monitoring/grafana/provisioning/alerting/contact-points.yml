@@ -1,0 +1,20 @@
+# Nơi nhận cảnh báo: email (19/11/2026). docs/monitoring.md, mục "Cảnh báo".
+# https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/
+#
+# ${ALERT_EMAIL_TO}: Grafana thay bằng biến môi trường của container (docker-compose.yml truyền
+# từ .env). Trong file provisioning, "$" là ký tự đặc biệt — template cần "$" thật thì viết "$$".
+# Máy gửi (SMTP) cấu hình bằng biến GF_SMTP_* trong docker-compose.yml.
+apiVersion: 1
+
+contactPoints:
+  - orgId: 1
+    name: getshopy-email
+    receivers:
+      - uid: getshopy-email
+        type: email
+        disableResolveMessage: false     # gửi cả email "đã hết" khi lỗi tự khỏi / được sửa
+        settings:
+          addresses: ${ALERT_EMAIL_TO}
+          singleEmail: true
+          subject: '{{ template "getshopy.email.subject" . }}'
+          message: '{{ template "getshopy.email.message" . }}'

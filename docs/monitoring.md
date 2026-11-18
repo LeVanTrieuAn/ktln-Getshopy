@@ -1,11 +1,13 @@
-# Giám sát cân bằng tải — Prometheus + Grafana
+# Giám sát cân bằng tải — Prometheus + Grafana, log tập trung, cảnh báo
 
-Soạn 19/11/2026, nhánh `feat/monitoring-grafana`. Bổ sung cho [load-balancing.md](load-balancing.md):
+Soạn 19/11/2026, nhánh `feat/monitoring-grafana` (số đo, dashboard) và `feat/logging-alerts` (log
+tập trung, cảnh báo email — mục 10–12). Bổ sung cho [load-balancing.md](load-balancing.md):
 `lb-demo.ps1` đo một lượt k6 rồi in bảng; tài liệu này giúp **thấy** gateway chia tải cho các bản
-`server` theo thời gian thực — request/s, độ trễ, lỗi, CPU/RAM của từng bản.
+`server` theo thời gian thực — request/s, độ trễ, lỗi, CPU/RAM của từng bản — đọc log API của cả cụm ở
+một chỗ, và **nhận email** khi một bản treo hoặc web sập.
 
 Số đo của **production** để `[đo]`. Số ghi "stack thử" là đo trên một project compose tách biệt
-(`kltnmon-e2e`, bản server giả trần 0,25 CPU — mục 9), chỉ minh hoạ cơ chế, không phải hiệu năng thật.
+(`kltnmon-e2e`, `kltnlog-e2e`; bản server giả — mục 9), chỉ minh hoạ cơ chế, không phải hiệu năng thật.
 
 ## 1. Kiến trúc
 
@@ -39,10 +41,15 @@ flowchart LR
 |---|---|
 | `ktln-Getshopy/qu-n-ly-ban-l/source/server/src/metrics/index.js` | số đo của server (prom-client [1]) + cổng 9464 |
 | `monitoring/prometheus/prometheus.yml` | job `getshopy-server` (DNS), job `prometheus` (tự đo) |
-| `monitoring/grafana/provisioning/datasources/prometheus.yml` | datasource uid `getshopy-prometheus` |
+| `monitoring/grafana/provisioning/datasources/datasources.yml` | datasource `getshopy-prometheus`, `getshopy-loki` |
 | `monitoring/grafana/provisioning/dashboards/getshopy.yml` | nạp mọi JSON trong `monitoring/grafana/dashboards/` |
 | `monitoring/grafana/dashboards/getshopy-load-balancing.json` | dashboard "Getshopy — Cân bằng tải" |
 | `scripts/grafana-demo.ps1` | demo trực tiếp (mục 7) |
+| `ktln-Getshopy/qu-n-ly-ban-l/source/server/src/middleware/requestLog.js` | một dòng JSON / request (mục 10) |
+| `gateway/nginx.conf` (`log_format getshopy_api`) | log truy cập API dạng JSON (mục 10) |
+| `monitoring/loki/loki.yml`, `monitoring/alloy/config.alloy`, `monitoring/health-events/events.sh` | log tập trung (mục 10) |
+| `monitoring/blackbox/blackbox.yml` + job `blackbox-*` trong `prometheus.yml` | thăm dò HTTP cho cảnh báo (mục 11) |
+| `monitoring/grafana/provisioning/alerting/` | luật, nơi nhận, chính sách, mẫu email (mục 11) |
 
 ## 2. Số đo server xuất ra
 
@@ -102,8 +109,20 @@ tức tối thiểu 20 s: đường request/s là trung bình trượt 20 s, ph�
 | Theo route | Top 10 route theo request/s | mẫu route | khớp với mix của `k6-lb.js` (danh mục, danh sách, chi tiết, health) |
 | | Request/s theo mã trạng thái | tổng mọi bản | 429 = chạm rate limit (đếm chung cả cụm trong Redis) |
 
-Vạch cam trên các biểu đồ: annotation "Số bản server thay đổi" (số bản `up` khác 5 s trước); tắt bằng
-nút gạt ở góc trên.
+Thêm 19/11/2026 (log, cảnh báo — mục 10, 11):
+
+| Hàng | Panel | Cho thấy | Đọc thế nào |
+|---|---|---|---|
+| Cảnh báo và sự kiện container | Cảnh báo đang bật | luật đang Pending / Firing | trống = bình thường; "Server treo" kèm tên bản |
+| | Sự kiện container theo loại | số sự kiện Docker / phút (Loki) | chết rồi tự lên = die + start + healthy; treo = không có gì (tới khi unhealthy) |
+| | Dòng sự kiện container | từng sự kiện health-events | exit_code khi die (137 = SIGKILL), signal khi kill |
+| Độ trễ và lỗi | Độ trễ phía gateway p95 (từ log) | `request_time` của nginx theo bản đã trả lời | gồm xếp hàng / thử lại — độ trễ khách thấy; khác p95 của server |
+| | Request/s qua gateway theo nhóm mã (từ log) | mọi request API qua gateway | 5xx ở đây gồm cả trang bảo trì 503 do gateway tự trả |
+| Log API (Loki) | Log truy cập API — gateway / Log request — server | từng dòng log, mới nhất trên cùng | lọc theo biến **Bản** ở đầu trang |
+
+Biến **Bản** (đầu trang) lọc các panel log theo hostname. Vạch cam trên các biểu đồ: annotation "Số bản
+server thay đổi" (số bản `up` khác 5 s trước); vạch đỏ: "Container chết" (sự kiện die / oom từ
+health-events). Tắt bằng nút gạt ở góc trên.
 
 **Bản bão hoà thì số đo cũng chậm**: `/metrics` chạy trên cùng event loop với app. Stack thử: lúc
 một bản giả gánh 100 req/s, lượt kéo `/metrics` mất tới 2,3 s (bình thường ~2 ms). Quá
@@ -161,6 +180,16 @@ tailscale serve --https=3001 off                           # gỡ
   - `server` dùng `env_file: .env` nên mọi biến trong `.env` (kể cả mật khẩu này, như các bí mật
     khác đã có) cũng nằm trong môi trường container server.
 - Bí mật không vào repo: `.env.example` chỉ có tên biến, giá trị để trống.
+- **docker.sock** (19/11/2026): Alloy và health-events gắn `/var/run/docker.sock:ro` — `:ro` KHÔNG làm API
+  thành chỉ đọc: tiến trình có socket coi như root trên máy ảo Docker (như dbt-scheduler đã có). Hai
+  image ghim phiên bản, health-events chỉ chạy `docker events`. Siết hơn: đặt một socket proxy chỉ mở
+  API đọc (containers, events) — chưa làm.
+- **Log chứa dữ liệu cá nhân**: `xff` / `remote_addr` trong log gateway là IP khách. Chỉ nằm trong nội
+  dung dòng (không làm nhãn), Loki xoá sau 7 ngày, chỉ xem được qua Grafana (loopback). Không ghi query
+  string, header, body, cookie, token.
+- **Loki, blackbox** không xác thực, không publish cổng — như Prometheus.
+- **SMTP**: Grafana nhận `SMTP_PASS` qua biến `GF_SMTP_PASSWORD` (đã có trong môi trường container
+  server từ trước, qua `env_file`). Email cảnh báo chứa tên bản (id container) và IP nội bộ Docker.
 
 ## 6. Chi phí tài nguyên và lưu trữ
 
@@ -173,9 +202,14 @@ tailscale serve --https=3001 off                           # gỡ
 | Thời gian một lượt kéo (`scrape_duration_seconds`) | timeout 4 s | `[đo]` | trung vị ~2–2,4 ms; tới 2,3 s khi bản giả bão hoà CPU |
 | Dung lượng TSDB | 1GB (`PROMETHEUS_RETENTION_SIZE`) | `[đo]` | 504 KB sau ~9 phút |
 
+- Thêm 19/11/2026 (trần trong compose / đo trên stack thử `kltnlog-e2e`, vài phút, 3 bản giả):
+  Loki 512m / ~97 MiB, Alloy 256m / ~61 MiB, blackbox 64m / ~19 MiB, health-events 64m / ~7 MiB;
+  Grafana (bật lại datasource Loki + cảnh báo) ~230 MiB. Production: `[đo]`. Log: một dòng gateway
+  ~350 byte, một dòng server ~170 byte; dung lượng / ngày = số request API × ~0,5 KB trước nén — `[đo]`.
 - Grafana 13 chạy mỗi datasource đóng gói sẵn thành một tiến trình riêng (đo trên stack thử: 13 tiến
   trình, ~22–32 MB RSS mỗi cái). Compose tắt 12 cái không dùng (`GF_PLUGINS_DISABLE_PLUGINS`), chỉ
-  giữ Prometheus — RAM Grafana trên stack thử từ ~410–420 MiB (gần chạm trần 512m) xuống ~180 MiB.
+  giữ Prometheus (19/11/2026 bật lại Loki) — RAM Grafana trên stack thử từ ~410–420 MiB (gần chạm
+  trần 512m) xuống ~180 MiB (chỉ Prometheus).
 - Mỗi bản server: `/metrics` chỉ được gọi mỗi 5 s; middleware đo mỗi request là một bộ đếm + một
   histogram trong bộ nhớ. Chi phí CPU thêm: `[đo]` (so `lb-demo.ps1` trước/sau).
 - **Lưu trữ**: giữ theo thời gian **và** dung lượng — `PROMETHEUS_RETENTION_TIME` (mặc định 7d),
@@ -212,6 +246,12 @@ chỉ endpoint ĐỌC công khai (danh mục, danh sách, chi tiết sản phẩ
 | `steady` | tăng dần rồi giữ `-Rate` (mặc định 150 req/s) trong `-Minutes` (3) | Request/s mỗi bản, Tỷ trọng, Độ lệch tải | các đường sát nhau ở ~ Rate/N; mỗi dải ~ 100/N % | `[đo]` |
 | `scale` | về 1 bản, rồi mỗi `-StepSec` (60 s) scale 2 → 3 → 4 trong lúc tải không đổi | Bản đang chạy, Request/s mỗi bản, Tỷ trọng, p95, CPU | mỗi bước thêm một đường; các đường cũ hạ xuống Rate/N; p95, CPU hạ nếu Rate vượt sức 1 bản | `[đo]` |
 | `failover` | giết một bản (dưới đây) | Request/s mỗi bản, Bản đang chạy, Lỗi 5xx, Theo mã trạng thái | đường bản chết đứt, các bản còn lại tăng lên; bản đó quay lại cùng tên | `[đo]` |
+| `hang` (không nằm trong `all`) | SIGSTOP một bản (treo), chờ cảnh báo "Server treo" Firing, rồi `docker restart` như người trực | Cảnh báo đang bật, Request/s mỗi bản, Độ trễ phía gateway, Dòng sự kiện container | Pending → Firing sau ~1 phút, email; restart → healthy → cảnh báo hết | `[đo]` |
+
+`scale` chủ động xuống 1 bản nên script tạo **silence** cho "Thiếu server" trong lúc chạy (gỡ ở
+`finally`) nếu có mật khẩu Grafana; `hang` bắt buộc có mật khẩu (hỏi API cảnh báo). Mật khẩu hỏi lúc
+chạy (`Read-Host -AsSecureString`) hoặc `-GrafanaCredential`; script không đọc `.env`. `hang` cũng
+kiểm `DB_PREP=off` như `failover` và gửi SIGCONT ở `finally` nếu bị dừng giữa chừng.
 
 Stack thử (`-Rate 100 -Minutes 1 -RampSec 10 -StepSec 30`, mỗi bản giả trần 0,25 CPU — chỉ minh hoạ
 cơ chế):
@@ -291,6 +331,12 @@ vi** hiện tại.
 | Dừng giám sát | `docker compose stop prometheus grafana` (không có profile: `docker compose up -d` lần sau bật lại) |
 | Xoá dữ liệu số đo | `docker compose rm -sf prometheus` rồi `docker volume rm kltn_prometheus_data` |
 | Tắt số đo của server | `METRICS_ENABLED=0` trong `.env`, có hiệu lực khi các bản server được tạo lại (lần deploy sau) |
+| Bật log tập trung, cảnh báo (lần đầu / sau khi đổi file trong `monitoring/`) | `docker compose up -d blackbox loki alloy health-events` rồi `docker compose up -d --force-recreate prometheus grafana` |
+| Áp `gateway/nginx.conf` mới (log JSON) | `docker compose up -d --force-recreate gateway` (file mount đơn lẻ không tự cập nhật) |
+| Thử gửi email cảnh báo | Grafana > Alerting > Contact points > `getshopy-email` > Test |
+| Tạm tắt email khi bảo trì có chủ đích | Grafana > Alerting > Silences (hoặc `grafana-demo.ps1` tự làm khi scale) |
+| Đổi `SERVER_REPLICAS` | sửa số 3 của luật "Thiếu server" trong `monitoring/grafana/provisioning/alerting/rules.yml`, rồi `docker compose restart grafana` |
+| Xem log khi Grafana chết | `docker compose logs --tail 100 server gateway` (vẫn như cũ) |
 
 - CD (`deploy/cd/pull-deploy.ps1`) chỉ tạo lại 4 service ứng dụng: bản server mới tự có số đo,
   nhưng Prometheus / Grafana không bao giờ do CD bật. Đổi file trong `monitoring/` → `deploy.log` ghi
@@ -303,14 +349,29 @@ vi** hiện tại.
 
 ```bash
 cd ktln-Getshopy/qu-n-ly-ban-l/source/server
-node --test tests/metrics.test.js                     # 13 test
-node --test $(ls tests/*.test.js | grep -v perf)      # cả bộ (19/11/2026: 128 test, 126 đạt, 2 bỏ qua vì không có REDIS_TEST_URL)
+node --test tests/metrics.test.js tests/requestLog.test.js   # 13 + 10 test
+node --test $(ls tests/*.test.js | grep -v perf)      # cả bộ (19/11/2026: 138 test, 136 đạt, 2 bỏ qua vì không có REDIS_TEST_URL)
 ```
 
 ```powershell
 # thư mục gốc repo: kiểm cú pháp prometheus.yml bằng promtool của đúng image đã ghim
 docker run --rm --entrypoint promtool -v "${PWD}\monitoring\prometheus:/cfg:ro" prom/prometheus:v3.13.5 check config /cfg/prometheus.yml
+docker run --rm -v "${PWD}\monitoring\loki:/etc/loki:ro" grafana/loki:3.7.9 -config.file=/etc/loki/loki.yml -verify-config
+docker run --rm -e COMPOSE_PROJECT=kltn -v "${PWD}\monitoring\alloy:/etc/alloy:ro" grafana/alloy:v1.21.3 validate /etc/alloy/config.alloy
+docker run --rm -v "${PWD}\monitoring\blackbox:/etc/bb:ro" prom/blackbox-exporter:v0.29.1 --config.file=/etc/bb/blackbox.yml --config.check
+# nginx -t với cấu hình thật (gateway cần network có DNS nội bộ của Docker):
+docker network create nginx-thu
+docker run --rm --network nginx-thu -v "${PWD}\gateway\nginx.conf:/etc/nginx/conf.d/default.conf:ro" -v "${PWD}\gateway\maintenance.html:/usr/share/nginx/maintenance/maintenance.html:ro" nginx:1.27.5-alpine nginx -t
+docker network rm nginx-thu
 ```
+
+Cấu hình Grafana (provisioning) không có lệnh kiểm riêng: lỗi đọc file làm Grafana không khởi động —
+chạy thử trên stack tách biệt (dưới đây) trước khi đưa lên production.
+
+`tests/requestLog.test.js`: `LOG_FORMAT` khác `json` → morgan như cũ; một dòng JSON / request với mẫu
+route, không query; KHÔNG ghi header / cookie / token / body; `unmatched` + path không query, cắt 200
+ký tự; `probe` docker / blackbox; handler async ném lỗi vẫn đúng route; khách bỏ dở → `aborted`, đúng
+một dòng; chạy chung middleware số đo; hostname = `POD_NAME`.
 
 `tests/metrics.test.js`: mặc định tắt; nhãn route là mẫu (id, query không lọt vào nhãn); `unmatched`
 cho 404 / 429; handler async ném lỗi vẫn mang mẫu đầy đủ; histogram cùng nhãn; trần `other`; `/metrics`
@@ -330,6 +391,162 @@ trần 0,25 CPU, giả lập 4–8 ms CPU mỗi request).
   network `server:9464/metrics` → 200 với `getshopy_server_info{hostname="<id container>"} 1`.
 - `grafana-demo.ps1` chạy đủ 3 kịch bản (số ở mục 7) và trả về 3 bản; đường lỗi (image k6 không tồn
   tại) vẫn trả về 3 bản. Ctrl+C dùng cùng khối `finally` (chưa thử bấm Ctrl+C thật).
+
+## 10. Log tập trung (Loki + Alloy)
+
+Bổ sung 19/11/2026, nhánh `feat/logging-alerts`. Chỉ gom **hai loại** log: log API (gateway + server)
+và sự kiện sức khoẻ container. Log khác (console.log của server, error log dạng chữ của nginx) không
+đẩy về — vẫn xem được bằng `docker compose logs`.
+
+```mermaid
+flowchart LR
+    subgraph C["docker compose — project kltn"]
+        GW["gateway nginx<br/>log truy cập API = JSON"] --> O1[(stdout)]
+        S["server × N<br/>LOG_FORMAT=json: 1 dòng / request"] --> O2[(stdout)]
+        HE["health-events<br/>docker events → JSON"] --> O3[(stdout)]
+        A["Grafana Alloy v1.21.3<br/>discovery.docker + lọc + nhãn"]
+        O1 & O2 & O3 -.->|"đọc qua docker.sock"| A
+        A -->|push| L[("Loki 3.7.9<br/>một tiến trình, đĩa, giữ 7 ngày")]
+        G["Grafana"] -->|LogQL| L
+    end
+```
+
+| Nguồn (nhãn `service`) | Một dòng chứa | File |
+|---|---|---|
+| `gateway` | `time, method, path` (KHÔNG query string), `status, bytes, request_time` (giây, ở gateway), `upstream_addr, upstream_status, upstream_response_time` (nhiều giá trị = đã thử lại bản khác), `served_by` (bản trả lời), `server_port` (80 tailnet / webhook qua Funnel 8443, 8090 public, 8081 WebSocket), `remote_addr, xff` | `gateway/nginx.conf` (`log_format getshopy_api escape=json`) |
+| `server` | `ts, type:"request", method, route` (MẪU route, cùng logic nhãn số đo), `status, ms, bytes, hostname`; `path` (không query) chỉ khi `route=unmatched`; `probe: docker\|blackbox` cho request kiểm tra; `aborted` khi khách bỏ dở | `server/src/middleware/requestLog.js` |
+| `health-events` | `ts, action` (start, restart, die, kill, oom, stop, destroy, `health_status: healthy\|unhealthy`), `service` (server/gateway), `container, replica, exit_code, signal` | `monitoring/health-events/events.sh` |
+
+- **Không bao giờ** ghi query string, header, body, cookie, token. Server chỉ ĐỌC User-Agent để gắn
+  `probe` (blackbox gửi `Blackbox-Exporter/0.29.1` — đo 19/11/2026), không ghi ra. Web tĩnh của
+  gateway không ghi log (mỗi trang tải hàng chục file).
+- **Nhãn Loki — ít giá trị**: `service, container, replica` (= 12 ký tự đầu id container = hostname =
+  `X-Served-By`), `status_class` (2xx…5xx), `event, health`. Đường dẫn, IP, người dùng nằm trong nội
+  dung dòng, lọc bằng `| json` — mỗi giá trị nhãn mới là một luồng mới trong Loki [16].
+- **Chỉ project này**: Alloy lọc ngay ở Docker API theo nhãn `com.docker.compose.project=<tên>` rồi giữ
+  đúng 3 service; health-events lọc cùng nhãn (so khớp chính xác). Thử 19/11/2026: stack thử chạy song
+  song production trên cùng Docker chỉ thấy container của chính nó.
+- **health-events** dùng `docker events` [22]. Thử 19/11/2026 (Docker 28.4.0): nhiều `--filter label=` là
+  **AND** (không OR được service=server với service=gateway — lọc service trong `--format`); nhiều
+  `--filter event=` là **OR**; không lấy `exec_*` (mỗi lượt healthcheck sinh 3 sự kiện exec).
+- Request kiểm tra vẫn có trong log server (giữ, lọc được): healthcheck Docker mỗi 10 s/bản
+  (`probe="docker"`), blackbox mỗi 10 s/bản và qua gateway (`probe="blackbox"`).
+- `SERVER_LOG_FORMAT=dev` trong `.env` = quay về `morgan('dev')`.
+
+LogQL hay dùng (Grafana > Explore > Loki):
+
+```logql
+{service="server", status_class="5xx"} | json                          # lỗi 5xx của server
+{service="server"} | json | probe="" | route="/api/b2c/products/:id"   # một route, bỏ probe
+{service="gateway"} | json | upstream_status=~".*,.*"                   # request nginx phải thử lại bản khác
+{service="gateway"} | json | server_port="8090" | status="404"          # dò API từ Internet (cổng public)
+{service="health-events", event="die"} | json                           # bản nào chết, mã thoát
+{service="health-events", health="unhealthy"}                           # healthcheck báo unhealthy
+sum by (served_by) (rate({service="gateway"} | json | served_by!="" [1m]))   # req/s theo bản, từ log
+quantile_over_time(0.95, {service="gateway"} | json | __error__="" | unwrap request_time [1m]) by (served_by)
+```
+
+Loki: một tiến trình, lưu trên đĩa (tsdb, schema v13), giữ **7 ngày** (compactor xoá), trần nhận
+4 MB/s (vượt thì trả 429, Alloy tự gửi lại), không xác thực vì chỉ nghe trong network Docker
+(`monitoring/loki/loki.yml`, [17]).
+
+## 11. Cảnh báo (Grafana alerting + email)
+
+Luật, nơi nhận, chính sách và mẫu email nạp từ file `monitoring/grafana/provisioning/alerting/`.
+Dữ liệu từ Prometheus; ngoài số đo của server, **blackbox exporter** thăm dò HTTP từ bên ngoài [18]:
+`/api/health` của từng bản (`server:8080`, danh sách lấy qua DNS như job số đo), qua gateway, và URL
+public. Probe đi đúng đường của request thật nên thấy cả trường hợp **treo** (tiến trình còn, không trả lời).
+
+| Luật | Điều kiện (liên tục) | Mức | Email nói gì / làm gì |
+|---|---|---|---|
+| **Server treo** | một bản (đã từng chạy) không trả lời `/api/health` **hoặc** không cho kéo số đo, 1 phút | critical | tên bản (`hostname` = id container): **"Treo thì Docker KHÔNG tự khởi động lại — chạy tay: `docker restart <hostname>`"** |
+| **Thiếu server** | số bản trả lời `/api/health` < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào → 0 (`or vector(0)`) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
+| **Web sập** | `http://gateway/api/health` không 2xx, 1 phút; mất luôn dữ liệu probe cũng tính | critical | gateway hay mọi bản server chết |
+| **Nhiều lỗi 5xx** | > 5 % response là 5xx trong 5 phút, khi có tải (> 0,2 req/s) | warning | panel "Lỗi 5xx mỗi bản", log Loki |
+| **Đường public hoặc webhook đứt** | URL public 443 hoặc đường webhook SePay 8443 (GET phải 404 **có** `X-Served-By` — tiêu chí "ĐƯỜNG THÔNG" của AGENTS.MD) hỏng, 2 phút | critical | **TẠM DỪNG** (`isPaused: true`) — xem dưới |
+
+- **`for: 1m`** là cái phân biệt: một bản **chết** rồi Docker tự khởi động lại sau vài giây
+  (`restart: unless-stopped`, mục 7) chỉ làm luật Pending vài giây, **không** gửi email; một bản
+  **treo** thì gửi. Docker chỉ khởi động lại khi tiến trình **thoát**; healthcheck chỉ đánh dấu
+  `unhealthy` [11][12].
+- **Tên bản trong email**: nhãn `hostname` nối từ `getshopy_server_info`; bản treo thì chuỗi đó ngừng
+  cập nhật nên luật lấy chuỗi có mẫu mới nhất trong 24 giờ cho mỗi địa chỉ (IP có thể được cấp lại
+  cho bản mới sau khi scale). Bản chưa từng trả số đo (khởi động hỏng) không có tên — nằm ở "Thiếu server".
+- **Gửi email**: chính sách gom theo (`alertname`, `hostname`) — hai bản cùng treo là hai email; chờ
+  30 s trước email đầu (`group_wait`), nhóm đã gửi thì ≥ 5 phút mới gửi tiếp (`group_interval` — kể cả
+  email **ĐÃ HẾT**), còn lỗi thì nhắc lại mỗi 4 giờ (`repeat_interval`) [19].
+- **Máy gửi**: dùng lại `SMTP_HOST/PORT/USER/PASS` của chức năng "Quên mật khẩu". Grafana dùng TLS ngay
+  từ đầu khi cổng là **465** (như `SMTP_SECURE=true` của server); cổng khác thì STARTTLS — compose đặt
+  `MandatoryStartTLS` để mật khẩu không bao giờ đi dạng chữ thường [9]. Thử 19/11/2026: Grafana gửi tới
+  mailpit nghe SMTPS cổng 465 (TLS bắt buộc) thành công. `SMTP_SECURE=true` mà cổng khác 465 thì
+  Grafana KHÔNG dùng TLS ngay từ đầu — đặt cổng 465.
+- **Địa chỉ**: `ALERT_EMAIL_FROM` (chỉ địa chỉ; Gmail: chính `SMTP_USER`) và `ALERT_EMAIL_TO` trong
+  `.env`. Contact point lấy `${ALERT_EMAIL_TO}` từ biến môi trường của Grafana (file contact point có
+  thay biến — đã thử). File LUẬT thì **không** thay biến (Grafana 13.2.5, đã thử) nên số 3 của "Thiếu
+  server" ghi thẳng trong `rules.yml`: **đổi `SERVER_REPLICAS` thì sửa số 3 trong `rules.yml`** rồi
+  `docker compose restart grafana`.
+- **Đọc email**: tiêu đề `[CẢNH BÁO] <luật> — bản <hostname> (Getshopy)` hoặc `[ĐÃ HẾT] …`; thân email:
+  trạng thái, mức độ, "Bắt đầu" (= lúc chuyển Firing, giờ Việt Nam), mô tả và dòng **"Cách xử lý"**.
+  `DatasourceError` = luật không chạy được (Prometheus / truy vấn hỏng) — tức đang mất giám sát.
+- **Đường public**: probe đi từ container ra Internet rồi vòng về chính máy qua Funnel — chưa kiểm được
+  trên máy demo nên luật đang tạm dừng. Kiểm: Grafana > Explore > Prometheus
+  `probe_success{job="blackbox-public"}` = 1 cho cả hai URL → sửa `isPaused: false` trong `rules.yml` →
+  `docker compose restart grafana`. Mỗi 30 s là một request thật qua Funnel (log gateway có ghi).
+- Lỗi đọc file provisioning làm **Grafana không khởi động được** (gặp khi thử: chu kỳ đánh giá phải là
+  bội số của 10 s; số trong mảng YAML không được là `${…}`) — sửa `monitoring/grafana/provisioning/`
+  thì chạy thử trên stack tách biệt trước (mục 9).
+
+**Runbook — "Server treo"** (email ghi sẵn tên bản):
+
+```powershell
+docker restart <hostname>          # vd. docker restart c5a7a4356352 — tên trong email = id container
+docker compose ps server           # bản đó Up (healthy) lại sau ~10-20 s
+```
+
+Bản treo không xử lý được SIGTERM nên `docker restart` chờ hết `stop_grace_period` (12 s) rồi SIGKILL
+(đo trên stack thử: 12 s). Server dùng `DB_PREP=off` (container CD tạo) thì khởi động lại không chạy
+script DB nào. Vài phút sau có email `[ĐÃ HẾT]`.
+
+Stack thử 19/11/2026 (bản giả `node:20-alpine`, mailpit làm hộp thư):
+
+| Tình huống | Kết quả |
+|---|---|
+| `kill -9` một bản, Docker tự khởi động lại | "Server treo" Pending ~10 s rồi về Normal — **không** email |
+| SIGSTOP một bản (treo) | Pending sau 16 s, **Firing sau 71 s**; email `[CẢNH BÁO] Server treo — bản c5a7a4356352` sau 29 s nữa (group_wait), đọc được tiếng Việt, có dòng `docker restart c5a7a4356352`; kèm "Thiếu server" (còn 2/3). "Web sập" chỉ Pending chập chờn: probe qua gateway thỉnh thoảng rơi vào bản treo rồi hết giờ |
+| `docker restart` bản treo | lệnh mất 12 s; healthy sau 19 s; "Server treo" hết sau ~10 s nữa; email `[ĐÃ HẾT]` đúng 5 phút sau email đầu (`group_interval`) |
+| Mọi bản server về 0 (100 s) | "Thiếu server" Firing sau 75 s, "Web sập" sau 77 s, email cả hai; "Server treo" KHÔNG bắn (lần thử đầu đã bắn sai cho các bản đã gỡ — xem chú thích của luật, đã sửa) |
+| `grafana-demo.ps1 -Scenario hang`, k6 60 req/s | Pending sau 15 s, **Firing sau 74 s**; `docker restart` 13,1 s; healthy 20 s sau lệnh; cảnh báo hết 15 s sau đó. k6: 0 lỗi trước lúc treo, **6 response khác 200** sau — log gateway cho thấy đúng 6 request rơi vào bản treo: 5 cái chờ 60 s rồi k6 bỏ (mã 499 trong log nginx), 1 cái nhận 503 sau 43,5 s lúc bản đó bị restart |
+| Production | `[đo]` |
+
+Vì sao bản treo vẫn làm hỏng vài request: tiến trình bị dừng nhưng **nhân hệ điều hành vẫn nhận kết nối
+TCP** cho nó (hàng đợi listen), nên nginx không gặp "connection refused" để chuyển bản khác; request đã
+gửi tới đó chờ tới khi hết thời gian (khách bỏ — k6 60 s —, hoặc `proxy_read_timeout` 120 s của gateway).
+`least_conn` thấy bản treo giữ nhiều kết nối dở nên thôi chọn nó — chỉ vài request đầu bị kẹt.
+
+## 12. Hướng phát triển: tự hồi phục khi server treo
+
+Hiện tại: bản **chết** tự quay lại (restart policy, mục 7), bản **treo** chỉ được **phát hiện và báo**
+(mục 11) — sửa tay. Ba hướng tự động hoá, theo mức thay đổi tăng dần:
+
+| Hướng | Cách làm | Được | Mất |
+|---|---|---|---|
+| **autoheal** (sidecar) | container theo dõi sự kiện health của Docker, `docker restart` container nào `unhealthy` (vd. `willfarrell/autoheal`, gắn nhãn cho service cần theo dõi) | thêm một service vào compose, không đổi kiến trúc | cần docker.sock (toàn quyền Docker); chỉ dựa healthcheck — chậm: cần 12 lượt hỏng liên tiếp (interval 10 s, timeout 5 s) mới `unhealthy`; lần thử treo 122 s trên stack thử chưa có sự kiện `unhealthy`, trong khi cảnh báo đã bắn sau 71 s; không phải dự án chính thức của Docker |
+| **Docker Swarm** | `docker stack deploy` cùng file compose; service có `healthcheck`, `deploy.update_config` (cuốn chiếu, `failure_action: rollback`), `deploy.rollback_config` [20] | Swarm thay task `unhealthy`, cập nhật cuốn chiếu, tự quay về khi bản mới hỏng | đổi cách chạy toàn hệ thống (network overlay, `docker stack`), một số tuỳ chọn compose khác hành vi |
+| **Kubernetes** | `livenessProbe` (hỏng thì kubelet khởi động lại container), `readinessProbe` (hỏng thì gỡ khỏi Service, không nhận request) [21] — demo sẵn ở `deploy/k8s-demo/` | xử lý cả treo lẫn chết, cập nhật không gián đoạn, blue-green | cụm riêng tốn RAM, thêm một lớp vận hành |
+
+Số **đo trên phần cứng production** ngày 19/11/2026, 01:40–01:46 (`deploy/k8s-demo/`, tải đọc liên tục):
+
+| Thử | Kết quả |
+|---|---|
+| xoá một pod | pod thay thế Ready sau ~7 s; 62 request, 0 lỗi |
+| cập nhật cuốn chiếu v1 → v2 | ~27 s; 287 request, 0 lỗi |
+| bản phát hành hỏng (không bao giờ Ready) | 459 request, 0 lỗi (bản cũ vẫn phục vụ), rồi `kubectl rollout undo` |
+| chuyển blue-green | 350 request, 0 lỗi |
+| control plane Kubernetes rỗng | +636 MiB RAM máy ảo |
+
+So với Compose hiện tại: liveness probe của Kubernetes khởi động lại đúng loại bản **treo** mà Compose
+chỉ báo được; đổi lại là cụm riêng (+636 MiB khi chưa chạy gì). Với quy mô khoá luận, báo động + sửa
+tay (mục 11) là đủ; autoheal là bước nhỏ nếu cần tự động.
 
 ## Nguồn
 
@@ -353,3 +570,16 @@ trần 0,25 CPU, giả lập 4–8 ms CPU mỗi request).
     `perf_hooks.monitorEventLoopDelay`: https://nodejs.org/api/perf_hooks.html#perf_hooksmonitoreventloopdelayoptions
 14. Tailscale — `serve` (chỉ tailnet) và Funnel (Internet): https://tailscale.com/kb/1312/serve ·
     https://tailscale.com/kb/1223/funnel
+15. nginx — `log_format ... escape=json`: https://nginx.org/en/docs/http/ngx_http_log_module.html#log_format
+16. Loki — nhãn (cardinality): https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/
+17. Loki — cấu hình, retention: https://grafana.com/docs/loki/latest/configure/ ·
+    https://grafana.com/docs/loki/latest/operations/storage/retention/ ; Grafana Alloy —
+    `loki.source.docker`, `discovery.docker`, `loki.process`: https://grafana.com/docs/alloy/latest/reference/components/
+18. Blackbox exporter: https://github.com/prometheus/blackbox_exporter
+19. Grafana — chính sách thông báo (group_wait, group_interval, repeat_interval):
+    https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/notification-policies/ ;
+    nạp cảnh báo từ file: https://grafana.com/docs/grafana/latest/alerting/set-up/provision-alerting-resources/file-provisioning/
+20. Docker Swarm / Compose `deploy.update_config`, `rollback_config`: https://docs.docker.com/reference/compose-file/deploy/ ·
+    https://docs.docker.com/engine/swarm/
+21. Kubernetes — liveness / readiness probe: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
+22. `docker events` (bộ lọc): https://docs.docker.com/reference/cli/docker/system/events/

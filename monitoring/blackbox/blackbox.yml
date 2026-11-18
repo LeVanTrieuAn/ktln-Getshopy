@@ -1,0 +1,33 @@
+# =============================================================================
+# Blackbox exporter — thăm dò HTTP từ bên ngoài server (19/11/2026)
+#
+# Prometheus gọi http://blackbox:9115/probe?module=...&target=... (monitoring/prometheus/prometheus.yml);
+# kết quả probe_success = 1/0 là đầu vào của các cảnh báo (docs/monitoring.md, mục "Cảnh báo").
+# Khác số đo trong server: probe đi đúng đường của request thật nên thấy cả trường hợp TREO (tiến
+# trình còn nhưng không trả lời) — Docker không tự khởi động lại trường hợp này.
+# https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md
+# =============================================================================
+modules:
+  # /api/health của từng bản server, của gateway, của URL public: phải 2xx trong 4 s.
+  http_2xx:
+    prober: http
+    timeout: 4s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+
+  # Đường webhook SePay qua Funnel 8443: GET phải nhận 404 DO SERVER trả (route chỉ nhận POST),
+  # nhận diện bằng header X-Served-By — đúng tiêu chí "ĐƯỜNG THÔNG" trong AGENTS.MD. 502/503 hoặc
+  # không kết nối được = đường webhook đứt.
+  http_webhook_get_404:
+    prober: http
+    timeout: 8s
+    http:
+      method: GET
+      valid_status_codes: [404]
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+      fail_if_header_not_matches:
+        - header: X-Served-By
+          regexp: '.+'

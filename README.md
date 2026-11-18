@@ -256,13 +256,15 @@ docker compose exec server node scripts/...              # lệnh tay: chạy �
 .\scripts\lb-demo.ps1                                    # demo phân bố + k6 với 1/2/3 bản
 ```
 
-Xem trực tiếp gateway chia tải (request/s, độ trễ, lỗi, CPU/RAM từng bản) trên Grafana —
-Prometheus + Grafana, số đo của server, cách đọc dashboard, bảo mật:
-[docs/monitoring.md](docs/monitoring.md).
+Xem trực tiếp gateway chia tải (request/s, độ trễ, lỗi, CPU/RAM từng bản) trên Grafana, đọc log API
+của cả cụm ở một chỗ (Loki) và nhận **email cảnh báo** khi một bản treo / web sập —
+[docs/monitoring.md](docs/monitoring.md) (số đo, dashboard, log tập trung, cảnh báo, bảo mật).
 
 ```powershell
-docker compose up -d prometheus grafana     # bật giám sát (lần đầu: đặt GRAFANA_ADMIN_PASSWORD trong .env TRƯỚC)
+docker compose up -d prometheus grafana blackbox loki alloy health-events   # giám sát + log + cảnh báo
+                                            # (lần đầu: đặt GRAFANA_ADMIN_PASSWORD, ALERT_EMAIL_* trong .env TRƯỚC)
 .\scripts\grafana-demo.ps1                   # demo trực tiếp: tải ổn định -> scale 1..4 -> 1 server chết
+.\scripts\grafana-demo.ps1 -Scenario hang     # 1 server TREO -> cảnh báo email -> docker restart
 ```
 
 ### ⚠️ Lệnh KHÔNG được chạy

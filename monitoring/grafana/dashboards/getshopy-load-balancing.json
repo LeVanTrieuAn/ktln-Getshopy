@@ -27,7 +27,37 @@
   "version": 1,
   "links": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "name": "replica",
+        "label": "Bản",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "getshopy-prometheus"
+        },
+        "description": "Lọc các panel log theo bản server (hostname = X-Served-By = id container).",
+        "query": {
+          "query": "label_values(getshopy_server_info{job=\"getshopy-server\"}, hostname)",
+          "refId": "PrometheusVariableQueryEditor-VariableQuery"
+        },
+        "definition": "label_values(getshopy_server_info{job=\"getshopy-server\"}, hostname)",
+        "refresh": 2,
+        "multi": true,
+        "includeAll": true,
+        "allValue": ".*",
+        "sort": 1,
+        "current": {
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "options": []
+      }
+    ]
   },
   "annotations": {
     "list": [
@@ -42,6 +72,16 @@
         "iconColor": "rgba(0, 211, 255, 1)",
         "name": "Annotations & Alerts",
         "type": "dashboard"
+      },
+      {
+        "name": "Container chết (health-events)",
+        "datasource": {
+          "type": "loki",
+          "uid": "getshopy-loki"
+        },
+        "enable": true,
+        "iconColor": "red",
+        "expr": "{service=\"health-events\", event=~\"die|oom\"}"
       },
       {
         "name": "Số bản server thay đổi",
@@ -420,7 +460,7 @@
     {
       "id": 7,
       "type": "row",
-      "title": "Phân bố tải giữa các bản",
+      "title": "Cảnh báo và sự kiện container",
       "collapsed": false,
       "gridPos": {
         "h": 1,
@@ -432,6 +472,152 @@
     },
     {
       "id": 8,
+      "type": "alertlist",
+      "title": "Cảnh báo đang bật",
+      "description": "Cảnh báo của Grafana (monitoring/grafana/provisioning/alerting/rules.yml) đang Pending (chờ đủ 1 phút) hoặc Firing (đã gửi / sắp gửi email). Trống = mọi thứ bình thường. Cách xử lý: docs/monitoring.md, mục \"Cảnh báo\".",
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 6
+      },
+      "options": {
+        "viewMode": "list",
+        "groupMode": "default",
+        "groupBy": [],
+        "maxItems": 20,
+        "sortOrder": 1,
+        "dashboardAlerts": false,
+        "alertName": "",
+        "alertInstanceLabelFilter": "",
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": true,
+          "normal": false,
+          "error": true
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Sự kiện container theo loại (health-events)",
+      "description": "Số sự kiện Docker của server và gateway mỗi phút: start, die (kèm mã thoát), kill, restart, stop, destroy, oom, health_status (healthy / unhealthy). Một bản chết rồi tự lên lại = die + start + health_status healthy. Treo thì KHÔNG có sự kiện nào cho tới khi healthcheck báo unhealthy.",
+      "datasource": {
+        "type": "loki",
+        "uid": "getshopy-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 6
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "lineWidth": 2,
+            "fillOpacity": 35,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "sum"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "sum by (event, health) (count_over_time({service=\"health-events\"} [1m]))",
+          "legendFormat": "{{event}} {{health}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "logs",
+      "title": "Dòng sự kiện container",
+      "description": "Từng sự kiện (mới nhất trên cùng): action, container, replica (= hostname), exit_code khi die, signal khi kill. Lọc theo biến \"Bản\" ở đầu trang.",
+      "datasource": {
+        "type": "loki",
+        "uid": "getshopy-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 6
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "{service=\"health-events\"} | json r=\"replica\" | r=~\"${replica:regex}\"",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "row",
+      "title": "Phân bố tải giữa các bản",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 15
+      },
+      "panels": []
+    },
+    {
+      "id": 12,
       "type": "timeseries",
       "title": "Request/s mỗi bản",
       "description": "Mỗi đường là một bản server (tên = header X-Served-By = id container). Gateway chia đều thì các đường nằm sát nhau; đường \"Tổng\" (nét đứt) là tổng mọi bản.",
@@ -443,7 +629,7 @@
         "h": 10,
         "w": 16,
         "x": 0,
-        "y": 6
+        "y": 16
       },
       "fieldConfig": {
         "defaults": {
@@ -538,7 +724,7 @@
       ]
     },
     {
-      "id": 9,
+      "id": 13,
       "type": "timeseries",
       "title": "Tỷ trọng lưu lượng mỗi bản (%)",
       "description": "Phần trăm request mỗi bản trả lời (xếp chồng = 100 %). N bản chia đều thì mỗi dải ~ 100/N %. Scale thêm bản: dải mới xuất hiện, các dải cũ mỏng lại. Chỉ vẽ khi tổng > 1 request/s — lúc chỉ có healthcheck của Docker thì tỷ trọng không có nghĩa.",
@@ -550,7 +736,7 @@
         "h": 10,
         "w": 8,
         "x": 16,
-        "y": 6
+        "y": 16
       },
       "fieldConfig": {
         "defaults": {
@@ -606,7 +792,7 @@
       ]
     },
     {
-      "id": 10,
+      "id": 14,
       "type": "row",
       "title": "Độ trễ và lỗi",
       "collapsed": false,
@@ -614,12 +800,12 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 16
+        "y": 26
       },
       "panels": []
     },
     {
-      "id": 11,
+      "id": 15,
       "type": "timeseries",
       "title": "Độ trễ p95 mỗi bản",
       "description": "95 % request của bản đó xong trong thời gian này (tính ở server, từ lúc request vào Express tới lúc gửi xong response; chưa gồm thời gian ở gateway / mạng). Quá tải thì đường tăng vọt; thêm bản thì hạ xuống.",
@@ -631,7 +817,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 17
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -686,7 +872,7 @@
       ]
     },
     {
-      "id": 12,
+      "id": 16,
       "type": "timeseries",
       "title": "Độ trễ p99 mỗi bản",
       "description": "99 % request của bản đó xong trong thời gian này (tính ở server, từ lúc request vào Express tới lúc gửi xong response; chưa gồm thời gian ở gateway / mạng). Quá tải thì đường tăng vọt; thêm bản thì hạ xuống.",
@@ -698,7 +884,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 17
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -753,7 +939,7 @@
       ]
     },
     {
-      "id": 13,
+      "id": 17,
       "type": "timeseries",
       "title": "Lỗi 5xx mỗi bản (request/s)",
       "description": "Response 5xx mỗi giây của từng bản (0 khi không có lỗi). Lỗi chỉ ở MỘT bản: nghi bản đó hỏng; ở MỌI bản: phụ thuộc dùng chung (Postgres, ClickHouse, ai-bot) có vấn đề.",
@@ -765,7 +951,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 17
+        "y": 27
       },
       "fieldConfig": {
         "defaults": {
@@ -820,7 +1006,183 @@
       ]
     },
     {
-      "id": 14,
+      "id": 18,
+      "type": "timeseries",
+      "title": "Độ trễ phía gateway p95 (từ log)",
+      "description": "p95 của request_time trong log truy cập của gateway (nginx), theo bản đã trả lời (served_by). Gồm thời gian xếp hàng, kết nối, thử lại bản khác — tức độ trễ khách thấy, khác panel p95 của server (chỉ tính trong Express). Cửa sổ 1 phút.",
+      "datasource": {
+        "type": "loki",
+        "uid": "getshopy-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 36
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": 3,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byFrameRefID",
+              "options": "B"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "quantile_over_time(0.95, {service=\"gateway\"} | json | __error__=\"\" | served_by=~\"${replica:regex}\" | served_by!=\"\" | unwrap request_time [1m]) by (served_by)",
+          "legendFormat": "{{served_by}}",
+          "queryType": "range",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "quantile_over_time(0.95, {service=\"gateway\"} | json | __error__=\"\" | unwrap request_time [1m]) by (service)",
+          "legendFormat": "Mọi request API (gồm cả không tới server)",
+          "queryType": "range",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Request/s qua gateway theo nhóm mã (từ log)",
+      "description": "Mọi request API qua gateway (cổng 80, 8081, 8090 — gồm webhook SePay qua Funnel), theo nhóm mã HTTP. 5xx ở đây gồm cả trang bảo trì 503 do gateway tự trả khi không bản nào trả lời — panel 5xx của server không thấy loại này.",
+      "datasource": {
+        "type": "loki",
+        "uid": "getshopy-loki"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 36
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "decimals": 1,
+          "min": 0,
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "never",
+            "spanNulls": false,
+            "lineInterpolation": "linear",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMin": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "table",
+          "placement": "bottom",
+          "showLegend": true,
+          "calcs": [
+            "mean",
+            "lastNotNull",
+            "max"
+          ]
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "sum by (status_class) (rate({service=\"gateway\"} [1m]))",
+          "legendFormat": "{{status_class}}",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
       "type": "row",
       "title": "Các bản server",
       "collapsed": false,
@@ -828,12 +1190,12 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 26
+        "y": 45
       },
       "panels": []
     },
     {
-      "id": 15,
+      "id": 21,
       "type": "table",
       "title": "Danh sách bản server (hiện tại)",
       "datasource": {
@@ -844,7 +1206,7 @@
         "h": 8,
         "w": 24,
         "x": 0,
-        "y": 27
+        "y": 46
       },
       "description": "Mỗi dòng một bản: tên (= X-Served-By), địa chỉ Prometheus kéo số đo (instance), up, request/s, tỷ trọng, p95, CPU (100 % = một nhân), RAM. Bản bị kill / gỡ biến khỏi DNS nên biến khỏi bảng sau vài giây.",
       "fieldConfig": {
@@ -1113,7 +1475,7 @@
       ]
     },
     {
-      "id": 16,
+      "id": 22,
       "type": "row",
       "title": "Tài nguyên mỗi bản (tiến trình Node)",
       "collapsed": false,
@@ -1121,12 +1483,12 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 35
+        "y": 54
       },
       "panels": []
     },
     {
-      "id": 17,
+      "id": 23,
       "type": "timeseries",
       "title": "CPU mỗi bản",
       "description": "CPU của tiến trình Node (100 % = một nhân). JavaScript chạy trên MỘT luồng: bản nào chạm ~100 % là đã bão hoà dù máy còn nhân rảnh (GC, libuv có thể đẩy quá 100 %).",
@@ -1138,7 +1500,7 @@
         "h": 9,
         "w": 8,
         "x": 0,
-        "y": 36
+        "y": 55
       },
       "fieldConfig": {
         "defaults": {
@@ -1194,7 +1556,7 @@
       ]
     },
     {
-      "id": 18,
+      "id": 24,
       "type": "timeseries",
       "title": "RAM (RSS) mỗi bản",
       "description": "Bộ nhớ thường trú của tiến trình Node (process_resident_memory_bytes).",
@@ -1206,7 +1568,7 @@
         "h": 9,
         "w": 8,
         "x": 8,
-        "y": 36
+        "y": 55
       },
       "fieldConfig": {
         "defaults": {
@@ -1262,7 +1624,7 @@
       ]
     },
     {
-      "id": 19,
+      "id": 25,
       "type": "timeseries",
       "title": "Độ trễ event loop p99 mỗi bản",
       "description": "p99 độ trễ event loop giữa hai lần Prometheus kéo số đo (perf_hooks.monitorEventLoopDelay, độ phân giải 10 ms). Tăng cao = luồng JavaScript bận, mọi request của bản đó phải chờ.",
@@ -1274,7 +1636,7 @@
         "h": 9,
         "w": 8,
         "x": 16,
-        "y": 36
+        "y": 55
       },
       "fieldConfig": {
         "defaults": {
@@ -1330,7 +1692,7 @@
       ]
     },
     {
-      "id": 20,
+      "id": 26,
       "type": "row",
       "title": "Theo route",
       "collapsed": false,
@@ -1338,12 +1700,12 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 45
+        "y": 64
       },
       "panels": []
     },
     {
-      "id": 21,
+      "id": 27,
       "type": "bargauge",
       "title": "Top 10 route theo request/s",
       "datasource": {
@@ -1354,7 +1716,7 @@
         "h": 9,
         "w": 12,
         "x": 0,
-        "y": 46
+        "y": 65
       },
       "description": "Route = MẪU route Express (vd. /api/b2c/products/:id), không phải URL thật. \"unmatched\" = không route nào khớp: 404, hoặc middleware trả lời trước (429 rate limit, preflight CORS).",
       "fieldConfig": {
@@ -1406,7 +1768,7 @@
       ]
     },
     {
-      "id": 22,
+      "id": 28,
       "type": "timeseries",
       "title": "Request/s theo mã trạng thái",
       "description": "Tổng mọi bản, tách theo mã HTTP. 429 = chạm rate limit (đếm chung cả cụm trong Redis); 5xx = lỗi server.",
@@ -1418,7 +1780,7 @@
         "h": 9,
         "w": 12,
         "x": 12,
-        "y": 46
+        "y": 65
       },
       "fieldConfig": {
         "defaults": {
@@ -1469,6 +1831,95 @@
           "legendFormat": "{{status_code}}",
           "range": true,
           "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "row",
+      "title": "Log API (Loki)",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 74
+      },
+      "panels": []
+    },
+    {
+      "id": 30,
+      "type": "logs",
+      "title": "Log truy cập API — gateway",
+      "description": "Mỗi dòng một request API qua gateway (JSON): path KHÔNG có query string, status, request_time (giây, ở gateway), upstream_addr / upstream_status (nhiều giá trị = nginx đã thử lại bản khác), served_by (bản trả lời), server_port (80 tailnet / Funnel webhook, 8090 public, 8081 WebSocket), xff (IP khách — dữ liệu cá nhân, giữ 7 ngày). Lọc theo biến \"Bản\".",
+      "datasource": {
+        "type": "loki",
+        "uid": "getshopy-loki"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 75
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "{service=\"gateway\"} | json | served_by=~\"${replica:regex}\"",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 500
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "logs",
+      "title": "Log request — server (bỏ probe)",
+      "description": "Mỗi dòng một request bản server đã trả lời: route = MẪU route (không id, không query), status, ms, bytes, hostname. Bỏ request của healthcheck Docker và blackbox (trường probe); xem cả probe: bỏ `| probe=\"\"` trong Explore. Lọc theo biến \"Bản\".",
+      "datasource": {
+        "type": "loki",
+        "uid": "getshopy-loki"
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 86
+      },
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "showCommonLabels": false,
+        "wrapLogMessage": true,
+        "prettifyLogMessage": false,
+        "enableLogDetails": true,
+        "dedupStrategy": "none",
+        "sortOrder": "Descending"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "loki",
+            "uid": "getshopy-loki"
+          },
+          "expr": "{service=\"server\", replica=~\"${replica:regex}\"} | json | probe=\"\"",
+          "queryType": "range",
+          "refId": "A",
+          "maxLines": 500
         }
       ]
     }

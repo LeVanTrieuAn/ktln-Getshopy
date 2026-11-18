@@ -241,9 +241,11 @@ tới `client` · health `/api/health` và `/` qua gateway trong 120 s · lỗi 
 
 Thay đổi ở `docker-compose.yml` của 4 service ứng dụng được áp tự động. Thay đổi hạ tầng (gateway,
 service khác trong compose, `local-infra-sandbox/`, `scripts/`, `monitoring/`, `.env.example`...) chỉ
-được **ghi cảnh báo** trong `deploy.log` kèm lệnh cần chạy tay. Prometheus + Grafana
-([docs/monitoring.md](../../docs/monitoring.md)) không nằm trong CD: bật / cập nhật bằng
-`docker compose up -d prometheus grafana`.
+được **ghi cảnh báo** trong `deploy.log` kèm lệnh cần chạy tay. Giám sát, log tập trung, cảnh báo
+(prometheus, grafana, blackbox, loki, alloy, health-events — [docs/monitoring.md](../../docs/monitoring.md))
+không nằm trong CD: bật / cập nhật bằng `docker compose up -d blackbox loki alloy health-events` rồi
+`docker compose up -d --force-recreate prometheus grafana`. Bản server do CD tạo tự ghi log JSON
+(`LOG_FORMAT`) — không cần làm gì thêm.
 
 ## Sự cố
 

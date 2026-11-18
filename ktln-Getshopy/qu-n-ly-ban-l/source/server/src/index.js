@@ -91,7 +91,9 @@ if (!JWT_SECRET) {
 }
 
 app.use(cors());
-app.use(morgan('dev'));
+// 19/11/2026: log request. LOG_FORMAT=json (compose bật mặc định) -> một dòng JSON / request cho
+// Loki (middleware/requestLog.js — không ghi query, header, body, cookie, token); khác -> morgan('dev').
+app.use(require('./middleware/requestLog').createRequestLogger({ morgan: () => morgan('dev') }));
 // Tìm kiếm bằng ảnh gửi ảnh dạng data URL base64 trong JSON. express.json() bên dưới
 // không đặt limit nên dùng mặc định 100 KB của body-parser: ảnh đã nén 800px vẫn hay
 // vượt -> 413 ngay ở server, không tới ai-bot (log 11/11/2026 16:54–17:05Z). Nâng lên

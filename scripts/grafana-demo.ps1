@@ -17,6 +17,12 @@
                 KHÔNG dùng `docker kill` / `docker stop`: Docker coi đó là dừng TAY và bỏ qua
                 restart policy (https://docs.docker.com/engine/containers/start-containers-automatically/)
                 — bản đó sẽ không tự quay lại, demo sai mục đích.
+      hang     (KHÔNG nằm trong all) "1 server TREO": gửi SIGSTOP cho tiến trình chính của MỘT bản
+                (tiến trình còn sống nhưng không trả lời). Docker KHÔNG tự xử lý trường hợp này (restart
+                policy chỉ phản ứng khi tiến trình thoát; healthcheck chỉ đánh dấu unhealthy). Script chờ
+                cảnh báo "Server treo" của Grafana chuyển Firing (hỏi API cảnh báo), in thời gian tới
+                lúc báo, rồi làm đúng việc người trực sẽ làm: docker restart <container>; chờ healthy và
+                chờ cảnh báo hết. Cần mật khẩu admin Grafana (-GrafanaCredential hoặc hỏi lúc chạy).
 
     k6 (container grafana/k6, trần CPU/RAM) chạy TRONG network của compose và chỉ gọi
     http://gateway, CHỈ endpoint ĐỌC công khai (danh mục, danh sách, chi tiết sản phẩm, health) —
@@ -44,6 +50,12 @@
     Image dùng một lần để gửi kill -9 từ PID namespace của máy ảo Docker (--privileged --pid=host).
     Chỉ chạy đúng lệnh `kill -9 <pid>` rồi tự xoá (--rm).
 
+.PARAMETER GrafanaCredential
+    Tài khoản Grafana (admin) để hỏi API cảnh báo (hang) và tạo silence cho "Thiếu server" trong lúc
+    scale (scale chủ động xuống 1 bản — không cần email). Không truyền thì script hỏi mật khẩu khi
+    cần (Enter bỏ trống: scale vẫn chạy nhưng email "Thiếu server" sẽ được gửi; hang thì dừng).
+    Không bao giờ đọc .env, không in mật khẩu.
+
 .PARAMETER ComposeOptions
     Tham số thêm cho MỌI lệnh `docker compose` — chỉ để thử script trên một project compose
     tách biệt, ví dụ @('-p','kltn-thu','-f','D:\thu\docker-compose.yml'). Để trống = project
@@ -51,7 +63,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('all', 'steady', 'scale', 'failover')]
+    [ValidateSet('all', 'steady', 'scale', 'failover', 'hang')]
     [string]$Scenario = 'all',
     [ValidateRange(1, 2000)]
     [int]$Rate = 150,
@@ -73,6 +85,10 @@ param(
     [int]$HealthyTimeoutSec = 300,
     # failover: quá chừng này (tính từ lúc kill) mà bản đó chưa healthy lại -> dựng bằng compose
     [int]$RecoverTimeoutSec = 120,
+    # hang: chờ cảnh báo "Server treo" Firing tối đa chừng này; chờ thêm cho email đi rồi mới sửa
+    [int]$AlertTimeoutSec = 300,
+    [int]$EmailWaitSec = 40,
+    [System.Management.Automation.PSCredential]$GrafanaCredential = $null,
     [string[]]$ComposeOptions = @(),
     [string]$OutDir = '',
     [switch]$DryRun,
@@ -95,6 +111,10 @@ $script:K6Start = $null
 $script:K6Name = ''
 $script:Changed = $false
 $script:Network = '<network-của-compose>'
+$script:GrafanaCred = $GrafanaCredential
+$script:HungPid = ''          # bản đang bị SIGSTOP — finally gửi SIGCONT nếu chưa sửa xong
+$script:HungVictim = ''
+$script:SilenceId = ''        # silence "Thiếu server" trong lúc scale — finally gỡ
 
 function Write-Title([string]$Text) { Write-Host ''; Write-Host "=== $Text ===" -ForegroundColor Cyan }
 function Write-Cmd([string]$Text) { Write-Host "PS> $Text" -ForegroundColor DarkGray }
@@ -264,6 +284,97 @@ function Complete-K6([string]$Tag) {
     return $s
 }
 
+# ─── Grafana API (cảnh báo, silence) ──────────────────────────────────────────
+
+# Hỏi mật khẩu admin Grafana một lần (Read-Host -AsSecureString, không hiện ra màn hình).
+function Initialize-GrafanaCredential([bool]$Required) {
+    if ($script:GrafanaCred -or $DryRun) { return [bool]$script:GrafanaCred }
+    $why = 'tạo silence cho "Thiếu server" khi scale (Enter = bỏ qua, email sẽ được gửi)'
+    if ($Required) { $why = 'hỏi trạng thái cảnh báo "Server treo"' }
+    Write-Host "Mật khẩu admin Grafana để $why" -ForegroundColor Magenta
+    $sec = Read-Host 'Mật khẩu Grafana (admin)' -AsSecureString
+    if ($sec.Length -eq 0) { return $false }
+    $script:GrafanaCred = New-Object System.Management.Automation.PSCredential('admin', $sec)
+    try {
+        $null = Invoke-GrafanaApi GET '/api/user'
+    } catch {
+        $script:GrafanaCred = $null
+        throw "Không đăng nhập được Grafana ở $GrafanaUrl ($($_.Exception.Message))"
+    }
+    return $true
+}
+
+# Gọi API Grafana bằng Basic auth; tự giải mã UTF-8 (PowerShell 5.1 đoán sai bảng mã khi
+# Content-Type không ghi charset -> tên cảnh báo tiếng Việt bị lỗi).
+function Invoke-GrafanaApi([string]$Method, [string]$Path, $Body = $null) {
+    $user = $script:GrafanaCred.UserName
+    $pass = $script:GrafanaCred.GetNetworkCredential().Password
+    $b64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes("$($user):$($pass)"))
+    $req = @{ Uri = ($GrafanaUrl.TrimEnd('/') + $Path); Method = $Method; Headers = @{ Authorization = "Basic $b64" }; UseBasicParsing = $true; TimeoutSec = 15 }
+    if ($null -ne $Body) {
+        $req.Body = [Text.Encoding]::UTF8.GetBytes(($Body | ConvertTo-Json -Depth 8 -Compress))
+        $req.ContentType = 'application/json; charset=utf-8'
+    }
+    $r = Invoke-WebRequest @req
+    $text = [Text.Encoding]::UTF8.GetString($r.RawContentStream.ToArray())
+    if ($text) { return ($text | ConvertFrom-Json) }
+    return $null
+}
+
+# Trạng thái cảnh báo của một luật (theo uid) cho một bản: Normal / Pending / Alerting / none.
+function Get-AlertState([string]$RuleUid, [string]$HostLabel) {
+    $j = Invoke-GrafanaApi GET '/api/prometheus/grafana/api/v1/rules'
+    foreach ($g in @($j.data.groups)) {
+        foreach ($r in @($g.rules)) {
+            if ($r.uid -ne $RuleUid) { continue }
+            foreach ($a in @($r.alerts)) {
+                if ($a -and $a.labels.hostname -eq $HostLabel) { return [string]$a.state }
+            }
+        }
+    }
+    return 'none'
+}
+
+# Silence = tạm không gửi email cho cảnh báo khớp nhãn (bảo trì có chủ đích). Khớp theo uid luật.
+function New-AlertSilence([string]$RuleUid, [int]$Minutes, [string]$Comment) {
+    $now = [DateTime]::UtcNow
+    $body = @{
+        matchers  = @(@{ name = '__alert_rule_uid__'; value = $RuleUid; isRegex = $false; isEqual = $true })
+        startsAt  = $now.ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+        endsAt    = $now.AddMinutes($Minutes).ToString('yyyy-MM-ddTHH:mm:ss.fffZ')
+        createdBy = 'scripts/grafana-demo.ps1'
+        comment   = $Comment
+    }
+    $r = Invoke-GrafanaApi POST '/api/alertmanager/grafana/api/v2/silences' $body
+    return [string]$r.silenceID
+}
+
+function Remove-AlertSilence([string]$Id) {
+    if (-not $Id) { return }
+    $null = Invoke-GrafanaApi DELETE "/api/alertmanager/grafana/api/v2/silence/$Id"
+}
+
+# Bản sắp bị kill / SIGSTOP phải có DB_PREP=off: khởi động lại không chạy script DB nào.
+# Chỉ ĐỌC biến DB_PREP (không in biến khác — có bí mật). Trả $false nếu người dùng không đồng ý.
+function Confirm-DbPrepOff([string]$Victim) {
+    $dbPrep = ''
+    foreach ($line in (Get-DockerOut inspect -f '{{range .Config.Env}}{{println .}}{{end}}' $Victim)) {
+        if ($line -like 'DB_PREP=*') { $dbPrep = $line.Substring(8) }
+    }
+    $policy = (Get-DockerOut inspect -f '{{.HostConfig.RestartPolicy.Name}}' $Victim) -join ''
+    if (-not $policy) { $policy = '?' }
+    Write-Note "Bản được chọn: $Victim — restart policy: $policy, DB_PREP=$(if ($dbPrep) { $dbPrep } else { '(không đặt = auto)' })"
+    if ($dbPrep -eq 'off') {
+        Write-Note 'DB_PREP=off (như container CD tạo): khởi động lại bản này KHÔNG chạy script DB nào (docker-entrypoint.sh) — chỉ chạy lại node.'
+        return $true
+    }
+    if ($DryRun) { return $true }
+    Write-Warn "Container $Victim KHÔNG có DB_PREP=off: khởi động lại sẽ chạy phần chuẩn bị DB của docker-entrypoint.sh"
+    Write-Warn '(migrate deploy, ràng buộc tồn kho, ensure-inventory, seed-demo — dưới khoá khởi động). Container CD tạo luôn có DB_PREP=off.'
+    $a = Read-Host 'Vẫn dùng bản này? (y/N)'
+    return ($a -match '^(y|yes|c|co|có)$')
+}
+
 # ─── Kịch bản ─────────────────────────────────────────────────────────────────
 
 function Invoke-Steady {
@@ -285,6 +396,18 @@ function Invoke-Scale {
         '"Request/s mỗi bản": mỗi lần scale có đường MỚI; các đường cũ hạ xuống ~ Rate/N',
         '"Tỷ trọng lưu lượng": dải mới xuất hiện, các dải chia lại; dấu cam "Số bản server thay đổi"',
         '"Độ trễ p95 mỗi bản" và "CPU mỗi bản": hạ xuống khi thêm bản (nếu Rate vượt sức 1 bản)')
+    # Scale xuống 1 bản là CHỦ ĐỘNG -> silence cảnh báo "Thiếu server" trong lúc demo (gỡ ở finally).
+    if ($script:GrafanaCred -and -not $DryRun) {
+        try {
+            $mins = [int][math]::Ceiling(($RampSec + $StepSec * $ScaleSteps.Count + 300) / 60)
+            $script:SilenceId = New-AlertSilence 'getshopy-thieu-server' $mins 'grafana-demo.ps1: scale chủ động'
+            Add-Event "silence cảnh báo 'Thiếu server' $mins phút (id $($script:SilenceId))"
+        } catch { Write-Warn "Không tạo được silence: $($_.Exception.Message) — email 'Thiếu server' sẽ được gửi." }
+    } elseif (-not $DryRun) {
+        Write-Warn 'Không có mật khẩu Grafana: lúc còn 1 bản > 1 phút, cảnh báo "Thiếu server" sẽ gửi email (đúng — vì đang thiếu thật).'
+    } else {
+        Write-Note '  (dry-run) POST /api/alertmanager/grafana/api/v2/silences  (matcher __alert_rule_uid__=getshopy-thieu-server)'
+    }
     Set-Replicas $ScaleSteps[0] 'bắt đầu kịch bản scale'
     Start-K6 'scale' ($StepSec * $ScaleSteps.Count)
     for ($i = 1; $i -lt $ScaleSteps.Count; $i++) {
@@ -413,6 +536,109 @@ function Invoke-Failover {
     }
 }
 
+function Invoke-Hang {
+    Write-Title "(4) 1 server TREO — SIGSTOP tiến trình chính của MỘT bản, chờ cảnh báo, sửa tay"
+    $ids = Get-ServerIds
+    if (-not $DryRun -and $ids.Count -lt 2) {
+        Set-Replicas 2 'cần >= 2 bản để các bản còn lại gánh tải'
+        $ids = Get-ServerIds
+    }
+    $victim = '<id-bản-đầu-tiên>'
+    if ($ids.Count -gt 0) { $victim = $ids[0] }
+    if (-not (Confirm-DbPrepOff $victim)) { Write-Note 'Bỏ qua kịch bản treo.'; return }
+    Show-Look @(
+        "Bản sẽ treo: $victim (tiến trình còn, không trả lời — Docker KHÔNG tự khởi động lại)",
+        '"Cảnh báo đang bật": "Server treo" Pending sau ~10-20 s, Firing sau ~1 phút (for: 1m), rồi email',
+        '"Request/s mỗi bản": đường của bản treo về 0; least_conn dồn request sang bản khác',
+        '"Độ trễ phía gateway p95 (từ log)": vài request kẹt ở bản treo tới khi hết thời gian',
+        '"Dòng sự kiện container": KHÔNG có die/start — chỉ health_status: unhealthy sau vài lượt healthcheck')
+
+    $markAt = $RampSec + $StepSec
+    Start-K6 'hang' ($StepSec * 5) $markAt
+    Wait-Until $markAt "SIGSTOP tiến trình chính của $victim"
+
+    $pidText = (Get-DockerOut inspect -f '{{.State.Pid}}' $victim) -join ''
+    $hostPid = 0
+    if (-not [int]::TryParse($pidText, [ref]$hostPid) -or $hostPid -le 1) {
+        if (-not $DryRun) { throw "Không đọc được PID của $victim (State.Pid='$pidText')" }
+        $hostPid = '<pid>'
+    }
+    $script:Changed = $true
+    Invoke-Docker run --rm --privileged --pid=host $HelperImage kill -STOP $hostPid
+    $hungAt = Get-Date
+    if (-not $DryRun) { $script:HungPid = [string]$hostPid; $script:HungVictim = $victim }
+    Add-Event "SIGSTOP PID $hostPid ($victim) — bản này TREO: còn chạy, không trả lời"
+
+    if ($DryRun) {
+        Write-Note "  (dry-run) hỏi GET /api/prometheus/grafana/api/v1/rules mỗi 3 s tới khi luật getshopy-server-treo của $victim = Alerting (tối đa $AlertTimeoutSec s)"
+        Write-Note "  (dry-run) chờ $EmailWaitSec s cho email, rồi sửa như người trực:"
+        Invoke-Docker restart $victim
+        $null = Complete-K6 'hang'
+        return
+    }
+
+    $pendingAt = $null; $firingAt = $null
+    $deadline = $hungAt.AddSeconds($AlertTimeoutSec)
+    while ((Get-Date) -lt $deadline) {
+        $st = 'none'
+        try { $st = Get-AlertState 'getshopy-server-treo' $victim } catch { Write-Warn "API cảnh báo: $($_.Exception.Message)" }
+        if (-not $pendingAt -and $st -eq 'Pending') { $pendingAt = Get-Date; Add-Event "cảnh báo 'Server treo' Pending cho $victim" }
+        if ($st -eq 'Alerting' -or $st -eq 'Firing') {
+            $firingAt = Get-Date
+            if (-not $pendingAt) { $pendingAt = $firingAt }
+            Add-Event ("cảnh báo 'Server treo' FIRING cho {0} sau {1:N0} s kể từ lúc treo" -f $victim, ($firingAt - $hungAt).TotalSeconds)
+            break
+        }
+        Start-Sleep -Seconds 3
+    }
+    if (-not $firingAt) { Write-Warn "Sau $AlertTimeoutSec s cảnh báo chưa Firing — vẫn sửa để trả hệ thống về bình thường." }
+    else {
+        Write-Note "Email gửi sau group_wait 30 s (monitoring/grafana/provisioning/alerting/policies.yml) — chờ $EmailWaitSec s rồi sửa."
+        Start-Sleep -Seconds $EmailWaitSec
+    }
+
+    # Việc người trực làm theo email: docker restart <hostname>. Tiến trình đang SIGSTOP không xử lý
+    # được SIGTERM -> Docker chờ stop_grace_period (12 s) rồi SIGKILL.
+    Write-Note "Sửa như người trực: docker restart $victim"
+    $restartAt = Get-Date
+    Invoke-Docker restart $victim
+    $script:HungPid = ''; $script:HungVictim = ''
+    Add-Event ("docker restart {0} xong sau {1:N1} s (tiến trình SIGSTOP không nhận SIGTERM -> chờ hết stop_grace_period rồi SIGKILL)" -f $victim, ((Get-Date) - $restartAt).TotalSeconds)
+    $ok = Wait-Healthy $ids.Count
+    $healthyAt = Get-Date
+    Add-Event ("đủ {0} bản healthy lại sau {1:N0} s kể từ lệnh restart" -f $ok.Count, ($healthyAt - $restartAt).TotalSeconds)
+
+    $resolvedAt = $null
+    $deadline = (Get-Date).AddSeconds(180)
+    while ((Get-Date) -lt $deadline) {
+        $st = 'none'
+        try { $st = Get-AlertState 'getshopy-server-treo' $victim } catch { }
+        if ($st -ne 'Alerting' -and $st -ne 'Firing' -and $st -ne 'Pending') { $resolvedAt = Get-Date; Add-Event "cảnh báo 'Server treo' hết (trạng thái $st) — email ĐÃ HẾT gửi ở lượt kế (group_interval ≤ 5 phút)"; break }
+        Start-Sleep -Seconds 3
+    }
+
+    $s = Complete-K6 'hang'
+    Write-Title "Kết quả — 1 server treo ($victim)"
+    $fmt = 'HH:mm:ss'
+    Write-Note ("Treo (SIGSTOP) lúc        : {0}" -f $hungAt.ToString($fmt))
+    if ($pendingAt) { Write-Note ("Pending lúc               : {0} (sau {1:N0} s)" -f $pendingAt.ToString($fmt), ($pendingAt - $hungAt).TotalSeconds) }
+    if ($firingAt) { Write-Note ("FIRING lúc                : {0} — thời gian tới lúc báo {1:N0} s (gồm for: 1m + chu kỳ đánh giá 10 s + lượt probe 10 s)" -f $firingAt.ToString($fmt), ($firingAt - $hungAt).TotalSeconds) }
+    Write-Note ("docker restart lúc        : {0}" -f $restartAt.ToString($fmt))
+    Write-Note ("Healthy lại lúc           : {0}" -f $healthyAt.ToString($fmt))
+    Write-Note ("Bản này không phục vụ     : {0:N0} s (treo -> healthy; phụ thuộc người trực phản ứng nhanh cỡ nào)" -f ($healthyAt - $hungAt).TotalSeconds)
+    if ($resolvedAt) { Write-Note ("Cảnh báo hết lúc          : {0}" -f $resolvedAt.ToString($fmt)) }
+    if ($s) {
+        $errBefore = Get-Metric $s 'failed_requests{phase:before}' 'count'
+        $errAfter = Get-Metric $s 'failed_requests{phase:after}' 'count'
+        if ($null -eq $errBefore) { $errBefore = 0 }
+        if ($null -eq $errAfter) { $errAfter = 0 }
+        Write-Note ("k6 response khác 200     : trước lúc treo {0}, từ lúc treo tới hết lượt {1}" -f [int]$errBefore, [int]$errAfter)
+        Write-Note 'Bản treo vẫn NHẬN kết nối TCP (nhân hệ điều hành bắt tay thay tiến trình) nên gateway không thấy "lỗi kết nối":'
+        Write-Note 'request đã gửi tới nó chờ tới hết thời gian (k6 60 s, gateway proxy_read_timeout 120 s). least_conn ngừng chọn bản'
+        Write-Note 'đang giữ nhiều kết nối dở, nên chỉ vài request đầu bị kẹt.'
+    }
+}
+
 # ─── Chuẩn bị ──────────────────────────────────────────────────────────────────
 Push-Location $Root
 $ans = ''
@@ -437,6 +663,7 @@ try {
         if ($p -eq 'steady') { $est += $RampSec + $Minutes * 60 }
         if ($p -eq 'scale') { $est += $RampSec + $StepSec * $ScaleSteps.Count }
         if ($p -eq 'failover') { $est += $RampSec + $StepSec * 3 }
+        if ($p -eq 'hang') { $est += $RampSec + $StepSec * 5 }
     }
 
     Write-Title 'Demo trực tiếp trên Grafana — cân bằng tải'
@@ -461,17 +688,33 @@ try {
         if ($ans -notmatch '^(y|yes|c|co|có)$') { Write-Note 'Huỷ.'; return }
     }
     if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $OutDir | Out-Null }
+    if (-not $DryRun -and ($plan -contains 'hang')) {
+        if (-not (Initialize-GrafanaCredential $true)) { throw 'Kịch bản hang cần mật khẩu admin Grafana (để hỏi trạng thái cảnh báo).' }
+    } elseif (-not $DryRun -and ($plan -contains 'scale')) {
+        $null = Initialize-GrafanaCredential $false
+    }
 
     foreach ($p in $plan) {
         if ($p -eq 'steady') { Invoke-Steady }
         if ($p -eq 'scale') { Invoke-Scale }
         if ($p -eq 'failover') { Invoke-Failover }
+        if ($p -eq 'hang') { Invoke-Hang }
     }
 } catch {
     Write-Warn $_.Exception.Message
     throw
 } finally {
-    # Chạy cả khi lỗi và khi Ctrl+C: gỡ k6 còn chạy, trả số bản server về như lúc bắt đầu.
+    # Chạy cả khi lỗi và khi Ctrl+C: gỡ treo, gỡ k6 còn chạy, gỡ silence, trả số bản server về như lúc đầu.
+    if ($script:HungPid -and -not $DryRun) {
+        Write-Warn "Bản $($script:HungVictim) vẫn đang bị SIGSTOP — gửi SIGCONT cho nó chạy tiếp"
+        $null = Get-DockerOut run --rm --privileged --pid=host $HelperImage kill -CONT $script:HungPid
+        Add-Event "SIGCONT PID $($script:HungPid) ($($script:HungVictim))"
+        $script:HungPid = ''
+    }
+    if ($script:SilenceId -and -not $DryRun) {
+        try { Remove-AlertSilence $script:SilenceId; Add-Event "gỡ silence $($script:SilenceId)" } catch { Write-Warn "Không gỡ được silence $($script:SilenceId) — tự hết hạn sau ít phút." }
+        $script:SilenceId = ''
+    }
     if ($script:K6Name -and -not $DryRun) {
         Write-Cmd "docker rm -f $($script:K6Name)"
         $null = Get-DockerOut rm -f $script:K6Name

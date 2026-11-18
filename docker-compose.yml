@@ -103,6 +103,9 @@ services:
       # đó — đổi một chỗ thì đổi cả hai). Tắt: METRICS_ENABLED=0 trong .env.
       METRICS_ENABLED: ${METRICS_ENABLED:-1}
       METRICS_PORT: "9464"
+      # Log mỗi request thành MỘT dòng JSON cho Loki (src/middleware/requestLog.js — không ghi query,
+      # header, body, cookie, token). SERVER_LOG_FORMAT=dev trong .env = morgan('dev') như trước.
+      LOG_FORMAT: ${SERVER_LOG_FORMAT:-json}
     expose: ["8080", "9464"]
     # docker stop / --scale xuống: SIGTERM, chờ chừng này rồi mới SIGKILL (mặc định 10 s).
     stop_grace_period: 12s
@@ -565,8 +568,27 @@ services:
       GF_NEWS_NEWS_FEED_ENABLED: "false"
       GF_PLUGINS_PREINSTALL_DISABLED: "true"
       # Grafana 13 chạy MỖI datasource đóng gói sẵn thành một tiến trình riêng (~25 MB RSS mỗi cái,
-      # đo 19/11/2026). Chỉ cần Prometheus -> không nạp 12 datasource còn lại.
-      GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,grafana-postgresql-datasource,grafana-pyroscope-datasource,influxdb,jaeger,loki,mssql,mysql,opentsdb,stackdriver,tempo,zipkin
+      # đo 19/11/2026). Chỉ cần Prometheus và Loki -> không nạp 11 datasource còn lại.
+      GF_PLUGINS_DISABLE_PLUGINS: elasticsearch,grafana-postgresql-datasource,grafana-pyroscope-datasource,influxdb,jaeger,mssql,mysql,opentsdb,stackdriver,tempo,zipkin
+      # ── Cảnh báo qua email (monitoring/grafana/provisioning/alerting/, docs/monitoring.md) ──
+      # Dùng LẠI máy gửi của chức năng "Quên mật khẩu" (SMTP_* trong .env). Grafana tự dùng TLS
+      # ngay từ đầu khi cổng là 465 (như SMTP_SECURE=true), cổng khác thì STARTTLS — bắt buộc
+      # (MandatoryStartTLS) để mật khẩu không bao giờ đi dạng chữ thường, như server.
+      # Biến thiếu chỉ làm email không gửi được (Grafana ghi lỗi), KHÔNG làm compose / CD dừng.
+      GF_SMTP_ENABLED: "true"
+      GF_SMTP_HOST: ${SMTP_HOST:-localhost}:${SMTP_PORT:-587}
+      GF_SMTP_USER: ${SMTP_USER:-}
+      GF_SMTP_PASSWORD: ${SMTP_PASS:-}
+      GF_SMTP_STARTTLS_POLICY: MandatoryStartTLS
+      # Địa chỉ gửi (chỉ địa chỉ, không tên) và nhận cảnh báo — đặt trong .env:
+      #   ALERT_EMAIL_FROM=<địa chỉ gửi, Gmail: chính SMTP_USER>  ALERT_EMAIL_TO=<hộp thư nhận>
+      GF_SMTP_FROM_ADDRESS: ${ALERT_EMAIL_FROM:-}
+      GF_SMTP_FROM_NAME: Getshopy Giám sát
+      # Link trong email (Grafana mặc định ghi http://localhost:3000/ — cổng trong container).
+      GF_SERVER_ROOT_URL: http://localhost:${GRAFANA_PORT:-3001}/
+      # KHÔNG để trống: contact point không có địa chỉ thì Grafana KHÔNG khởi động được (đã thử).
+      # Chưa đặt -> địa chỉ .invalid (RFC 2606, không ai nhận): Grafana vẫn chạy, chỉ ghi lỗi gửi mail.
+      ALERT_EMAIL_TO: ${ALERT_EMAIL_TO:-chua-dat-ALERT_EMAIL_TO@example.invalid}
       # Mở Grafana là vào thẳng dashboard cân bằng tải
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /etc/grafana/dashboards/getshopy/getshopy-load-balancing.json
     volumes:
@@ -574,6 +596,62 @@ services:
       - ./monitoring/grafana/dashboards:/etc/grafana/dashboards/getshopy:ro
       - grafana_data:/var/lib/grafana
     mem_limit: ${GRAFANA_MEM_LIMIT:-512m}
+    restart: unless-stopped
+
+  # Thăm dò HTTP từ bên ngoài server (monitoring/blackbox/blackbox.yml): /api/health của từng bản,
+  # qua gateway, URL public. Đầu vào của cảnh báo "Server treo" / "Web sập". Không publish cổng.
+  blackbox:
+    image: prom/blackbox-exporter:v0.29.1
+    command: ["--config.file=/etc/blackbox/blackbox.yml"]
+    volumes:
+      - ./monitoring/blackbox:/etc/blackbox:ro
+    expose: ["9115"]
+    mem_limit: ${BLACKBOX_MEM_LIMIT:-64m}
+    restart: unless-stopped
+
+  # ── Log tập trung: Loki (kho) + Alloy (gom) + health-events (sự kiện container) ──
+  # docs/monitoring.md, mục "Log tập trung". Không cổng nào ra ngoài; xem log trong Grafana.
+  loki:
+    # 3.7 là nhánh ổn định hiện hành; 3.7.9 (20/10/2026).
+    image: grafana/loki:3.7.9
+    command: ["-config.file=/etc/loki/loki.yml"]
+    volumes:
+      - ./monitoring/loki:/etc/loki:ro
+      - loki_data:/loki
+    expose: ["3100"]
+    mem_limit: ${LOKI_MEM_LIMIT:-512m}
+    restart: unless-stopped
+
+  # Đọc stdout của ĐÚNG 3 service (server, gateway, health-events) của project này, lọc + gắn nhãn,
+  # đẩy về Loki (monitoring/alloy/config.alloy). Cần docker.sock: ":ro" KHÔNG làm API thành chỉ
+  # đọc — tiến trình có quyền này coi như root trên máy ảo Docker (như dbt-scheduler đang có).
+  alloy:
+    image: grafana/alloy:v1.21.3
+    command: ["run", "--storage.path=/var/lib/alloy/data", "/etc/alloy/config.alloy"]
+    environment:
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-kltn}
+    volumes:
+      - ./monitoring/alloy:/etc/alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Vị trí đã đọc tới trong log mỗi container: khởi động lại Alloy không gửi trùng.
+      - alloy_data:/var/lib/alloy/data
+    depends_on: [loki]
+    mem_limit: ${ALLOY_MEM_LIMIT:-256m}
+    restart: unless-stopped
+
+  # Sự kiện vòng đời / health của server và gateway (die + mã thoát, start, kill, oom, healthy,
+  # unhealthy...) thành dòng JSON trên stdout -> Alloy -> Loki (monitoring/health-events/events.sh).
+  health-events:
+    image: docker:28.4.0-cli
+    entrypoint: ["sh", "/events.sh"]
+    environment:
+      COMPOSE_PROJECT: ${COMPOSE_PROJECT_NAME:-kltn}
+    volumes:
+      - ./monitoring/health-events/events.sh:/events.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    # tini làm PID 1: chuyển SIGTERM cho script khi dừng (sh làm PID 1 thì bỏ qua SIGTERM).
+    init: true
+    mem_limit: 64m
     restart: unless-stopped
 
   # ═══ GATEWAY ═════════════════════════════════════════════════════════════
@@ -628,3 +706,5 @@ volumes:
   ai_models:
   prometheus_data:
   grafana_data:
+  loki_data:
+  alloy_data:

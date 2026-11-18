@@ -7,7 +7,8 @@ Compose** chạy `server` thành N bản sau gateway nginx.
 Mọi con số hiệu năng để `[đo]` — điền sau khi chạy `scripts/lb-demo.ps1` trên máy demo.
 
 Xem phân bố tải **trực tiếp** (request/s, độ trễ, lỗi, CPU/RAM của từng bản) trên Grafana:
-[docs/monitoring.md](monitoring.md) — Prometheus + Grafana và `scripts/grafana-demo.ps1`.
+[docs/monitoring.md](monitoring.md) — Prometheus + Grafana và `scripts/grafana-demo.ps1`; log API của
+mọi bản (Loki) và cảnh báo email khi một bản treo: cùng tài liệu, mục 10–11.
 
 ## 1. Kiến trúc
 
