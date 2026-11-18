@@ -10,7 +10,7 @@
 | `deploy/cd/pull-deploy.ps1` | Trên máy production: kéo image, `docker compose up`, health check, rollback, dọn image. |
 | `deploy/cd/register-task.ps1` | Đăng ký listener chạy nền khi đăng nhập (Task Scheduler). |
 
-Image: `ghcr.io/levantrieuan/ktln-getshopy-<service>:sha-<40 ký tự commit>` (+ tag trôi `build_prod`).
+Image: `ghcr.io/heartmindzc/ktln-getshopy-<service>:sha-<40 ký tự commit>` (+ tag trôi `build_prod`).
 Hạ tầng (postgres, clickhouse, kafka, minio, gateway...) **không** nằm trong CD — vẫn làm tay.
 
 ## Luồng
@@ -189,7 +189,7 @@ Gỡ listener: `.\deploy\cd\register-task.ps1 -Unregister`. Tạm dừng khi tha
 
 - Lần đầu chưa có `state.json`: bản đang chạy (image `kltn-*:latest` build tại máy) được ghi nhớ
   thành tag `:rollback` trước khi deploy — lỗi thì quay về đúng nó.
-- `docker-compose.yml` có `image: ghcr.io/levantrieuan/ktln-getshopy-<svc>:${IMAGE_TAG:-local}`
+- `docker-compose.yml` có `image: ghcr.io/heartmindzc/ktln-getshopy-<svc>:${IMAGE_TAG:-local}`
   (vẫn giữ `build:`). Sau mỗi lần deploy, tag `:local` trỏ vào bản đang chạy, nên `docker compose up -d`
   gõ tay **không** build lại; `docker compose up -d --build` vẫn build tại máy như trước (ổ D: ≥ 20 GB!).
   Muốn dùng đúng tag đang chạy:

@@ -51,9 +51,9 @@ param(
     [string]$RepoDir = 'C:\Users\AD\Desktop\TDTU 2023-2024\KLTN\ktln-Getshopy',
     [string]$Branch = 'build_prod',
     [string]$Remote = 'origin',
-    [string]$GitHubRepo = 'LeVanTrieuAn/ktln-Getshopy',
+    [string]$GitHubRepo = 'heartmindzC/ktln-Getshopy',   # repo chuyển chủ 19/11/2026
     [string]$CiWorkflow = 'ci.yml',
-    [string]$ImagePrefix = 'ghcr.io/levantrieuan/ktln-getshopy',
+    [string]$ImagePrefix = 'ghcr.io/heartmindzc/ktln-getshopy',   # = ghcr.io/<chủ repo>/... (images.yml)
     # Cổng loopback của gateway (GATEWAY_SERVE_PORT, mặc định 18000)
     [string]$HealthBaseUrl = 'http://127.0.0.1:18000',
     [int]$HealthTimeoutSec = 120,
