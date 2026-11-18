@@ -58,7 +58,9 @@ jobs:
     permissions:
       contents: read
       issues: write          # reaction + trả lời trên PR
-      pull-requests: read
+      # Comment / reaction trên một PULL REQUEST (qua API issues) cần cả pull-requests: write;
+      # chỉ issues: write thì GitHub trả 403 (lần /rebuild đầu tiên, 19/11/2026).
+      pull-requests: write
     outputs:
       go: ${{ steps.check.outputs.go }}
       build: ${{ steps.check.outputs.build }}
@@ -165,6 +167,7 @@ jobs:
     timeout-minutes: 5
     permissions:
       issues: write
+      pull-requests: write   # comment trên PR cần quyền này (xem job guard)
     steps:
       - env:
           GH_TOKEN: ${{ github.token }}
