@@ -103,6 +103,15 @@ jobs:
     if: needs.changes.outputs.server == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Redis tạm cho tests/redis-integration.test.js (không có REDIS_TEST_URL thì test tự bỏ qua)
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      REDIS_TEST_URL: redis://127.0.0.1:6379
     defaults:
       run:
         working-directory: ${{ env.SRC }}/server
