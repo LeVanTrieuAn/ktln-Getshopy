@@ -6,6 +6,9 @@ Compose** chạy `server` thành N bản sau gateway nginx.
 
 Mọi con số hiệu năng để `[đo]` — điền sau khi chạy `scripts/lb-demo.ps1` trên máy demo.
 
+Xem phân bố tải **trực tiếp** (request/s, độ trễ, lỗi, CPU/RAM của từng bản) trên Grafana:
+[docs/monitoring.md](monitoring.md) — Prometheus + Grafana và `scripts/grafana-demo.ps1`.
+
 ## 1. Kiến trúc
 
 ```mermaid
@@ -151,6 +154,9 @@ N bản = N × kết nối DB — đó là một phần của mở rộng ngang,
   `X-Forwarded-For` để mô phỏng nhiều khách; nếu không, mọi request chung một IP và chạm rate
   limit 2000/phút — giờ đếm chung cả cụm. `SPOOF_XFF=0` để minh hoạ rate limit chung.
 - Kết quả: `scripts/loadtest/results/<thời điểm>/summary-N*.json`, `table.json`.
+- Mở dashboard Grafana "Getshopy — Cân bằng tải" song song để thấy từng bước scale theo thời gian
+  thực; kịch bản dựng sẵn cho việc đó (tải ổn định → scale 1..4 → 1 server chết):
+  `scripts/grafana-demo.ps1` — [docs/monitoring.md](monitoring.md) §7.
 
 | N | req/s | p95 (ms) | p99 (ms) | lỗi (%) | bỏ lượt | phân bố |
 |---|---|---|---|---|---|---|
