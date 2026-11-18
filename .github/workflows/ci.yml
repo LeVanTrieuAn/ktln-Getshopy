@@ -1,0 +1,208 @@
+# =============================================================================
+# CI — kiểm thử mỗi PR / push vào build_prod, main. CHỈ kiểm thử: không build image,
+# không deploy. Build image + deploy chỉ chạy khi comment /rebuild trên PR đã merge vào
+# build_prod, hoặc bấm tay — xem rebuild-deploy.yml.
+#
+#   changes  -> xem commit đụng phần nào; phần không đổi thì job của nó bỏ qua
+#   server   -> npm ci, prisma generate, kiểm cú pháp, unit test (node --test)
+#   client   -> npm ci, oxlint (chỉ lỗi), vite build
+#   ai-bot   -> npm ci, prisma generate, kiểm cú pháp, test
+#   ai-rec   -> pip install, pytest
+#
+# KHÔNG dùng pull_request_target: repo public, PR từ fork không được chạm tới
+# quyền ghi hay secret nào. Workflow này không có secret nào.
+# =============================================================================
+name: CI
+
+on:
+  pull_request:
+    branches: [build_prod, main]
+  push:
+    branches: [build_prod, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Push mới lên cùng nhánh / PR huỷ lần chạy cũ.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  SRC: ktln-Getshopy/qu-n-ly-ban-l/source
+  NODE_VERSION: '20'      # khớp FROM node:20-* trong Dockerfile
+  PYTHON_VERSION: '3.11'  # khớp FROM python:3.11-slim của ai-rec
+  # puppeteer (devDependency của client) tải Chrome ~150 MB lúc npm ci — CI không cần
+  PUPPETEER_SKIP_DOWNLOAD: 'true'
+
+jobs:
+  changes:
+    name: Phần thay đổi
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      client: ${{ steps.filter.outputs.client }}
+      ai_bot: ${{ steps.filter.outputs.ai_bot }}
+      ai_rec: ${{ steps.filter.outputs.ai_rec }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # PR: checkout là merge commit refs/pull/N/merge, cha thứ nhất = đỉnh nhánh đích
+          fetch-depth: 2
+          persist-credentials: false
+
+      - id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          all=false
+          files=''
+          case "$EVENT" in
+            pull_request)
+              files=$(git diff --name-only HEAD^1 HEAD) ;;
+            push)
+              # Nhánh mới (before = 000…) hoặc force-push làm mất commit cũ -> chạy hết
+              if [[ "$BEFORE" =~ ^0+$ ]] || ! git fetch --no-tags --depth=1 origin "$BEFORE"; then
+                all=true
+              else
+                files=$(git diff --name-only "$BEFORE" "$GITHUB_SHA")
+              fi ;;
+            *)
+              all=true ;;
+          esac
+          if [ "$all" = true ]; then
+            echo "Không xác định được phạm vi thay đổi -> chạy mọi job"
+          else
+            echo "Tệp thay đổi:"; echo "$files"
+          fi
+          # Sửa workflow thì chạy mọi job để chính thay đổi đó được kiểm
+          check() {
+            if [ "$all" = true ] || grep -Eq "^($SRC/$2/|\.github/workflows/)" <<< "$files"; then
+              echo "$1=true"
+            else
+              echo "$1=false"
+            fi >> "$GITHUB_OUTPUT"
+          }
+          check server server
+          check client client
+          check ai_bot ai-bot
+          check ai_rec ai-rec
+          cat "$GITHUB_OUTPUT"
+
+  server:
+    name: server — unit test
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ env.SRC }}/server
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.SRC }}/server/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: ./node_modules/.bin/prisma generate
+      - name: Kiểm cú pháp src/
+        run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+      # products.perf.test.js cần server + DB đã seed (npm run test:perf) -> không chạy ở CI
+      - name: Unit test (node --test, trừ *.perf.test.js)
+        run: |
+          mapfile -t tests < <(find tests -maxdepth 1 -name '*.test.js' ! -name '*.perf.test.js' | sort)
+          node --test "${tests[@]}"
+
+  client:
+    name: client — lint + vite build
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ env.SRC }}/client
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.SRC }}/client/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      # Script "lint" trong package.json gọi oxlint nhưng oxlint không có trong
+      # devDependencies, nên chạy bản ghim qua npx. Chỉ src/: scripts/ có file không
+      # phải UTF-8 làm oxlint báo lỗi đọc file. --quiet = chỉ chặn lỗi, không chặn cảnh báo.
+      - name: oxlint (chỉ lỗi)
+        run: npx --yes oxlint@1.94.0 --quiet src
+      - name: vite build
+        env:
+          VITE_API_URL: ${{ vars.VITE_API_URL || '/api' }}
+          VITE_WS_URL: ${{ vars.VITE_WS_URL }}
+          VITE_GOOGLE_CLIENT_ID: ${{ vars.VITE_GOOGLE_CLIENT_ID }}
+        run: npm run build
+
+  ai-bot:
+    name: ai-bot — test
+    needs: changes
+    if: needs.changes.outputs.ai_bot == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: ${{ env.SRC }}/ai-bot
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: ${{ env.SRC }}/ai-bot/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: ./node_modules/.bin/prisma generate
+      - name: Kiểm cú pháp src/
+        run: find src -name '*.js' -print0 | xargs -0 -n1 node --check
+      # chatbot-stress-test.js cần server thật nên không khớp mẫu *.test.js
+      - name: Test
+        run: node --test tests/*.test.js
+
+  ai-rec:
+    name: ai-rec — pytest
+    needs: changes
+    if: needs.changes.outputs.ai_rec == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: ${{ env.SRC }}/ai-rec
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: |
+            ${{ env.SRC }}/ai-rec/requirements.txt
+            ${{ env.SRC }}/ai-rec/pyproject.toml
+      # requirements.txt có "-e ." nên phải cài từ thư mục ai-rec. Bộ test trộn kiểu
+      # unittest và kiểu pytest (test_schedule.py) -> chạy bằng pytest để gom đủ cả hai.
+      - run: pip install -r requirements.txt "pytest>=8,<10"
+      - run: python -m pytest -q tests
