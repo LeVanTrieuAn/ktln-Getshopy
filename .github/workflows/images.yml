@@ -5,8 +5,8 @@
 #     tick "rebuild") -> build lại ĐÚNG commit head hiện tại của build_prod (inputs.sha),
 #     fresh = không dùng cache. Push / merge vào build_prod, main KHÔNG build image.
 #
-#   ghcr.io/levantrieuan/ktln-getshopy-<service>:sha-<40 ký tự sha>   (máy production kéo tag này)
-#   ghcr.io/levantrieuan/ktln-getshopy-<service>:<nhánh>             (build_prod | main, tag trôi)
+#   ghcr.io/<chủ repo, viết thường>/ktln-getshopy-<service>:sha-<40 ký tự sha>   (máy production kéo tag này)
+#   ghcr.io/<chủ repo, viết thường>/ktln-getshopy-<service>:<nhánh>   (build_prod | main, tag trôi)
 #
 # Chỉ build code đã nằm trên build_prod/main — không bao giờ build code PR chưa merge.
 # Job không có secret nào ngoài GITHUB_TOKEN (packages: write); secret deploy nằm ở
@@ -38,8 +38,7 @@ permissions:
 
 env:
   SRC: ktln-Getshopy/qu-n-ly-ban-l/source
-  # GHCR bắt buộc tên viết thường (chủ repo là LeVanTrieuAn)
-  IMAGE_PREFIX: ghcr.io/levantrieuan/ktln-getshopy
+  # IMAGE_PREFIX đặt ở bước đầu của job build, theo chủ repo hiện tại (xem bước đó)
 
 jobs:
   build:
@@ -70,6 +69,13 @@ jobs:
         VITE_WS_URL=${{ vars.VITE_WS_URL }}
         VITE_GOOGLE_CLIENT_ID=${{ vars.VITE_GOOGLE_CLIENT_ID }}
     steps:
+      # Tên image theo CHỦ REPO hiện tại, viết thường (GHCR bắt buộc): GITHUB_TOKEN chỉ ghi
+      # được package của chủ repo. Repo chuyển từ LeVanTrieuAn sang heartmindzC (19/11/2026)
+      # -> image sang ghcr.io/heartmindzc/...; máy deploy kéo theo ImagePrefix của
+      # pull-deploy.ps1 và dòng image: trong docker-compose.yml (đổi tay nếu repo đổi chủ nữa).
+      - name: Tên image theo chủ repo
+        run: echo "IMAGE_PREFIX=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/ktln-getshopy" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
         with:
           # Ghim theo sha: lần /rebuild build đúng commit build_prod đã đọc ở bước kiểm tra
