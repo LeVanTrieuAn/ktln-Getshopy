@@ -123,7 +123,10 @@ jobs:
           no-cache: ${{ inputs.fresh }}
           pull: ${{ inputs.fresh }}
           cache-from: type=gha,scope=${{ matrix.service }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+          # ignore-error: lần chạy do comment /rebuild (issue_comment) bị GitHub từ chối GHI cache
+          # ("cache write denied: token has no writable scopes", 19/11/2026) -> chỉ bỏ ghi cache,
+          # image vẫn build + push. Lần /rebuild vốn no-cache nên cache không giúp gì cho lần đó.
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }},ignore-error=true
 
       - name: Tóm tắt
         env:
