@@ -6,8 +6,8 @@
     Lấy env của service `server` đúng như Docker Compose đưa cho container production
     (`docker compose config --format json` đã giải .env và mọi ${VAR}), rồi:
       - DATABASE_URL / DIRECT_URL: đổi host `postgres` (tên service trong mạng compose) thành
-        host.docker.internal + cổng Postgres đang publish ra máy host, thêm
-        connection_limit=<PgPoolPerPod> để 4 pod demo không chiếm hết kết nối Postgres production.
+        host.docker.internal + cổng Postgres đang publish ra máy host, đặt (thêm hoặc ghi đè)
+        connection_limit=<PgPoolPerPod> để pod demo không chiếm hết kết nối Postgres production.
       - JWT_SECRET: sinh NGẪU NHIÊN cho demo (giữ nguyên nếu Secret đã có) — token của demo và
         của production không dùng lẫn được cho nhau.
       - Chỉ chép thêm vài khoá cấu hình không bí mật trong $PassThroughKeys. Không chép khoá
@@ -80,8 +80,17 @@ function Convert-DbUrl([string]$Url, [int]$Port, [int]$Pool) {
         throw "Host trong DATABASE_URL là '$hostName', không phải service 'postgres' của compose — script chỉ biết đổi trường hợp đó."
     }
     $query = $m.Groups['query'].Value
-    if ($Pool -gt 0 -and $query -notmatch '(^\?|&)connection_limit=') {
-        if ($query) { $query += "&connection_limit=$Pool" } else { $query = "?connection_limit=$Pool" }
+    if ($Pool -gt 0) {
+        # Từ 18/11/2026 compose tự gắn ?connection_limit=${SERVER_DB_CONNECTION_LIMIT:-10} cho
+        # server production — GHI ĐÈ giá trị đó, không chỉ thêm khi thiếu: giữ nguyên là mỗi pod
+        # demo được pool cỡ production. (Giá trị cũ không in ra.)
+        if ($query -match '(^\?|&)connection_limit=') {
+            $query = [regex]::Replace($query, '((?:^\?|&)connection_limit=)[^&]*', ('${1}' + $Pool))
+        } elseif ($query) {
+            $query += "&connection_limit=$Pool"
+        } else {
+            $query = "?connection_limit=$Pool"
+        }
     }
     return $m.Groups['pre'].Value + $HostAddress + ':' + $Port + $m.Groups['path'].Value + $query
 }
@@ -197,8 +206,13 @@ $ErrorActionPreference = 'SilentlyContinue'
 $nsExit = $LASTEXITCODE
 $ErrorActionPreference = $prevEap
 if ($nsExit -ne 0) {
+    # Chỉ tạo namespace của demo, từ đúng manifest của nó (nhãn part-of để teardown nhận ra).
+    $nsFiles = @{ 'getshopy-demo' = 'manifests\00-namespace.yaml'; 'getshopy-bg' = 'bluegreen\00-namespace.yaml' }
+    if (-not $nsFiles.ContainsKey($Namespace)) {
+        throw "Namespace $Namespace chưa có, và script chỉ tự tạo getshopy-demo / getshopy-bg."
+    }
     $ErrorActionPreference = 'Continue'
-    & kubectl --context $Context apply -f (Join-Path $PSScriptRoot 'manifests\00-namespace.yaml')
+    & kubectl --context $Context apply -f (Join-Path $PSScriptRoot $nsFiles[$Namespace])
     $nsExit = $LASTEXITCODE
     $ErrorActionPreference = $prevEap
     if ($nsExit -ne 0) { throw "Không tạo được namespace $Namespace." }
@@ -235,4 +249,4 @@ try {
     [void]$sb.Clear()
 }
 if ($exit -ne 0) { throw "kubectl apply Secret thất bại (exit $exit)." }
-Write-Host 'Pod chỉ đọc Secret lúc khởi động — Deployment đã chạy thì: kubectl -n getshopy-demo rollout restart deployment/server'
+Write-Host "Pod chỉ đọc Secret lúc khởi động — Deployment đã chạy thì: kubectl -n $Namespace rollout restart deployment/<tên>"
