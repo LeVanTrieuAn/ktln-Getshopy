@@ -1,0 +1,41 @@
+# =============================================================================
+# Prometheus — số đo của các bản `server` (cân bằng tải), 19/11/2026
+#
+# Tài liệu: docs/monitoring.md. Dashboard: monitoring/grafana/dashboards/.
+#
+# Đọc lại file này sau khi sửa (không cần tạo lại container):
+#   docker compose kill -s SIGHUP prometheus
+# (Không bật --web.enable-lifecycle: endpoint /-/reload, /-/quit sẽ mở cho MỌI container
+#  trong network.)
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # ── Các bản server ──────────────────────────────────────────────────────────
+  # Số bản thay đổi (SERVER_REPLICAS, --scale, lb-demo.ps1, grafana-demo.ps1) nên KHÔNG liệt kê
+  # địa chỉ cứng. DNS nội bộ của Docker trả MỌI IP của service cho tên `server` (cùng cơ chế
+  # gateway dùng để chia tải) -> dns_sd_configs kiểu A: mỗi IP là một target ip:9464.
+  # https://prometheus.io/docs/prometheus/latest/configuration/configuration/#dns_sd_config
+  #
+  # 5 s thay vì 15 s mặc định: demo trực tiếp cần thấy bản mới / bản chết trong vài giây, và
+  # rate() cần >= 4 mẫu trong cửa sổ ($__rate_interval của Grafana = 4 x 5 s = 20 s). Đổi lại:
+  # số mẫu lưu gấp 3 — xem mục chi phí trong docs/monitoring.md.
+  - job_name: getshopy-server
+    scrape_interval: 5s
+    scrape_timeout: 4s
+    metrics_path: /metrics
+    dns_sd_configs:
+      - names: [server]
+        type: A
+        port: 9464
+        # Mặc định 30 s: scale lên thì nửa phút sau mới thấy bản mới. Hỏi DNS nội bộ của
+        # Docker mỗi 5 s là không đáng kể.
+        refresh_interval: 5s
+
+  # ── Chính Prometheus (RAM, số chuỗi, dung lượng TSDB — để đo chi phí giám sát) ──
+  - job_name: prometheus
+    static_configs:
+      - targets: ['localhost:9090']
