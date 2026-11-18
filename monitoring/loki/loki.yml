@@ -1,0 +1,78 @@
+# =============================================================================
+# Loki — kho log tập trung, MỘT tiến trình (single binary), lưu trên đĩa (19/11/2026)
+#
+# Tài liệu: docs/monitoring.md, mục "Log tập trung". Chỉ nhận log từ Grafana Alloy trong network
+# Docker (không publish cổng) nên tắt xác thực (auth_enabled: false = một tenant "fake").
+# Kiểm cấu hình: docker run --rm -v ...:/etc/loki:ro grafana/loki:3.7.9 -config.file=/etc/loki/loki.yml -verify-config
+# Tham chiếu: https://grafana.com/docs/loki/latest/configure/
+# =============================================================================
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9096
+  log_level: warn
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+
+schema_config:
+  configs:
+    # tsdb + schema v13: cấu hình khuyến nghị cho Loki 3.x (structured metadata).
+    - from: "2026-11-01"
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+# Xoá log cũ: compactor chạy retention theo limits_config.retention_period.
+# https://grafana.com/docs/loki/latest/operations/storage/retention/
+compactor:
+  working_directory: /loki/compactor
+  compaction_interval: 10m
+  retention_enabled: true
+  retention_delete_delay: 2h
+  delete_request_store: filesystem
+
+limits_config:
+  retention_period: 168h            # 7 ngày (= retention của Prometheus)
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+  max_query_lookback: 168h
+  # Trần nhận log: dư cho vài trăm request/s (một dòng ~300 byte); vượt thì Loki trả 429 cho Alloy
+  # (Alloy tự thử lại) thay vì phình RAM/đĩa.
+  ingestion_rate_mb: 4
+  ingestion_burst_size_mb: 8
+  per_stream_rate_limit: 2MB
+  per_stream_rate_limit_burst: 4MB
+  # Nhãn ít giá trị (service, container, replica, status_class, event, health) — chặn nhầm lẫn
+  # đưa đường dẫn / IP vào nhãn làm nổ số luồng.
+  max_global_streams_per_user: 1000
+  max_label_names_per_series: 10
+  max_line_size: 16KB
+  max_line_size_truncate: true
+  # Không tự thêm nhãn service_name / mức log đoán từ nội dung (Loki 3 mặc định bật).
+  discover_service_name: []
+  discover_log_levels: false
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 64
+
+# Không gửi thống kê sử dụng về Grafana Labs.
+analytics:
+  reporting_enabled: false

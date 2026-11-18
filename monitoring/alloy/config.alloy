@@ -1,0 +1,157 @@
+// =============================================================================
+// Grafana Alloy — gom log về Loki (19/11/2026). Tài liệu: docs/monitoring.md "Log tập trung".
+//
+// CHỈ lấy 3 service của project compose này:
+//   server         dòng JSON "type":"request" (src/middleware/requestLog.js); dòng khác bỏ
+//   gateway        dòng JSON log truy cập API (gateway/nginx.conf, log_format getshopy_api);
+//                  error log dạng chữ của nginx bỏ (có cả query string)
+//   health-events  sự kiện vòng đời / health của server, gateway (monitoring/health-events)
+//
+// Nhãn Loki — ÍT giá trị: service, container, replica (= 12 ký tự đầu id container = hostname =
+// X-Served-By), status_class (2xx..5xx), event, health. Đường dẫn, IP, người dùng KHÔNG BAO GIỜ
+// làm nhãn (mỗi giá trị nhãn mới là một luồng mới — https://grafana.com/docs/loki/latest/get-started/labels/bp-labels/);
+// chúng nằm trong nội dung dòng, lọc bằng `| json`.
+//
+// COMPOSE_PROJECT: tên project compose (docker-compose.yml truyền ${COMPOSE_PROJECT_NAME}).
+// Kiểm cú pháp: docker run --rm -v ...:/etc/alloy:ro grafana/alloy:v1.21.3 validate /etc/alloy/config.alloy
+// =============================================================================
+
+discovery.docker "project" {
+  host             = "unix:///var/run/docker.sock"
+  refresh_interval = "5s"
+
+  // Lọc ngay ở Docker API: chỉ container của đúng project (so khớp chính xác giá trị nhãn).
+  filter {
+    name   = "label"
+    values = ["com.docker.compose.project=" + sys.env("COMPOSE_PROJECT")]
+  }
+}
+
+discovery.relabel "logs" {
+  targets = discovery.docker.project.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_project"]
+    regex         = sys.env("COMPOSE_PROJECT")
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    regex         = "server|gateway|health-events"
+    action        = "keep"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/?(.*)"
+    target_label  = "container"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_id"]
+    regex         = "(.{12}).*"
+    target_label  = "replica"
+  }
+}
+
+loki.source.docker "project" {
+  host             = "unix:///var/run/docker.sock"
+  targets          = discovery.relabel.logs.output
+  forward_to       = [loki.process.logs.receiver]
+  refresh_interval = "5s"
+}
+
+loki.process "logs" {
+  forward_to = [loki.write.loki.receiver]
+
+  // ── Bỏ những dòng không thuộc phạm vi ────────────────────────────────────
+  stage.match {
+    selector            = `{service="server"} != "\"type\":\"request\""`
+    action              = "drop"
+    drop_counter_reason = "server_khong_phai_request"
+  }
+  stage.match {
+    selector            = `{service=~"gateway|health-events"} !~ "^[{]"`
+    action              = "drop"
+    drop_counter_reason = "khong_phai_json"
+  }
+
+  // ── server: thời điểm + status_class từ JSON ─────────────────────────────
+  stage.match {
+    selector = `{service="server"}`
+
+    stage.json {
+      expressions = { ts = "ts", status = "status" }
+    }
+    stage.timestamp {
+      source            = "ts"
+      format            = "RFC3339Nano"
+      action_on_failure = "skip"
+    }
+    stage.regex {
+      source     = "status"
+      expression = "^(?P<status_class>[1-5])"
+    }
+    stage.template {
+      source   = "status_class"
+      template = "{{ if .Value }}{{ .Value }}xx{{ end }}"
+    }
+    stage.labels {
+      values = { status_class = "" }
+    }
+  }
+
+  // ── gateway: thời điểm + status_class ────────────────────────────────────
+  stage.match {
+    selector = `{service="gateway"}`
+
+    stage.json {
+      expressions = { time = "time", status = "status" }
+    }
+    stage.timestamp {
+      source            = "time"
+      format            = "RFC3339"
+      action_on_failure = "skip"
+    }
+    stage.regex {
+      source     = "status"
+      expression = "^(?P<status_class>[1-5])"
+    }
+    stage.template {
+      source   = "status_class"
+      template = "{{ if .Value }}{{ .Value }}xx{{ end }}"
+    }
+    stage.labels {
+      values = { status_class = "" }
+    }
+  }
+
+  // ── health-events: event (start, die, kill...) + health (healthy / unhealthy / starting) ──
+  stage.match {
+    selector = `{service="health-events"}`
+
+    stage.json {
+      expressions = { ts = "ts", action = "action" }
+    }
+    stage.timestamp {
+      source            = "ts"
+      format            = "UnixNs"
+      action_on_failure = "skip"
+    }
+    stage.regex {
+      source     = "action"
+      expression = "^(?P<event>[a-z_]+)(?::\\s*(?P<health>[a-z]+))?"
+    }
+    stage.labels {
+      values = { event = "", health = "" }
+    }
+  }
+}
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

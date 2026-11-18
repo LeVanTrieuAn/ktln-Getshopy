@@ -35,6 +35,75 @@ scrape_configs:
         # Docker mỗi 5 s là không đáng kể.
         refresh_interval: 5s
 
+  # ── Thăm dò HTTP (blackbox exporter, monitoring/blackbox/blackbox.yml) — đầu vào cảnh báo ──
+  # Prometheus gọi blackbox:9115/probe?target=<url>; nhãn instance đặt lại cho dễ đọc / để nối.
+  # https://github.com/prometheus/blackbox_exporter#prometheus-configuration
+  #
+  # Từng bản server: http://<ip>:8080/api/health — cùng danh sách bản như job getshopy-server (DNS).
+  # instance đổi về <ip>:9464 = instance của job getshopy-server, để cảnh báo "Server treo" nối
+  # được nhãn hostname (getshopy_server_info) — tên dùng được ngay cho `docker restart <hostname>`.
+  - job_name: blackbox-server
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    dns_sd_configs:
+      - names: [server]
+        type: A
+        port: 8080
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+        replacement: 'http://${1}/api/health'
+      - source_labels: [__address__]
+        regex: '(.+):8080'
+        target_label: instance
+        replacement: '${1}:9464'
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Qua gateway — đúng đường khách đi (không bản nào trả lời thì gateway trả 503 trang bảo trì).
+  - job_name: blackbox-gateway
+    metrics_path: /probe
+    params:
+      module: [http_2xx]
+    scrape_interval: 10s
+    scrape_timeout: 5s
+    static_configs:
+      - targets: ['http://gateway/api/health']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Đường PUBLIC qua Tailscale Funnel (từ container ra Internet rồi vòng về chính máy này):
+  # web 443 -> gateway 8090, và đường webhook SePay 8443 -> gateway 80 (AGENTS.MD). Cảnh báo
+  # tương ứng để TẠM DỪNG (isPaused) cho tới khi kiểm trên production rằng probe này chạy được —
+  # docs/monitoring.md, mục "Cảnh báo". 30 s/lượt: mỗi lượt là một request thật qua Funnel.
+  - job_name: blackbox-public
+    metrics_path: /probe
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['https://msi.taild22ef7.ts.net/api/health']
+        labels: {module: http_2xx}
+      - targets: ['https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay']
+        labels: {module: http_webhook_get_404}
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [module]
+        target_label: __param_module
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115
+
   # ── Chính Prometheus (RAM, số chuỗi, dung lượng TSDB — để đo chi phí giám sát) ──
   - job_name: prometheus
     static_configs:

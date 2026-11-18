@@ -1,0 +1,40 @@
+# Mẫu nội dung email cảnh báo, tiếng Việt (19/11/2026). docs/monitoring.md, mục "Cảnh báo".
+# Cú pháp Go template của Grafana: https://grafana.com/docs/grafana/latest/alerting/configure-notifications/template-notifications/
+# "Bắt đầu" = lúc cảnh báo chuyển Firing (sau "for: 1m"), không phải lúc sự cố bắt đầu.
+# DatasourceError / DatasourceNoData: Grafana tự sinh khi một luật không chạy được (Prometheus không
+# trả lời, truy vấn lỗi) — nhãn rulename là tên luật.
+apiVersion: 1
+
+templates:
+  - orgId: 1
+    name: getshopy-email
+    template: |
+      {{ define "getshopy.email.subject" -}}
+      {{ if eq .Status "firing" }}[CẢNH BÁO]{{ else }}[ĐÃ HẾT]{{ end }} {{ .CommonLabels.alertname }}{{ with .CommonLabels.rulename }} — luật {{ . }}{{ end }}{{ with .CommonLabels.hostname }} — bản {{ . }}{{ end }} (Getshopy)
+      {{- end }}
+
+      {{ define "getshopy.email.message" -}}
+      {{ range .Alerts -}}
+      {{ if eq .Status "firing" }}ĐANG LỖI{{ else }}ĐÃ HẾT LỖI{{ end }}: {{ .Labels.alertname }}{{ with .Labels.hostname }} — bản {{ . }}{{ end }}
+      Mức độ: {{ with .Labels.severity }}{{ . }}{{ else }}(không đặt){{ end }}
+      Bắt đầu: {{ .StartsAt | tz "Asia/Ho_Chi_Minh" | date "15:04:05 02/01/2006" }} (giờ Việt Nam)
+      {{- if eq .Status "resolved" }}
+      Kết thúc: {{ .EndsAt | tz "Asia/Ho_Chi_Minh" | date "15:04:05 02/01/2006" }}
+      {{- end }}
+      {{- if or (eq .Labels.alertname "DatasourceError") (eq .Labels.alertname "DatasourceNoData") }}
+
+      Luật "{{ .Labels.rulename }}" KHÔNG CHẠY ĐƯỢC (Prometheus không trả lời hoặc truy vấn lỗi) — tức là
+      đang KHÔNG giám sát được. Kiểm: docker compose ps prometheus blackbox grafana; docker compose logs --tail 50 grafana
+      {{- end }}
+
+      {{ .Annotations.summary }}
+      {{ .Annotations.description }}
+      {{- with .Annotations.runbook }}
+
+      Cách xử lý: {{ . }}
+      {{- end }}
+
+      {{ end -}}
+      Dashboard: http://localhost:3001/d/getshopy-lb (mở trên chính máy chạy Docker)
+      Tài liệu: docs/monitoring.md, mục "Cảnh báo".
+      {{- end }}

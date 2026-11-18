@@ -1,4 +1,4 @@
-# Nguồn dữ liệu Prometheus cho Grafana — nạp tự động lúc khởi động (provisioning), 19/11/2026.
+# Nguồn dữ liệu cho Grafana — Prometheus (số đo) và Loki (log) — nạp tự động lúc khởi động (provisioning).
 # https://grafana.com/docs/grafana/latest/administration/provisioning/#data-sources
 # uid cố định: dashboard trong monitoring/grafana/dashboards/ trỏ thẳng tới uid này.
 apiVersion: 1
@@ -18,3 +18,18 @@ datasources:
       # https://grafana.com/docs/grafana/latest/datasources/prometheus/template-variables/#use-__rate_interval
       timeInterval: 5s
       httpMethod: POST
+      # Cảnh báo là của Grafana (provisioning/alerting) — không dùng ruler của nguồn dữ liệu.
+      manageAlerts: false
+
+  # Log tập trung (19/11/2026, docs/monitoring.md "Log tập trung"). Loki chỉ nghe trong network Docker.
+  - name: Loki
+    uid: getshopy-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: false
+    editable: false
+    jsonData:
+      maxLines: 1000
+      # Loki không chạy ruler: tắt để Grafana không hỏi /api/ruler (lỗi 400 trong trình duyệt).
+      manageAlerts: false

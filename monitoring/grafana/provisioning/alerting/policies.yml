@@ -1,0 +1,16 @@
+# Chính sách gửi cảnh báo (19/11/2026). docs/monitoring.md, mục "Cảnh báo".
+#   group_by        mỗi (tên cảnh báo, bản server) một nhóm -> hai bản cùng treo = hai email riêng,
+#                   mỗi email ghi đúng tên bản để `docker restart <hostname>`.
+#   group_wait      chờ 30 s trước email đầu của nhóm (gom các bản lỗi cùng lúc).
+#   group_interval  nhóm đã gửi mà có thay đổi (thêm bản lỗi / hết lỗi) thì tối thiểu 5 phút mới gửi tiếp.
+#   repeat_interval còn lỗi thì nhắc lại mỗi 4 giờ.
+# https://grafana.com/docs/grafana/latest/alerting/fundamentals/notifications/notification-policies/
+apiVersion: 1
+
+policies:
+  - orgId: 1
+    receiver: getshopy-email
+    group_by: ['alertname', 'hostname']
+    group_wait: 30s
+    group_interval: 5m
+    repeat_interval: 4h
