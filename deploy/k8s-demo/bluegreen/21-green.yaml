@@ -1,0 +1,89 @@
+# GREEN = bản mới (v2), chạy SONG SONG với blue. Lúc mới tạo, khách KHÔNG tới được green:
+# Service công khai "server" chọn track=blue; chỉ Service "server-preview" (cổng 30091) chọn
+# green để kiểm thử. Chỉ khi smoke test qua cổng preview đạt, demo.ps1 mới đổi selector của
+# Service công khai sang track=green. Spec giống 20-blue.yaml, khác tên / track / version / image.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-green
+  namespace: getshopy-bg
+  labels:
+    app.kubernetes.io/name: server
+    app.kubernetes.io/part-of: getshopy-demo
+    track: green
+    app.kubernetes.io/version: v2
+  annotations:
+    kubernetes.io/change-cause: "green v2 (kltn-server:k8s-v2)"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  minReadySeconds: 5
+  progressDeadlineSeconds: 90
+  selector:
+    matchLabels:
+      app: server
+      track: green
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: server
+        track: green
+        app.kubernetes.io/version: v2
+        app.kubernetes.io/part-of: getshopy-demo
+    spec:
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: server
+          image: kltn-server:k8s-v2
+          imagePullPolicy: Never
+          # Bỏ docker-entrypoint.sh (migrate / DROP-CREATE TRIGGER / seed vào DB production).
+          command: ["node", "src/index.js"]
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: server-config
+            - secretRef:
+                name: server-env
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SHUTDOWN_DRAIN_DELAY_MS
+              value: "5000"
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: "20000"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 192Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            timeoutSeconds: 2
+            successThreshold: 2
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          securityContext:
+            allowPrivilegeEscalation: false

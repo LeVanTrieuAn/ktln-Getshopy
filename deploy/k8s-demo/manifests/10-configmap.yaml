@@ -13,7 +13,9 @@ metadata:
     app.kubernetes.io/part-of: getshopy-demo
 data:
   PORT: "8080"
-  # Bật header X-Served-By (src/middleware/servedBy.js) — production không đặt biến này.
+  # Header X-Served-By = tên pod (src/middleware/servedBy.js, POD_NAME từ Deployment): demo.ps1
+  # dựa vào đó để đếm response của bản cũ / bản mới. Biến thời gian tắt êm (SHUTDOWN_*) nằm
+  # trong Deployment, cạnh terminationGracePeriodSeconds mà chúng phải khớp.
   SERVED_BY_HEADER: "1"
   # Pod gọi ra máy host qua host.docker.internal; ClickHouse production publish 0.0.0.0:8123.
   # Đổi CLICKHOUSE_HTTP_PORT trong .env thì sửa cổng ở đây (make-secret.ps1 sẽ cảnh báo).

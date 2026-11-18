@@ -1,0 +1,52 @@
+# Hai Service của blue-green, cùng kiểu LoadBalancer như ../manifests/30-service.yaml (Docker
+# Desktop đưa cổng `port` ra localhost — một cơ chế duy nhất cho mọi cổng của demo, và không
+# đụng dải nodePort mà các Service LoadBalancer tự cấp ngẫu nhiên).
+#
+#   server          :30090  cổng KHÁCH — chọn track=blue lúc đầu; demo.ps1 đổi sang green bằng
+#                           `kubectl set selector service/server app=server,track=green`
+#   server-preview  :30091  cổng XEM TRƯỚC — luôn chỉ chọn green: kiểm thử bản mới trên đúng pod
+#                           sẽ nhận khách, trước khi khách tới được nó
+#
+# File này đặt cổng khách về BLUE. Chỉ áp ở bước chuẩn bị; áp lại giữa chừng là đưa khách về blue
+# (đó cũng chính là cách rollback nếu blue còn chạy).
+#
+# 30090 / 30091: không trùng cổng nào đang nghe trên máy (kiểm 19/11/2026 — trong dải 30000–32767
+# chỉ có 127.0.0.1:32683). Như cổng 30080, Docker Desktop có thể mở trên mọi địa chỉ (0.0.0.0):
+# chỉ chạy demo trên mạng tin cậy, teardown ngay sau đó.
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  namespace: getshopy-bg
+  labels:
+    app.kubernetes.io/name: server
+    app.kubernetes.io/part-of: getshopy-demo
+spec:
+  type: LoadBalancer
+  selector:
+    app: server
+    track: blue
+  ports:
+    - name: http
+      port: 30090
+      targetPort: http
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: server-preview
+  namespace: getshopy-bg
+  labels:
+    app.kubernetes.io/name: server
+    app.kubernetes.io/part-of: getshopy-demo
+spec:
+  type: LoadBalancer
+  selector:
+    app: server
+    track: green
+  ports:
+    - name: http
+      port: 30091
+      targetPort: http
+      protocol: TCP

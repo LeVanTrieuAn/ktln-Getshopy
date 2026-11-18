@@ -1,0 +1,91 @@
+# BLUE = bản đang phục vụ khách (v1). Spec pod giống hệt ../manifests/20-deployment.yaml — xem
+# chú thích đầy đủ ở đó (bỏ qua entrypoint để không ghi DB production, tắt êm, readiness).
+# Khác: tên server-blue, nhãn track=blue; không có HPA; số pod do demo.ps1 -BgReplicas (1–2).
+#
+# Ở blue-green, phiên bản là thuộc tính CỐ ĐỊNH của mỗi Deployment (không ai `set image` vào
+# blue hay green), nên nhãn version nằm được trong pod template mà không sợ nói sai.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server-blue
+  namespace: getshopy-bg
+  labels:
+    app.kubernetes.io/name: server
+    app.kubernetes.io/part-of: getshopy-demo
+    track: blue
+    app.kubernetes.io/version: v1
+  annotations:
+    kubernetes.io/change-cause: "blue v1 (kltn-server:k8s-v1)"
+spec:
+  replicas: 2
+  revisionHistoryLimit: 2
+  minReadySeconds: 5
+  progressDeadlineSeconds: 90
+  selector:
+    matchLabels:
+      app: server
+      track: blue
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: server
+        track: blue
+        app.kubernetes.io/version: v1
+        app.kubernetes.io/part-of: getshopy-demo
+    spec:
+      enableServiceLinks: false
+      terminationGracePeriodSeconds: 30
+      containers:
+        - name: server
+          image: kltn-server:k8s-v1
+          imagePullPolicy: Never
+          # Bỏ docker-entrypoint.sh (migrate / DROP-CREATE TRIGGER / seed vào DB production).
+          command: ["node", "src/index.js"]
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: server-config
+            - secretRef:
+                name: server-env
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: SHUTDOWN_DRAIN_DELAY_MS
+              value: "5000"
+            - name: SHUTDOWN_TIMEOUT_MS
+              value: "20000"
+          resources:
+            requests:
+              cpu: 250m
+              memory: 192Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 2
+            timeoutSeconds: 2
+            successThreshold: 2
+            failureThreshold: 2
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 6
+          securityContext:
+            allowPrivilegeEscalation: false
