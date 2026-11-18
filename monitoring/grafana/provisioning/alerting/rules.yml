@@ -186,13 +186,14 @@ groups:
           runbook: 'Dashboard: panel "Lỗi 5xx mỗi bản"; log trong Grafana Explore (Loki): {service="server", status_class="5xx"} | json'
 
       # ── 5. Đường public / webhook SePay qua Funnel đứt ──────────────────────
-      # TẠM DỪNG (isPaused: true): probe này đi từ container ra Internet rồi vòng về chính máy qua
-      # Tailscale Funnel — chưa kiểm được trên máy demo. Sau khi probe_success{job="blackbox-public"}
-      # = 1 cho cả hai URL (Grafana > Explore), đổi isPaused thành false rồi: docker compose restart grafana
+      # Probe đi từ container ra Internet rồi vòng về chính máy qua Tailscale Funnel. Kiểm trên
+      # production 19/11/2026 03:2x: probe_success{job="blackbox-public"} = 1 cho cả hai URL (web
+      # /api/health và đường webhook SePay :8443) -> BẬT (isPaused: false). Funnel/Tailscale tắt thì
+      # luật này báo — đúng lúc webhook thanh toán không về (AGENTS.MD).
       - uid: getshopy-public-dut
         title: Đường public hoặc webhook đứt
         condition: C
-        isPaused: true
+        isPaused: false
         data:
           - refId: A
             relativeTimeRange: {from: 600, to: 0}
