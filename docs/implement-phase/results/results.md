@@ -1262,3 +1262,98 @@ So hai quy tắc trên nhánh nóng:
   duyệt ở múi giờ khác thì quanh nửa đêm gói WebSocket bị bỏ qua; số từ REST vẫn đúng.
 - **Xoá cứng `Order` vẫn không phản ánh sang `orders_live`** (§19). Mã server không xoá cứng đơn.
 - **Triển khai:** chỉ cần build lại image `server` và `client`, không cần chạy lại bootstrap.
+
+## 21. Cân bằng tải 3 server, giám sát Prometheus/Grafana, demo Kubernetes, CD (18–19/11)
+
+Môi trường đo cho cả mục này: một máy Windows 11, 16 CPU logic, 15,7 GB RAM; Docker Desktop 4.47
+(WSL2, máy ảo được cấp 8.940 MiB); toàn bộ stack `kltn` chạy trên máy đó. Bộ sinh tải k6
+(`grafana/k6:1.8.2`, giới hạn 2 CPU / 1 GB) chạy **trên cùng máy**, trong mạng compose, gọi vào
+`http://gateway`. Chỉ gọi các GET đọc (danh mục, danh sách, chi tiết sản phẩm, health). Mỗi số dưới
+đây là **một lần chạy**, không lặp lại để lấy trung bình.
+
+### 21.1 Chia tải trên Docker Compose — 1/2/3 bản server (18/11, 23:30–23:35)
+
+`scripts/lb-demo.ps1`: k6 tốc độ cố định 200 req/s, pha đo 60 s sau 15 s khởi động. Gateway nginx
+1.27.5, `upstream` có `least_conn` + `resolve` (`docs/load-balancing.md`). Số liệu gốc (JSON):
+`scripts/loadtest/results/20261118-233007/` trên máy production (thư mục bị git bỏ qua).
+
+| Số bản | req/s đạt | p95 (ms) | p99 (ms) | Lỗi | Lượt bị bỏ | Phân bố request theo bản |
+|---|---|---|---|---|---|---|
+| 1 | 198,4 | 15,1 | 289,3 | 0 % | 95 | 14.907 |
+| 2 | 200 | 4,9 | 6,9 | 0 % | 0 | 7.507 / 7.495 |
+| 3 | 200 | 4,1 | 5,9 | 0 % | 0 | 5.004 / 4.997 / 5.001 |
+
+- "Lượt bị bỏ" (dropped iterations) > 0: k6 hết người dùng ảo vì server trả chậm, tức quá tải. Một
+  bản đã chạm trần ở 200 req/s; từ 2 bản trở lên p99 giảm từ 289 ms xuống 6–7 ms.
+- Phân bố đều: 3 bản lệch nhau dưới 0,1 %. Kiểm riêng bằng header `X-Served-By`: 30 request
+  `/api/health` chia đúng 10 / 10 / 10.
+- Giữa 2 và 3 bản chưa khác biệt vì 200 req/s chưa làm 2 bản quá tải.
+
+### 21.2 Demo giám sát trực tiếp với Grafana (19/11, 02:23–02:35)
+
+`scripts/grafana-demo.ps1 -Scenario all`: k6 tăng dần 0 → 150 req/s trong 30 s rồi giữ; Prometheus
+v3.13.5 lấy số đo từng bản mỗi 5 s (`docs/monitoring.md`). Số liệu gốc:
+`scripts/loadtest/results/grafana-20261119-022305/`.
+
+| Kịch bản | Request | p95 (ms) | p99 (ms) | Response khác 200 | Lượt bị bỏ |
+|---|---|---|---|---|---|
+| Tải đều, 3 bản, 180 s | 29.249 | 5,1 | 7,3 | 0 | 0 |
+| Scale 1 → 2 → 3 → 4 bản trong lúc giữ 150 req/s, 240 s | 37.872 | 7,6 | 21,7 | 0 | 378 |
+| Giết 1 bản (kill -9) trong lúc giữ 150 req/s, 180 s | 29.249 | 5,3 | 6,9 | 0 | 0 |
+
+- Lượt bị bỏ ở kịch bản scale rơi vào lúc chỉ còn 1 bản (khớp §21.1: một bản không theo kịp).
+- Mỗi lần thêm bản, bản mới healthy sau 7–8 s (02:28:14 → 02:28:21; 02:29:18 → 02:29:26;
+  02:30:15 → 02:30:23) và Prometheus tự thấy nó qua DNS của Docker.
+- Trong pha tăng tải, Prometheus đo 21,8 / 22,4 / 23,0 req/s cho 3 bản (02:23:38).
+- **Server chết tự sống lại, không cần Swarm hay Kubernetes:** kill -9 tiến trình chính của bản
+  `0545ddc9702d` lúc 02:32:47 (giả lập crash: tiến trình bị giết từ không gian PID của máy ảo Docker,
+  như khi bị OOM). Docker thấy container thoát bất thường và khởi động lại sau 0,8 s (script hỏi mỗi
+  0,5 s; RestartCount 0 → 1, chính sách `restart: unless-stopped`); bản đó healthy lại lúc 02:32:54,
+  tức vắng mặt 6,1 s. k6 không ghi nhận response lỗi nào trong cả kịch bản: gateway gửi lại GET đang
+  dở sang bản khác khi lỗi kết nối (`proxy_next_upstream error timeout`).
+- Giới hạn: `docker kill` / `docker stop` bị Docker coi là tắt chủ động nên **không** tự khởi động
+  lại; server **treo** (còn chạy nhưng không trả lời) cũng không được Docker khởi động lại, chỉ bị
+  healthcheck đánh dấu `unhealthy` (xử lý ở cảnh báo, `docs/monitoring.md`).
+
+### 21.3 Demo Kubernetes — chỉ server, một node (19/11, 01:35–01:46)
+
+Docker Desktop Kubernetes (kubeadm, v1.34.1, một node). Pod server gọi Postgres và ClickHouse của
+stack `kltn` qua `host.docker.internal`, bỏ qua bước chuẩn bị DB của entrypoint, không dùng Redis.
+Production vẫn chạy trên Compose, không bị ảnh hưởng. Script: `deploy/k8s-demo/demo.ps1`. Bản v1 và v2
+là **cùng một image** (khác tag): thứ được đo là cơ chế phát hành, không phải khác biệt code.
+
+| Bước | Thao tác | Kết quả đo |
+|---|---|---|
+| Chia tải | 20 request vào Service (2 pod) | 12 / 8, 0 lỗi |
+| Tự phục hồi | xoá 1 pod lúc 01:40:23 | pod mới Running 01:40:25, Ready 01:40:30 (~7 s); 62 request, 0 lỗi |
+| Rolling update v1 → v2 | `kubectl set image`, maxSurge 1, maxUnavailable 0 | ~27 s; 287 request, 0 lỗi; 01:41:12–01:41:25 cả hai bản cùng trả lời |
+| Phát hành bản lỗi | bản không bao giờ Ready (PORT sai) | pod lỗi nhận 0 request; 459 request, 0 lỗi; `rollout undo` lúc 01:42:17 |
+| Blue-green, lần 1 | smoke test qua cổng xem trước | `/api/b2c/products` quá 15 s trên pod green vừa Ready → **không chuyển**, xoá green; 366 request, 0 lỗi, 100 % ở blue |
+| Blue-green, lần 2 | smoke test chờ 30 s + thử lại 1 lần | chuyển Service sang green một lần lúc 01:45:31; 350 request, 0 lỗi, không có lúc hai bản cùng trả lời |
+
+- Lần 1 bị chặn vì pod demo không có Redis và cache trong pod còn trống: đo lại trên pod blue, truy
+  vấn danh sách sản phẩm đầu tiên mất 1.596 ms, lần sau 19 ms (production có Redis: 85 ms). Cổng
+  kiểm tra làm đúng việc của nó: bản mới chưa qua kiểm tra thì khách không bị chuyển sang.
+- RAM máy ảo Docker (cột "used" của `free -m`): 4.370 MiB trước khi bật Kubernetes; 5.025 MiB khi
+  cụm rỗng (+655); 5.159 MiB với 2 pod + metrics-server (+789); 5.006 MiB sau khi dọn demo (+636,
+  tức phần điều khiển của k8s). `kubectl top`: namespace `kube-system` 478 MiB, mỗi namespace demo
+  ~85 MiB (2 pod).
+
+### 21.4 CD: `/rebuild` → build trên GitHub → máy production tự kéo image (19/11)
+
+Mã và tài liệu: `deploy/cd/README.md`. Lần deploy CD đầu tiên (`sha-7b93198`): bắt đầu
+01:01:41, kéo 4 image mất ~1,5 phút, `up --wait` server ×3 + ai-bot + ai-rec 69 s (01:03:19 →
+01:04:28, gồm chờ healthy), client 12 s, health check qua gateway đạt sau 8 s. Lần đó GitHub gửi hai
+yêu cầu cho cùng bản (job thứ hai không tạo lại container nhưng ghi đè "bản trước"); đã chặn ở cả
+workflow, listener và script deploy. Lần sau (`sha-06279f2`, 01:25:42 → 01:30:12) chỉ một job.
+Mọi container server do CD tạo chạy `DB_PREP=off`: không migrate, không seed, không sửa kho.
+
+Thời gian web gián đoạn khi Compose tạo lại 3 server cùng lúc **chưa đo riêng** `[đo]`.
+
+### 21.5 Hạn chế của các số đo trên
+
+- k6 và hệ thống chạy chung một máy nên tranh CPU; số tuyệt đối chỉ đúng cho máy này.
+- Mỗi kịch bản đo một lần; chưa có khoảng tin cậy.
+- p95 phía server (Prometheus) không tính thời gian request chờ trước khi Express nhận; số p95/p99 ở
+  bảng §21.1–21.2 là số k6 đo từ phía client, đã gồm phần chờ đó.
+- Demo Kubernetes chạy một node: không chứng minh được khả năng chịu lỗi khi cả máy hỏng.
