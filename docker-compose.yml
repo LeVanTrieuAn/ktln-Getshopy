@@ -55,19 +55,44 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # ── server: N bản sau nginx gateway (cân bằng tải, 18/11/2026) ────────────
+  # Số bản: SERVER_REPLICAS trong .env (mặc định 3). Đổi nóng không cần sửa file:
+  #   docker compose up -d --no-deps --scale server=2 server
+  # KHÔNG đặt container_name / ports cho service này: cả hai buộc đúng MỘT container.
+  # Lệnh chạy tay trong server: `docker compose exec server ...` (mặc định bản số 1,
+  # chọn bản khác bằng --index 2). Gateway chia request bằng `upstream` + `resolve`
+  # (gateway/nginx.conf). Trạng thái dùng chung giữa các bản và lý do từng quyết định:
+  # docs/load-balancing.md.
   server:
     build:
       context: ./ktln-Getshopy/qu-n-ly-ban-l/source/server
+    deploy:
+      replicas: ${SERVER_REPLICAS:-3}
     env_file: [.env]
     environment:
       # Trong network của compose thì gọi nhau bằng tên service, không phải localhost
-      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
+      #
+      # connection_limit: pool Prisma của MỖI bản. Không đặt thì Prisma lấy 2 x số CPU + 1
+      # (https://www.prisma.io/docs/orm/prisma-client/setup-and-configuration/databases-connections/connection-pool)
+      # — trên máy ảo nhiều nhân, 3 bản đã vượt max_connections = 100 mặc định của Postgres.
+      # Tổng = SERVER_REPLICAS x SERVER_DB_CONNECTION_LIMIT, cộng ai-bot, Debezium, pg_dump,
+      # lúc khởi động thêm 1 kết nối khoá/bản. Bảng tính: docs/load-balancing.md.
+      # Tối thiểu 2: job đóng đơn quá hạn giữ 1 kết nối làm khoá trong lúc chạy.
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}?connection_limit=${SERVER_DB_CONNECTION_LIMIT:-10}"
       DIRECT_URL: "postgresql://${POSTGRES_USER:-getshopy}:${POSTGRES_PASSWORD:?thieu .env - xin file .env tu chu repo, dat o thu muc goc roi chay lai}@postgres:5432/${POSTGRES_DB:-getshopy}"
       CLICKHOUSE_HOST: http://clickhouse:8123
       REDIS_URL: redis://redis:6379
       AI_BOT_URL: http://ai-bot:3001
       AI_REC_URL: http://ai-rec:8000
+      # Header X-Served-By = id container, để thấy bản nào trả lời (scripts/lb-demo.ps1).
+      # Cổng public 8090 của gateway gỡ header này. Tắt: SERVED_BY_HEADER=0 trong .env.
+      SERVED_BY_HEADER: ${SERVED_BY_HEADER:-1}
+      # Tắt êm khi SIGTERM (src/lifecycle/gracefulShutdown.js): mốc cứng phải nhỏ hơn
+      # stop_grace_period bên dưới, nếu không Docker SIGKILL trước khi dọn xong.
+      SHUTDOWN_TIMEOUT_MS: ${SERVER_SHUTDOWN_TIMEOUT_MS:-8000}
     expose: ["8080"]
+    # docker stop / --scale xuống: SIGTERM, chờ chừng này rồi mới SIGKILL (mặc định 10 s).
+    stop_grace_period: 12s
     depends_on:
       postgres: {condition: service_healthy}
       clickhouse: {condition: service_healthy}
@@ -77,7 +102,10 @@ services:
       interval: 10s
       timeout: 5s
       retries: 12
-      start_period: 30s
+      # 180 s (trước 18/11/2026: 30 s): các bản chuẩn bị DB LẦN LƯỢT dưới khoá khởi động
+      # (docker-entrypoint.sh), bản cuối chờ các bản trước. Trong start_period lần kiểm tra
+      # đạt là healthy ngay — đặt dài không làm chậm bản nào, chỉ tránh báo unhealthy oan.
+      start_period: 180s
     restart: unless-stopped
 
   ai-bot:
@@ -494,7 +522,10 @@ services:
   # firewall "Docker Desktop Backend" cho mọi cổng Docker publish đi vào ở cả
   # mạng Public — nghe mọi IP là lộ các API đó ra cả mạng LAN đang cắm.
   gateway:
-    image: nginx:1.27-alpine
+    # Ghim bản vá (18/11/2026): upstream `server ... resolve` trong gateway/nginx.conf cần nginx
+    # >= 1.27.3. Tag 1.27-alpine trôi theo bản 1.27 mới nhất, nhưng máy nào còn image 1.27-alpine
+    # kéo từ trước 1.27.3 thì gateway không khởi động được.
+    image: nginx:1.27.5-alpine
     ports:
       # HTTP trực tiếp — gọi API bằng Postman, curl.
       - "${GATEWAY_BIND_IP:-127.0.0.1}:${GATEWAY_PORT:-8000}:80"
