@@ -61,8 +61,11 @@ function Write-Warn([string]$Text) { Write-Host "!! $Text" -ForegroundColor Yell
 
 # PowerShell 5.1 biến stderr của lệnh ngoài thành lỗi khi ErrorActionPreference = Stop (docker
 # compose ghi tiến trình ra stderr) -> hạ xuống Continue trong lúc gọi, kiểm $LASTEXITCODE.
+# Hàm THƯỜNG (không param/[Parameter]) và lấy đối số qua $args: hàm có [Parameter] là
+# advanced function, PowerShell coi `-d` trong `compose up -d` là tham số chung -Debug
+# của chính hàm rồi báo "positional parameter cannot be found" (lỗi chạy 18/11/2026).
 function Invoke-Docker {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DockerArgs)
+    $DockerArgs = [string[]]$args
     Write-Cmd ('docker ' + ($DockerArgs -join ' '))
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -75,7 +78,7 @@ function Invoke-Docker {
 }
 
 function Get-DockerOut {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$DockerArgs)
+    $DockerArgs = [string[]]$args
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'SilentlyContinue'
     try {
