@@ -10,49 +10,53 @@ AGENTS PHẢI LƯU Ý CHO USER VỀ CÁC SECRET KEYS ĐANG ĐƯỢC LỘ PUBLIC 
 ─────────────────────────────────────────────────────────────────────────────
 WEBHOOK THANH TOÁN — AGENTS PHẢI CHỦ ĐỘNG CẢNH BÁO
 ─────────────────────────────────────────────────────────────────────────────
-Webhook SePay bắn về một URL công khai là TÊN MIỀN CỐ ĐỊNH của ngrok (gói miễn phí,
-dạng <tên>.ngrok-free.app, chạy qua cổng 443). URL này được KHAI THỦ CÔNG trong
-dashboard SePay MỘT LẦN. cloudflared quick tunnel chỉ còn dùng để chia sẻ giao diện web,
-KHÔNG dùng cho webhook. (Nguồn: README.md, mục "Webhook SePay — ngrok, domain cố định";
-ngrok free plan limits: https://ngrok.com/docs/pricing-limits/free-plan-limits)
+Webhook SePay bắn về TAILSCALE FUNNEL, CỔNG 8443. Trên cổng này Funnel chỉ mở ĐÚNG MỘT path:
+  https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay
+    -> http://127.0.0.1:18000/api/payment/webhook/sepay  (cổng 80 của gateway, publish ra
+       loopback, GATEWAY_SERVE_PORT) -> upstream nginx chia cho các bản server.
+URL này được KHAI THỦ CÔNG trong dashboard SePay MỘT LẦN.
+KHÔNG CÒN DÙNG NGROK (đã chuyển sang Funnel; người dùng xác nhận 18/11/2026) — đừng kiểm tra
+hay báo động về ngrok nữa. Cổng 443 của Funnel phục vụ web (-> 127.0.0.1:18090) và /hooks
+(CD, xem deploy/cd/README.md); trên 443 path webhook cũng chỉ nhận POST (gateway/nginx.conf,
+`location = /api/payment/webhook/sepay`).
+(Nguồn: Tailscale Funnel — https://tailscale.com/kb/1223/funnel)
 
-SAU MỖI LẦN KHỞI ĐỘNG LẠI MÔI TRƯỜNG, AGENTS PHẢI TỰ KIỂM TRA NGROK VÀ NÓI TO
+SAU MỖI LẦN KHỞI ĐỘNG LẠI MÔI TRƯỜNG, AGENTS PHẢI TỰ KIỂM TRA ĐƯỜNG WEBHOOK VÀ NÓI TO
 CHO USER BIẾT webhook có đang nhận được không. KHÔNG ĐƯỢC IM LẶNG CHO QUA.
 
-Lý do phải la: ngrok tắt thì webhook không về, ĐƠN NẰM PENDING RỒI HẾT HẠN TRONG
+Lý do phải la: đường webhook đứt thì webhook không về, ĐƠN NẰM PENDING RỒI HẾT HẠN TRONG
 KHI TIỀN KHÁCH ĐÃ VÀO TÀI KHOẢN. Không có lỗi nào hiện ra ở đâu cả.
 
-URL KHÔNG ĐỔI giữa các lần chạy (domain cố định) — nhưng webhook vẫn MẤT khi:
-  - ngrok bị kill / chết / chưa bật lại sau khi khởi động máy
-  - máy sleep, mất mạng làm tunnel rớt          -> bật lại `ngrok http ...` là chạy, không phải sửa SePay
-  - đổi cổng tunnel trỏ vào (3000 <-> 8080)     -> phải chạy lại ngrok với cổng đúng
-  - đổi tài khoản/domain ngrok                  -> PHẢI khai lại URL mới bên SePay
+URL KHÔNG ĐỔI giữa các lần chạy — nhưng webhook vẫn MẤT khi:
+  - Tailscale tắt / đăng xuất, máy sleep, mất mạng -> bật lại Tailscale; cấu hình Funnel chạy
+                                                     --bg được lưu lại, không phải sửa SePay
+  - cấu hình Funnel cổng 8443 bị xoá / ghi đè (vd. `tailscale serve reset`) -> mở lại:
+      tailscale funnel --bg --https=8443 --set-path=/api/payment/webhook/sepay http://127.0.0.1:18000/api/payment/webhook/sepay
+  - đổi GATEWAY_SERVE_PORT (mặc định 18000) mà không sửa Funnel
+                                                  -> Funnel trả 502, SePay retry trong im lặng
+  - gateway hoặc mọi bản server chết              -> 502 / 503
+  - đổi tên máy / tailnet (đổi tên miền *.ts.net) -> PHẢI khai lại URL mới bên SePay
 
 KHI NÀO KHÔNG ẢNH HƯỞNG — ĐỪNG BÁO ĐỘNG GIẢ:
-  - docker compose up -d --build                -> ngrok chạy NGOÀI docker, không bị đụng
-  - docker compose down && docker compose up -d -> như trên
-  - docker compose restart                      -> không liên quan
-  - sửa .env rồi up -d                          -> không liên quan
+  - docker compose up -d --build / down && up -d / restart / sửa .env rồi up -d
+      -> Funnel chạy NGOÀI docker, không bị đụng; chỉ hụt vài giây lúc gateway/server
+         được tạo lại (SePay tự gửi lại)
+  - deploy qua CD (comment /rebuild)              -> như trên
 
-LỆNH KIỂM TRA — AGENTS CHẠY CÁI NÀY RỒI MỚI BÁO CÁO:
-  pgrep -f 'ngrok http' >/dev/null \
-    && echo "ngrok đang chạy, URL cố định" \
-    || echo "NGROK CHẾT — bật lại; URL không đổi nên không cần sửa SePay"
-  (Windows/PowerShell: Get-Process ngrok -ErrorAction SilentlyContinue)
-  Lưu ý: kiểm tiến trình CHỈ cho biết ngrok còn chạy. Chắc chắn hơn thì mở
-  https://<tên>.ngrok-free.app/ (thấy trang cảnh báo ngrok rồi vào được web là thông)
-  hoặc xem mục Endpoints trên dashboard ngrok.
+LỆNH KIỂM TRA — AGENTS CHẠY CÁI NÀY RỒI MỚI BÁO CÁO (PowerShell):
+  & "C:\Program Files\Tailscale\tailscale.exe" funnel status
+    -> phải có "https://msi.taild22ef7.ts.net:8443 (Funnel on)" kèm dòng
+       |-- /api/payment/webhook/sepay proxy http://127.0.0.1:18000/api/payment/webhook/sepay
+  Invoke-WebRequest https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay -UseBasicParsing
+    -> 404 do server trả (route chỉ nhận POST; có header X-Served-By khi SERVED_BY_HEADER=1)
+       = ĐƯỜNG THÔNG
+    -> 502 / 503          = Funnel tới được máy nhưng gateway / server không trả lời
+    -> không kết nối được = Tailscale / Funnel đang tắt
+  KHÔNG gửi POST giả lập webhook lên production (adapter /webhook/simulator chỉ bật khi
+  NODE_ENV khác production).
 
-CỔNG TUNNEL PHẢI KHỚP CÁCH ĐANG CHẠY:
-  - chạy bằng docker compose -> ngrok http 3000 --url https://<tên>.ngrok-free.app
-    (server KHÔNG expose ra host; Nginx của client proxy /api/)
-  - chạy native để dev       -> ngrok http 8080 --url https://<tên>.ngrok-free.app
-  Trỏ sai cổng thì tunnel trả 502 và SePay retry trong im lặng.
-
-URL để khai bên SePay luôn có dạng:
-  https://<tên>.ngrok-free.app/api/payment/webhook/sepay
-
-BẢO MẬT: authtoken ngrok là BÍ MẬT (không commit, không gửi chat). Tunnel đưa CẢ trang
-quản trị ra Internet; domain cố định nên dễ bị dò — xem cảnh báo ở README.md.
+BẢO MẬT: Funnel đưa CẢ web (kể cả trang quản trị) ra Internet; cổng 8443 chỉ mở đúng path
+webhook, xác thực bằng chữ ký HMAC / API key ở server. Khoá / API key SePay là BÍ MẬT
+(không commit, không gửi chat).
 
 AGENTS MUỐN PUSH CODE LÊN GIT, PHẢI BIẾT RẰNG ƯU TIÊN PUSH LÊN NHÁNH MỚI THAY VÌ PUSH THẲNG VÀO MAIN, PHẢI COMMIT TRƯỚC KHI XỬ LÝ CONFLICT, KHI XỬ LÝ CONFLICT LÀ PHẢI ĐỌC KỸ VÀ SOẠN BỘ CÂU HỎI ĐỂ NGƯỜI DÙNG CHỌN(BẠN ĐỀ XUẤT KHUYẾN NGHỊ).
