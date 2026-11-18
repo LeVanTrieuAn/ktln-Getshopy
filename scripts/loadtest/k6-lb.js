@@ -29,10 +29,20 @@
 //   P95_MS      ngưỡng p95 (ms) cho threshold, mặc định 1000 — NGƯỠNG MỤC TIÊU để k6 báo đạt/
 //               không đạt, KHÔNG phải kết quả đo.
 //   SUMMARY_PATH  nơi ghi tóm tắt JSON (mặc định /out/summary.json)
+//   PROFILE     lb (mặc định): WARMUP rồi pha đo DURATION ở RATE cố định — lb-demo.ps1.
+//               live (19/11/2026, scripts/grafana-demo.ps1): tăng dần 0 -> RATE trong RAMP rồi giữ
+//               RATE trong DURATION (một scenario "steady", ramping-arrival-rate) — để xem trên
+//               Grafana (docs/monitoring.md). WARMUP bỏ qua.
+//   RAMP        thời gian tăng tải của PROFILE=live (mặc định 30s)
+//   MARK_AT     (tuỳ chọn) giây tính từ lúc scenario bắt đầu: response lỗi được đếm tách thành
+//               failed_requests{phase:before|after} quanh mốc này — grafana-demo.ps1 đặt bằng lúc
+//               giết một bản server, để đếm lỗi SAU sự cố (k6 khởi động chậm hơn lệnh docker
+//               ~1 s nên mốc lệch chừng đó).
 // =============================================================================
 import http from 'k6/http';
 import { check } from 'k6';
 import { Counter } from 'k6/metrics';
+import exec from 'k6/execution';
 
 const BASE = (__ENV.BASE_URL || 'http://gateway').replace(/\/+$/, '');
 const RATE = Number(__ENV.RATE || 200);
@@ -43,8 +53,23 @@ const SPOOF = (__ENV.SPOOF_XFF || '1') !== '0';
 const P95_MS = Number(__ENV.P95_MS || 1000);
 const REPLICAS = (__ENV.REPLICAS || '').split(',').map((s) => s.trim()).filter(Boolean);
 const SUMMARY_PATH = __ENV.SUMMARY_PATH || '/out/summary.json';
+const PROFILE = (__ENV.PROFILE || 'lb').toLowerCase();
+const RAMP = __ENV.RAMP || '30s';
+const MARK_AT = __ENV.MARK_AT ? Number(__ENV.MARK_AT) : null;
+if (PROFILE !== 'lb' && PROFILE !== 'live') throw new Error(`PROFILE='${PROFILE}' — chỉ nhận lb hoặc live`);
+
+/** '60s' / '2m' / '1m30s' -> giây */
+function toSec(d) {
+  let total = 0;
+  const re = /(\d+(?:\.\d+)?)(ms|s|m|h)/g;
+  let m;
+  while ((m = re.exec(d)) !== null) total += Number(m[1]) * { ms: 0.001, s: 1, m: 60, h: 3600 }[m[2]];
+  return total;
+}
 
 const servedBy = new Counter('served_by');
+// Số response KHÔNG phải 200 (gồm lỗi kết nối: status 0) — grafana-demo.ps1 in ra sau mỗi kịch bản.
+const failedRequests = new Counter('failed_requests');
 
 // Tỷ trọng xấp xỉ một lượt duyệt cửa hàng: xem danh mục, lướt danh sách, mở chi tiết.
 const MIX = [
@@ -67,21 +92,36 @@ const thresholds = {
 };
 for (const m of MIX) thresholds[`http_req_duration{scenario:steady,endpoint:${m.endpoint}}`] = [`p(95)<${P95_MS}`];
 for (const r of REPLICAS) thresholds[`served_by{replica:${r}}`] = ['count>=0'];
+if (MARK_AT !== null) {
+  thresholds['failed_requests{phase:before}'] = ['count>=0'];
+  thresholds['failed_requests{phase:after}'] = ['count>=0'];
+}
+
+const VUS = Math.min(MAX_VUS, Math.max(10, Math.ceil(RATE / 4)));
+const LB_SCENARIOS = {
+  warmup: {
+    executor: 'constant-arrival-rate', rate: RATE, timeUnit: '1s', duration: WARMUP,
+    preAllocatedVUs: VUS, maxVUs: MAX_VUS,
+    tags: { scenario: 'warmup' },
+  },
+  steady: {
+    executor: 'constant-arrival-rate', rate: RATE, timeUnit: '1s', duration: DURATION, startTime: WARMUP,
+    preAllocatedVUs: VUS, maxVUs: MAX_VUS,
+    tags: steady,
+  },
+};
+// Một scenario tên "steady" để các khoá {scenario:steady} của thresholds / tóm tắt dùng chung.
+const LIVE_SCENARIOS = {
+  steady: {
+    executor: 'ramping-arrival-rate', startRate: 0, timeUnit: '1s', preAllocatedVUs: VUS, maxVUs: MAX_VUS,
+    stages: [{ target: RATE, duration: RAMP }, { target: RATE, duration: DURATION }],
+    tags: steady,
+  },
+};
 
 export const options = {
   discardResponseBodies: true,
-  scenarios: {
-    warmup: {
-      executor: 'constant-arrival-rate', rate: RATE, timeUnit: '1s', duration: WARMUP,
-      preAllocatedVUs: Math.min(MAX_VUS, Math.max(10, Math.ceil(RATE / 4))), maxVUs: MAX_VUS,
-      tags: { scenario: 'warmup' },
-    },
-    steady: {
-      executor: 'constant-arrival-rate', rate: RATE, timeUnit: '1s', duration: DURATION, startTime: WARMUP,
-      preAllocatedVUs: Math.min(MAX_VUS, Math.max(10, Math.ceil(RATE / 4))), maxVUs: MAX_VUS,
-      tags: steady,
-    },
-  },
+  scenarios: PROFILE === 'live' ? LIVE_SCENARIOS : LB_SCENARIOS,
   thresholds,
   summaryTrendStats: ['avg', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
@@ -125,6 +165,11 @@ export default function (data) {
 
   const res = http.get(url, { headers, tags: { endpoint, name } });
   check(res, { 'status 200': (r) => r.status === 200 }, { endpoint });
+  if (res.status !== 200) {
+    let tags = {};
+    if (MARK_AT !== null) tags = { phase: (Date.now() - exec.scenario.startTime) / 1000 >= MARK_AT ? 'after' : 'before' };
+    failedRequests.add(1, tags);
+  }
   const replica = res.headers['X-Served-By'] || 'none';
   servedBy.add(1, { replica });
 }
@@ -137,14 +182,21 @@ function num(m, key) {
 export function handleSummary(data) {
   const M = data.metrics;
   const reqs = num(M['http_reqs{scenario:steady}'], 'count');
-  const durS = parseFloat(DURATION) * (DURATION.endsWith('m') ? 60 : 1);
+  // live: pha "steady" gồm cả RAMP (tăng dần) -> req/s là trung bình cả hai đoạn.
+  const durS = toSec(DURATION) + (PROFILE === 'live' ? toSec(RAMP) : 0);
   const lines = [
-    `RATE mục tiêu ${RATE} req/s, pha đo ${DURATION} (sau ${WARMUP} khởi động)`,
+    PROFILE === 'live'
+      ? `RATE mục tiêu ${RATE} req/s, tăng dần ${RAMP} rồi giữ ${DURATION}`
+      : `RATE mục tiêu ${RATE} req/s, pha đo ${DURATION} (sau ${WARMUP} khởi động)`,
     `  request pha đo   : ${reqs}  (~${reqs !== null ? (reqs / durS).toFixed(1) : '?'} req/s)`,
     `  p95 / p99 (ms)   : ${num(M['http_req_duration{scenario:steady}'], 'p(95)')?.toFixed(1)} / ${num(M['http_req_duration{scenario:steady}'], 'p(99)')?.toFixed(1)}`,
     `  tỷ lệ lỗi        : ${((num(M['http_req_failed{scenario:steady}'], 'rate') || 0) * 100).toFixed(2)} %`,
     `  dropped iterations: ${num(M['dropped_iterations{scenario:steady}'], 'count') || 0}`,
+    `  response khác 200 : ${num(M.failed_requests, 'count') || 0} (cả pha khởi động)`,
   ];
+  if (MARK_AT !== null) {
+    lines.push(`  khác 200 trước / sau mốc T+${MARK_AT}s: ${num(M['failed_requests{phase:before}'], 'count') || 0} / ${num(M['failed_requests{phase:after}'], 'count') || 0}`);
+  }
   for (const m of MIX) {
     const p95 = num(M[`http_req_duration{scenario:steady,endpoint:${m.endpoint}}`], 'p(95)');
     if (p95 !== null) lines.push(`  p95 ${m.endpoint.padEnd(11)}: ${p95.toFixed(1)} ms`);
