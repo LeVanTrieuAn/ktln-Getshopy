@@ -78,6 +78,25 @@ loki.process "logs" {
     drop_counter_reason = "khong_phai_json"
   }
 
+  // ── Bỏ request kiểm tra (probe) — 19/11/2026, người dùng: log API toàn health, quá nhiều ──
+  // server: dòng có khoá "probe" = healthcheck Docker (loopback) hoặc blackbox exporter (User-Agent),
+  //   kể cả probe đi vòng qua gateway (src/middleware/requestLog.js). Request /api/health của k6 hay
+  //   của khách KHÔNG có "probe" nên vẫn còn.
+  // gateway: nginx không ghi User-Agent -> nhận probe /api/health theo xff: rỗng = gọi từ trong mạng
+  //   compose (blackbox), 100.x = qua tailnet (probe "public" chạy trên chính máy). k6 gắn xff
+  //   198.18.x.y (scripts/loadtest/k6-lb.js) nên vẫn còn.
+  // Trạng thái health KHÔNG mất: luồng health-events (Docker) + probe_success / up (Prometheus).
+  stage.match {
+    selector            = `{service="server"} |= "\"probe\":\""`
+    action              = "drop"
+    drop_counter_reason = "probe"
+  }
+  stage.match {
+    selector            = `{service="gateway"} |= "\"path\":\"/api/health\"" |~ "\"xff\":\"(100[.][0-9.]+)?\""`
+    action              = "drop"
+    drop_counter_reason = "probe"
+  }
+
   // ── server: thời điểm + status_class từ JSON ─────────────────────────────
   stage.match {
     selector = `{service="server"}`
