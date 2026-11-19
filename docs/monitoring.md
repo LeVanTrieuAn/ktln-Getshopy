@@ -526,6 +526,15 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
   kiểm). Luật đã bật (`isPaused: false`); Tailscale / Funnel tắt thì báo sau 2 phút. Mỗi 30 s là một
   request thật qua Funnel (log gateway có ghi, `xff` = IP công khai của mạng nhà; GET đường webhook trả
   404 — đúng tiêu chí "ĐƯỜNG THÔNG").
+- **Đường Funnel thật chậm**: đo 19/11/2026 ~09:58 từ máy production, 8 lượt `curl --resolve` qua cổng
+  vào Funnel `103.84.155.153` (web 443 và webhook 8443): tất cả đạt (200 / 404), nhưng TCP ~0,1 s,
+  bắt tay TLS 1,9–5,7 s, tổng 2,8–7,3 s mỗi request (qua tailnet: < 0,1 s). Ngay sau khi chuyển probe
+  sang đường thật, probe web 443 (timeout 4 s) hỏng mọi lượt, probe webhook (8 s) có lượt quá giờ —
+  nên probe public dùng module riêng timeout 20 s (`http_2xx_public`, `http_webhook_get_404` trong
+  `monitoring/blackbox/blackbox.yml`; `scrape_timeout` 25 s). Probe nội bộ giữ 4 s (ngưỡng nhận ra
+  bản treo). `tailscale netcheck` lúc đó: UDP có, NAT dễ (`MappingVariesByDestIP: false`), DERP gần
+  nhất Singapore 39 ms — nguyên nhân chậm nằm ở chặng Funnel, chưa xác định. Khách và SePay đi đường
+  này nên mỗi kết nối mới chịu độ trễ cỡ đó; xem thời gian phản hồi của webhook trong dashboard SePay.
 - Lỗi đọc file provisioning làm **Grafana không khởi động được** (gặp khi thử: chu kỳ đánh giá phải là
   bội số của 10 s; số trong mảng YAML không được là `${…}`) — sửa `monitoring/grafana/provisioning/`
   thì chạy thử trên stack tách biệt trước (mục 9).

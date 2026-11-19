@@ -85,14 +85,15 @@ scrape_configs:
   # web 443 -> gateway 8090, và đường webhook SePay 8443 -> gateway 80 (AGENTS.MD). Chỉ đi qua
   # Funnel thật khi blackbox dùng DNS công khai (docker-compose.yml, service blackbox, `dns:`) —
   # DNS của máy (MagicDNS) trả IP tailnet. Luật cảnh báo: "Đường public hoặc webhook đứt".
-  # 30 s/lượt: mỗi lượt là một request thật qua Funnel.
+  # 30 s/lượt: mỗi lượt là một request thật qua Funnel. scrape_timeout 25 s > timeout 20 s của
+  # module (đường Funnel thật mất 2,8–7,3 s mỗi request — blackbox.yml).
   - job_name: blackbox-public
     metrics_path: /probe
     scrape_interval: 30s
-    scrape_timeout: 10s
+    scrape_timeout: 25s
     static_configs:
       - targets: ['https://msi.taild22ef7.ts.net/api/health']
-        labels: {module: http_2xx}
+        labels: {module: http_2xx_public}
       - targets: ['https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay']
         labels: {module: http_webhook_get_404}
     relabel_configs:

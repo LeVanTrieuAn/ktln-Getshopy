@@ -1435,3 +1435,7 @@ khung của §21.5 (08:31:43–08:37:14, 331 s):
 - Gián đoạn khi deploy (§21.4) đo từ chính máy production qua loopback, không phải từ phía khách qua
   Internet; 132 s không phục vụ ở §21.5 phụ thuộc người trực, chỉ đúng cho lần chạy có script chờ
   email 40 s.
+- Đường public qua Tailscale Funnel (khách từ Internet, webhook SePay) chậm hơn nhiều so với các số
+  đo ở trên: 8 lượt `curl` từ máy production qua cổng vào Funnel (19/11, ~09:58) đều đạt nhưng mất
+  2,8–7,3 s mỗi request, riêng bắt tay TLS 1,9–5,7 s (`docs/monitoring.md`, mục "Cảnh báo"). Các số
+  p95/p99 của §21.1–21.2 đo trong mạng compose, không gồm chặng này.
