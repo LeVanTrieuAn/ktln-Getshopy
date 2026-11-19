@@ -453,15 +453,19 @@ flowchart LR
 - **health-events** dùng `docker events` [22]. Thử 19/11/2026 (Docker 28.4.0): nhiều `--filter label=` là
   **AND** (không OR được service=server với service=gateway — lọc service trong `--format`); nhiều
   `--filter event=` là **OR**; không lấy `exec_*` (mỗi lượt healthcheck sinh 3 sự kiện exec).
-- Request kiểm tra vẫn có trong log server (giữ, lọc được): healthcheck Docker mỗi 10 s/bản
-  (`probe="docker"`), blackbox mỗi 10 s/bản và qua gateway (`probe="blackbox"`).
+- **Request kiểm tra (probe) bị bỏ ở Alloy từ 19/11/2026** (trước đó chiếm phần lớn log lúc vắng
+  khách): log server bỏ dòng có `probe` — healthcheck Docker mỗi 10 s/bản (`probe="docker"`),
+  blackbox mỗi 10 s/bản, qua gateway và qua đường public (`probe="blackbox"`); log gateway bỏ
+  `/api/health` có `xff` rỗng (blackbox trong mạng compose) hoặc `100.x` (qua tailnet). Request
+  `/api/health` của k6 (xff `198.18.x.y`) hay của khách vẫn giữ. Trạng thái health không mất: luồng
+  `health-events` + `probe_success` / `up` trên Prometheus. Luật lọc: `monitoring/alloy/config.alloy`.
 - `SERVER_LOG_FORMAT=dev` trong `.env` = quay về `morgan('dev')`.
 
 LogQL hay dùng (Grafana > Explore > Loki):
 
 ```logql
 {service="server", status_class="5xx"} | json                          # lỗi 5xx của server
-{service="server"} | json | probe="" | route="/api/b2c/products/:id"   # một route, bỏ probe
+{service="server"} | json | route="/api/b2c/products/:id"              # một route (probe đã bị bỏ ở Alloy)
 {service="gateway"} | json | upstream_status=~".*,.*"                   # request nginx phải thử lại bản khác
 {service="gateway"} | json | server_port="8090" | status="404"          # dò API từ Internet (cổng public)
 {service="health-events", event="die"} | json                           # bản nào chết, mã thoát
