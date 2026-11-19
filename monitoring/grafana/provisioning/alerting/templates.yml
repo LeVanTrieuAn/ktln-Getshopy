@@ -35,6 +35,6 @@ templates:
       {{- end }}
 
       {{ end -}}
-      Dashboard: http://localhost:3001/d/getshopy-lb (mở trên chính máy chạy Docker)
+      Dashboard: https://msi.taild22ef7.ts.net:3001/d/getshopy-lb (máy trong tailnet) — trên chính máy chạy Docker: http://localhost:3001/d/getshopy-lb
       Tài liệu: docs/monitoring.md, mục "Cảnh báo".
       {{- end }}
