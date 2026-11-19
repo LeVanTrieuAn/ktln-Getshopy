@@ -249,9 +249,16 @@ chỉ endpoint ĐỌC công khai (danh mục, danh sách, chi tiết sản phẩ
 | `hang` (không nằm trong `all`) | SIGSTOP một bản (treo), chờ cảnh báo "Server treo" Firing, rồi `docker restart` như người trực | Cảnh báo đang bật, Request/s mỗi bản, Độ trễ phía gateway, Dòng sự kiện container | Pending → Firing sau ~1 phút, email; restart → healthy → cảnh báo hết | `[đo]` |
 
 `scale` chủ động xuống 1 bản nên script tạo **silence** cho "Thiếu server" trong lúc chạy (gỡ ở
-`finally`) nếu có mật khẩu Grafana; `hang` bắt buộc có mật khẩu (hỏi API cảnh báo). Mật khẩu hỏi lúc
-chạy (`Read-Host -AsSecureString`) hoặc `-GrafanaCredential`; script không đọc `.env`. `hang` cũng
-kiểm `DB_PREP=off` như `failover` và gửi SIGCONT ở `finally` nếu bị dừng giữa chừng.
+`finally`) nếu có mật khẩu Grafana; `hang` bắt buộc có mật khẩu (hỏi API cảnh báo). Mật khẩu lấy
+theo thứ tự: `-GrafanaCredential`; `-GrafanaPasswordFile` (để trống = file
+`%LOCALAPPDATA%\getshopy-monitoring\grafana-admin.txt` nếu có — dòng `password: ...` hoặc một dòng chỉ
+có mật khẩu); hỏi lúc chạy (`Read-Host -AsSecureString`). Script không đọc `.env`, không in mật khẩu.
+`hang` cũng kiểm `DB_PREP=off` như `failover` và gửi SIGCONT ở `finally` nếu bị dừng giữa chừng.
+
+`-Yes` = chạy không người trông: script **không bao giờ dừng chờ nhập** — thiếu mật khẩu thì `hang`
+dừng ngay với lỗi, `scale` bỏ qua silence; bản thiếu `DB_PREP=off` thì mặc định không đụng. (Lượt chạy
+nền `-Scenario hang -Yes` đêm 19/11/2026 kẹt ở bước hỏi mật khẩu từ 03:24 tới sáng vì bản cũ vẫn hỏi
+khi có `-Yes`.)
 
 Stack thử (`-Rate 100 -Minutes 1 -RampSec 10 -StepSec 30`, mỗi bản giả trần 0,25 CPU — chỉ minh hoạ
 cơ chế):
