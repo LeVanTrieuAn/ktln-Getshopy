@@ -8,7 +8,7 @@
 # https://github.com/prometheus/blackbox_exporter/blob/master/CONFIGURATION.md
 # =============================================================================
 modules:
-  # /api/health của từng bản server, của gateway, của URL public: phải 2xx trong 4 s.
+  # /api/health của từng bản server và của gateway: phải 2xx trong 4 s (ngưỡng nhận ra bản TREO).
   http_2xx:
     prober: http
     timeout: 4s
@@ -17,12 +17,23 @@ modules:
       preferred_ip_protocol: ip4
       follow_redirects: false
 
+  # URL public qua Tailscale Funnel: đo "còn vào được không", không đo "có nhanh không". Đường Funnel
+  # thật chậm — đo 19/11/2026 ~09:58 từ máy production, 8 lượt curl qua cổng vào Funnel: TCP ~0,1 s,
+  # TLS 1,9–5,7 s, tổng 2,8–7,3 s — timeout 4 s làm probe hỏng liên tục dù đường vẫn thông.
+  http_2xx_public:
+    prober: http
+    timeout: 20s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+
   # Đường webhook SePay qua Funnel 8443: GET phải nhận 404 DO SERVER trả (route chỉ nhận POST),
   # nhận diện bằng header X-Served-By — đúng tiêu chí "ĐƯỜNG THÔNG" trong AGENTS.MD. 502/503 hoặc
-  # không kết nối được = đường webhook đứt.
+  # không kết nối được = đường webhook đứt. Timeout 20 s: như http_2xx_public.
   http_webhook_get_404:
     prober: http
-    timeout: 8s
+    timeout: 20s
     http:
       method: GET
       valid_status_codes: [404]
