@@ -114,7 +114,7 @@ Thêm 19/11/2026 (log, cảnh báo — mục 10, 11):
 | Hàng | Panel | Cho thấy | Đọc thế nào |
 |---|---|---|---|
 | Cảnh báo và sự kiện container | Cảnh báo đang bật | luật đang Pending / Firing | trống = bình thường; "Server treo" kèm tên bản |
-| | Sự kiện container theo loại | số sự kiện Docker / phút (Loki) | chết rồi tự lên = die + start + healthy; treo = không có gì (tới khi unhealthy) |
+| | Sự kiện container theo loại | số sự kiện Docker / phút (Loki) | chết rồi tự lên = die + start + healthy; treo = không có gì (tới khi unhealthy: retries 12 ≈ 3 phút) |
 | | Dòng sự kiện container | từng sự kiện health-events | exit_code khi die (137 = SIGKILL), signal khi kill |
 | Độ trễ và lỗi | Độ trễ phía gateway p95 (từ log) | `request_time` của nginx theo bản đã trả lời | gồm xếp hàng / thử lại — độ trễ khách thấy; khác p95 của server |
 | | Request/s qua gateway theo nhóm mã (từ log) | mọi request API qua gateway | 5xx ở đây gồm cả trang bảo trì 503 do gateway tự trả |
@@ -243,10 +243,10 @@ chỉ endpoint ĐỌC công khai (danh mục, danh sách, chi tiết sản phẩ
 
 | Kịch bản | Script làm gì | Nhìn panel nào | Hình mong đợi | Production |
 |---|---|---|---|---|
-| `steady` | tăng dần rồi giữ `-Rate` (mặc định 150 req/s) trong `-Minutes` (3) | Request/s mỗi bản, Tỷ trọng, Độ lệch tải | các đường sát nhau ở ~ Rate/N; mỗi dải ~ 100/N % | `[đo]` |
-| `scale` | về 1 bản, rồi mỗi `-StepSec` (60 s) scale 2 → 3 → 4 trong lúc tải không đổi | Bản đang chạy, Request/s mỗi bản, Tỷ trọng, p95, CPU | mỗi bước thêm một đường; các đường cũ hạ xuống Rate/N; p95, CPU hạ nếu Rate vượt sức 1 bản | `[đo]` |
-| `failover` | giết một bản (dưới đây) | Request/s mỗi bản, Bản đang chạy, Lỗi 5xx, Theo mã trạng thái | đường bản chết đứt, các bản còn lại tăng lên; bản đó quay lại cùng tên | `[đo]` |
-| `hang` (không nằm trong `all`) | SIGSTOP một bản (treo), chờ cảnh báo "Server treo" Firing, rồi `docker restart` như người trực | Cảnh báo đang bật, Request/s mỗi bản, Độ trễ phía gateway, Dòng sự kiện container | Pending → Firing sau ~1 phút, email; restart → healthy → cảnh báo hết | `[đo]` |
+| `steady` | tăng dần rồi giữ `-Rate` (mặc định 150 req/s) trong `-Minutes` (3) | Request/s mỗi bản, Tỷ trọng, Độ lệch tải | các đường sát nhau ở ~ Rate/N; mỗi dải ~ 100/N % | 19/11 02:23: 29.249 request, p95 5,1 ms, 0 lỗi (results.md §21.2) |
+| `scale` | về 1 bản, rồi mỗi `-StepSec` (60 s) scale 2 → 3 → 4 trong lúc tải không đổi | Bản đang chạy, Request/s mỗi bản, Tỷ trọng, p95, CPU | mỗi bước thêm một đường; các đường cũ hạ xuống Rate/N; p95, CPU hạ nếu Rate vượt sức 1 bản | 37.872 request, 0 lỗi, 378 lượt bỏ lúc còn 1 bản; bản mới healthy sau 7–8 s (§21.2) |
+| `failover` | giết một bản (dưới đây) | Request/s mỗi bản, Bản đang chạy, Lỗi 5xx, Theo mã trạng thái | đường bản chết đứt, các bản còn lại tăng lên; bản đó quay lại cùng tên | 2 lần: vắng mặt 6,1 s và 5,4 s, 0 response lỗi (§21.2) |
+| `hang` (không nằm trong `all`) | SIGSTOP một bản (treo), chờ cảnh báo "Server treo" Firing, rồi `docker restart` như người trực | Cảnh báo đang bật, Request/s mỗi bản, Độ trễ phía gateway, Dòng sự kiện container | Pending → Firing sau ~1 phút, email; restart → healthy → cảnh báo hết | Firing sau 70 s, email sau 99 s, 8 response lỗi (§21.5) |
 
 `scale` chủ động xuống 1 bản nên script tạo **silence** cho "Thiếu server" trong lúc chạy (gỡ ở
 `finally`) nếu có mật khẩu Grafana; `hang` bắt buộc có mật khẩu (hỏi API cảnh báo). Mật khẩu lấy
@@ -296,7 +296,8 @@ policy [11] — bản đó không tự quay lại, demo sai mục đích. Thử 
 **An toàn**: chỉ chọn MỘT bản `server` (bản đầu tiên theo id) và đọc biến `DB_PREP` của nó (không in
 biến khác — có bí mật). Container do CD tạo luôn có `DB_PREP=off`: khởi động lại **không chạy script
 DB nào** (`docker-entrypoint.sh`), chỉ chạy lại node. Thiếu `DB_PREP=off` → script cảnh báo và hỏi
-lại (kể cả khi `-Yes`). Còn < 2 bản thì scale lên 2 trước để có bản gánh tải.
+lại; với `-Yes` thì không hỏi mà bỏ qua kịch bản (mặc định an toàn). Còn < 2 bản thì scale lên 2
+trước để có bản gánh tải.
 
 **Script đo và in**: lúc kill; lúc Docker khởi động lại (RestartCount tăng; thêm FinishedAt →
 StartedAt theo đồng hồ Docker); lúc healthy lại; **thời gian bản đó vắng mặt** (kill → healthy, như
@@ -314,11 +315,11 @@ còn ít hoặc không lỗi; POST dở dang **không** gửi lại (tránh đ�
 
 | | Production | Stack thử |
 |---|---|---|
-| Docker khởi động lại sau (FinishedAt → StartedAt) | `[đo]` | 0,04 s và 0,08 s (2 lần chạy) |
-| Bản đó vắng mặt (kill → healthy) | `[đo]` | 6,2 s và 6,6 s |
+| Docker khởi động lại sau (FinishedAt → StartedAt) | 0,05 s và 0,04 s (19/11 02:32 và 03:21) | 0,04 s và 0,08 s (2 lần chạy) |
+| Bản đó vắng mặt (kill → healthy) | 6,1 s và 5,4 s | 6,2 s và 6,6 s |
 | Prometheus | `[đo]` | lỡ 1 lượt kéo (`up = 0` một mẫu), đường của bản đó đứt ~10 s |
 | Gateway gửi lại cho bản đó | `[đo]` | ~10 s sau lúc kill (= `fail_timeout`) |
-| k6 response khác 200 sau lúc kill | `[đo]` | 0 cả 2 lần (trước lúc kill: 0) |
+| k6 response khác 200 sau lúc kill | 0 cả 2 lần (trước lúc kill: 0) | 0 cả 2 lần (trước lúc kill: 0) |
 
 **Giới hạn — server TREO thì KHÔNG tự khởi động lại.** Restart policy chỉ phản ứng khi tiến trình
 **thoát** [11]. Server còn sống nhưng không trả lời (vòng lặp vô hạn, deadlock) thì healthcheck chỉ
@@ -470,7 +471,7 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
 | **Thiếu server** | số bản trả lời `/api/health` < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào → 0 (`or vector(0)`) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
 | **Web sập** | `http://gateway/api/health` không 2xx, 1 phút; mất luôn dữ liệu probe cũng tính | critical | gateway hay mọi bản server chết |
 | **Nhiều lỗi 5xx** | > 5 % response là 5xx trong 5 phút, khi có tải (> 0,2 req/s) | warning | panel "Lỗi 5xx mỗi bản", log Loki |
-| **Đường public hoặc webhook đứt** | URL public 443 hoặc đường webhook SePay 8443 (GET phải 404 **có** `X-Served-By` — tiêu chí "ĐƯỜNG THÔNG" của AGENTS.MD) hỏng, 2 phút | critical | **TẠM DỪNG** (`isPaused: true`) — xem dưới |
+| **Đường public hoặc webhook đứt** | URL public 443 hoặc đường webhook SePay 8443 (GET phải 404 **có** `X-Served-By` — tiêu chí "ĐƯỜNG THÔNG" của AGENTS.MD) hỏng, 2 phút | critical | bật từ 19/11/2026 (probe production đạt cho cả hai URL) — xem dưới |
 
 - **`for: 1m`** là cái phân biệt: một bản **chết** rồi Docker tự khởi động lại sau vài giây
   (`restart: unless-stopped`, mục 7) chỉ làm luật Pending vài giây, **không** gửi email; một bản
@@ -495,10 +496,10 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
 - **Đọc email**: tiêu đề `[CẢNH BÁO] <luật> — bản <hostname> (Getshopy)` hoặc `[ĐÃ HẾT] …`; thân email:
   trạng thái, mức độ, "Bắt đầu" (= lúc chuyển Firing, giờ Việt Nam), mô tả và dòng **"Cách xử lý"**.
   `DatasourceError` = luật không chạy được (Prometheus / truy vấn hỏng) — tức đang mất giám sát.
-- **Đường public**: probe đi từ container ra Internet rồi vòng về chính máy qua Funnel — chưa kiểm được
-  trên máy demo nên luật đang tạm dừng. Kiểm: Grafana > Explore > Prometheus
-  `probe_success{job="blackbox-public"}` = 1 cho cả hai URL → sửa `isPaused: false` trong `rules.yml` →
-  `docker compose restart grafana`. Mỗi 30 s là một request thật qua Funnel (log gateway có ghi).
+- **Đường public**: probe đi từ container ra Internet rồi vòng về chính máy qua Funnel. Kiểm trên
+  production 19/11/2026 03:2x: `probe_success{job="blackbox-public"}` = 1 cho cả hai URL → đã bật
+  (`isPaused: false` trong `rules.yml`). Tailscale / Funnel tắt thì luật báo sau 2 phút. Mỗi 30 s là một
+  request thật qua Funnel (log gateway có ghi; GET đường webhook trả 404 — đúng tiêu chí "ĐƯỜNG THÔNG").
 - Lỗi đọc file provisioning làm **Grafana không khởi động được** (gặp khi thử: chu kỳ đánh giá phải là
   bội số của 10 s; số trong mảng YAML không được là `${…}`) — sửa `monitoring/grafana/provisioning/`
   thì chạy thử trên stack tách biệt trước (mục 9).
@@ -523,7 +524,7 @@ Stack thử 19/11/2026 (bản giả `node:20-alpine`, mailpit làm hộp thư):
 | `docker restart` bản treo | lệnh mất 12 s; healthy sau 19 s; "Server treo" hết sau ~10 s nữa; email `[ĐÃ HẾT]` đúng 5 phút sau email đầu (`group_interval`) |
 | Mọi bản server về 0 (100 s) | "Thiếu server" Firing sau 75 s, "Web sập" sau 77 s, email cả hai; "Server treo" KHÔNG bắn (lần thử đầu đã bắn sai cho các bản đã gỡ — xem chú thích của luật, đã sửa) |
 | `grafana-demo.ps1 -Scenario hang`, k6 60 req/s | Pending sau 15 s, **Firing sau 74 s**; `docker restart` 13,1 s; healthy 20 s sau lệnh; cảnh báo hết 15 s sau đó. k6: 0 lỗi trước lúc treo, **6 response khác 200** sau — log gateway cho thấy đúng 6 request rơi vào bản treo: 5 cái chờ 60 s rồi k6 bỏ (mã 499 trong log nginx), 1 cái nhận 503 sau 43,5 s lúc bản đó bị restart |
-| Production | `[đo]` |
+| Production, `grafana-demo.ps1 -Scenario hang`, k6 150 req/s (19/11/2026 08:31–08:37) | Pending sau 9 s, **Firing sau 70 s**; email "Server treo" gửi sau 99 s (không lỗi; người dùng đã nhận), "Thiếu server" sau 111 s; `docker restart` 13,7 s; healthy 22 s sau lệnh; cảnh báo hết 18 s sau đó; `[ĐÃ HẾT]` gửi 08:40. k6: 47.250 request, 0 lỗi trước lúc treo, **8 response khác 200** sau — đúng 8 request rơi vào bản treo: 5 chờ 60 s rồi k6 bỏ (499), 3 nhận 503 lúc bản đó bị restart. Lúc treo không có sự kiện `unhealthy` (healthcheck retries 12 ≈ 3 phút). Chi tiết: results.md §21.5–21.6 |
 
 Vì sao bản treo vẫn làm hỏng vài request: tiến trình bị dừng nhưng **nhân hệ điều hành vẫn nhận kết nối
 TCP** cho nó (hàng đợi listen), nên nginx không gặp "connection refused" để chuyển bản khác; request đã

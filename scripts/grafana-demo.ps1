@@ -595,7 +595,8 @@ function Invoke-Hang {
         '"Cảnh báo đang bật": "Server treo" Pending sau ~10-20 s, Firing sau ~1 phút (for: 1m), rồi email',
         '"Request/s mỗi bản": đường của bản treo về 0; least_conn dồn request sang bản khác',
         '"Độ trễ phía gateway p95 (từ log)": vài request kẹt ở bản treo tới khi hết thời gian',
-        '"Dòng sự kiện container": KHÔNG có die/start — chỉ health_status: unhealthy sau vài lượt healthcheck')
+        '"Dòng sự kiện container": lúc treo KHÔNG có sự kiện nào (Docker chỉ báo unhealthy sau 12 lượt healthcheck hỏng ≈ 3 phút);',
+        '"Dòng sự kiện container" lúc docker restart: kill 15 -> kill 9 (sau 12 s) -> die 137 -> start -> health_status: healthy')
 
     $markAt = $RampSec + $StepSec
     Start-K6 'hang' ($StepSec * 5) $markAt

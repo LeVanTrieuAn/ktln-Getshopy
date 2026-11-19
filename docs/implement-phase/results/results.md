@@ -1263,7 +1263,7 @@ So hai quy tắc trên nhánh nóng:
 - **Xoá cứng `Order` vẫn không phản ánh sang `orders_live`** (§19). Mã server không xoá cứng đơn.
 - **Triển khai:** chỉ cần build lại image `server` và `client`, không cần chạy lại bootstrap.
 
-## 21. Cân bằng tải 3 server, giám sát Prometheus/Grafana, demo Kubernetes, CD (18–19/11)
+## 21. Cân bằng tải 3 server, giám sát Prometheus/Grafana, cảnh báo + log tập trung, demo Kubernetes, CD (18–19/11)
 
 Môi trường đo cho cả mục này: một máy Windows 11, 16 CPU logic, 15,7 GB RAM; Docker Desktop 4.47
 (WSL2, máy ảo được cấp 8.940 MiB); toàn bộ stack `kltn` chạy trên máy đó. Bộ sinh tải k6
@@ -1311,9 +1311,14 @@ v3.13.5 lấy số đo từng bản mỗi 5 s (`docs/monitoring.md`). Số liệ
   0,5 s; RestartCount 0 → 1, chính sách `restart: unless-stopped`); bản đó healthy lại lúc 02:32:54,
   tức vắng mặt 6,1 s. k6 không ghi nhận response lỗi nào trong cả kịch bản: gateway gửi lại GET đang
   dở sang bản khác khi lỗi kết nối (`proxy_next_upstream error timeout`).
+- **Lặp lại lúc 03:21, khi đã bật cảnh báo** (`-Scenario failover`, số liệu gốc
+  `scripts/loadtest/results/grafana-20261119-031943/`): kill -9 bản `5456e704421b` lúc 03:21:19;
+  theo đồng hồ Docker container thoát rồi chạy lại sau 0,04 s (lần 02:32: 0,05 s; FinishedAt →
+  StartedAt); healthy lại sau 5,4 s. k6: 29.250 request, p95 5,7 ms, p99 8,2 ms, 0 response khác 200,
+  0 lượt bỏ. Không cảnh báo nào gửi email — các luật cần điều kiện đúng liên tục 1 phút (§21.5).
 - Giới hạn: `docker kill` / `docker stop` bị Docker coi là tắt chủ động nên **không** tự khởi động
   lại; server **treo** (còn chạy nhưng không trả lời) cũng không được Docker khởi động lại, chỉ bị
-  healthcheck đánh dấu `unhealthy` (xử lý ở cảnh báo, `docs/monitoring.md`).
+  healthcheck đánh dấu `unhealthy` (xử lý ở cảnh báo — §21.5, `docs/monitoring.md`).
 
 ### 21.3 Demo Kubernetes — chỉ server, một node (19/11, 01:35–01:46)
 
@@ -1348,12 +1353,85 @@ yêu cầu cho cùng bản (job thứ hai không tạo lại container nhưng gh
 workflow, listener và script deploy. Lần sau (`sha-06279f2`, 01:25:42 → 01:30:12) chỉ một job.
 Mọi container server do CD tạo chạy `DB_PREP=off`: không migrate, không seed, không sửa kho.
 
-Thời gian web gián đoạn khi Compose tạo lại 3 server cùng lúc **chưa đo riêng** `[đo]`.
+**Web gián đoạn khi Compose tạo lại cả 3 bản server** — đo lúc triển khai bản có log JSON và cảnh
+báo (19/11, 03:16) bằng một vòng lặp gọi `GET /api/health` qua gateway (`http://127.0.0.1:18000`) mỗi
+~0,11 s: 1.505 lượt trong 170 s. Số liệu gốc và script đo:
+`scripts/loadtest/results/downtime-20261119-031551/`.
 
-### 21.5 Hạn chế của các số đo trên
+| Thao tác | Lượt hỏng đầu → cuối | Thời gian | Lượt hỏng | Mã |
+|---|---|---|---|---|
+| Tạo lại 3 bản server | 03:16:12,77 → 03:16:22,23 | ~9,5 s | 68 | 503 (trang bảo trì của gateway: không còn bản nào) |
+| Tạo lại gateway | 03:16:42,17 → 03:16:43,42 | ~1,3 s | 12 | không kết nối được |
+
+- Ngoài hai khoảng trên: 0 lượt hỏng. Lượt đạt theo header `X-Served-By`: 3 bản cũ 65 / 64 / 64,
+  3 bản mới 429 / 402 / 401.
+- Compose thay **cả 3 bản cùng lúc**, không cuốn chiếu như rolling update của Kubernetes (§21.3:
+  0 lỗi). Script CD cũng dùng `docker compose up -d` nên mỗi lần deploy server dự kiến gián đoạn cỡ này
+  — chưa đo riêng cho một lần deploy CD.
+
+### 21.5 Server treo → cảnh báo qua email → khởi động lại bằng tay (19/11, 08:31–08:37)
+
+`scripts/grafana-demo.ps1 -Scenario hang` trên production, k6 giữ 150 req/s như §21.2. Script gửi
+SIGSTOP cho tiến trình chính của bản `5456e704421b` (tiến trình còn sống nhưng không trả lời — Docker
+không tự xử lý trường hợp này), hỏi API cảnh báo của Grafana mỗi 3 s, chờ thêm 40 s cho email đi rồi
+làm như người trực: `docker restart`. Số liệu gốc (log script, JSON k6):
+`scripts/loadtest/results/grafana-20261119-083139/`. Luật cảnh báo:
+`monitoring/grafana/provisioning/alerting/rules.yml`.
+
+| Mốc | Giờ | Sau lúc treo |
+|---|---|---|
+| SIGSTOP — bản đó treo | 08:33:15 | 0 s |
+| "Server treo" Pending | 08:33:24 | 9 s |
+| "Server treo" Firing | 08:34:25 | 70 s |
+| Grafana gửi email "Server treo" (SMTP 5,3 s, không lỗi) | 08:34:54 | 99 s |
+| `docker restart` (lệnh mất 13,7 s) | 08:35:05 → 08:35:19 | 110 s |
+| Grafana gửi email "Thiếu server" (còn 2/3 bản) | 08:35:06 | 111 s |
+| Đủ 3 bản healthy | 08:35:27 | 132 s |
+| "Server treo" về Normal | 08:35:45 | 150 s |
+| Email `[ĐÃ HẾT]` (lượt gửi cuối, không lỗi) | 08:40:06 | — |
+
+- Email tới hộp thư nhận; người dùng xác nhận đã thấy. 70 s tới lúc Firing = `for: 1m` + chu kỳ
+  đánh giá 10 s + lượt probe 10 s; email đi sau thêm `group_wait` 30 s; `[ĐÃ HẾT]` gửi ở lượt kế
+  (`group_interval` 5 phút). Giờ gửi lấy từ API trạng thái contact point của Grafana
+  (`lastNotifyAttempt`).
+- k6: 47.250 request, p95 7,5 ms, p99 19,9 ms, 0 lượt bỏ; 0 response lỗi trước lúc treo, **8 sau**.
+  Log gateway: cả 8 đều rơi vào bản treo (upstream 172.19.0.14) — 5 request chờ 60 s rồi k6 bỏ (nginx
+  ghi 499), 3 request nhận 503 lúc bản đó bị restart (đã chờ 20–30 s, quá `proxy_next_upstream_timeout`
+  10 s nên không được gửi lại). Bản treo vẫn nhận kết nối TCP (nhân hệ điều hành bắt tay thay tiến
+  trình) nên gateway không thấy lỗi kết nối; `least_conn` ngừng chọn bản đang giữ nhiều kết nối dở nên
+  chỉ vài request đầu bị kẹt.
+- Bản treo không phục vụ 132 s, phần lớn là chờ người trực (ở đây script chờ email rồi mới restart).
+  `docker restart` mất 13,7 s vì tiến trình bị dừng không xử lý SIGTERM: Docker chờ hết
+  `stop_grace_period` 12 s rồi SIGKILL.
+- So với §21.2: bản **chết** được Docker tự khởi động lại trong < 0,1 s và không có email; bản **treo**
+  cần cảnh báo và người xử lý. Tự động hoá phần này (autoheal, Docker Swarm, liveness probe của
+  Kubernetes — §21.3) để ở hướng phát triển (`docs/monitoring.md`, mục hướng phát triển).
+
+### 21.6 Log tập trung (Loki) trong cùng lần chạy
+
+Grafana Alloy đọc log container qua Docker API rồi đẩy vào Loki 3.7.9 — chỉ log API (gateway,
+server) và sự kiện container (`health-events`), `docs/monitoring.md`. Đo bằng LogQL qua Grafana trên
+khung của §21.5 (08:31:43–08:37:14, 331 s):
+
+- Loki nhận 47.305 dòng log gateway và 47.467 dòng log server (k6 gửi 47.250 request; phần dư là các
+  probe sức khoẻ).
+- Lọc `| json | status=~"4..|5.."`: gateway 19 dòng = 8 request lỗi ở §21.5 + 11 lượt GET đường webhook
+  SePay của probe public (404 là kết quả đúng, AGENTS.MD).
+- Luồng `health-events` ghi đủ lần khởi động lại bằng tay: `kill` tín hiệu 15 (08:35:05,7) → `kill`
+  tín hiệu 9 (08:35:17,8 — sau 12 s) → `stop` → `die` mã thoát 137 (08:35:18,7) → `start`
+  (08:35:19,4) → `health_status: healthy` (08:35:24,5).
+- Trong 110 s bản đó treo **không** có sự kiện nào: healthcheck của server (`docker-compose.yml`:
+  interval 10 s, timeout 5 s, retries 12) cần 12 lượt hỏng liên tiếp (~15 s mỗi lượt ≈ 3 phút) mới báo
+  `unhealthy`. Vì vậy cảnh báo treo dựa vào probe của Prometheus, không dựa vào trạng thái health của
+  Docker.
+
+### 21.7 Hạn chế của các số đo trên
 
 - k6 và hệ thống chạy chung một máy nên tranh CPU; số tuyệt đối chỉ đúng cho máy này.
-- Mỗi kịch bản đo một lần; chưa có khoảng tin cậy.
+- Mỗi kịch bản đo một lần (failover hai lần); chưa có khoảng tin cậy.
 - p95 phía server (Prometheus) không tính thời gian request chờ trước khi Express nhận; số p95/p99 ở
   bảng §21.1–21.2 là số k6 đo từ phía client, đã gồm phần chờ đó.
 - Demo Kubernetes chạy một node: không chứng minh được khả năng chịu lỗi khi cả máy hỏng.
+- Gián đoạn khi deploy (§21.4) đo từ chính máy production qua loopback, không phải từ phía khách qua
+  Internet; 132 s không phục vụ ở §21.5 phụ thuộc người trực, chỉ đúng cho lần chạy có script chờ
+  email 40 s.
