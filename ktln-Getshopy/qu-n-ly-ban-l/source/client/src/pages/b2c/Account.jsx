@@ -5,6 +5,7 @@ import { useApp } from '../../context/AppContext';
 import { api } from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { getProductImage, handleImageError } from '../../utils/categoryResolver';
+import { reverseGeocode } from '../../utils/reverseGeocode';
 import html2pdf from 'html2pdf.js';
 import OrderTrackingMap from '../../components/b2c/OrderTrackingMap';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
@@ -125,9 +126,35 @@ export default function Account() {
   // Bị từ chối quyền / máy không hỗ trợ: không tự hỏi lại mỗi lần mở (vẫn bấm nút để thử lại được)
   const geoBlockedRef = useRef(false);
 
-  // Điền ô "Địa chỉ cụ thể" từ điểm trên bản đồ — dùng chung cho chạm chọn (luồng cũ) và định vị
-  const fillStreetFromPoint = useCallback((lat, lng) => {
-    form.setFieldsValue({ street: `Toạ độ: ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+  // Điền địa chỉ từ điểm trên bản đồ — dùng chung cho chạm chọn và định vị. Từ 19/11/2026 tra ngược ra
+  // Tỉnh/Thành, Phường/Xã, tên đường (utils/reverseGeocode.js — Nominatim, đã theo đơn vị hành chính
+  // 2 cấp từ 1/7/2025); tra lỗi thì như cũ: ghi toạ độ vào ô địa chỉ cụ thể. Kết quả về muộn (khách đã
+  // chọn điểm khác) thì bỏ; đóng hộp KHÔNG bỏ — điểm đã chọn vẫn được điền.
+  const [addrLookup, setAddrLookup] = useState({ status: 'idle', text: '' }); // idle | loading | done | warn
+  const lookupReqRef = useRef(0);
+  const fillStreetFromPoint = useCallback(async (lat, lng) => {
+    const reqId = ++lookupReqRef.current;
+    const coords = `Toạ độ: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    setAddrLookup({ status: 'loading', text: 'Đang tra địa chỉ của điểm đã ghim…' });
+    try {
+      const r = await reverseGeocode(lat, lng);
+      if (reqId !== lookupReqRef.current) return;
+      // Ô Tỉnh/Thành ở đây là chữ tự do -> ghi tên đầy đủ ("Thành phố Hồ Chí Minh"); Checkout tự đổi
+      // sang HCM / HN / ĐN / "khác" khi chọn địa chỉ này. Phường ghi đè cả khi trống (không giữ điểm cũ).
+      form.setFieldsValue({
+        street: r.street || coords,
+        ward: r.ward,
+        ...(r.provinceName ? { province: r.provinceName } : {}),
+      });
+      const filled = [r.street, r.ward, r.provinceName].filter(Boolean).join(', ');
+      setAddrLookup(filled
+        ? { status: 'done', text: `Đã điền: ${filled}. Kiểm tra lại (thêm số nhà nếu thiếu).` }
+        : { status: 'warn', text: 'Không tìm được địa chỉ của điểm này — đã ghi toạ độ, hãy nhập phường/xã và tên đường.' });
+    } catch {
+      if (reqId !== lookupReqRef.current) return;
+      form.setFieldsValue({ street: coords });
+      setAddrLookup({ status: 'warn', text: 'Không tra được địa chỉ (mạng hoặc dịch vụ bản đồ) — đã ghi toạ độ, hãy nhập phường/xã và tên đường.' });
+    }
   }, [form]);
 
   const locateMe = useCallback(() => {
@@ -964,7 +991,11 @@ export default function Account() {
                   </div>
                   <Button 
                     type="primary" 
-                    onClick={() => setIsAddressModalOpen(true)} 
+                    onClick={() => {
+                      // Mở lại hộp: bỏ dòng kết quả tra của lần trước (đang tra dở thì giữ)
+                      setAddrLookup(s => (s.status === 'loading' ? s : { status: 'idle', text: '' }));
+                      setIsAddressModalOpen(true);
+                    }}
                     style={{ background: '#18181b', borderColor: '#18181b', borderRadius: 10, fontWeight: 600 }}
                   >
                     Thêm địa chỉ mới
@@ -1009,7 +1040,8 @@ export default function Account() {
                             )}
                           </div>
                           <div style={{ color: isDark ? '#a1a1aa' : '#71717a', fontSize: 14 }}>
-                            {addr.street}, {addr.ward}, {addr.district}, {addr.province}
+                            {/* Địa chỉ lưu trước 19/11/2026 còn quận/huyện thì vẫn hiện; địa chỉ mới không có */}
+                            {[addr.street, addr.ward, addr.district, addr.province].filter(Boolean).join(', ')}
                           </div>
                         </div>
                         <Button 
@@ -1037,11 +1069,11 @@ export default function Account() {
                       <Form form={form} layout="vertical" onFinish={handleAddAddress}>
                         <Form.Item name="name" label="Họ và tên" rules={[{ required: true }]}><Input placeholder="Nhập họ và tên người nhận" style={{ borderRadius: 10 }} /></Form.Item>
                         <Form.Item name="phone" label="Số điện thoại" rules={[{ required: true }]}><Input placeholder="Nhập số điện thoại nhận hàng" style={{ borderRadius: 10 }} /></Form.Item>
+                        {/* Từ 1/7/2025 không còn cấp huyện — ô Quận/Huyện bỏ 19/11/2026 */}
                         <Row gutter={12}>
                           <Col span={12}><Form.Item name="province" label="Tỉnh/Thành phố" rules={[{ required: true }]}><Input placeholder="Ví dụ: TP. Hồ Chí Minh" style={{ borderRadius: 10 }} /></Form.Item></Col>
-                          <Col span={12}><Form.Item name="district" label="Quận/Huyện" rules={[{ required: true }]}><Input placeholder="Ví dụ: Quận 1" style={{ borderRadius: 10 }} /></Form.Item></Col>
+                          <Col span={12}><Form.Item name="ward" label="Phường/Xã" rules={[{ required: true }]}><Input placeholder="Ví dụ: Phường Bến Thành" style={{ borderRadius: 10 }} /></Form.Item></Col>
                         </Row>
-                        <Form.Item name="ward" label="Phường/Xã" rules={[{ required: true }]}><Input placeholder="Ví dụ: Phường Bến Nghé" style={{ borderRadius: 10 }} /></Form.Item>
                         <Form.Item name="street" label="Địa chỉ cụ thể" rules={[{ required: true }]}><Input.TextArea placeholder="Số nhà, tên đường hoặc toạ độ..." rows={2} style={{ borderRadius: 10 }} /></Form.Item>
                         <Button type="primary" htmlType="submit" style={{ width: '100%', background: '#18181b', borderColor: '#18181b', borderRadius: 10, height: 44, fontWeight: 600, marginTop: 12 }}>
                           Lưu địa chỉ
@@ -1091,8 +1123,13 @@ export default function Account() {
                           <MapResizer active={isAddressModalOpen} />
                         </MapContainer>
                       </div>
-                      <div style={{ fontSize: 12, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 8 }}>
-                        Nhấp trực tiếp trên bản đồ để chọn toạ độ giao hàng.
+                      {/* Kết quả tra địa chỉ của điểm đã ghim (19/11/2026); chưa ghim thì là dòng hướng dẫn cũ */}
+                      <div
+                        role="status"
+                        aria-live="polite"
+                        style={{ fontSize: 12, marginTop: 8, color: addrLookup.status === 'warn' ? '#d97706' : (isDark ? '#a1a1aa' : '#71717a') }}
+                      >
+                        {addrLookup.text || 'Nhấp trực tiếp trên bản đồ để chọn toạ độ giao hàng.'}
                       </div>
                     </div>
                   </div>
