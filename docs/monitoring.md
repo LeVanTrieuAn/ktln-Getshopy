@@ -488,8 +488,8 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
 
 | Luật | Điều kiện (liên tục) | Mức | Email nói gì / làm gì |
 |---|---|---|---|
-| **Server treo** | một bản (đã từng chạy) không trả lời `/api/health` **hoặc** không cho kéo số đo, 1 phút | critical | tên bản (`hostname` = id container): **"Treo thì Docker KHÔNG tự khởi động lại — chạy tay: `docker restart <hostname>`"** |
-| **Thiếu server** | số bản trả lời `/api/health` < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào → 0 (`or vector(0)`) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
+| **Server treo** | một bản **đang chạy** không trả lời `/api/health` **hoặc** không cho kéo số đo, 1 phút — kể cả bản kẹt lúc khởi động (tên dạng "IP … (chưa có id)", từ 19/11/2026) | critical | tên bản (`hostname` = id container): **"Treo thì Docker KHÔNG tự khởi động lại — chạy tay: `docker restart <hostname>`"** |
+| **Thiếu server** | số bản **đang chạy** (container còn tồn tại) < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào trả lời → thiếu 3. Từ 19/11/2026 bản treo KHÔNG còn bị tính là thiếu (trước đó lúc treo email "Thiếu server" đi kèm "Server treo" — người dùng thấy sai) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
 | **Web sập** | `http://gateway/api/health` không 2xx, 1 phút; mất luôn dữ liệu probe cũng tính | critical | gateway hay mọi bản server chết |
 | **Nhiều lỗi 5xx** | > 5 % response là 5xx trong 5 phút, khi có tải (> 0,2 req/s) | warning | panel "Lỗi 5xx mỗi bản", log Loki |
 | **Request bị kẹt ở gateway** (từ 19/11/2026) | ≥ 3 request trong 5 phút mà gateway chờ ≥ 5 s rồi kết thúc 499 / 502 / 503 / 504 (log Loki, bỏ `/socket.io`); bắn ngay, không chờ | warning | lỗi do **gateway** sinh ra (bản treo / chậm) — "Nhiều lỗi 5xx" không thấy; thử trên log: khung server treo 08:33–08:38 → 8, deploy / scale / lúc vắng → 0 |
