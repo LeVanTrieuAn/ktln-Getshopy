@@ -492,6 +492,7 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
 | **Thiếu server** | số bản trả lời `/api/health` < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào → 0 (`or vector(0)`) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
 | **Web sập** | `http://gateway/api/health` không 2xx, 1 phút; mất luôn dữ liệu probe cũng tính | critical | gateway hay mọi bản server chết |
 | **Nhiều lỗi 5xx** | > 5 % response là 5xx trong 5 phút, khi có tải (> 0,2 req/s) | warning | panel "Lỗi 5xx mỗi bản", log Loki |
+| **Request bị kẹt ở gateway** (từ 19/11/2026) | ≥ 3 request trong 5 phút mà gateway chờ ≥ 5 s rồi kết thúc 499 / 502 / 503 / 504 (log Loki, bỏ `/socket.io`); bắn ngay, không chờ | warning | lỗi do **gateway** sinh ra (bản treo / chậm) — "Nhiều lỗi 5xx" không thấy; thử trên log: khung server treo 08:33–08:38 → 8, deploy / scale / lúc vắng → 0 |
 | **Đường public hoặc webhook đứt** | URL public 443 hoặc đường webhook SePay 8443 (GET phải 404 **có** `X-Served-By` — tiêu chí "ĐƯỜNG THÔNG" của AGENTS.MD) hỏng, 2 phút | critical | bật từ 19/11/2026 (probe production đạt cho cả hai URL) — xem dưới |
 
 - **`for: 1m`** là cái phân biệt: một bản **chết** rồi Docker tự khởi động lại sau vài giây

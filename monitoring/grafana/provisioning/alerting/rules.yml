@@ -185,6 +185,44 @@ groups:
           description: 'Lỗi chỉ ở một bản: nghi bản đó. Ở mọi bản: phụ thuộc dùng chung (Postgres, ClickHouse, ai-bot) có vấn đề.'
           runbook: 'Dashboard: panel "Lỗi 5xx mỗi bản"; log trong Grafana Explore (Loki): {service="server", status_class="5xx"} | json'
 
+      # ── 6. Request bị kẹt ở gateway (log Loki) ──────────────────────────────
+      # 19/11/2026, người dùng: server treo phải biết qua cả lưu lượng (timeout nhiều), không chỉ probe
+      # /api/health. Đếm request gateway phải chờ >= 5 s rồi kết thúc 499 (khách bỏ), 502 / 503 (bản đang
+      # xử lý chết / bị restart) hoặc 504 (hết proxy_read_timeout). "Nhiều lỗi 5xx" chỉ thấy lỗi DO SERVER
+      # trả (số đo của server) — lỗi do gateway sinh ra chỉ luật này thấy. Bỏ /socket.io (long-polling có
+      # thể 499 khi khách đóng trang). Thử trên log Loki 19/11/2026: khung server treo 08:33–08:38 -> 8
+      # (5 x 499 sau 60 s, 3 x 503 lúc restart); deploy 10:26, scale / failover 10:43, lúc vắng -> 0.
+      - uid: getshopy-request-ket
+        title: Request bị kẹt ở gateway
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: getshopy-loki
+            model:
+              refId: A
+              editorMode: code
+              queryType: instant
+              expr: 'sum(count_over_time({service="gateway"} | json | __error__="" | path!~"/socket.io.*" | status=~"499|502|503|504" | request_time >= 5 [5m]))'
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [2]}
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ humanize $values.A.Value }} request bị kẹt ở gateway trong 5 phút (chờ >= 5 s rồi 499 / 502 / 503 / 504).'
+          description: 'Thường do một bản server treo hoặc chậm, hoặc phụ thuộc dùng chung (Postgres, ClickHouse, ai-bot) chậm. Bản nào: cột upstream_addr / served_by trong log gateway.'
+          runbook: 'Grafana Explore (Loki): {service="gateway"} | json | status=~"499|502|503|504" | request_time >= 5 — một upstream_addr lặp lại = bản đó treo: docker restart <id> (xem cảnh báo "Server treo"); rải đều mọi bản = kiểm Postgres / ClickHouse.'
+
       # ── 5. Đường public / webhook SePay qua Funnel đứt ──────────────────────
       # Probe đi từ container ra Internet rồi vòng về chính máy qua Tailscale Funnel — từ 19/11/2026
       # ~10:00, khi blackbox dùng DNS công khai (docker-compose.yml). Trước đó DNS của máy (MagicDNS)
