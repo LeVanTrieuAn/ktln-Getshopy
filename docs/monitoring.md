@@ -147,21 +147,28 @@ dashboard cân bằng tải. Grafana khởi động mất `[đo]` s (stack thử
 DB nội bộ; ~6 s các lần sau).
 
 **Xem từ máy khác trong tailnet** — **đã bật trên production 19/11/2026**:
-<https://msi.taild22ef7.ts.net:3001> (chỉ thiết bị đăng nhập tailnet; vẫn phải đăng nhập `admin`).
+<http://getshopy.internal:3001> (chỉ thiết bị trong tailnet; vẫn phải đăng nhập `admin`). Cùng kiểu
+`http://getshopy.internal:8000` của gateway: `getshopy.internal` là một dòng file hosts trỏ về IP
+Tailscale của máy production (`100.116.198.15 getshopy.internal`) — máy nào muốn dùng tên này phải
+có dòng đó (Windows: `C:\Windows\System32\drivers\etc\hosts`; macOS: `/etc/hosts`). Không có thì dùng
+<http://msi.taild22ef7.ts.net:3001> (MagicDNS) hoặc <http://100.116.198.15:3001>.
 
 ```powershell
-tailscale serve --bg --https=3001 http://127.0.0.1:3001     # chỉ thiết bị trong tailnet
+tailscale serve --bg --tcp=3001 tcp://127.0.0.1:3001       # chuyển tiếp TCP, chỉ thiết bị trong tailnet
 tailscale serve status                                     # 3001 KHÔNG được có "(Funnel on)"
-tailscale serve --https=3001 off                           # gỡ
+tailscale serve --tcp=3001 off                             # gỡ
 ```
 
-Kiểm lúc bật (19/11/2026, gọi từ chính máy production qua tên tailnet): `/api/health` 200; đăng nhập
-200; truy vấn Prometheus qua `/api/ds/query` 200 — Tailscale giữ nguyên header `Host` nên kiểm tra
-CSRF của Grafana (so `Origin` với `Host`) vẫn đạt mà không phải đổi `GF_SERVER_ROOT_URL`; cùng request
-đó với `Origin` lạ bị 403. Funnel vẫn chỉ bật ở 443 và 8443. Máy khác không mở được tên
-`msi.taild22ef7.ts.net` thì bật "Use Tailscale DNS settings" trong Tailscale của máy đó (tên này chỉ
-trỏ về máy production qua MagicDNS; DNS công khai trỏ nó về cổng vào của Funnel, nơi không có
-cổng 3001). `tailscale serve reset` xoá cả mục này lẫn đường webhook — AGENTS.MD.
+- **Chuyển tiếp TCP, không dùng `--https`**: serve HTTPS chỉ có chứng chỉ cho tên
+  `msi.taild22ef7.ts.net` và chọn đích theo tên miền, nên không mở được bằng tên tự đặt như
+  `getshopy.internal`. TCP không quan tâm tên. Trong tailnet, đường truyền đã được WireGuard mã hoá.
+- **Không bind Docker lên IP Tailscale** (như `GATEWAY_BIND_IP` của gateway): Grafana sẽ không khởi
+  động được mỗi khi Tailscale chưa lên. Compose giữ `127.0.0.1:3001`.
+- Kiểm lúc bật (19/11/2026, gọi từ chính máy production qua `http://getshopy.internal:3001`):
+  `/api/health` 200; đăng nhập 200; truy vấn Prometheus qua `/api/ds/query` 200 — trình duyệt gửi
+  `Host` và `Origin` cùng tên nên kiểm tra CSRF của Grafana đạt mà không phải đổi
+  `GF_SERVER_ROOT_URL`; cùng request đó với `Origin` lạ bị 403. Funnel vẫn chỉ bật ở 443 và 8443.
+- `tailscale serve reset` xoá cả mục này lẫn đường webhook — AGENTS.MD.
 
 **KHÔNG** dùng `tailscale funnel` cho cổng này: Funnel đưa ra cả Internet [14].
 
