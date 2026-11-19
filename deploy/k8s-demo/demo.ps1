@@ -346,18 +346,26 @@ function ConvertFrom-JsonSafe([string]$Text) {
 }
 
 # GET trả JSON cho smoke test: mã HTTP, pod trả lời, JSON đã parse.
+# 30 s + thử lại MỘT lần khi quá giờ (chạy thật 19/11/2026): pod green vừa Ready chạy truy vấn danh
+# sách 600k sản phẩm ĐẦU TIÊN (pod demo không có Redis, cache trong pod còn trống, pool DB chưa ấm)
+# và quá 15 s; đo lại trên pod blue: lần đầu 1,6 s, lần sau 19 ms. Lỗi HTTP thật thì không thử lại.
 function Invoke-JsonGet([string]$Url) {
     $sw = [Diagnostics.Stopwatch]::StartNew()
     $res = [pscustomobject]@{ Status = 0; Ms = 0; ServedBy = ''; Json = $null; Error = '' }
-    try {
-        $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -DisableKeepAlive -TimeoutSec 15
-        $res.Status = [int]$r.StatusCode
-        $res.ServedBy = [string]$r.Headers['X-Served-By']
-        try { $res.Json = ConvertFrom-JsonSafe $r.Content } catch { $res.Error = 'body không phải JSON' }
-    } catch {
-        $resp = $_.Exception.Response
-        if ($resp) { try { $res.Status = [int]$resp.StatusCode } catch { } }
-        $res.Error = $_.Exception.Message
+    for ($try = 1; $try -le 2; $try++) {
+        $res.Status = 0; $res.Error = ''
+        try {
+            $r = Invoke-WebRequest -Uri $Url -UseBasicParsing -DisableKeepAlive -TimeoutSec 30
+            $res.Status = [int]$r.StatusCode
+            $res.ServedBy = [string]$r.Headers['X-Served-By']
+            try { $res.Json = ConvertFrom-JsonSafe $r.Content } catch { $res.Error = 'body không phải JSON' }
+            break
+        } catch {
+            $resp = $_.Exception.Response
+            if ($resp) { try { $res.Status = [int]$resp.StatusCode } catch { } }
+            $res.Error = $_.Exception.Message
+            if ($res.Status -ne 0) { break }   # có mã HTTP = trả lời thật, không thử lại
+        }
     }
     $res.Ms = $sw.ElapsedMilliseconds
     return $res
