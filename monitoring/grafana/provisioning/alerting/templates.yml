@@ -3,6 +3,9 @@
 # "Bắt đầu" = lúc cảnh báo chuyển Firing (sau "for: 1m"), không phải lúc sự cố bắt đầu.
 # DatasourceError / DatasourceNoData: Grafana tự sinh khi một luật không chạy được (Prometheus không
 # trả lời, truy vấn lỗi) — nhãn rulename là tên luật.
+# Nhóm nhom=server (policies.yml) có thể chứa cả "Server treo" lẫn "Thiếu server": một email tiêu đề
+# "SERVER TREO (bản …) + THIẾU SERVER", "Server treo" in trước (19/11/2026, người dùng). Chỉ dùng hàm
+# Go template chuẩn + hàm của Grafana (tz, date) — hàm lạ làm template lỗi, email không đi.
 apiVersion: 1
 
 templates:
@@ -10,11 +13,41 @@ templates:
     name: getshopy-email
     template: |
       {{ define "getshopy.email.subject" -}}
-      {{ if eq .Status "firing" }}[CẢNH BÁO]{{ else }}[ĐÃ HẾT]{{ end }} {{ .CommonLabels.alertname }}{{ with .CommonLabels.rulename }} — luật {{ . }}{{ end }}{{ with .CommonLabels.hostname }} — bản {{ . }}{{ end }} (Getshopy)
+      {{- $list := .Alerts.Firing }}{{ if eq .Status "resolved" }}{{ $list = .Alerts.Resolved }}{{ end -}}
+      {{- $hosts := "" }}{{ $missing := false -}}
+      {{- range $list -}}
+      {{- if eq .Labels.alertname "Server treo" }}{{ if $hosts }}{{ $hosts = printf "%s, %s" $hosts .Labels.hostname }}{{ else }}{{ $hosts = .Labels.hostname }}{{ end }}{{ end -}}
+      {{- if eq .Labels.alertname "Thiếu server" }}{{ $missing = true }}{{ end -}}
+      {{- end -}}
+      {{ if eq .Status "firing" }}[CẢNH BÁO]{{ else }}[ĐÃ HẾT]{{ end -}}
+      {{ if and $hosts $missing }} SERVER TREO (bản {{ $hosts }}) + THIẾU SERVER
+      {{- else if $hosts }} Server treo — bản {{ $hosts }}
+      {{- else }} {{ .CommonLabels.alertname }}{{ with .CommonLabels.rulename }} — luật {{ . }}{{ end }}{{ with .CommonLabels.hostname }} — bản {{ . }}{{ end }}
+      {{- end }} (Getshopy)
       {{- end }}
 
       {{ define "getshopy.email.message" -}}
-      {{ range .Alerts -}}
+      {{- $list := .Alerts.Firing }}{{ if eq .Status "resolved" }}{{ $list = .Alerts.Resolved }}{{ end -}}
+      {{- $hosts := "" }}{{ $missing := false -}}
+      {{- range $list -}}
+      {{- if eq .Labels.alertname "Server treo" }}{{ if $hosts }}{{ $hosts = printf "%s, %s" $hosts .Labels.hostname }}{{ else }}{{ $hosts = .Labels.hostname }}{{ end }}{{ end -}}
+      {{- if eq .Labels.alertname "Thiếu server" }}{{ $missing = true }}{{ end -}}
+      {{- end -}}
+      {{ if and $hosts $missing -}}
+      {{ if eq .Status "firing" -}}
+      SERVER TREO + THIẾU SERVER: bản {{ $hosts }} treo nên đang thiếu bản phục vụ — cùng một sự cố, gộp một email.
+      {{- else -}}
+      ĐÃ HẾT SERVER TREO + THIẾU SERVER: bản {{ $hosts }} đã trả lời lại, đủ bản phục vụ.
+      {{- end }}
+
+      {{ end -}}
+      {{ range .Alerts }}{{ if eq .Labels.alertname "Server treo" }}{{ template "getshopy.email.alert" . }}{{ end }}{{ end -}}
+      {{ range .Alerts }}{{ if ne .Labels.alertname "Server treo" }}{{ template "getshopy.email.alert" . }}{{ end }}{{ end -}}
+      Dashboard: http://getshopy.internal:3001/d/getshopy-lb (máy trong tailnet; hoặc http://msi.taild22ef7.ts.net:3001/d/getshopy-lb) — trên chính máy chạy Docker: http://localhost:3001/d/getshopy-lb
+      Tài liệu: docs/monitoring.md, mục "Cảnh báo".
+      {{- end }}
+
+      {{ define "getshopy.email.alert" -}}
       {{ if eq .Status "firing" }}ĐANG LỖI{{ else }}ĐÃ HẾT LỖI{{ end }}: {{ .Labels.alertname }}{{ with .Labels.hostname }} — bản {{ . }}{{ end }}
       Mức độ: {{ with .Labels.severity }}{{ . }}{{ else }}(không đặt){{ end }}
       Bắt đầu: {{ .StartsAt | tz "Asia/Ho_Chi_Minh" | date "15:04:05 02/01/2006" }} (giờ Việt Nam)
@@ -34,7 +67,4 @@ templates:
       Cách xử lý: {{ . }}
       {{- end }}
 
-      {{ end -}}
-      Dashboard: http://getshopy.internal:3001/d/getshopy-lb (máy trong tailnet; hoặc http://msi.taild22ef7.ts.net:3001/d/getshopy-lb) — trên chính máy chạy Docker: http://localhost:3001/d/getshopy-lb
-      Tài liệu: docs/monitoring.md, mục "Cảnh báo".
-      {{- end }}
+      {{ end }}

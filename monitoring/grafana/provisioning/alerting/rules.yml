@@ -31,7 +31,10 @@ groups:
       # Nối nhãn hostname (= id container = X-Served-By) từ getshopy_server_info: bản treo thì chuỗi
       # đó ngừng cập nhật nên lấy chuỗi có mẫu MỚI NHẤT trong 24 giờ cho mỗi instance (IP có thể
       # được cấp lại cho bản mới sau khi scale — chọn mới nhất tránh trùng). Bản chưa từng trả số đo
-      # (khởi động hỏng) không có hostname -> không nằm ở đây mà ở luật "Thiếu server".
+      # (kẹt lúc khởi động) không có chuỗi đó -> nhánh `or on (instance)` gắn hostname "IP … (chưa có
+      # id)" để vẫn báo.
+      # Nhãn nhom=server: cùng nhóm với "Thiếu server" -> bản treo (cũng là đang thiếu bản phục vụ)
+      # chỉ ra MỘT email "SERVER TREO + THIẾU SERVER" (policies.yml, templates.yml — 19/11/2026).
       # Chỉ xét khi CÒN ít nhất một bản trả lời: lúc không còn bản nào, DNS nội bộ của Docker không
       # trả lời tên "server" và Prometheus GIỮ danh sách bản cũ (đã gỡ) -> mọi bản cũ "không trả
       # lời" -> báo treo sai cho container không còn tồn tại (gặp khi thử 19/11/2026). Trường hợp đó
@@ -49,14 +52,21 @@ groups:
               editorMode: code
               expr: |
                 (
-                  min by (instance) (
-                      probe_success{job="blackbox-server"}
-                    or
-                      up{job="getshopy-server"}
-                  )
-                  * on (instance) group_left (hostname)
                   (
-                    0 * topk by (instance) (1, max_over_time(timestamp(getshopy_server_info{job="getshopy-server"})[24h:1m])) + 1
+                    min by (instance) (
+                        probe_success{job="blackbox-server"}
+                      or
+                        up{job="getshopy-server"}
+                    )
+                    * on (instance) group_left (hostname)
+                    (
+                      0 * topk by (instance) (1, max_over_time(timestamp(getshopy_server_info{job="getshopy-server"})[24h:1m])) + 1
+                    )
+                  )
+                  or on (instance)
+                  label_replace(
+                    min by (instance) (probe_success{job="blackbox-server"} or up{job="getshopy-server"}),
+                    "hostname", "IP $1 (chưa có id)", "instance", "([^:]+):.*"
                   )
                 )
                 and on () (count(probe_success{job="blackbox-server"} == 1) > 0)
@@ -74,15 +84,20 @@ groups:
         execErrState: Error
         labels:
           severity: critical
+          nhom: server
         annotations:
           summary: 'Bản server {{ $labels.hostname }} không trả lời (treo hoặc chết hẳn) hơn 1 phút.'
           description: 'Bản {{ $labels.hostname }} ({{ $labels.instance }}) không trả lời /api/health hoặc không cho kéo số đo. Gateway vẫn có thể gửi request tới nó — request đó chờ tới khi hết thời gian.'
-          runbook: 'Treo thì Docker KHÔNG tự khởi động lại — chạy tay: docker restart {{ $labels.hostname }} (rồi chờ email ĐÃ HẾT). Nếu bản đó không còn trong "docker compose ps server" thì xem cảnh báo "Thiếu server".'
+          runbook: 'Treo thì Docker KHÔNG tự khởi động lại — chạy tay: docker restart {{ $labels.hostname }} (rồi chờ email ĐÃ HẾT). Tên dạng "IP … (chưa có id)" = bản kẹt lúc khởi động: tìm container có IP đó bằng docker compose ps server + docker inspect, xem log rồi restart.'
 
-      # ── 2. Ít bản healthy hơn số cấu hình ───────────────────────────────────
-      # A = số bản THIẾU = 3 - số bản trả lời /api/health. 3 = SERVER_REPLICAS mặc định của
-      # docker-compose.yml. ĐỔI SERVER_REPLICAS TRONG .env THÌ SỬA SỐ 3 Ở expr VÀ summary BÊN DƯỚI rồi
-      # chạy: docker compose restart grafana (Grafana không thay biến môi trường trong file luật).
+      # ── 2. Ít bản ĐANG PHỤC VỤ hơn số cấu hình ──────────────────────────────
+      # A = số bản THIẾU = 3 - số bản trả lời /api/health. Bản treo cũng tính là thiếu (đúng: nó
+      # không phục vụ) -> lúc treo có HAI sự kiện ("Server treo" + "Thiếu server"), nhưng nhãn
+      # nhom=server gộp chúng vào MỘT email (policies.yml — 19/11/2026, người dùng). Chỉ thiếu bản
+      # (scale xuống, docker stop, crash lặp lại) thì chỉ có sự kiện này.
+      # 3 = SERVER_REPLICAS mặc định của docker-compose.yml. ĐỔI SERVER_REPLICAS TRONG .env THÌ SỬA SỐ 3
+      # Ở expr VÀ summary BÊN DƯỚI rồi chạy: docker compose restart grafana (Grafana không thay biến
+      # môi trường trong file luật).
       - uid: getshopy-thieu-server
         title: Thiếu server
         condition: C
@@ -109,9 +124,10 @@ groups:
         execErrState: Error
         labels:
           severity: warning
+          nhom: server
         annotations:
-          summary: 'Thiếu {{ $values.A.Value }} bản server so với cấu hình 3 bản (số bản trả lời /api/health ít hơn SERVER_REPLICAS).'
-          description: 'Có bản đã thoát mà không tự lên lại, đang khởi động quá lâu, hoặc số bản đang bị scale xuống (demo, thao tác tay).'
+          summary: 'Đang thiếu {{ humanize $values.A.Value }} bản server phục vụ so với cấu hình 3 bản.'
+          description: 'Bản đã dừng / bị gỡ mà không tự lên lại (docker stop, crash lặp lại), đang khởi động, bị scale xuống — hoặc đang TREO (khi đó email gộp chung với "Server treo").'
           runbook: 'Xem: docker compose ps server; log: docker compose logs --tail 100 server; dựng lại đủ số bản: docker compose up -d --no-deps server.'
 
       # ── 3. Web sập: /api/health qua gateway không trả 2xx ───────────────────
@@ -184,6 +200,44 @@ groups:
           summary: 'Hơn 5 % response của server là 5xx trong 5 phút.'
           description: 'Lỗi chỉ ở một bản: nghi bản đó. Ở mọi bản: phụ thuộc dùng chung (Postgres, ClickHouse, ai-bot) có vấn đề.'
           runbook: 'Dashboard: panel "Lỗi 5xx mỗi bản"; log trong Grafana Explore (Loki): {service="server", status_class="5xx"} | json'
+
+      # ── 6. Request bị kẹt ở gateway (log Loki) ──────────────────────────────
+      # 19/11/2026, người dùng: server treo phải biết qua cả lưu lượng (timeout nhiều), không chỉ probe
+      # /api/health. Đếm request gateway phải chờ >= 5 s rồi kết thúc 499 (khách bỏ), 502 / 503 (bản đang
+      # xử lý chết / bị restart) hoặc 504 (hết proxy_read_timeout). "Nhiều lỗi 5xx" chỉ thấy lỗi DO SERVER
+      # trả (số đo của server) — lỗi do gateway sinh ra chỉ luật này thấy. Bỏ /socket.io (long-polling có
+      # thể 499 khi khách đóng trang). Thử trên log Loki 19/11/2026: khung server treo 08:33–08:38 -> 8
+      # (5 x 499 sau 60 s, 3 x 503 lúc restart); deploy 10:26, scale / failover 10:43, lúc vắng -> 0.
+      - uid: getshopy-request-ket
+        title: Request bị kẹt ở gateway
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange: {from: 300, to: 0}
+            datasourceUid: getshopy-loki
+            model:
+              refId: A
+              editorMode: code
+              queryType: instant
+              expr: 'sum(count_over_time({service="gateway"} | json | __error__="" | path!~"/socket.io.*" | status=~"499|502|503|504" | request_time >= 5 [5m]))'
+          - refId: C
+            relativeTimeRange: {from: 0, to: 0}
+            datasourceUid: __expr__
+            model:
+              refId: C
+              type: threshold
+              expression: A
+              conditions:
+                - evaluator: {type: gt, params: [2]}
+        for: 0s
+        noDataState: OK
+        execErrState: Error
+        labels:
+          severity: warning
+        annotations:
+          summary: '{{ humanize $values.A.Value }} request bị kẹt ở gateway trong 5 phút (chờ >= 5 s rồi 499 / 502 / 503 / 504).'
+          description: 'Thường do một bản server treo hoặc chậm, hoặc phụ thuộc dùng chung (Postgres, ClickHouse, ai-bot) chậm. Bản nào: cột upstream_addr / served_by trong log gateway.'
+          runbook: 'Grafana Explore (Loki): {service="gateway"} | json | status=~"499|502|503|504" | request_time >= 5 — một upstream_addr lặp lại = bản đó treo: docker restart <id> (xem cảnh báo "Server treo"); rải đều mọi bản = kiểm Postgres / ClickHouse.'
 
       # ── 5. Đường public / webhook SePay qua Funnel đứt ──────────────────────
       # Probe đi từ container ra Internet rồi vòng về chính máy qua Tailscale Funnel — từ 19/11/2026

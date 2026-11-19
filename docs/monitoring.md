@@ -491,10 +491,11 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
 
 | Luật | Điều kiện (liên tục) | Mức | Email nói gì / làm gì |
 |---|---|---|---|
-| **Server treo** | một bản (đã từng chạy) không trả lời `/api/health` **hoặc** không cho kéo số đo, 1 phút | critical | tên bản (`hostname` = id container): **"Treo thì Docker KHÔNG tự khởi động lại — chạy tay: `docker restart <hostname>`"** |
-| **Thiếu server** | số bản trả lời `/api/health` < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào → 0 (`or vector(0)`) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
+| **Server treo** | một bản **đang chạy** không trả lời `/api/health` **hoặc** không cho kéo số đo, 1 phút — kể cả bản kẹt lúc khởi động (tên dạng "IP … (chưa có id)", từ 19/11/2026) | critical | tên bản (`hostname` = id container): **"Treo thì Docker KHÔNG tự khởi động lại — chạy tay: `docker restart <hostname>`"** |
+| **Thiếu server** | số bản **đang phục vụ** (trả lời `/api/health`) < 3 (= `SERVER_REPLICAS` mặc định), 1 phút; không bản nào → thiếu 3 (`or vector(0)`). Bản treo cũng tính là thiếu → lúc treo có hai sự kiện, nhưng **gộp một email** với "Server treo" (nhãn `nhom=server`, từ 19/11/2026) | warning | `docker compose ps server`, log, `docker compose up -d --no-deps server` |
 | **Web sập** | `http://gateway/api/health` không 2xx, 1 phút; mất luôn dữ liệu probe cũng tính | critical | gateway hay mọi bản server chết |
 | **Nhiều lỗi 5xx** | > 5 % response là 5xx trong 5 phút, khi có tải (> 0,2 req/s) | warning | panel "Lỗi 5xx mỗi bản", log Loki |
+| **Request bị kẹt ở gateway** (từ 19/11/2026) | ≥ 3 request trong 5 phút mà gateway chờ ≥ 5 s rồi kết thúc 499 / 502 / 503 / 504 (log Loki, bỏ `/socket.io`); bắn ngay, không chờ | warning | lỗi do **gateway** sinh ra (bản treo / chậm) — "Nhiều lỗi 5xx" không thấy; thử trên log: khung server treo 08:33–08:38 → 8, deploy / scale / lúc vắng → 0 |
 | **Đường public hoặc webhook đứt** | URL public 443 hoặc đường webhook SePay 8443 (GET phải 404 **có** `X-Served-By` — tiêu chí "ĐƯỜNG THÔNG" của AGENTS.MD) hỏng, 2 phút | critical | bật từ 19/11/2026 (probe production đạt cho cả hai URL) — xem dưới |
 
 - **`for: 1m`** là cái phân biệt: một bản **chết** rồi Docker tự khởi động lại sau vài giây
@@ -503,10 +504,15 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
   `unhealthy` [11][12].
 - **Tên bản trong email**: nhãn `hostname` nối từ `getshopy_server_info`; bản treo thì chuỗi đó ngừng
   cập nhật nên luật lấy chuỗi có mẫu mới nhất trong 24 giờ cho mỗi địa chỉ (IP có thể được cấp lại
-  cho bản mới sau khi scale). Bản chưa từng trả số đo (khởi động hỏng) không có tên — nằm ở "Thiếu server".
-- **Gửi email**: chính sách gom theo (`alertname`, `hostname`) — hai bản cùng treo là hai email; chờ
-  30 s trước email đầu (`group_wait`), nhóm đã gửi thì ≥ 5 phút mới gửi tiếp (`group_interval` — kể cả
-  email **ĐÃ HẾT**), còn lỗi thì nhắc lại mỗi 4 giờ (`repeat_interval`) [19].
+  cho bản mới sau khi scale). Bản chưa từng trả số đo (kẹt lúc khởi động) không có tên — mang tên
+  "IP … (chưa có id)" (từ 19/11/2026).
+- **Gửi email**: mặc định gom theo (`alertname`, `hostname`). **Riêng "Server treo" + "Thiếu server"**
+  (nhãn `nhom=server`) gom theo `nhom` → **một email** "SERVER TREO (bản …) + THIẾU SERVER" khi bản
+  treo (hai luật bắn cách nhau ~10 s — thử 19/11: 11:24:50 / 11:25:00 — lọt trong `group_wait`); chỉ
+  thiếu bản (scale xuống, `docker stop`) thì một email "Thiếu server"; hai bản cùng treo → một email
+  ghi cả hai tên (`policies.yml`). Trước 19/11/2026 lúc treo nhận HAI email (11:25:24 "Server treo",
+  11:25:36 "Thiếu server"). Chờ 30 s trước email đầu (`group_wait`), nhóm đã gửi thì ≥ 5 phút mới gửi
+  tiếp (`group_interval` — kể cả email **ĐÃ HẾT**), còn lỗi thì nhắc lại mỗi 4 giờ (`repeat_interval`) [19].
 - **Máy gửi**: dùng lại `SMTP_HOST/PORT/USER/PASS` của chức năng "Quên mật khẩu". Grafana dùng TLS ngay
   từ đầu khi cổng là **465** (như `SMTP_SECURE=true` của server); cổng khác thì STARTTLS — compose đặt
   `MandatoryStartTLS` để mật khẩu không bao giờ đi dạng chữ thường [9]. Thử 19/11/2026: Grafana gửi tới
@@ -517,8 +523,11 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
   thay biến — đã thử). File LUẬT thì **không** thay biến (Grafana 13.2.5, đã thử) nên số 3 của "Thiếu
   server" ghi thẳng trong `rules.yml`: **đổi `SERVER_REPLICAS` thì sửa số 3 trong `rules.yml`** rồi
   `docker compose restart grafana`.
-- **Đọc email**: tiêu đề `[CẢNH BÁO] <luật> — bản <hostname> (Getshopy)` hoặc `[ĐÃ HẾT] …`; thân email:
-  trạng thái, mức độ, "Bắt đầu" (= lúc chuyển Firing, giờ Việt Nam), mô tả và dòng **"Cách xử lý"**.
+- **Đọc email**: tiêu đề `[CẢNH BÁO] <luật> — bản <hostname> (Getshopy)` hoặc `[ĐÃ HẾT] …`; bản treo:
+  `[CẢNH BÁO] SERVER TREO (bản <hostname>) + THIẾU SERVER (Getshopy)`, thân email mở đầu bằng một dòng
+  tóm tắt rồi phần "Server treo" trước, "Thiếu server" sau. Mỗi phần: trạng thái, mức độ, "Bắt đầu"
+  (= lúc chuyển Firing, giờ Việt Nam), mô tả và dòng **"Cách xử lý"**. Đã thử hiển thị bằng API thử
+  template của Grafana (5 trường hợp: treo, chỉ thiếu, đã hết, hai bản treo, cảnh báo khác) — không lỗi.
   `DatasourceError` = luật không chạy được (Prometheus / truy vấn hỏng) — tức đang mất giám sát.
 - **Đường public**: probe đi từ container ra Internet rồi vòng về chính máy qua Funnel — **chỉ khi**
   blackbox phân giải `msi.taild22ef7.ts.net` bằng DNS công khai (`dns: ["1.1.1.1", "8.8.8.8"]` của
