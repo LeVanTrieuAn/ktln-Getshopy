@@ -130,7 +130,7 @@ Lưu ý khi giữ máy demo chạy lâu dài:
 | http://localhost:8123 | ClickHouse HTTP |
 | http://localhost:8083 | Kafka Connect REST |
 | http://localhost:9001 | MinIO Console |
-| http://localhost:3001 | Grafana — dashboard cân bằng tải (loopback; máy khác trong tailnet: https://msi.taild22ef7.ts.net:3001 qua `tailscale serve`, không Funnel; tài khoản `admin`, mật khẩu `GRAFANA_ADMIN_PASSWORD` trong `.env`) — [docs/monitoring.md](docs/monitoring.md) |
+| http://localhost:3001 | Grafana — dashboard cân bằng tải (loopback; máy khác trong tailnet: http://getshopy.internal:3001 — cần dòng hosts `100.116.198.15 getshopy.internal` — hoặc http://msi.taild22ef7.ts.net:3001, qua `tailscale serve --tcp=3001`, không Funnel; tài khoản `admin`, mật khẩu `GRAFANA_ADMIN_PASSWORD` trong `.env`) — [docs/monitoring.md](docs/monitoring.md) |
 | localhost:5432 | Postgres |
 
 Backend Node và AI-Rec **không mở cổng ra ngoài** — gọi qua `localhost:3000/api`,
