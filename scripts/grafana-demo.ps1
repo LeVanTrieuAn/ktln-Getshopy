@@ -52,10 +52,14 @@
     Chỉ chạy đúng lệnh `kill -9 <pid>` rồi tự xoá (--rm).
 
 .PARAMETER GrafanaCredential
-    Tài khoản Grafana (admin) để hỏi API cảnh báo (hang) và tạo silence cho "Thiếu server" trong lúc
-    scale (scale chủ động xuống 1 bản — không cần email). Không truyền thì script hỏi mật khẩu khi
-    cần (Enter bỏ trống: scale vẫn chạy nhưng email "Thiếu server" sẽ được gửi; hang thì dừng).
-    Không bao giờ đọc .env, không in mật khẩu.
+    Tài khoản Grafana (admin) để hỏi API cảnh báo (hang) và — chỉ khi có -SilenceScale — tạo silence
+    cho "Thiếu server" trong lúc scale. Không truyền thì script hỏi mật khẩu khi cần (hang thì dừng
+    nếu bỏ trống). Không bao giờ đọc .env, không in mật khẩu.
+
+.PARAMETER SilenceScale
+    Tắt email "Thiếu server" trong lúc kịch bản scale (silence, gỡ ở finally). MẶC ĐỊNH KHÔNG tắt
+    (19/11/2026, người dùng): còn 1–2 bản hơn 1 phút thì cảnh báo bắn và gửi email như khi thiếu bản
+    thật — demo thấy đúng luồng cảnh báo đang chạy.
 
 .PARAMETER GrafanaPasswordFile
     File chứa mật khẩu admin Grafana: một dòng "password: <mật khẩu>" (như file tạo lúc dựng Grafana)
@@ -103,6 +107,7 @@ param(
     [string]$GrafanaPasswordFile = '',
     [string[]]$ComposeOptions = @(),
     [string]$OutDir = '',
+    [switch]$SilenceScale,
     [switch]$DryRun,
     [switch]$Yes
 )
@@ -439,17 +444,20 @@ function Invoke-Scale {
         '"Request/s mỗi bản": mỗi lần scale có đường MỚI; các đường cũ hạ xuống ~ Rate/N',
         '"Tỷ trọng lưu lượng": dải mới xuất hiện, các dải chia lại; dấu cam "Số bản server thay đổi"',
         '"Độ trễ p95 mỗi bản" và "CPU mỗi bản": hạ xuống khi thêm bản (nếu Rate vượt sức 1 bản)')
-    # Scale xuống 1 bản là CHỦ ĐỘNG -> silence cảnh báo "Thiếu server" trong lúc demo (gỡ ở finally).
-    if ($script:GrafanaCred -and -not $DryRun) {
+    # Mặc định KHÔNG silence (19/11/2026, người dùng): thiếu bản > 1 phút thì "Thiếu server" bắn và gửi
+    # email như sự cố thật -> demo thấy đúng luồng cảnh báo. -SilenceScale: tắt email trong lúc scale.
+    if (-not $SilenceScale) {
+        Write-Note 'Không silence: còn 1–2 bản hơn 1 phút thì "Thiếu server" bắn (~1 phút) và gửi email (+30 s); email ĐÃ HẾT ~5 phút sau khi đủ bản.'
+    } elseif ($DryRun) {
+        Write-Note '  (dry-run) POST /api/alertmanager/grafana/api/v2/silences  (matcher __alert_rule_uid__=getshopy-thieu-server)'
+    } elseif ($script:GrafanaCred) {
         try {
             $mins = [int][math]::Ceiling(($RampSec + $StepSec * $ScaleSteps.Count + 300) / 60)
             $script:SilenceId = New-AlertSilence 'getshopy-thieu-server' $mins 'grafana-demo.ps1: scale chủ động'
             Add-Event "silence cảnh báo 'Thiếu server' $mins phút (id $($script:SilenceId))"
         } catch { Write-Warn "Không tạo được silence: $($_.Exception.Message) — email 'Thiếu server' sẽ được gửi." }
-    } elseif (-not $DryRun) {
-        Write-Warn 'Không có mật khẩu Grafana: lúc còn 1 bản > 1 phút, cảnh báo "Thiếu server" sẽ gửi email (đúng — vì đang thiếu thật).'
     } else {
-        Write-Note '  (dry-run) POST /api/alertmanager/grafana/api/v2/silences  (matcher __alert_rule_uid__=getshopy-thieu-server)'
+        Write-Warn 'Có -SilenceScale nhưng không có mật khẩu Grafana: không tạo được silence — email "Thiếu server" sẽ được gửi.'
     }
     Set-Replicas $ScaleSteps[0] 'bắt đầu kịch bản scale'
     Start-K6 'scale' ($StepSec * $ScaleSteps.Count)
@@ -735,7 +743,7 @@ try {
     if (-not $DryRun) { New-Item -ItemType Directory -Force -Path $OutDir | Out-Null }
     if (-not $DryRun -and ($plan -contains 'hang')) {
         if (-not (Initialize-GrafanaCredential $true)) { throw 'Kịch bản hang cần mật khẩu admin Grafana (để hỏi trạng thái cảnh báo).' }
-    } elseif (-not $DryRun -and ($plan -contains 'scale')) {
+    } elseif (-not $DryRun -and $SilenceScale -and ($plan -contains 'scale')) {
         $null = Initialize-GrafanaCredential $false
     }
 

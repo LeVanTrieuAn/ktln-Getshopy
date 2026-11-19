@@ -264,15 +264,18 @@ chỉ endpoint ĐỌC công khai (danh mục, danh sách, chi tiết sản phẩ
 | `failover` | giết một bản (dưới đây) | Request/s mỗi bản, Bản đang chạy, Lỗi 5xx, Theo mã trạng thái | đường bản chết đứt, các bản còn lại tăng lên; bản đó quay lại cùng tên | 2 lần: vắng mặt 6,1 s và 5,4 s, 0 response lỗi (§21.2) |
 | `hang` (không nằm trong `all`) | SIGSTOP một bản (treo), chờ cảnh báo "Server treo" Firing, rồi `docker restart` như người trực | Cảnh báo đang bật, Request/s mỗi bản, Độ trễ phía gateway, Dòng sự kiện container | Pending → Firing sau ~1 phút, email; restart → healthy → cảnh báo hết | Firing sau 70 s, email sau 99 s, 8 response lỗi (§21.5) |
 
-`scale` chủ động xuống 1 bản nên script tạo **silence** cho "Thiếu server" trong lúc chạy (gỡ ở
-`finally`) nếu có mật khẩu Grafana; `hang` bắt buộc có mật khẩu (hỏi API cảnh báo). Mật khẩu lấy
+`scale` xuống 1 bản: **mặc định KHÔNG silence** (19/11/2026, người dùng) — còn 1–2 bản hơn 1 phút thì
+"Thiếu server" bắn và gửi email như sự cố thật, demo thấy đúng luồng cảnh báo. `-SilenceScale` mới tạo
+silence cho "Thiếu server" trong lúc chạy (gỡ ở `finally`, cần mật khẩu Grafana). Lần chạy 19/11 10:39
+(bản cũ, có silence): "Thiếu server" Firing lúc 10:40:30 nhưng không có email. `hang` bắt buộc có mật
+khẩu (hỏi API cảnh báo). Mật khẩu lấy
 theo thứ tự: `-GrafanaCredential`; `-GrafanaPasswordFile` (để trống = file
 `%LOCALAPPDATA%\getshopy-monitoring\grafana-admin.txt` nếu có — dòng `password: ...` hoặc một dòng chỉ
 có mật khẩu); hỏi lúc chạy (`Read-Host -AsSecureString`). Script không đọc `.env`, không in mật khẩu.
 `hang` cũng kiểm `DB_PREP=off` như `failover` và gửi SIGCONT ở `finally` nếu bị dừng giữa chừng.
 
 `-Yes` = chạy không người trông: script **không bao giờ dừng chờ nhập** — thiếu mật khẩu thì `hang`
-dừng ngay với lỗi, `scale` bỏ qua silence; bản thiếu `DB_PREP=off` thì mặc định không đụng. (Lượt chạy
+dừng ngay với lỗi, `scale -SilenceScale` bỏ qua silence; bản thiếu `DB_PREP=off` thì mặc định không đụng. (Lượt chạy
 nền `-Scenario hang -Yes` đêm 19/11/2026 kẹt ở bước hỏi mật khẩu từ 03:24 tới sáng vì bản cũ vẫn hỏi
 khi có `-Yes`.)
 
