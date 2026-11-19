@@ -32,8 +32,9 @@ groups:
       # đó ngừng cập nhật nên lấy chuỗi có mẫu MỚI NHẤT trong 24 giờ cho mỗi instance (IP có thể
       # được cấp lại cho bản mới sau khi scale — chọn mới nhất tránh trùng). Bản chưa từng trả số đo
       # (kẹt lúc khởi động) không có chuỗi đó -> nhánh `or on (instance)` gắn hostname "IP … (chưa có
-      # id)" để vẫn báo (từ 19/11/2026 luật "Thiếu server" không còn tính bản đang chạy mà không trả
-      # lời — treo hay kẹt khởi động đều báo ở luật này).
+      # id)" để vẫn báo.
+      # Nhãn nhom=server: cùng nhóm với "Thiếu server" -> bản treo (cũng là đang thiếu bản phục vụ)
+      # chỉ ra MỘT email "SERVER TREO + THIẾU SERVER" (policies.yml, templates.yml — 19/11/2026).
       # Chỉ xét khi CÒN ít nhất một bản trả lời: lúc không còn bản nào, DNS nội bộ của Docker không
       # trả lời tên "server" và Prometheus GIỮ danh sách bản cũ (đã gỡ) -> mọi bản cũ "không trả
       # lời" -> báo treo sai cho container không còn tồn tại (gặp khi thử 19/11/2026). Trường hợp đó
@@ -83,19 +84,17 @@ groups:
         execErrState: Error
         labels:
           severity: critical
+          nhom: server
         annotations:
           summary: 'Bản server {{ $labels.hostname }} không trả lời (treo hoặc chết hẳn) hơn 1 phút.'
           description: 'Bản {{ $labels.hostname }} ({{ $labels.instance }}) không trả lời /api/health hoặc không cho kéo số đo. Gateway vẫn có thể gửi request tới nó — request đó chờ tới khi hết thời gian.'
           runbook: 'Treo thì Docker KHÔNG tự khởi động lại — chạy tay: docker restart {{ $labels.hostname }} (rồi chờ email ĐÃ HẾT). Tên dạng "IP … (chưa có id)" = bản kẹt lúc khởi động: tìm container có IP đó bằng docker compose ps server + docker inspect, xem log rồi restart.'
 
-      # ── 2. Ít bản ĐANG CHẠY hơn số cấu hình ─────────────────────────────────
-      # A = số bản THIẾU = 3 - số bản đang chạy (container còn tồn tại: DNS của Docker còn trả IP nên
-      # Prometheus còn chuỗi probe_success, bất kể 0 hay 1). Trước 19/11/2026 đếm bản TRẢ LỜI
-      # /api/health -> bản treo bị tính là "thiếu", email "Thiếu server" đi kèm "Server treo" (người
-      # dùng thấy sai). Nay bản còn chạy mà không trả lời chỉ báo ở "Server treo". Không còn bản nào
-      # trả lời thì coi như thiếu cả 3: lúc đó DNS không trả lời và Prometheus giữ danh sách cũ (xem
-      # luật 1). Thử lại trên số liệu 19/11 (query_range): khung scale 11:17–11:21 cho y hệt luật cũ
-      # (2 -> 1 -> 0); khung treo 11:23–11:26: luật cũ = 1, luật mới = 0.
+      # ── 2. Ít bản ĐANG PHỤC VỤ hơn số cấu hình ──────────────────────────────
+      # A = số bản THIẾU = 3 - số bản trả lời /api/health. Bản treo cũng tính là thiếu (đúng: nó
+      # không phục vụ) -> lúc treo có HAI sự kiện ("Server treo" + "Thiếu server"), nhưng nhãn
+      # nhom=server gộp chúng vào MỘT email (policies.yml — 19/11/2026, người dùng). Chỉ thiếu bản
+      # (scale xuống, docker stop, crash lặp lại) thì chỉ có sự kiện này.
       # 3 = SERVER_REPLICAS mặc định của docker-compose.yml. ĐỔI SERVER_REPLICAS TRONG .env THÌ SỬA SỐ 3
       # Ở expr VÀ summary BÊN DƯỚI rồi chạy: docker compose restart grafana (Grafana không thay biến
       # môi trường trong file luật).
@@ -110,7 +109,7 @@ groups:
               refId: A
               instant: true
               editorMode: code
-              expr: '3 - ((count(probe_success{job="blackbox-server"}) and on () (count(probe_success{job="blackbox-server"} == 1) > 0)) or vector(0))'
+              expr: '3 - (count(probe_success{job="blackbox-server"} == 1) or vector(0))'
           - refId: C
             relativeTimeRange: {from: 0, to: 0}
             datasourceUid: __expr__
@@ -125,9 +124,10 @@ groups:
         execErrState: Error
         labels:
           severity: warning
+          nhom: server
         annotations:
-          summary: 'Thiếu {{ humanize $values.A.Value }} bản server so với cấu hình 3 bản (số bản đang chạy ít hơn SERVER_REPLICAS).'
-          description: 'Có bản đã dừng / bị gỡ mà không tự lên lại (docker stop, crash lặp lại), hoặc số bản đang bị scale xuống (demo, thao tác tay). Bản còn chạy mà không trả lời là cảnh báo "Server treo", không phải luật này.'
+          summary: 'Đang thiếu {{ humanize $values.A.Value }} bản server phục vụ so với cấu hình 3 bản.'
+          description: 'Bản đã dừng / bị gỡ mà không tự lên lại (docker stop, crash lặp lại), đang khởi động, bị scale xuống — hoặc đang TREO (khi đó email gộp chung với "Server treo").'
           runbook: 'Xem: docker compose ps server; log: docker compose logs --tail 100 server; dựng lại đủ số bản: docker compose up -d --no-deps server.'
 
       # ── 3. Web sập: /api/health qua gateway không trả 2xx ───────────────────

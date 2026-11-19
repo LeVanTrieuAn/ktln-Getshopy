@@ -1,6 +1,6 @@
 # Chính sách gửi cảnh báo (19/11/2026). docs/monitoring.md, mục "Cảnh báo".
-#   group_by        mỗi (tên cảnh báo, bản server) một nhóm -> hai bản cùng treo = hai email riêng,
-#                   mỗi email ghi đúng tên bản để `docker restart <hostname>`.
+#   group_by        mặc định mỗi (tên cảnh báo, bản server) một nhóm. Riêng nhóm nhom=server
+#                   ("Server treo" + "Thiếu server") gộp một email — xem `routes` bên dưới.
 #   group_wait      chờ 30 s trước email đầu của nhóm (gom các bản lỗi cùng lúc).
 #   group_interval  nhóm đã gửi mà có thay đổi (thêm bản lỗi / hết lỗi) thì tối thiểu 5 phút mới gửi tiếp.
 #   repeat_interval còn lỗi thì nhắc lại mỗi 4 giờ.
@@ -14,3 +14,13 @@ policies:
     group_wait: 30s
     group_interval: 5m
     repeat_interval: 4h
+    routes:
+      # "Server treo" + "Thiếu server" (nhãn nhom=server trong rules.yml) GỘP MỘT EMAIL (19/11/2026,
+      # người dùng): bản treo thì cũng đang thiếu bản phục vụ -> hai cảnh báo, một sự cố. Hai luật
+      # bắn cách nhau ~10 s (thử 19/11: 11:24:50 / 11:25:00), lọt trong group_wait 30 s nên đi chung
+      # email đầu; hết lỗi cũng chung một email ĐÃ HẾT. Chỉ thiếu bản (scale xuống, docker stop) thì
+      # nhóm chỉ có "Thiếu server". Hai bản cùng treo -> một email ghi cả hai tên bản.
+      - receiver: getshopy-email
+        object_matchers:
+          - ['nhom', '=', 'server']
+        group_by: ['nhom']
