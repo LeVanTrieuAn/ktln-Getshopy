@@ -25,6 +25,7 @@ import { useTracking } from '../../hooks/useTracking';
 import PaymentQRModal from '../../components/b2c/PaymentQRModal';
 import { phoneRules, fullNameRules, addressRules, shortTextRules } from '../../utils/validators';
 import { getProductImage, handleImageError } from '../../utils/categoryResolver';
+import { reverseGeocode } from '../../utils/reverseGeocode';
 import useMediaQuery from '../../hooks/useMediaQuery';
 
 const { Title, Text } = Typography;
@@ -175,9 +176,35 @@ export default function Checkout() {
   // Bị từ chối quyền / máy không hỗ trợ: không tự hỏi lại mỗi lần mở (vẫn bấm nút để thử lại được)
   const geoBlockedRef = useRef(false);
 
-  // Điền ô địa chỉ từ điểm trên bản đồ — dùng chung cho chạm chọn (luồng cũ) và định vị
-  const fillAddressFromPoint = useCallback((lat, lng) => {
-    form.setFieldsValue({ address: `Toạ độ: ${lat.toFixed(4)}, ${lng.toFixed(4)}` });
+  // Điền địa chỉ từ điểm trên bản đồ — dùng chung cho chạm chọn và định vị. Từ 19/11/2026 tra ngược ra
+  // Tỉnh/Thành, Phường/Xã, tên đường (utils/reverseGeocode.js — Nominatim, đã theo đơn vị hành chính
+  // 2 cấp từ 1/7/2025); tra lỗi thì như cũ: ghi toạ độ vào ô địa chỉ, khách tự nhập phần còn lại.
+  // Kết quả về muộn (khách đã chọn điểm khác) thì bỏ; đóng bản đồ KHÔNG bỏ — điểm đã chọn vẫn được điền.
+  const [addrLookup, setAddrLookup] = useState({ status: 'idle', text: '' }); // idle | loading | done | warn
+  const lookupReqRef = useRef(0);
+  const fillAddressFromPoint = useCallback(async (lat, lng) => {
+    const reqId = ++lookupReqRef.current;
+    const coords = `Toạ độ: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    setAddrLookup({ status: 'loading', text: 'Đang tra địa chỉ của điểm đã ghim…' });
+    try {
+      const r = await reverseGeocode(lat, lng);
+      if (reqId !== lookupReqRef.current) return;
+      // Ô Tỉnh/Thành chỉ có HCM / HN / ĐN / "khác" (phí ship) -> tỉnh khác thì ghép tên tỉnh vào địa chỉ
+      // để người giao vẫn biết tỉnh. Ward/tỉnh ghi đè cả khi trống: không giữ giá trị của điểm cũ.
+      form.setFieldsValue({
+        address: [r.street || coords, r.provinceCode === 'OTHER' ? r.provinceName : ''].filter(Boolean).join(', '),
+        ward: r.ward,
+        province: r.provinceCode || undefined,
+      });
+      const filled = [r.street, r.ward, r.provinceName].filter(Boolean).join(', ');
+      setAddrLookup(filled
+        ? { status: 'done', text: `Đã điền: ${filled}. Kiểm tra lại (thêm số nhà nếu thiếu) trước khi đặt.` }
+        : { status: 'warn', text: 'Không tìm được địa chỉ của điểm này — đã ghi toạ độ, hãy nhập phường/xã và tên đường.' });
+    } catch {
+      if (reqId !== lookupReqRef.current) return;
+      form.setFieldsValue({ address: coords });
+      setAddrLookup({ status: 'warn', text: 'Không tra được địa chỉ (mạng hoặc dịch vụ bản đồ) — đã ghi toạ độ, hãy nhập phường/xã và tên đường.' });
+    }
   }, [form]);
 
   const locateMe = useCallback(() => {
@@ -299,17 +326,21 @@ export default function Checkout() {
     setSelectedAddressId(id);
     const addr = savedAddresses.find(a => a.id === id);
     if (addr) {
-      form.setFieldsValue({
-        full_name: addr.name,
-        phone: addr.phone,
-        address: `${addr.street}, ${addr.ward}, ${addr.district}`
-      });
       const provStr = (addr.province || '').toLowerCase();
       let detectedProvince = 'OTHER';
       if (provStr.includes('hồ chí minh') || provStr.includes('hcm')) detectedProvince = 'HCM';
       else if (provStr.includes('hà nội') || provStr.includes('hn')) detectedProvince = 'HN';
       else if (provStr.includes('đà nẵng') || provStr.includes('dn')) detectedProvince = 'DN';
-      form.setFieldsValue({ province: detectedProvince });
+      // 19/11/2026: điền cả ô Phường/Xã (trước đây phường bị nhét vào ô địa chỉ, ô Phường bắt buộc vẫn
+      // trống -> khách phải gõ lại). Địa chỉ lưu trước khi bỏ cấp huyện còn quận/huyện: giữ trong ô
+      // địa chỉ cho khỏi mất. Tỉnh ngoài HCM/HN/ĐN: ô Tỉnh chỉ ghi "khác" -> ghép tên tỉnh vào địa chỉ.
+      form.setFieldsValue({
+        full_name: addr.name,
+        phone: addr.phone,
+        ward: addr.ward,
+        address: [addr.street, addr.district, detectedProvince === 'OTHER' ? addr.province : ''].filter(Boolean).join(', '),
+        province: detectedProvince,
+      });
     }
   };
 
@@ -337,7 +368,7 @@ export default function Checkout() {
     try {
       const orderPayload = {
         items: checkoutItems,
-        customer_info: { ...values, province, district: values.district, ward: values.ward, email: b2cUser?.email || values.email },
+        customer_info: { ...values, province, ward: values.ward, email: b2cUser?.email || values.email },
         payment_method: paymentMethod,
         subTotal,
         shippingFee,
@@ -374,7 +405,7 @@ export default function Checkout() {
       const common = {
         id: res.order_id,
         items: [...checkoutItems],
-        customer_info: { ...values, province, district: values.district, ward: values.ward, email: b2cUser?.email || values.email },
+        customer_info: { ...values, province, ward: values.ward, email: b2cUser?.email || values.email },
         // Dùng số SERVER tính, không dùng số client tự cộng — hai bên có thể
         // lệch khi giá vừa đổi hoặc voucher/điểm bị server tính lại.
         subTotal: res.pricing?.subTotal ?? subTotal,
@@ -667,7 +698,7 @@ export default function Checkout() {
                 onChange={handleSelectAddress}
                 options={savedAddresses.map(a => ({
                   value: a.id,
-                  label: `${a.name} — ${a.phone} — ${a.street}, ${a.district}, ${a.province}`
+                  label: `${a.name} — ${a.phone} — ${[a.street, a.ward, a.district, a.province].filter(Boolean).join(', ')}`
                 }))}
               />
             </div>
@@ -723,7 +754,9 @@ export default function Checkout() {
                   <Input size="large" inputMode="tel" maxLength={15} placeholder="0912345678" />
                 </Form.Item>
               </Col>
-              <Col xs={24} md={8}>
+              {/* Từ 1/7/2025 không còn cấp huyện: địa chỉ = Tỉnh/Thành + Phường/Xã + số nhà, tên đường
+                  (ô Quận/Huyện bỏ 19/11/2026; server vẫn nhận `district` của đơn cũ). */}
+              <Col xs={24} md={12}>
                 <Form.Item name="province" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Tỉnh / Thành phố <span style={{ color: '#ef4444' }}>*</span></span>} rules={[{ required: true, message: 'Chọn tỉnh/thành' }]}>
                   <Select 
                     size="large" 
@@ -738,14 +771,9 @@ export default function Checkout() {
                   />
                 </Form.Item>
               </Col>
-              <Col xs={24} md={8}>
-                <Form.Item name="district" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Quận / Huyện</span>} rules={shortTextRules('Nhập quận/huyện')}>
-                  <Input size="large" placeholder="Ví dụ: Quận 1" />
-                </Form.Item>
-              </Col>
-              <Col xs={24} md={8}>
+              <Col xs={24} md={12}>
                 <Form.Item name="ward" label={<span style={{ color: isDark ? '#a1a1aa' : '#52525b', fontWeight: 500 }}>Phường / Xã</span>} rules={shortTextRules('Nhập phường/xã')}>
-                  <Input size="large" placeholder="Ví dụ: Phường Bến Nghé" />
+                  <Input size="large" placeholder="Ví dụ: Phường Bến Thành" />
                 </Form.Item>
               </Col>
               <Col xs={24} md={12}>
@@ -759,7 +787,11 @@ export default function Checkout() {
                       </span>
                       <button 
                         type="button" 
-                        onClick={() => setIsMapModalOpen(true)} 
+                        onClick={() => {
+                          // Mở lại bản đồ: bỏ dòng kết quả tra của lần trước (đang tra dở thì giữ)
+                          setAddrLookup(s => (s.status === 'loading' ? s : { status: 'idle', text: '' }));
+                          setIsMapModalOpen(true);
+                        }}
                         style={{ 
                           background: 'none', border: 'none', padding: 0, 
                           color: isDark ? '#ffffff' : '#18181b', 
@@ -954,8 +986,13 @@ export default function Checkout() {
                 <MapResizer active={isMapModalOpen} />
               </MapContainer>
             </div>
-            <div style={{ fontSize: 13, color: isDark ? '#a1a1aa' : '#71717a', marginTop: 12 }}>
-              Nhấp vào bản đồ để chọn toạ độ giao hàng chính xác.
+            {/* Kết quả tra địa chỉ của điểm đã ghim (19/11/2026); chưa ghim thì là dòng hướng dẫn cũ */}
+            <div
+              role="status"
+              aria-live="polite"
+              style={{ fontSize: 13, marginTop: 12, color: addrLookup.status === 'warn' ? '#d97706' : (isDark ? '#a1a1aa' : '#71717a') }}
+            >
+              {addrLookup.text || 'Nhấp vào bản đồ để chọn toạ độ giao hàng chính xác.'}
             </div>
           </Modal>
 

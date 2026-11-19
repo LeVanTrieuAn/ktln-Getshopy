@@ -70,8 +70,8 @@ test.describe('E2E B2C User Journey - Đăng ký đến Mua hàng', () => {
     await page.locator('div[id="province"]').click();
     await page.locator('div[title="Hồ Chí Minh"]').click();
     
-    await page.fill('input[id="district"]', 'Quận 1');
-    await page.fill('input[id="ward"]', 'Phường Bến Nghé');
+    // Từ 1/7/2025 không còn cấp huyện — form bỏ ô Quận/Huyện (19/11/2026)
+    await page.fill('input[id="ward"]', 'Phường Bến Thành');
     await page.fill('input[id="address"]', '123 Đường Lê Lợi');
     
     // Chọn phương thức thanh toán COD
