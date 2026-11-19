@@ -186,10 +186,12 @@ groups:
           runbook: 'Dashboard: panel "Lỗi 5xx mỗi bản"; log trong Grafana Explore (Loki): {service="server", status_class="5xx"} | json'
 
       # ── 5. Đường public / webhook SePay qua Funnel đứt ──────────────────────
-      # Probe đi từ container ra Internet rồi vòng về chính máy qua Tailscale Funnel. Kiểm trên
-      # production 19/11/2026 03:2x: probe_success{job="blackbox-public"} = 1 cho cả hai URL (web
-      # /api/health và đường webhook SePay :8443) -> BẬT (isPaused: false). Funnel/Tailscale tắt thì
-      # luật này báo — đúng lúc webhook thanh toán không về (AGENTS.MD).
+      # Probe đi từ container ra Internet rồi vòng về chính máy qua Tailscale Funnel — từ 19/11/2026
+      # ~10:00, khi blackbox dùng DNS công khai (docker-compose.yml). Trước đó DNS của máy (MagicDNS)
+      # trả IP tailnet nên probe đi tắt qua tailnet: Funnel hỏng mà tailnet còn thì luật KHÔNG báo.
+      # probe_success{job="blackbox-public"} = 1 cho cả hai URL (web /api/health và đường webhook
+      # SePay :8443) -> BẬT (isPaused: false). Funnel/Tailscale tắt thì luật này báo — đúng lúc
+      # webhook thanh toán không về (AGENTS.MD).
       - uid: getshopy-public-dut
         title: Đường public hoặc webhook đứt
         condition: C
@@ -220,4 +222,4 @@ groups:
         annotations:
           summary: 'Không vào được {{ $labels.instance }} từ Internet hơn 2 phút.'
           description: 'Đường webhook SePay đứt thì tiền vào mà đơn vẫn PENDING rồi hết hạn (AGENTS.MD).'
-          runbook: 'tailscale funnel status; Invoke-WebRequest https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay -UseBasicParsing -> 404 có X-Served-By là thông.'
+          runbook: 'tailscale funnel status; thử ĐÚNG đường public (trên máy production tên này ra IP tailnet): lấy IP bằng https://dns.google/resolve?name=msi.taild22ef7.ts.net&type=A rồi curl.exe -sS -o NUL -D - --resolve msi.taild22ef7.ts.net:8443:<IP> https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay -> 404 có X-Served-By là thông (AGENTS.MD).'

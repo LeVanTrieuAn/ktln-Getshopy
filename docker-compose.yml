@@ -606,6 +606,12 @@ services:
     volumes:
       - ./monitoring/blackbox:/etc/blackbox:ro
     expose: ["9115"]
+    # DNS CÔNG KHAI cho tên ngoài mạng compose: msi.taild22ef7.ts.net phải ra IP cổng vào Funnel
+    # (đúng đường SePay đi). DNS mặc định đi qua máy Windows -> Tailscale MagicDNS trả IP tailnet
+    # 100.x -> probe "public" đi tắt qua tailnet, không qua Funnel (phát hiện 19/11/2026: xff trong
+    # log gateway = IP tailnet của chính máy). Tên service nội bộ (server, gateway) vẫn do DNS của
+    # Docker trả lời (đã thử với container dùng một lần cùng mạng).
+    dns: ["1.1.1.1", "8.8.8.8"]
     mem_limit: ${BLACKBOX_MEM_LIMIT:-64m}
     restart: unless-stopped
 

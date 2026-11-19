@@ -47,7 +47,11 @@ LỆNH KIỂM TRA — AGENTS CHẠY CÁI NÀY RỒI MỚI BÁO CÁO (PowerShell)
   & "C:\Program Files\Tailscale\tailscale.exe" funnel status
     -> phải có "https://msi.taild22ef7.ts.net:8443 (Funnel on)" kèm dòng
        |-- /api/payment/webhook/sepay proxy http://127.0.0.1:18000/api/payment/webhook/sepay
-  Invoke-WebRequest https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay -UseBasicParsing
+  Trên chính máy production, tên msi.taild22ef7.ts.net được Tailscale MagicDNS trả về IP tailnet
+  (100.116.198.15): gọi thẳng tên đó chỉ thử đường tailnet, KHÔNG qua Funnel như SePay. Thử đúng
+  đường public — lấy IP cổng vào Funnel bằng DNS công khai rồi ép curl nối vào đó (19/11/2026):
+  $ip = (Invoke-RestMethod 'https://dns.google/resolve?name=msi.taild22ef7.ts.net&type=A').Answer[0].data
+  curl.exe -sS -o NUL -D - --resolve "msi.taild22ef7.ts.net:8443:$ip" https://msi.taild22ef7.ts.net:8443/api/payment/webhook/sepay
     -> 404 do server trả (route chỉ nhận POST; có header X-Served-By khi SERVED_BY_HEADER=1)
        = ĐƯỜNG THÔNG
     -> 502 / 503          = Funnel tới được máy nhưng gateway / server không trả lời

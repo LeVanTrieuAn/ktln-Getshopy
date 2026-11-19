@@ -83,8 +83,9 @@ loki.process "logs" {
   //   kể cả probe đi vòng qua gateway (src/middleware/requestLog.js). Request /api/health của k6 hay
   //   của khách KHÔNG có "probe" nên vẫn còn.
   // gateway: nginx không ghi User-Agent -> nhận probe /api/health theo xff: rỗng = gọi từ trong mạng
-  //   compose (blackbox), 100.x = qua tailnet (probe "public" chạy trên chính máy). k6 gắn xff
-  //   198.18.x.y (scripts/loadtest/k6-lb.js) nên vẫn còn.
+  //   compose (blackbox), 100.x = gọi qua tailnet. k6 gắn xff 198.18.x.y (scripts/loadtest/k6-lb.js)
+  //   nên vẫn còn. Probe public đi qua Funnel thật (xff = IP công khai của mạng nhà) cũng còn: một
+  //   dòng / 30 s ở cổng 8090 — bằng chứng đường public thông.
   // Trạng thái health KHÔNG mất: luồng health-events (Docker) + probe_success / up (Prometheus).
   stage.match {
     selector            = `{service="server"} |= "\"probe\":\""`

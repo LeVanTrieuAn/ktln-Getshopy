@@ -457,7 +457,8 @@ flowchart LR
   khách): log server bỏ dòng có `probe` — healthcheck Docker mỗi 10 s/bản (`probe="docker"`),
   blackbox mỗi 10 s/bản, qua gateway và qua đường public (`probe="blackbox"`); log gateway bỏ
   `/api/health` có `xff` rỗng (blackbox trong mạng compose) hoặc `100.x` (qua tailnet). Request
-  `/api/health` của k6 (xff `198.18.x.y`) hay của khách vẫn giữ. Trạng thái health không mất: luồng
+  `/api/health` của k6 (xff `198.18.x.y`) hay của khách vẫn giữ; probe public đi qua Funnel thật
+  (xff = IP công khai của mạng nhà) cũng giữ — một dòng / 30 s ở cổng 8090, bằng chứng đường public thông. Trạng thái health không mất: luồng
   `health-events` + `probe_success` / `up` trên Prometheus. Luật lọc: `monitoring/alloy/config.alloy`.
 - `SERVER_LOG_FORMAT=dev` trong `.env` = quay về `morgan('dev')`.
 
@@ -516,10 +517,15 @@ public. Probe đi đúng đường của request thật nên thấy cả trườ
 - **Đọc email**: tiêu đề `[CẢNH BÁO] <luật> — bản <hostname> (Getshopy)` hoặc `[ĐÃ HẾT] …`; thân email:
   trạng thái, mức độ, "Bắt đầu" (= lúc chuyển Firing, giờ Việt Nam), mô tả và dòng **"Cách xử lý"**.
   `DatasourceError` = luật không chạy được (Prometheus / truy vấn hỏng) — tức đang mất giám sát.
-- **Đường public**: probe đi từ container ra Internet rồi vòng về chính máy qua Funnel. Kiểm trên
-  production 19/11/2026 03:2x: `probe_success{job="blackbox-public"}` = 1 cho cả hai URL → đã bật
-  (`isPaused: false` trong `rules.yml`). Tailscale / Funnel tắt thì luật báo sau 2 phút. Mỗi 30 s là một
-  request thật qua Funnel (log gateway có ghi; GET đường webhook trả 404 — đúng tiêu chí "ĐƯỜNG THÔNG").
+- **Đường public**: probe đi từ container ra Internet rồi vòng về chính máy qua Funnel — **chỉ khi**
+  blackbox phân giải `msi.taild22ef7.ts.net` bằng DNS công khai (`dns: ["1.1.1.1", "8.8.8.8"]` của
+  service `blackbox` trong compose, từ 19/11/2026 ~10:00). DNS của máy Windows đi qua Tailscale
+  MagicDNS, trả IP tailnet `100.116.198.15`: trước bản sửa, probe "public" đi tắt qua tailnet (log
+  gateway: `xff` = IP tailnet của chính máy, 241/241 lượt trong 2 giờ) — Funnel hỏng mà tailnet còn
+  thì luật không báo. DNS công khai trả IP cổng vào Funnel (`103.84.155.153`, `103.84.155.217` lúc
+  kiểm). Luật đã bật (`isPaused: false`); Tailscale / Funnel tắt thì báo sau 2 phút. Mỗi 30 s là một
+  request thật qua Funnel (log gateway có ghi, `xff` = IP công khai của mạng nhà; GET đường webhook trả
+  404 — đúng tiêu chí "ĐƯỜNG THÔNG").
 - Lỗi đọc file provisioning làm **Grafana không khởi động được** (gặp khi thử: chu kỳ đánh giá phải là
   bội số của 10 s; số trong mảng YAML không được là `${…}`) — sửa `monitoring/grafana/provisioning/`
   thì chạy thử trên stack tách biệt trước (mục 9).

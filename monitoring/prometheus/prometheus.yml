@@ -82,9 +82,10 @@ scrape_configs:
         replacement: blackbox:9115
 
   # Đường PUBLIC qua Tailscale Funnel (từ container ra Internet rồi vòng về chính máy này):
-  # web 443 -> gateway 8090, và đường webhook SePay 8443 -> gateway 80 (AGENTS.MD). Cảnh báo
-  # tương ứng để TẠM DỪNG (isPaused) cho tới khi kiểm trên production rằng probe này chạy được —
-  # docs/monitoring.md, mục "Cảnh báo". 30 s/lượt: mỗi lượt là một request thật qua Funnel.
+  # web 443 -> gateway 8090, và đường webhook SePay 8443 -> gateway 80 (AGENTS.MD). Chỉ đi qua
+  # Funnel thật khi blackbox dùng DNS công khai (docker-compose.yml, service blackbox, `dns:`) —
+  # DNS của máy (MagicDNS) trả IP tailnet. Luật cảnh báo: "Đường public hoặc webhook đứt".
+  # 30 s/lượt: mỗi lượt là một request thật qua Funnel.
   - job_name: blackbox-public
     metrics_path: /probe
     scrape_interval: 30s
