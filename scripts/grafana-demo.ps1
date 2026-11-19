@@ -22,7 +22,8 @@
                 policy chỉ phản ứng khi tiến trình thoát; healthcheck chỉ đánh dấu unhealthy). Script chờ
                 cảnh báo "Server treo" của Grafana chuyển Firing (hỏi API cảnh báo), in thời gian tới
                 lúc báo, rồi làm đúng việc người trực sẽ làm: docker restart <container>; chờ healthy và
-                chờ cảnh báo hết. Cần mật khẩu admin Grafana (-GrafanaCredential hoặc hỏi lúc chạy).
+                chờ cảnh báo hết. Cần mật khẩu admin Grafana (-GrafanaCredential, -GrafanaPasswordFile
+                hoặc hỏi lúc chạy).
 
     k6 (container grafana/k6, trần CPU/RAM) chạy TRONG network của compose và chỉ gọi
     http://gateway, CHỈ endpoint ĐỌC công khai (danh mục, danh sách, chi tiết sản phẩm, health) —
@@ -55,6 +56,16 @@
     scale (scale chủ động xuống 1 bản — không cần email). Không truyền thì script hỏi mật khẩu khi
     cần (Enter bỏ trống: scale vẫn chạy nhưng email "Thiếu server" sẽ được gửi; hang thì dừng).
     Không bao giờ đọc .env, không in mật khẩu.
+
+.PARAMETER GrafanaPasswordFile
+    File chứa mật khẩu admin Grafana: một dòng "password: <mật khẩu>" (như file tạo lúc dựng Grafana)
+    hoặc một dòng chỉ có mật khẩu. Để trống: dùng %LOCALAPPDATA%\getshopy-monitoring\grafana-admin.txt
+    nếu có, không có thì hỏi lúc chạy. Không in mật khẩu.
+
+.PARAMETER Yes
+    Không hỏi xác nhận — và KHÔNG BAO GIỜ dừng chờ nhập (chạy nền / không người trông): thiếu mật khẩu
+    Grafana thì hang dừng ngay với lỗi, scale bỏ qua silence; bản thiếu DB_PREP=off thì mặc định
+    KHÔNG đụng tới.
 
 .PARAMETER ComposeOptions
     Tham số thêm cho MỌI lệnh `docker compose` — chỉ để thử script trên một project compose
@@ -89,6 +100,7 @@ param(
     [int]$AlertTimeoutSec = 300,
     [int]$EmailWaitSec = 40,
     [System.Management.Automation.PSCredential]$GrafanaCredential = $null,
+    [string]$GrafanaPasswordFile = '',
     [string[]]$ComposeOptions = @(),
     [string]$OutDir = '',
     [switch]$DryRun,
@@ -286,13 +298,43 @@ function Complete-K6([string]$Tag) {
 
 # ─── Grafana API (cảnh báo, silence) ──────────────────────────────────────────
 
-# Hỏi mật khẩu admin Grafana một lần (Read-Host -AsSecureString, không hiện ra màn hình).
+# File mật khẩu: dòng "password: <mật khẩu>" hoặc một dòng chỉ có mật khẩu. Trả SecureString.
+function Read-PasswordFile([string]$Path) {
+    $lines = @(Get-Content -LiteralPath $Path | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    $pw = ''
+    foreach ($l in $lines) { if ($l -match '^password\s*:\s*(.+)$') { $pw = $Matches[1].Trim(); break } }
+    if (-not $pw -and $lines.Count -eq 1) { $pw = $lines[0] }
+    if (-not $pw) { throw "File $Path không có dòng 'password: ...' (hoặc một dòng chỉ chứa mật khẩu)" }
+    $s = ConvertTo-SecureString $pw -AsPlainText -Force
+    $pw = $null
+    return $s
+}
+
+# Mật khẩu admin Grafana, lấy một lần theo thứ tự: -GrafanaCredential; -GrafanaPasswordFile (trống =
+# %LOCALAPPDATA%\getshopy-monitoring\grafana-admin.txt nếu có); hỏi (Read-Host -AsSecureString, không
+# hiện ra màn hình). -Yes thì KHÔNG hỏi: 19/11/2026 một lượt chạy nền "-Scenario hang -Yes" kẹt ở
+# Read-Host này từ 03:24 tới sáng — chưa treo bản nào, không có cảnh báo, không có email.
 function Initialize-GrafanaCredential([bool]$Required) {
     if ($script:GrafanaCred -or $DryRun) { return [bool]$script:GrafanaCred }
-    $why = 'tạo silence cho "Thiếu server" khi scale (Enter = bỏ qua, email sẽ được gửi)'
+    $why = 'tạo silence cho "Thiếu server" khi scale'
     if ($Required) { $why = 'hỏi trạng thái cảnh báo "Server treo"' }
-    Write-Host "Mật khẩu admin Grafana để $why" -ForegroundColor Magenta
-    $sec = Read-Host 'Mật khẩu Grafana (admin)' -AsSecureString
+    $pwFile = $GrafanaPasswordFile
+    if (-not $pwFile -and $env:LOCALAPPDATA) {
+        $cand = Join-Path $env:LOCALAPPDATA 'getshopy-monitoring\grafana-admin.txt'
+        if (Test-Path -LiteralPath $cand) { $pwFile = $cand }
+    }
+    if ($pwFile) {
+        if (-not (Test-Path -LiteralPath $pwFile)) { throw "-GrafanaPasswordFile: không thấy file $pwFile" }
+        $sec = Read-PasswordFile $pwFile
+        Write-Note "Mật khẩu admin Grafana lấy từ $pwFile (không in ra) — để $why"
+    } elseif ($Yes) {
+        if ($Required) { throw "-Yes không hỏi mật khẩu: truyền -GrafanaCredential hoặc -GrafanaPasswordFile để $why." }
+        Write-Warn "-Yes không hỏi mật khẩu Grafana: bỏ qua bước $why (email sẽ được gửi)."
+        return $false
+    } else {
+        Write-Host "Mật khẩu admin Grafana để $why (Enter bỏ trống = bỏ qua)" -ForegroundColor Magenta
+        $sec = Read-Host 'Mật khẩu Grafana (admin)' -AsSecureString
+    }
     if ($sec.Length -eq 0) { return $false }
     $script:GrafanaCred = New-Object System.Management.Automation.PSCredential('admin', $sec)
     try {
@@ -371,6 +413,7 @@ function Confirm-DbPrepOff([string]$Victim) {
     if ($DryRun) { return $true }
     Write-Warn "Container $Victim KHÔNG có DB_PREP=off: khởi động lại sẽ chạy phần chuẩn bị DB của docker-entrypoint.sh"
     Write-Warn '(migrate deploy, ràng buộc tồn kho, ensure-inventory, seed-demo — dưới khoá khởi động). Container CD tạo luôn có DB_PREP=off.'
+    if ($Yes) { Write-Note '-Yes không hỏi: mặc định KHÔNG dùng bản thiếu DB_PREP=off.'; return $false }
     $a = Read-Host 'Vẫn dùng bản này? (y/N)'
     return ($a -match '^(y|yes|c|co|có)$')
 }
@@ -441,6 +484,7 @@ function Invoke-Failover {
     } elseif (-not $DryRun) {
         Write-Warn "Container $victim KHÔNG có DB_PREP=off: khởi động lại sẽ chạy phần chuẩn bị DB của docker-entrypoint.sh"
         Write-Warn '(migrate deploy, ràng buộc tồn kho, ensure-inventory, seed-demo — dưới khoá khởi động). Container CD tạo luôn có DB_PREP=off.'
+        if ($Yes) { Write-Note '-Yes không hỏi: mặc định KHÔNG giết bản thiếu DB_PREP=off — bỏ qua kịch bản 1 server chết.'; return }
         $ans2 = Read-Host 'Vẫn giết bản này? (y/N)'
         if ($ans2 -notmatch '^(y|yes|c|co|có)$') { Write-Note 'Bỏ qua kịch bản 1 server chết.'; return }
     }
